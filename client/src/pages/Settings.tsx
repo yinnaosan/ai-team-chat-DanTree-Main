@@ -25,7 +25,7 @@ export default function Settings() {
   // OpenAI API 配置
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("gpt-4.5-mini");
+  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [manusSystemPrompt, setManusSystemPrompt] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
@@ -46,7 +46,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (savedConfig) {
-      setSelectedModel(savedConfig.openaiModel || "gpt-4.5-mini");
+      setSelectedModel(savedConfig.openaiModel || "gpt-4o-mini");
       setManusSystemPrompt(savedConfig.manusSystemPrompt || "");
     }
   }, [savedConfig]);
@@ -132,11 +132,10 @@ export default function Settings() {
   ];
 
   const MODELS = [
-    { value: "gpt-4.5-mini", label: "GPT-5.4 mini", desc: "推荐 · 投资分析性价比最高", badge: "推荐" },
-    { value: "gpt-4.5", label: "GPT-5.4", desc: "最强模型 · 深度分析", badge: "最强" },
-    { value: "gpt-4.5-nano", label: "GPT-5.4 nano", desc: "最经济 · 简单任务", badge: "经济" },
-    { value: "gpt-4o", label: "GPT-4o", desc: "稳定成熟 · 备选方案", badge: "" },
-    { value: "gpt-4o-mini", label: "GPT-4o mini", desc: "轻量版 · 快速响应", badge: "" },
+    { value: "gpt-4o-mini", label: "GPT-4o mini", desc: "推荐 · 投资分析性价比最高", badge: "推荐" },
+    { value: "gpt-4o", label: "GPT-4o", desc: "强力模型 · 深度分析", badge: "强力" },
+    { value: "gpt-4-turbo", label: "GPT-4 Turbo", desc: "高性能 · 复杂任务", badge: "" },
+    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", desc: "最经济 · 快速响应", badge: "经济" },
   ];
 
   return (
@@ -212,7 +211,7 @@ export default function Settings() {
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>
                   {hasApiKey
-                    ? `当前模型：${savedConfig?.openaiModel || "gpt-4.5-mini"} · ${savedConfig?.openaiApiKey}`
+                    ? `当前模型：${savedConfig?.openaiModel || "gpt-4o-mini"} · ${savedConfig?.openaiApiKey}`
                     : "配置后，GPT 将作为主大脑主导每次投资分析任务"}
                 </p>
               </div>

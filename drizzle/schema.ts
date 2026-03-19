@@ -129,8 +129,8 @@ const rpaConfigs = mysqlTable("rpa_configs", {
   userId: int("userId").notNull().unique(),
   // OpenAI API Key
   openaiApiKey: varchar("openaiApiKey", { length: 256 }),
-  // 使用的模型（默认 gpt-4.5-mini）
-  openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4.5-mini"),
+  // 使用的模型（默认 gpt-4o-mini）
+  openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4o-mini"),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

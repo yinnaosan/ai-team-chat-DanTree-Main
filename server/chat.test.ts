@@ -23,7 +23,7 @@ vi.mock("./db", () => ({
   getRpaConfig: vi.fn().mockResolvedValue({
     id: 1, userId: 1,
     openaiApiKey: "sk-test-key",
-    openaiModel: "gpt-4.5-mini",
+    openaiModel: "gpt-4o-mini",
     manusSystemPrompt: "你是一个专业的金融投资分析师",
     createdAt: new Date(), updatedAt: new Date(),
   }),
@@ -68,8 +68,8 @@ vi.mock("./db", () => ({
 // Mock RPA module (OpenAI API 模块)
 vi.mock("./rpa", () => ({
   callOpenAI: vi.fn().mockResolvedValue("GPT 分析完成：投资建议如下..."),
-  testOpenAIConnection: vi.fn().mockResolvedValue({ ok: true, model: "gpt-4.5-mini" }),
-  DEFAULT_MODEL: "gpt-4.5-mini",
+  testOpenAIConnection: vi.fn().mockResolvedValue({ ok: true, model: "gpt-4o-mini" }),
+  DEFAULT_MODEL: "gpt-4o-mini",
 }));
 
 // Mock LLM
@@ -161,7 +161,7 @@ describe("rpa.setConfig", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
     const result = await caller.rpa.setConfig({
-      openaiModel: "gpt-4.5-mini",
+      openaiModel: "gpt-4o-mini",
       manusSystemPrompt: "你是一个专业的金融投资分析师，负责分析股票、基金、期货市场数据",
     });
     expect(result).toEqual({ success: true });
@@ -184,7 +184,7 @@ describe("rpa.testConnection", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.rpa.testConnection({
       apiKey: "sk-test-key-12345",
-      model: "gpt-4.5-mini",
+      model: "gpt-4o-mini",
     });
     expect(result).toHaveProperty("ok");
     expect(result.ok).toBe(true);

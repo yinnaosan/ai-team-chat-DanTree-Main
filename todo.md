@@ -24,3 +24,11 @@
 ## 测试
 - [x] 后端 procedure 单元测试 (9个测试全部通过)
 - [x] RPA 模块集成测试
+
+## 对话框锁定 & 底层指令- [x] RPA 模块：自动定位 ChatGPT 侧边栏中名为「投资」的对话框并锁定
+- [x] RPA 模块：每次任务前先导航到「投资」对话框，确保记忆上下文完整
+- [x] 后端：支持持久化存储目标对话框名称配置（rpa_config 表）
+- [x] Manus 执行层：从数据库读取用户保存的底层指令，注入 system prompt
+- [x] 设置页面：添加「ChatGPT 目标对话框名称」输入框
+- [x] 设置页面：添加「Manus 底层指令」多行文本输入框
+- [x] 后端： rpa.setConfig / rpa.getConfig tRPC procedure

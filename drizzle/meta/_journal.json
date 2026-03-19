@@ -15,6 +15,13 @@
       "when": 1773936369740,
       "tag": "0001_lean_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773937168195,
+      "tag": "0002_last_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

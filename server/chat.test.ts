@@ -26,6 +26,15 @@ vi.mock("./db", () => ({
   getActiveDbConnection: vi.fn().mockResolvedValue(undefined),
   setActiveDbConnection: vi.fn().mockResolvedValue(undefined),
   deleteDbConnection: vi.fn().mockResolvedValue(undefined),
+  getRpaConfig: vi.fn().mockResolvedValue({
+    id: 1,
+    userId: 1,
+    chatgptConversationName: "投资",
+    manusSystemPrompt: "你是一个专业的金融投资分析师",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }),
+  upsertRpaConfig: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock RPA module
@@ -149,5 +158,37 @@ describe("auth.logout", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.auth.logout();
     expect(result).toEqual({ success: true });
+  });
+});
+
+describe("rpa.getConfig", () => {
+  it("返回用户的 RPA 配置，包括对话框名称和底层指令", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.getConfig();
+    expect(result).toHaveProperty("chatgptConversationName");
+    expect(result).toHaveProperty("manusSystemPrompt");
+    // 默认对话框名称应为「投资」
+    expect(result.chatgptConversationName).toBe("投资");
+  });
+});
+
+describe("rpa.setConfig", () => {
+  it("保存对话框名称配置", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      chatgptConversationName: "投资",
+      manusSystemPrompt: "你是一个专业的金融投资分析师，负责分析股票、基金、期货市场数据",
+    });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("保存时对话框名称不能为空", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.rpa.setConfig({ chatgptConversationName: "" })
+    ).rejects.toThrow();
   });
 });

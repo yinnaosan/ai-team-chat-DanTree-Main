@@ -1,21 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import {
   ArrowLeft, Bot, Brain, Database, Wifi, WifiOff,
-  Loader2, Plus, Trash2, CheckCircle2, Circle
+  Loader2, Plus, Trash2, CheckCircle2, Circle, Save, MessageSquare
 } from "lucide-react";
 
 export default function Settings() {
   const { isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
+
+  // RPA 配置表单
+  const [rpaConfigForm, setRpaConfigForm] = useState({
+    chatgptConversationName: "投资",
+    manusSystemPrompt: "",
+  });
 
   // 数据库连接表单
   const [dbForm, setDbForm] = useState({
@@ -29,6 +36,19 @@ export default function Settings() {
     filePath: "",
   });
 
+  // 加载已保存的 RPA 配置
+  const { data: savedRpaConfig } = trpc.rpa.getConfig.useQuery(undefined, { enabled: isAuthenticated });
+
+  // 当配置加载完成后，填入表单
+  useEffect(() => {
+    if (savedRpaConfig) {
+      setRpaConfigForm({
+        chatgptConversationName: savedRpaConfig.chatgptConversationName || "投资",
+        manusSystemPrompt: savedRpaConfig.manusSystemPrompt || "",
+      });
+    }
+  }, [savedRpaConfig]);
+
   // RPA状态
   const { data: rpaStatus, refetch: refetchRpa } = trpc.rpa.getStatus.useQuery(
     undefined,
@@ -40,6 +60,11 @@ export default function Settings() {
     undefined,
     { enabled: isAuthenticated }
   );
+
+  const saveRpaConfigMutation = trpc.rpa.setConfig.useMutation({
+    onSuccess: () => toast.success("配置已保存！每次任务将自动使用此设置"),
+    onError: (err) => toast.error("保存失败", { description: err.message }),
+  });
 
   const connectRpaMutation = trpc.rpa.connect.useMutation({
     onSuccess: (data) => {
@@ -110,6 +135,57 @@ export default function Settings() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+
+        {/* ★ 对话框锁定配置 */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" style={{ color: "var(--chatgpt-color)" }} />
+            <h2 className="text-base font-semibold text-foreground">对话框锁定配置</h2>
+          </div>
+          <div className="p-4 rounded-xl bg-card border border-border space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                ChatGPT 目标对话框名称
+              </Label>
+              <Input
+                value={rpaConfigForm.chatgptConversationName}
+                onChange={(e) => setRpaConfigForm(f => ({ ...f, chatgptConversationName: e.target.value }))}
+                placeholder="投资"
+                className="h-9 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                每次任务执行时，RPA 将自动导航到该名称的对话框，确保 ChatGPT 主管的训练记忆完整保留。
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Manus 底层指令（System Prompt）
+              </Label>
+              <Textarea
+                value={rpaConfigForm.manusSystemPrompt}
+                onChange={(e) => setRpaConfigForm(f => ({ ...f, manusSystemPrompt: e.target.value }))}
+                placeholder="输入你已经训练好的 Manus 底层指令，例如：你是一个专业的金融投资分析师..."
+                className="min-h-[120px] text-sm font-mono resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                这里的指令将作为 Manus 的 System Prompt 注入每次任务。如果留空，将使用默认的金融分析指令。
+              </p>
+            </div>
+
+            <Button
+              onClick={() => saveRpaConfigMutation.mutate(rpaConfigForm)}
+              disabled={saveRpaConfigMutation.isPending}
+              className="w-full gap-2"
+            >
+              {saveRpaConfigMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
+              ) : (
+                <><Save className="w-4 h-4" />保存配置</>
+              )}
+            </Button>
+          </div>
+        </section>
 
         {/* RPA 连接设置 */}
         <section className="space-y-4">

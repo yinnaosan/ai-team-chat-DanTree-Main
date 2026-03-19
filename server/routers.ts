@@ -17,12 +17,24 @@ import {
   getActiveDbConnection,
   setActiveDbConnection,
   deleteDbConnection,
+  getRpaConfig,
+  upsertRpaConfig,
 } from "./db";
-import { connectToChatGPT, sendToChatGPT, getRpaStatus } from "./rpa";
+import { connectToChatGPT, sendToChatGPT, getRpaStatus, navigateToConversation } from "./rpa";
 
 // ─── 任务协作核心流程 ─────────────────────────────────────────────────────────
 
 async function runCollaborationFlow(taskId: number, userId: number, taskDescription: string) {
+  // 加载用户配置：对话框名称 + Manus 底层指令
+  const userConfig = await getRpaConfig(userId);
+  const targetConversation = userConfig?.chatgptConversationName || "投资";
+  const manusBasePrompt = userConfig?.manusSystemPrompt ||
+    `你是 Manus，一个专注于数据统筹、分析和执行的AI助手。
+你的职责：
+1. 分析用户任务，拆解执行步骤
+2. 执行数据查询、文档处理、数据分析和统计
+3. 输出结构化的分析结果，供 ChatGPT 主管进行二次审查
+4. 用中文回复，保持专业、简洁`;
   try {
     // Step 1: Manus 执行层分析
     await updateTaskStatus(taskId, "manus_working");
@@ -33,19 +45,12 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
       content: "🔄 Manus 正在分析任务并执行数据处理...",
     });
 
-    // Manus 调用内置 LLM 进行数据分析
+    // Manus 调用内置 LLM 进行数据分析（使用用户配置的底层指令）
     const manusResponse = await invokeLLM({
       messages: [
         {
           role: "system",
-          content: `你是 Manus，一个专注于数据统筹、分析和执行的AI助手。
-你的职责：
-1. 分析用户任务，拆解执行步骤
-2. 执行数据查询、文档处理、数据分析和统计
-3. 输出结构化的分析结果，供 ChatGPT 主管进行二次审查
-4. 用中文回复，保持专业、简洁
-
-请对以下任务进行分析和执行，输出详细的执行结果：`,
+          content: manusBasePrompt + "\n\n请对以下任务进行分析和执行，输出详细的执行结果：",
         },
         {
           role: "user",
@@ -79,7 +84,7 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
     let gptSummary: string;
 
     if (rpaState.status === "ready" || rpaState.status === "idle") {
-      // 尝试通过 RPA 发送给 ChatGPT
+      // 尝试通过 RPA 发送给 ChatGPT（固定导航到「投资」对话框）
       const gptPrompt = `作为主管，请对以下由 Manus 执行层完成的工作进行二次检查和汇总：
 
 【原始任务】
@@ -95,7 +100,8 @@ ${manusResult}
 4. 输出一份最终的综合报告给用户`;
 
       try {
-        gptSummary = await sendToChatGPT(gptPrompt);
+        // 传入用户配置的目标对话框名称（默认「投资」）
+        gptSummary = await sendToChatGPT(gptPrompt, targetConversation);
       } catch (rpaErr) {
         // RPA 失败时，使用内置 LLM 模拟 ChatGPT 主管角色
         console.warn("[Collaboration] RPA failed, falling back to LLM:", rpaErr);
@@ -256,9 +262,34 @@ export const appRouter = router({
     // 测试发送一条消息
     test: protectedProcedure
       .input(z.object({ message: z.string().default("你好，请确认连接正常。") }))
-      .mutation(async ({ input }) => {
-        const response = await sendToChatGPT(input.message);
+      .mutation(async ({ ctx, input }) => {
+        const config = await getRpaConfig(ctx.user.id);
+        const conversationName = config?.chatgptConversationName || "投资";
+        const response = await sendToChatGPT(input.message, conversationName);
         return { success: true, response };
+      }),
+
+    // 获取用户的 RPA 配置（对话框名称 + Manus 底层指令）
+    getConfig: protectedProcedure.query(async ({ ctx }) => {
+      const config = await getRpaConfig(ctx.user.id);
+      return {
+        chatgptConversationName: config?.chatgptConversationName ?? "投资",
+        manusSystemPrompt: config?.manusSystemPrompt ?? "",
+      };
+    }),
+
+    // 保存用户的 RPA 配置
+    setConfig: protectedProcedure
+      .input(z.object({
+        chatgptConversationName: z.string().min(1).max(256),
+        manusSystemPrompt: z.string().max(8000).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await upsertRpaConfig(ctx.user.id, {
+          chatgptConversationName: input.chatgptConversationName,
+          manusSystemPrompt: input.manusSystemPrompt,
+        });
+        return { success: true };
       }),
   }),
 

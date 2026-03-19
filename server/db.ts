@@ -1,6 +1,6 @@
 import { eq, desc, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, messages, tasks, dbConnections, InsertMessage, InsertTask, InsertDbConnection } from "../drizzle/schema";
+import { InsertUser, users, messages, tasks, dbConnections, rpaConfigs, InsertMessage, InsertTask, InsertDbConnection } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -139,4 +139,27 @@ export async function deleteDbConnection(userId: number, connId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(dbConnections).where(and(eq(dbConnections.id, connId), eq(dbConnections.userId, userId)));
+}
+
+// ─── RPA Config helpers ──────────────────────────────────────────────────────────────────────────────
+
+export async function getRpaConfig(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(rpaConfigs).where(eq(rpaConfigs.userId, userId)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function upsertRpaConfig(
+  userId: number,
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getRpaConfig(userId);
+  if (existing) {
+    await db.update(rpaConfigs).set({ ...config }).where(eq(rpaConfigs.userId, userId));
+  } else {
+    await db.insert(rpaConfigs).values({ userId, ...config });
+  }
 }

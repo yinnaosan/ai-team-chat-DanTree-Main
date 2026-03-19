@@ -24,6 +24,20 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// 会话表：每次点击「新任务」创建一个独立会话
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: text("title"),                  // 会话标题（第一条用户消息的前55字）
+  isPinned: boolean("isPinned").default(false).notNull(),
+  isFavorited: boolean("isFavorited").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+
 // 任务表：用户提交的协作任务
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
@@ -41,6 +55,9 @@ export const tasks = mysqlTable("tasks", {
     .notNull(),
   manusResult: text("manusResult"),   // Manus执行结果
   gptSummary: text("gptSummary"),     // ChatGPT汇总报告
+  conversationId: int("conversationId"),  // 所属会话
+  isPinned: boolean("isPinned").default(false).notNull(),     // 是否置顶
+  isFavorited: boolean("isFavorited").default(false).notNull(), // 是否收藏
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -61,6 +78,7 @@ export const messages = mysqlTable("messages", {
     "assistant",
   ]).notNull(),
   content: text("content").notNull(),
+  conversationId: int("conversationId"), // 所属会话
   metadata: json("metadata"),         // 额外信息（如数据库查询结果摘要）
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -131,6 +149,27 @@ export const userAccess = mysqlTable("user_access", {
 
 export type UserAccess = typeof userAccess.$inferSelect;
 export type InsertUserAccess = typeof userAccess.$inferInsert;
+
+// 文件附件表：拖拽上传的文件元数据
+export const attachments = mysqlTable("attachments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  conversationId: int("conversationId"),  // 所属会话
+  messageId: int("messageId"),            // 关联消息（可选）
+  filename: varchar("filename", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  size: int("size").notNull(),            // 字节数
+  s3Key: text("s3Key").notNull(),
+  s3Url: text("s3Url").notNull(),
+  // 提取的文本内容（用于AI分析）
+  extractedText: text("extractedText"),
+  // 文件类型分类
+  fileCategory: mysqlEnum("fileCategory", ["document", "image", "video", "audio", "other"]).default("other").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Attachment = typeof attachments.$inferSelect;
+export type InsertAttachment = typeof attachments.$inferInsert;
 
 // 全局记忆上下文表：跨任务的长期记忆摘要
 export const memoryContext = mysqlTable("memory_context", {

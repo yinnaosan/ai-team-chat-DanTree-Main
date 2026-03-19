@@ -45,56 +45,76 @@
 
 :root {
   --radius: 0.75rem;
-  /* Gemini dark theme as default */
-  --background: oklch(0.13 0.005 270);
-  --foreground: oklch(0.92 0.005 270);
-  --card: oklch(0.17 0.006 270);
-  --card-foreground: oklch(0.92 0.005 270);
-  --popover: oklch(0.17 0.006 270);
-  --popover-foreground: oklch(0.92 0.005 270);
-  --primary: oklch(0.72 0.18 250);
-  --primary-foreground: oklch(0.13 0.005 270);
-  --secondary: oklch(0.22 0.008 270);
-  --secondary-foreground: oklch(0.85 0.005 270);
-  --muted: oklch(0.20 0.006 270);
-  --muted-foreground: oklch(0.58 0.01 270);
-  --accent: oklch(0.22 0.008 270);
-  --accent-foreground: oklch(0.92 0.005 270);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.007 270);
-  --input: oklch(0.22 0.007 270);
-  --ring: oklch(0.72 0.18 250);
-  --sidebar: oklch(0.15 0.005 270);
-  --sidebar-foreground: oklch(0.85 0.005 270);
-  --sidebar-primary: oklch(0.72 0.18 250);
-  --sidebar-primary-foreground: oklch(0.13 0.005 270);
-  --sidebar-accent: oklch(0.20 0.007 270);
-  --sidebar-accent-foreground: oklch(0.92 0.005 270);
-  --sidebar-border: oklch(0.22 0.007 270);
-  --sidebar-ring: oklch(0.72 0.18 250);
-  --chart-1: oklch(0.72 0.18 250);
-  --chart-2: oklch(0.72 0.18 155);
-  --chart-3: oklch(0.78 0.18 55);
-  --chart-4: oklch(0.72 0.18 300);
-  --chart-5: oklch(0.72 0.18 20);
-  /* AI role colors */
-  --manus-color: oklch(0.72 0.18 250);
-  --manus-bg: oklch(0.72 0.18 250 / 0.08);
-  --manus-border: oklch(0.72 0.18 250 / 0.25);
-  --chatgpt-color: oklch(0.72 0.18 155);
-  --chatgpt-bg: oklch(0.72 0.18 155 / 0.08);
-  --chatgpt-border: oklch(0.72 0.18 155 / 0.25);
-  --user-color: oklch(0.78 0.18 55);
-  --user-bg: oklch(0.78 0.18 55 / 0.08);
-  --user-border: oklch(0.78 0.18 55 / 0.25);
-  --system-color: oklch(0.55 0.01 270);
+
+  /* ── Gemini 精确配色（完全还原 Google Gemini 深色主题）── */
+  /* 背景 #1e1f20 */
+  --background: oklch(17.2% 0.004 264);
+  /* 前景 #e8eaed */
+  --foreground: oklch(93.5% 0.003 264);
+  /* 卡片/面板 #282a2c */
+  --card: oklch(20.5% 0.005 264);
+  --card-foreground: oklch(93.5% 0.003 264);
+  --popover: oklch(20.5% 0.005 264);
+  --popover-foreground: oklch(93.5% 0.003 264);
+  /* 主色蓝 #8ab4f8 */
+  --primary: oklch(73.5% 0.155 258);
+  --primary-foreground: oklch(17.2% 0.004 264);
+  /* 次级 #303134 */
+  --secondary: oklch(23.8% 0.006 264);
+  --secondary-foreground: oklch(93.5% 0.003 264);
+  /* 静音 */
+  --muted: oklch(20.5% 0.005 264);
+  /* 静音文字 #9aa0a6 */
+  --muted-foreground: oklch(64.5% 0.007 264);
+  /* 强调 #303134 */
+  --accent: oklch(23.8% 0.006 264);
+  --accent-foreground: oklch(93.5% 0.003 264);
+  /* 危险红 */
+  --destructive: oklch(65% 0.22 25);
+  --destructive-foreground: oklch(98% 0 0);
+  /* 边框 #3c4043 */
+  --border: oklch(29.5% 0.007 264);
+  /* 输入框 #303134 */
+  --input: oklch(23.8% 0.006 264);
+  --ring: oklch(73.5% 0.155 258);
+
+  /* 侧边栏 #1e1f20 */
+  --sidebar: oklch(17.2% 0.004 264);
+  --sidebar-foreground: oklch(85% 0.004 264);
+  --sidebar-primary: oklch(73.5% 0.155 258);
+  --sidebar-primary-foreground: oklch(17.2% 0.004 264);
+  --sidebar-accent: oklch(23.8% 0.006 264);
+  --sidebar-accent-foreground: oklch(93.5% 0.003 264);
+  --sidebar-border: oklch(23.8% 0.006 264);
+  --sidebar-ring: oklch(73.5% 0.155 258);
+
+  /* 图表色 */
+  --chart-1: oklch(73.5% 0.155 258);
+  --chart-2: oklch(72% 0.15 155);
+  --chart-3: oklch(78% 0.18 55);
+  --chart-4: oklch(72% 0.18 300);
+  --chart-5: oklch(72% 0.18 20);
+
+  /* AI 角色专属色 */
+  /* Manus 蓝 #8ab4f8 */
+  --manus-color: oklch(73.5% 0.155 258);
+  --manus-bg: oklch(73.5% 0.155 258 / 0.08);
+  --manus-border: oklch(73.5% 0.155 258 / 0.2);
+  /* ChatGPT 绿 #81c995 */
+  --chatgpt-color: oklch(74% 0.14 155);
+  --chatgpt-bg: oklch(74% 0.14 155 / 0.08);
+  --chatgpt-border: oklch(74% 0.14 155 / 0.2);
+  /* 用户 白 */
+  --user-color: oklch(93.5% 0.003 264);
+  --user-bg: oklch(23.8% 0.006 264);
+  --user-border: oklch(29.5% 0.007 264);
+  --system-color: oklch(55% 0.01 264);
 }
 
 /* Dark class kept for compatibility but root is already dark */
 .dark {
-  --background: oklch(0.13 0.005 270);
-  --foreground: oklch(0.92 0.005 270);
+  --background: oklch(17.2% 0.004 264);
+  --foreground: oklch(93.5% 0.003 264);
 }
 
 @layer base {
@@ -262,31 +282,71 @@
 ::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0.01 270); }
 
 /* ─── Prose (markdown inside messages) ──────────────────────────────────── */
-.prose-chat { font-size: 0.875rem; line-height: 1.65; }
-.prose-chat h1,.prose-chat h2,.prose-chat h3 {
-  font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem;
+.prose-chat { font-size: 0.875rem; line-height: 1.65; color: oklch(0.88 0.005 270); }
+.prose-chat h1 {
+  font-size: 1.25rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem;
+  color: oklch(0.95 0.005 270); border-bottom: 1px solid oklch(0.28 0.007 270); padding-bottom: 0.3rem;
+}
+.prose-chat h2 {
+  font-size: 1.1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.4rem;
   color: oklch(0.92 0.005 270);
 }
-.prose-chat p { margin-bottom: 0.5rem; }
-.prose-chat ul,.prose-chat ol { padding-left: 1.25rem; margin-bottom: 0.5rem; }
-.prose-chat li { margin-bottom: 0.25rem; }
+.prose-chat h3 {
+  font-size: 1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem;
+  color: oklch(0.90 0.005 270);
+}
+.prose-chat p { margin-bottom: 0.6rem; }
+.prose-chat ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.6rem; }
+.prose-chat ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.6rem; }
+.prose-chat li { margin-bottom: 0.3rem; }
 .prose-chat code {
   background: oklch(0.22 0.007 270);
-  padding: 0.1em 0.35em; border-radius: 0.3rem;
-  font-size: 0.8em; font-family: 'JetBrains Mono', monospace;
+  padding: 0.1em 0.4em; border-radius: 0.3rem;
+  font-size: 0.82em; font-family: 'JetBrains Mono', monospace;
   color: oklch(0.78 0.15 250);
 }
 .prose-chat pre {
   background: oklch(0.16 0.005 270);
-  padding: 0.75rem 1rem; border-radius: 0.75rem;
-  overflow-x: auto; margin-bottom: 0.5rem;
+  padding: 0.85rem 1rem; border-radius: 0.75rem;
+  overflow-x: auto; margin-bottom: 0.75rem;
+  border: 1px solid oklch(0.24 0.007 270);
 }
-.prose-chat pre code { background: transparent; padding: 0; }
-.prose-chat strong { font-weight: 600; color: oklch(0.92 0.005 270); }
+.prose-chat pre code { background: transparent; padding: 0; color: oklch(0.82 0.005 270); }
+.prose-chat strong { font-weight: 600; color: oklch(0.95 0.005 270); }
+.prose-chat em { font-style: italic; color: oklch(0.80 0.008 270); }
 .prose-chat blockquote {
-  border-left: 3px solid oklch(0.72 0.18 250 / 0.4);
-  padding-left: 0.75rem; font-style: italic;
+  border-left: 3px solid oklch(0.72 0.18 250 / 0.5);
+  padding: 0.25rem 0 0.25rem 0.85rem;
+  margin: 0.5rem 0; font-style: italic;
   color: oklch(0.65 0.01 270);
+  background: oklch(0.72 0.18 250 / 0.04);
+  border-radius: 0 0.4rem 0.4rem 0;
+}
+/* Markdown tables */
+.prose-chat table {
+  width: 100%; border-collapse: collapse; margin: 0.75rem 0;
+  font-size: 0.85rem; overflow-x: auto; display: block;
+}
+.prose-chat thead tr {
+  background: oklch(0.22 0.007 270);
+  border-bottom: 2px solid oklch(0.30 0.008 270);
+}
+.prose-chat th {
+  padding: 0.5rem 0.75rem; text-align: left;
+  font-weight: 600; color: oklch(0.90 0.005 270);
+  white-space: nowrap;
+}
+.prose-chat td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid oklch(0.24 0.007 270);
+  color: oklch(0.82 0.005 270);
+}
+.prose-chat tbody tr:hover { background: oklch(0.20 0.006 270); }
+.prose-chat tbody tr:last-child td { border-bottom: none; }
+/* Horizontal rule */
+.prose-chat hr {
+  border: none; border-top: 1px solid oklch(0.28 0.007 270);
+  margin: 1rem 0;
 }
 
 /* ─── Typing indicator ───────────────────────────────────────────────────── */

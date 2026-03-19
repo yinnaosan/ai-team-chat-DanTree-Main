@@ -2,8 +2,8 @@ import { eq, desc, and, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
-  accessCodes, userAccess, memoryContext,
-  InsertMessage, InsertTask, InsertDbConnection,
+  accessCodes, userAccess, memoryContext, conversations, attachments,
+  InsertMessage, InsertTask, InsertDbConnection, InsertConversation, InsertAttachment,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -55,12 +55,57 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+// ─── Conversation helpers ─────────────────────────────────────────────────────
+
+/** 创建新会话，返回会话ID */
+export async function createConversation(data: { userId: number; title?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(conversations).values({
+    userId: data.userId,
+    title: data.title || null,
+  });
+  return (result as any)[0]?.insertId as number;
+}
+
+/** 获取用户所有会话，按置顶>收藏>时间倒序 */
+export async function getConversationsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(conversations)
+    .where(eq(conversations.userId, userId))
+    .orderBy(desc(conversations.isPinned), desc(conversations.isFavorited), desc(conversations.updatedAt))
+    .limit(200);
+}
+
+/** 更新会话标题 */
+export async function updateConversationTitle(convId: number, title: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(conversations).set({ title }).where(eq(conversations.id, convId));
+}
+
+/** 置顶/取消置顶会话 */
+export async function setConversationPinned(convId: number, userId: number, pinned: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(conversations).set({ isPinned: pinned }).where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
+}
+
+/** 收藏/取消收藏会话 */
+export async function setConversationFavorited(convId: number, userId: number, favorited: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(conversations).set({ isFavorited: favorited }).where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
+}
+
 // ─── Message helpers ─────────────────────────────────────────────────────────
 
 export async function insertMessage(msg: InsertMessage) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.insert(messages).values(msg);
+  const result = await db.insert(messages).values(msg);
+  return (result as any)[0]?.insertId as number;
 }
 
 export async function getMessages(limit = 100) {
@@ -91,6 +136,15 @@ export async function getMessagesByTask(taskId: number) {
   return db.select().from(messages).where(eq(messages.taskId, taskId)).orderBy(messages.createdAt);
 }
 
+/** 按会话ID获取消息 */
+export async function getMessagesByConversation(conversationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(messages.createdAt);
+}
+
 // ─── Task helpers ─────────────────────────────────────────────────────────────
 
 export async function createTask(task: InsertTask) {
@@ -113,7 +167,22 @@ export async function updateTaskStatus(
 export async function getTasksByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt)).limit(50);
+  return db.select().from(tasks)
+    .where(eq(tasks.userId, userId))
+    .orderBy(desc(tasks.isPinned), desc(tasks.isFavorited), desc(tasks.createdAt))
+    .limit(100);
+}
+
+export async function setPinned(taskId: number, userId: number, pinned: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tasks).set({ isPinned: pinned }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function setFavorited(taskId: number, userId: number, favorited: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tasks).set({ isFavorited: favorited }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 }
 
 export async function getTaskById(taskId: number) {
@@ -121,6 +190,36 @@ export async function getTaskById(taskId: number) {
   if (!db) return undefined;
   const result = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
   return result[0];
+}
+
+// ─── Attachment helpers ───────────────────────────────────────────────────────
+
+export async function insertAttachment(data: InsertAttachment) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(attachments).values(data);
+  return (result as any)[0]?.insertId as number;
+}
+
+export async function getAttachmentsByConversation(conversationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(attachments)
+    .where(eq(attachments.conversationId, conversationId))
+    .orderBy(attachments.createdAt);
+}
+
+export async function getAttachmentsByMessage(messageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(attachments)
+    .where(eq(attachments.messageId, messageId));
+}
+
+export async function updateAttachmentMessage(attachmentId: number, messageId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(attachments).set({ messageId }).where(eq(attachments.id, attachmentId));
 }
 
 // ─── DB Connection helpers ────────────────────────────────────────────────────
@@ -149,9 +248,7 @@ export async function getActiveDbConnection(userId: number) {
 export async function setActiveDbConnection(userId: number, connId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // 先全部设为非活跃
   await db.update(dbConnections).set({ isActive: false }).where(eq(dbConnections.userId, userId));
-  // 再激活指定连接
   await db.update(dbConnections).set({ isActive: true }).where(and(eq(dbConnections.id, connId), eq(dbConnections.userId, userId)));
 }
 
@@ -161,7 +258,7 @@ export async function deleteDbConnection(userId: number, connId: number) {
   await db.delete(dbConnections).where(and(eq(dbConnections.id, connId), eq(dbConnections.userId, userId)));
 }
 
-// ─── RPA Config helpers ──────────────────────────────────────────────────────────────────────────────
+// ─── RPA Config helpers ───────────────────────────────────────────────────────
 
 export async function getRpaConfig(userId: number) {
   const db = await getDb();
@@ -184,7 +281,7 @@ export async function upsertRpaConfig(
   }
 }
 
-// ─── Access Code helpers ──────────────────────────────────────────────────────────────────────────────
+// ─── Access Code helpers ──────────────────────────────────────────────────────
 
 export async function createAccessCode(data: { code: string; label?: string; maxUses?: number; expiresAt?: Date }) {
   const db = await getDb();
@@ -209,21 +306,15 @@ export async function revokeAccessCode(codeId: number) {
   await db.update(accessCodes).set({ isActive: false }).where(eq(accessCodes.id, codeId));
 }
 
-/** 验证密码，成功返回密码记录，失败返回 null */
 export async function verifyAccessCode(code: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.select().from(accessCodes)
-    .where(and(
-      eq(accessCodes.code, code),
-      eq(accessCodes.isActive, true),
-    ))
+    .where(and(eq(accessCodes.code, code), eq(accessCodes.isActive, true)))
     .limit(1);
   const record = result[0];
   if (!record) return null;
-  // 检查是否过期
   if (record.expiresAt && record.expiresAt < new Date()) return null;
-  // 检查使用次数（-1 表示无限）
   if (record.maxUses !== -1 && record.usedCount >= record.maxUses) return null;
   return record;
 }
@@ -236,7 +327,7 @@ export async function incrementCodeUsage(codeId: number) {
     .where(eq(accessCodes.id, codeId));
 }
 
-// ─── User Access helpers ──────────────────────────────────────────────────────────────────────────────
+// ─── User Access helpers ──────────────────────────────────────────────────────
 
 export async function getUserAccess(userId: number) {
   const db = await getDb();
@@ -250,7 +341,6 @@ export async function getUserAccess(userId: number) {
 export async function grantUserAccess(userId: number, accessCodeId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // upsert—如果已有记录则更新
   await db.insert(userAccess)
     .values({ userId, accessCodeId })
     .onDuplicateKeyUpdate({ set: { accessCodeId, revokedAt: null, grantedAt: new Date() } });
@@ -262,9 +352,8 @@ export async function revokeUserAccess(userId: number) {
   await db.update(userAccess).set({ revokedAt: new Date() }).where(eq(userAccess.userId, userId));
 }
 
-// ─── Memory Context helpers ────────────────────────────────────────────────────────────────────────────
+// ─── Memory Context helpers ───────────────────────────────────────────────────
 
-/** 获取用户最近 N 条记忆，用于注入上下文 */
 export async function getRecentMemory(userId: number, limit = 10) {
   const db = await getDb();
   if (!db) return [];
@@ -274,7 +363,6 @@ export async function getRecentMemory(userId: number, limit = 10) {
     .limit(limit);
 }
 
-/** 任务完成后保存记忆摘要 */
 export async function saveMemoryContext(data: {
   userId: number;
   taskId: number;

@@ -39,6 +39,12 @@ vi.mock("./db", () => ({
   // Memory mocks
   getRecentMemory: vi.fn().mockResolvedValue([]),
   saveMemoryContext: vi.fn().mockResolvedValue(undefined),
+  // Conversation mocks
+  createConversation: vi.fn().mockResolvedValue(42),
+  getConversationsByUser: vi.fn().mockResolvedValue([]),
+  getConversationById: vi.fn().mockResolvedValue({ id: 42, userId: 1, title: '测试会话', createdAt: new Date(), updatedAt: new Date() }),
+  updateConversationTitle: vi.fn().mockResolvedValue(undefined),
+  getMessagesByConversation: vi.fn().mockResolvedValue([]),
   // User mock
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn().mockResolvedValue(undefined),
@@ -185,7 +191,7 @@ describe("rpa.setConfig", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
     const result = await caller.rpa.setConfig({
-      chatgptConversationName: "投资",
+      chatgptConversationName: "投资manus",
       manusSystemPrompt: "你是一个专业的金融投资分析师，负责分析股票、基金、期货市场数据",
     });
     expect(result).toEqual({ success: true });

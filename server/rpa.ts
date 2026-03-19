@@ -161,7 +161,8 @@ export async function navigateToConversation(conversationName: string): Promise<
  * @param prompt 要发送的消息内容
  * @param conversationName 目标对话框名称（每次都会先导航到该对话框）
  */
-export async function sendToChatGPT(prompt: string, conversationName = "投资"): Promise<string> {
+// ★ ChatGPT 始终使用「投资manus」对话框，该默认值硬编码
+export async function sendToChatGPT(prompt: string, conversationName = "投资manus"): Promise<string> {
   // 确保已连接
   if (!chatPage || rpaStatus === "idle" || rpaStatus === "error") {
     const connected = await connectToChatGPT();

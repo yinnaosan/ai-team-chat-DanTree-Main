@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `conversations` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`title` text,\n\t`isPinned` boolean NOT NULL DEFAULT false,\n\t`isFavorited` boolean NOT NULL DEFAULT false,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `conversations_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `messages` ADD `conversationId` int;\nALTER TABLE `tasks` ADD `conversationId` int;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute CREATE TABLE `conversations` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`title` text,\n\t`isPinned` boolean NOT NULL DEFAULT false,\n\t`isFavorited` boolean NOT NULL DEFAULT false,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `conversations_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `messages` ADD `conversationId` int;\nALTER TABLE `tasks` ADD `conversationId` int;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1963
+}

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `attachments` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`conversationId` int,\n\t`messageId` int,\n\t`filename` varchar(512) NOT NULL,\n\t`mimeType` varchar(128) NOT NULL,\n\t`size` int NOT NULL,\n\t`s3Key` text NOT NULL,\n\t`s3Url` text NOT NULL,\n\t`extractedText` text,\n\t`fileCategory` enum('document','image','video','audio','other') NOT NULL DEFAULT 'other',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `attachments_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute CREATE TABLE `attachments` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`conversationId` int,\n\t`messageId` int,\n\t`filename` varchar(512) NOT NULL,\n\t`mimeType` varchar(128) NOT NULL,\n\t`size` int NOT NULL,\n\t`s3Key` text NOT NULL,\n\t`s3Url` text NOT NULL,\n\t`extractedText` text,\n\t`fileCategory` enum('document','image','video','audio','other') NOT NULL DEFAULT 'other',\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `attachments_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 319
+}

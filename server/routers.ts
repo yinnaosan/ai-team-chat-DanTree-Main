@@ -50,6 +50,7 @@ import {
   renameConversationGroup,
   setGroupCollapsed,
   getAllMessagesByUser,
+  searchConversations,
 } from "./db";
 import { storagePut } from "./storage";
 import { connectToChatGPT, sendToChatGPT, getRpaStatus } from "./rpa";
@@ -566,6 +567,14 @@ export const appRouter = router({
       await requireAccess(ctx.user.id, ctx.user.openId);
       return getConversationsByUser(ctx.user.id);
     }),
+
+    // 搜索会话（按标题或消息内容）
+    searchConversations: protectedProcedure
+      .input(z.object({ keyword: z.string().min(1).max(100) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        return searchConversations(ctx.user.id, input.keyword);
+      }),
 
     // 获取用户所有分组（含分组内的会话）
     listGroups: protectedProcedure.query(async ({ ctx }) => {

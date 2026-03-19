@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -13,7 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Streamdown } from "streamdown";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
@@ -22,6 +24,24 @@ import {
   Paperclip, Image, Film, Music, File, XCircle, Sparkles,
   FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight,
 } from "lucide-react";
+
+// ─── Markdown ErrorBoundary ─────────────────────────────────────────────────
+class MarkdownErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; fallback: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return <pre className="whitespace-pre-wrap text-sm">{this.props.fallback}</pre>;
+    }
+    return this.props.children;
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type MsgRole = "user" | "manus" | "chatgpt" | "system" | "assistant";
@@ -198,7 +218,49 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
           </span>
         </div>
         <div className="prose-chat w-full">
-          <Streamdown>{msg.content}</Streamdown>
+          <MarkdownErrorBoundary fallback={msg.content}>
+            <ReactMarkdown
+              key={`md-${msg.id}`}
+              remarkPlugins={[remarkGfm]}
+              components={{
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-3">
+                    <table className="min-w-full border-collapse text-sm">{children}</table>
+                  </div>
+                ),
+                th: ({ children }) => (
+                  <th className="border px-3 py-1.5 text-left font-semibold" style={{ borderColor: "oklch(0.32 0.01 270)", background: "oklch(0.22 0.01 270)" }}>{children}</th>
+                ),
+                td: ({ children }) => (
+                  <td className="border px-3 py-1.5" style={{ borderColor: "oklch(0.32 0.01 270)" }}>{children}</td>
+                ),
+                code: ({ className, children, ...props }) => {
+                  const isBlock = className?.includes("language-");
+                  return isBlock ? (
+                    <pre className="rounded-lg p-3 my-2 overflow-x-auto text-xs" style={{ background: "oklch(0.15 0.01 270)" }}>
+                      <code className={className}>{children}</code>
+                    </pre>
+                  ) : (
+                    <code className="px-1 py-0.5 rounded text-xs" style={{ background: "oklch(0.22 0.01 270)", color: "oklch(0.82 0.12 250)" }} {...props}>{children}</code>
+                  );
+                },
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 pl-3 my-2 italic" style={{ borderColor: "oklch(0.55 0.18 250)", color: "oklch(0.65 0.01 270)" }}>{children}</blockquote>
+                ),
+                h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-1.5">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-semibold mt-2 mb-1">{children}</h3>,
+                strong: ({ children }) => <strong className="font-bold" style={{ color: "oklch(0.92 0.005 270)" }}>{children}</strong>,
+                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "oklch(0.72 0.18 250)" }}>{children}</a>,
+                ul: ({ children }) => <ul className="list-disc pl-5 my-1.5 space-y-0.5">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5">{children}</ol>,
+                li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+                p: ({ children }) => <p className="text-sm leading-relaxed my-1.5">{children}</p>,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          </MarkdownErrorBoundary>
         </div>
         <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <CopyButton text={msg.content} />
@@ -317,6 +379,11 @@ export default function ChatRoom() {
   const [moveConvId, setMoveConvId] = useState<number | null>(null);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
+  // ─── Search ───────────────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -333,6 +400,13 @@ export default function ChatRoom() {
     enabled: isAuthenticated && !!accessData?.hasAccess,
     refetchInterval: 10000,
   });
+
+  // Search results
+  const debouncedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
+  const { data: searchResults } = trpc.chat.searchConversations.useQuery(
+    { keyword: debouncedSearch },
+    { enabled: isAuthenticated && !!accessData?.hasAccess && debouncedSearch.length >= 1 }
+  );
 
   // Groups with their conversations
   const { data: groups, refetch: refetchGroups } = trpc.chat.listGroups.useQuery(undefined, {
@@ -557,9 +631,89 @@ export default function ChatRoom() {
           </button>
         </div>
 
+        {/* Search bar */}
+        {searchOpen ? (
+          <div className="px-3 mb-2 shrink-0">
+            <div className="flex items-center gap-2 h-9 rounded-xl px-3" style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.30 0.01 270)" }}>
+              <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.55 0.01 270)" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); } }}
+                placeholder="搜索任务名称或内容..."
+                className="flex-1 bg-transparent text-xs outline-none"
+                style={{ color: "oklch(0.82 0.005 270)", caretColor: "oklch(0.72 0.18 250)" }}
+                autoFocus
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="shrink-0 hover:opacity-70" style={{ color: "oklch(0.55 0.01 270)" }}>
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+              <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="shrink-0 text-xs hover:opacity-70" style={{ color: "oklch(0.55 0.01 270)" }}>取消</button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-3 mb-2 shrink-0">
+            <button
+              onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+              className="w-full h-8 rounded-xl flex items-center gap-2 px-3 text-xs transition-colors hover:bg-white/5"
+              style={{ color: "oklch(0.45 0.01 270)", background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)" }}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+              搜索任务...
+              <span className="ml-auto text-xs opacity-50">⌘K</span>
+            </button>
+          </div>
+        )}
+
         {/* Conversation list */}
         <div className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
 
+          {/* Search results */}
+          {searchOpen && searchQuery.trim() && (
+            <div>
+              <div className="flex items-center gap-1.5 px-2 py-1 text-xs mb-1" style={{ color: "oklch(0.42 0.01 270)" }}>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+                <span>搜索结果</span>
+                {searchResults && <span className="ml-auto opacity-60">{searchResults.length} 条</span>}
+              </div>
+              {searchResults && searchResults.length > 0 ? searchResults.map(conv => {
+                const title = conv.title || "未命名任务";
+                const idx = title.toLowerCase().indexOf(searchQuery.toLowerCase());
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => { setActiveConvId(conv.id); setSearchOpen(false); setSearchQuery(""); }}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors hover:bg-white/5"
+                    style={{ background: activeConvId === conv.id ? "oklch(0.72 0.18 250 / 0.12)" : "transparent" }}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.55 0.01 270)" }} />
+                    <span className="text-xs truncate" style={{ color: "oklch(0.75 0.005 270)" }}>
+                      {idx >= 0 ? (
+                        <>
+                          {title.slice(0, idx)}
+                          <mark className="rounded px-0.5" style={{ background: "oklch(0.72 0.18 250 / 0.35)", color: "oklch(0.92 0.005 270)" }}>
+                            {title.slice(idx, idx + searchQuery.length)}
+                          </mark>
+                          {title.slice(idx + searchQuery.length)}
+                        </>
+                      ) : title}
+                    </span>
+                  </button>
+                );
+              }) : (
+                <div className="px-3 py-6 text-center">
+                  <p className="text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>未找到匹配的任务</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Normal list (hidden during search) */}
+          {(!searchOpen || !searchQuery.trim()) && (
+          <>
           {/* Groups */}
           {groups && groups.map(group => (
             <GroupSection
@@ -601,6 +755,8 @@ export default function ChatRoom() {
               <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: "oklch(0.55 0.01 270)" }} />
               <p className="text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>点击「新任务」开始</p>
             </div>
+          )}
+          </>
           )}
         </div>
 

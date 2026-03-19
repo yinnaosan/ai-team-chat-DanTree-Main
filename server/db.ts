@@ -435,3 +435,40 @@ export async function setGroupCollapsed(groupId: number, userId: number, isColla
     and(eq(conversationGroups.id, groupId), eq(conversationGroups.userId, userId))
   );
 }
+
+/** 搜索对话：按标题或消息内容关键词搜索 */
+export async function searchConversations(userId: number, keyword: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const { like, or } = await import("drizzle-orm");
+
+  // 搜索标题匹配的会话
+  const titleMatches = await db.select().from(conversations)
+    .where(and(eq(conversations.userId, userId), like(conversations.title, `%${keyword}%`)))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(20);
+
+  // 搜索消息内容匹配的会话（取对应会话ID）
+  const msgMatches = await db.selectDistinct({ conversationId: messages.conversationId })
+    .from(messages)
+    .where(and(eq(messages.userId, userId), like(messages.content, `%${keyword}%`)))
+    .limit(20);
+
+  const msgConvIds = msgMatches
+    .map(m => m.conversationId)
+    .filter((id): id is number => id !== null);
+
+  // 合并去重
+  const combined = titleMatches.map(c => c.id).concat(msgConvIds);
+  const allIdsArr = Array.from(new Set(combined));
+  if (allIdsArr.length === 0) return [];
+
+  // 获取所有匹配会话的完整信息
+  const { inArray } = await import("drizzle-orm");
+  const results = await db.select().from(conversations)
+    .where(and(eq(conversations.userId, userId), inArray(conversations.id, allIdsArr)))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(30);
+
+  return results;
+}

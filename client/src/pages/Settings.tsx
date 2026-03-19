@@ -547,14 +547,12 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"
               style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>四步协作流程</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步协作流程</h2>
 
               {[
-                { step: "Step 1", label: "Manus 分解任务", desc: "理解需求，拆解子步骤，识别数据需求，制定执行计划", color: "var(--manus-color)", icon: Bot },
-                { step: "Step 2", label: "Manus 执行分析", desc: "数据收集、量化分析、统计计算，生成结构化数据报告", color: "var(--manus-color)", icon: Bot },
-                { step: "Step 3", label: "GPT 经理审阅", desc: "审阅数据报告，补充观点和洞察，给出最终表达框架建议（内部，不输出）", color: "var(--chatgpt-color)", icon: Brain },
-                { step: "Step 4", label: "Manus 整合输出", desc: "按 GPT 经理建议整合最终结构化 Markdown 回复", color: "var(--manus-color)", icon: Bot },
-                { step: "Step 5", label: "GPT 最终审核", desc: "确认质量，直接修正后输出唯一一条最终回复给用户", color: "var(--chatgpt-color)", icon: Brain },
+                { step: "Step 1", label: "Manus 能力评估 + 分析", desc: "接收任务，判断哪些部分自己擅长（数据/计算/结构化），完成自己负责的分析，并列出交给 GPT 的任务", color: "var(--manus-color)", icon: Bot },
+                { step: "Step 2", label: "GPT 处理不擅长部分", desc: "Manus 将主观判断、策略建议、情绪分析等任务交给 ChatGPT，由 GPT 独立处理（内部工作，不直接输出）", color: "var(--chatgpt-color)", icon: Brain },
+                { step: "Step 3", label: "GPT 汇总输出", desc: "整合 Manus 数据报告 + GPT 自身分析，由 GPT 决定最终回复框架，输出唯一一条整合回复给用户", color: "var(--chatgpt-color)", icon: Brain },
               ].map(({ step, label, desc, color, icon: Icon }, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"

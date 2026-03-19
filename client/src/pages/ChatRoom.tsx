@@ -3,6 +3,15 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import {
@@ -10,7 +19,7 @@ import {
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
   MessageSquare, Database, History, Download, Star, Pin,
   MoreHorizontal, ChevronRight, FileText, Table2, Copy, Check,
-  Paperclip, Image, Film, Music, File, XCircle,
+  Paperclip, Image, Film, Music, File, XCircle, Sparkles,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -403,6 +412,15 @@ export default function ChatRoom() {
   const [showStarred, setShowStarred] = useState(true);
   const [showRecent, setShowRecent] = useState(true);
 
+  // ─── New task dialog state ─────────────────────────────────────────────────────
+  const [newTaskDialogOpen, setNewTaskDialogOpen] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const newTaskInputRef = useRef<HTMLInputElement>(null);
+
+  // Local conversation list (augments taskGroups with named conversations)
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string; createdAt: Date }>>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+
   // ─── File upload state ─────────────────────────────────────────────────────────
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -578,6 +596,30 @@ export default function ChatRoom() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
+  // ─── New task dialog handlers ─────────────────────────────────────────────────────
+  const openNewTaskDialog = useCallback(() => {
+    setNewTaskName("");
+    setNewTaskDialogOpen(true);
+    // Focus input after dialog opens
+    setTimeout(() => newTaskInputRef.current?.focus(), 80);
+  }, []);
+
+  const confirmNewTask = useCallback(() => {
+    const title = newTaskName.trim() || `新任务 ${new Date().toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const id = crypto.randomUUID();
+    const conv = { id, title, createdAt: new Date() };
+    setConversations(prev => [conv, ...prev]);
+    setActiveConvId(id);
+    setActiveTaskId(null); // reset task filter for new empty conversation
+    setNewTaskDialogOpen(false);
+    setNewTaskName("");
+    // Focus the main input
+    setTimeout(() => {
+      const ta = document.querySelector<HTMLTextAreaElement>("textarea[placeholder]");
+      ta?.focus();
+    }, 100);
+  }, [newTaskName]);
+
   const togglePin = useCallback((taskId: number) => {
     setPinnedIds(prev => {
       const next = new Set(prev);
@@ -635,9 +677,9 @@ export default function ChatRoom() {
 
         {/* New task */}
         <div className="px-3 mb-3 shrink-0">
-          <button onClick={() => setActiveTaskId(null)}
-            className="w-full h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-            style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>
+          <button onClick={openNewTaskDialog}
+            className="w-full h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
             <Plus className="w-4 h-4" />新任务
           </button>
         </div>
@@ -645,12 +687,43 @@ export default function ChatRoom() {
         {/* Conversation list with groups */}
         <div className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
 
+          {/* Named conversations (created via "New Task" dialog) */}
+          {conversations.length > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center gap-1.5 px-2 py-1 text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>
+                <Sparkles className="w-3 h-3" />
+                <span>任务会话</span>
+                <span className="ml-auto opacity-60">{conversations.length}</span>
+              </div>
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => { setActiveConvId(conv.id); setActiveTaskId(null); }}
+                  className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors group/conv"
+                  style={{
+                    background: activeConvId === conv.id ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
+                    color: activeConvId === conv.id ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+                  }}>
+                  <MessageSquare className="w-3 h-3 shrink-0 opacity-60" />
+                  <span className="truncate flex-1">{conv.title}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConversations(prev => prev.filter(c => c.id !== conv.id)); if (activeConvId === conv.id) setActiveConvId(null); }}
+                    className="w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/conv:opacity-100 transition-opacity hover:bg-white/10"
+                    style={{ color: "oklch(0.55 0.01 270)" }}>
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </button>
+              ))}
+              <div className="mx-2 my-1.5" style={{ borderTop: "1px solid oklch(0.22 0.007 270)" }} />
+            </div>
+          )}
+
           {/* All conversations entry */}
-          <button onClick={() => setActiveTaskId(null)}
+          <button onClick={() => { setActiveTaskId(null); setActiveConvId(null); }}
             className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors mb-1"
             style={{
-              background: activeTaskId === null ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
-              color: activeTaskId === null ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+              background: activeTaskId === null && activeConvId === null ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
+              color: activeTaskId === null && activeConvId === null ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
             }}>
             <History className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate flex-1">全部对话</span>
@@ -919,6 +992,64 @@ export default function ChatRoom() {
           </div>
         </div>
       </div>
+
+      {/* ─── New Task Dialog ──────────────────────────────────────────────────────── */}
+      <Dialog open={newTaskDialogOpen} onOpenChange={setNewTaskDialogOpen}>
+        <DialogContent
+          className="sm:max-w-md"
+          style={{
+            background: "oklch(0.17 0.006 270)",
+            border: "1px solid oklch(0.28 0.008 270)",
+            borderRadius: "1rem",
+          }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 text-base" style={{ color: "oklch(0.92 0.005 270)" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
+                <Sparkles className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+              </div>
+              新建任务
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <p className="text-xs mb-3" style={{ color: "oklch(0.52 0.01 270)" }}>
+              给这个任务起一个名字，方便在左侧栏找到它。也可以直接点确认使用默认名称。
+            </p>
+            <Input
+              ref={newTaskInputRef}
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmNewTask(); }}
+              placeholder="例：氪深300分析、Q1投资回顾..."
+              className="text-sm"
+              style={{
+                background: "oklch(0.22 0.007 270)",
+                border: "1px solid oklch(0.32 0.009 270)",
+                color: "oklch(0.92 0.005 270)",
+                borderRadius: "0.75rem",
+              }}
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setNewTaskDialogOpen(false)}
+              className="text-sm"
+              style={{ color: "oklch(0.55 0.01 270)" }}>
+              取消
+            </Button>
+            <Button
+              onClick={confirmNewTask}
+              className="text-sm font-medium"
+              style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              创建任务
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,37 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
 
   const isConnected = rpaStatus?.status === "ready" || rpaStatus?.status === "working";
   const CHATGPT_URL = "https://chatgpt.com/";
+  const CHATGPT_PROXY_URL = "/api/chatgpt-proxy/";
   const CONVERSATION_NAME = "投资manus";
   const MANUS_CONVERSATION = "金融投资";
+  const [useProxy, setUseProxy] = useState(true);
+  const [windowHeight, setWindowHeight] = useState(520);
+  const resizeRef = useRef<HTMLDivElement>(null);
+  const isResizing = useRef(false);
+  const startY = useRef(0);
+  const startH = useRef(0);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    isResizing.current = true;
+    startY.current = e.clientY;
+    startH.current = windowHeight;
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", handleResizeEnd);
+    e.preventDefault();
+  };
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const delta = e.clientY - startY.current;
+    const newH = Math.max(300, Math.min(900, startH.current + delta));
+    setWindowHeight(newH);
+  }, []);
+
+  const handleResizeEnd = useCallback(() => {
+    isResizing.current = false;
+    document.removeEventListener("mousemove", handleResizeMove);
+    document.removeEventListener("mouseup", handleResizeEnd);
+  }, [handleResizeMove]);
 
   const handleReload = () => {
     setIframeError(false);
@@ -96,7 +125,9 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
         style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", borderBottom: "none" }}>
         <div className="flex items-center gap-2">
           <Monitor className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.01 270)" }} />
-          <span className="text-xs font-mono" style={{ color: "oklch(0.55 0.01 270)" }}>chatgpt.com</span>
+          <span className="text-xs font-mono" style={{ color: "oklch(0.55 0.01 270)" }}>
+            {useProxy ? "代理模式 (chatgpt.com)" : "chatgpt.com"}
+          </span>
           {!iframeError && !iframeLoading && (
             <span className="flex items-center gap-1 text-xs" style={{ color: "oklch(0.72 0.18 155)" }}>
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
@@ -105,6 +136,13 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => { setUseProxy(p => !p); setIframeError(false); setIframeLoading(true); setIframeKey(k => k + 1); }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+            style={{ color: useProxy ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)" }}
+            title={useProxy ? "切换到直连模式" : "切换到代理模式"}>
+            <Wifi className="w-3 h-3" />{useProxy ? "代理中" : "直连"}
+          </button>
           <button
             onClick={handleReload}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
@@ -127,7 +165,7 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
       {/* iframe 主体 */}
       <div className="relative rounded-b-xl overflow-hidden"
         style={{
-          height: "520px",
+          height: `${windowHeight}px`,
           border: "1px solid oklch(0.25 0.007 270)",
           background: "oklch(0.12 0.004 270)",
         }}>
@@ -178,10 +216,10 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
         <iframe
           key={iframeKey}
           ref={iframeRef}
-          src={CHATGPT_URL}
+          src={useProxy ? CHATGPT_PROXY_URL : CHATGPT_URL}
           className="w-full h-full border-0"
-          title="ChatGPT 预览"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation"
+          title="ChatGPT 登录窗口"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-modals"
           onLoad={() => {
             setIframeLoading(false);
             setIframeError(false);
@@ -192,6 +230,20 @@ function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
           }}
           style={{ display: iframeError ? "none" : "block" }}
         />
+      </div>
+
+      {/* 拖拽调整高度手柄 */}
+      <div
+        ref={resizeRef}
+        onMouseDown={handleResizeStart}
+        className="flex items-center justify-center w-full h-4 rounded-b-xl cursor-ns-resize select-none transition-colors hover:bg-white/5"
+        style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", borderTop: "none", marginTop: "-1px" }}
+        title="拖拽调整窗口高度">
+        <div className="flex gap-1">
+          {[0,1,2].map(i => (
+            <div key={i} className="w-6 h-0.5 rounded-full" style={{ background: "oklch(0.35 0.008 270)" }} />
+          ))}
+        </div>
       </div>
 
       {/* 底部提示 */}

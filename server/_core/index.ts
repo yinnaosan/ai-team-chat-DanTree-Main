@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { uploadRouter } from "../upload";
+import { chatgptProxyRouter } from "../chatgptProxy";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +39,8 @@ async function startServer() {
   registerOAuthRoutes(app);
   // File upload API
   app.use(uploadRouter);
+  // ChatGPT reverse proxy (strips X-Frame-Options for iframe embedding)
+  app.use(chatgptProxyRouter);
   // tRPC API
   app.use(
     "/api/trpc",

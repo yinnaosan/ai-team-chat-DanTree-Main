@@ -322,7 +322,7 @@ function TypingIndicator() {
         <span className="text-sm font-semibold" style={{ color: "var(--chatgpt-color)" }}>AI 协作回复</span>
         <div className="flex items-center gap-2 py-1">
           <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--chatgpt-color)" }} />
-          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>Manus 分析 → ChatGPT 决策 → Manus 校验</span>
+          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>Manus 分析擅长领域 → GPT 处理主观判断 → GPT 汇总输出</span>
         </div>
       </div>
     </div>
@@ -942,7 +942,7 @@ export default function ChatRoom() {
               </div>
             </div>
             <p className="text-center text-xs mt-1.5" style={{ color: "oklch(0.38 0.007 270)" }}>
-              Manus 分析 · ChatGPT 审核 · 内部静默流转
+              Manus 分析擅长领域 · GPT 处理主观判断 · GPT 汇总输出
             </p>
           </div>
         </div>

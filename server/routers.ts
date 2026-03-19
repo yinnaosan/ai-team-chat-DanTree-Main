@@ -87,60 +87,52 @@ async function runCollaborationFlow(
   const userConfig = await getRpaConfig(userId);
   const CHATGPT_CONVERSATION = "投资manus" as const;
 
-  // ── Manus 系统人设 ────────────────────────────────────────────────────────
+  // ── Manus 系统人设（执行层：数据/计算/结构化分析）────────────────────────
   const manusSystemPrompt = userConfig?.manusSystemPrompt ||
     `你是 Manus，一个专注于数据统筹、分析和执行的AI专家助手。
 
 ## 角色定位
-你是执行层专家，负责任务分解、数据收集、量化分析和统计计算。你的输出必须结构清晰、数据精准，供 GPT 经理审阅后整合成最终回复。
+你是执行层专家，负责任务分解、数据收集、量化分析和统计计算。你的输出必须结构清晰、数据精准，供 GPT 汇总成最终回复。
 
-## 强制排版规范（每条回复都必须严格遵守）
+## 你擅长的领域（这些部分由你独立完成）
+- 数据收集、整理、统计计算
+- 量化分析、指标对比、趋势分析
+- 结构化报告、表格、图表描述
+- 事实核查、信息检索、逻辑推理
+- 代码、公式、SQL 等技术内容
 
-每条回复必须包含以下结构要素：
+## 你不擅长的领域（这些部分交给 GPT 处理）
+- 主观判断、投资策略建议
+- 市场情绪分析、心理预期
+- 创意写作、叙事框架
+- 风险偏好评估、个性化建议
 
-1. **章节标题**：使用 ## 作为一级章节、### 作为二级章节，禁止无标题的纯文本块
-2. **关键数据加粗**：所有重要数字、结论、风险点必须用 **加粗** 标注
-3. **数据表格**：凡是涉及多维度对比、数据列举、指标汇总，必须使用 Markdown 表格
-   \`\`\`
-   | 指标 | 数值 | 说明 |
-   |------|------|------|
-   | ... | ... | ... |
-   \`\`\`
-4. **结论引用块**：核心结论、重要警告、关键洞察必须放在 > 引用块中
-   > 💡 关键结论：...
-5. **步骤有序列表**：操作步骤、执行计划使用 1. 2. 3. 有序列表
-6. **代码块**：代码、公式、SQL、JSON 必须用三反引号包裹
-7. **分隔线**：不同章节之间用 --- 分隔
+## 强制排版规范
+每条回复必须包含：## 标题、**加粗**关键数据、Markdown 表格（多维对比时）、> 引用块（核心结论）、--- 分隔线
 
-> ⚠️ 禁止输出无格式的纯文本段落。每个内容块必须有对应的 Markdown 格式标记。
+> ⚠️ 禁止输出无格式的纯文本段落。
 
 ## 语言要求
 - 中文回复，专业精准
-- 数字保留2位小数，百分比保留1位小数
-- 表格数据必须对齐，列宽一致`;
+- 数字保留2位小数，百分比保留1位小数`;
 
-  // ── GPT 经理系统人设 ──────────────────────────────────────────────────────
-  const gptManagerPrompt = `你是用户的投资顾问经理（GPT）。
+  // ── GPT 汇总人设（决策层：策略/判断/最终框架）───────────────────────────
+  const gptSummaryPrompt = `你是用户的投资顾问（GPT），负责最终决策和回复框架。
 
 ## 你的职责
-1. 审阅 Manus 的数据分析报告，判断准确性和完整性
-2. 从战略和经验角度补充观点、洞察和建议
-3. 决定最终回复的整体框架、语气和重点
-4. 你的输出是内部指导意见，供 Manus 整合成最终回复
+1. 接收 Manus 的数据分析报告（Manus 擅长的部分）
+2. 处理 Manus 转交给你的任务（主观判断、策略建议、情绪分析等 Manus 不擅长的部分）
+3. 将两部分整合，决定最终回复的框架和重点
+4. 直接输出给用户看的最终完整回复
 
-## 你的风格
-- 像资深经理：直接、有判断力、重视实用性
-- 明确指出数据中的关键信号和风险
-- 给出明确行动建议，不模棱两可
-- 中文，专业但不晦涩
-
-## 最终回复格式要求（必须传达给 Manus）
-最终给用户的回复必须：
-- 有清晰的 ## 标题结构
-- 关键数据和结论用 **加粗** 突出
+## 输出规则
+- 直接以专业顾问身份输出，不提及内部流程（不提 Manus、不提分工）
+- 每个章节必须有 ## 标题
+- 关键数字、结论必须 **加粗**
 - 核心判断放在 > 引用块中
-- 数据对比用表格呈现
-- 整体视觉层次丰富，类似 GPT 的专业排版风格`;
+- 数据对比用 Markdown 表格
+- 整体排版专业、视觉层次丰富
+- 中文，专业但不晦涩`;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);
@@ -162,147 +154,123 @@ async function runCollaborationFlow(
     await updateTaskStatus(taskId, "manus_working");
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 1 — Manus 分解任务
+    // Step 1 — Manus 能力评估：分析任务，明确自己负责部分和交给GPT的部分
     // ════════════════════════════════════════════════════════════════════════
-    const decomposeResponse = await invokeLLM({
+    const assessResponse = await invokeLLM({
       messages: [
         {
           role: "system",
-          content: manusSystemPrompt + "\n\n【当前任务】请先分解任务，列出执行步骤和数据需求，然后立即开始执行。",
+          content: manusSystemPrompt + `
+
+## 能力评估阶段
+请对以下任务进行能力评估，并同时完成你自己负责的分析工作。
+
+输出格式（严格按此格式，方便程序解析）：
+
+===MANUS_ANALYSIS===
+[你自己擅长的部分：数据收集、量化分析、结构化报告、事实核查等，尽可能完整详尽，包含表格、数据、分析结论]
+===GPT_TASKS===
+[你不擅长的部分：将需要主观判断、策略建议、情绪分析的具体问题列出，供 GPT 处理。如果没有需要GPT处理的部分，写「无」]
+===END===`,
         },
         { role: "user", content: fullContext },
       ],
     });
-    const taskPlan = String(decomposeResponse.choices?.[0]?.message?.content || "");
+    const assessContent = String(assessResponse.choices?.[0]?.message?.content || "");
+
+    // 解析 Manus 分析和 GPT 任务
+    const manusAnalysisMatch = assessContent.match(/===MANUS_ANALYSIS===([\s\S]*?)===GPT_TASKS===/);
+    const gptTasksMatch = assessContent.match(/===GPT_TASKS===([\s\S]*?)===END===/);
+    const manusAnalysis = manusAnalysisMatch ? manusAnalysisMatch[1].trim() : assessContent;
+    const gptTasks = gptTasksMatch ? gptTasksMatch[1].trim() : "";
+
+    await updateTaskStatus(taskId, "manus_working", { manusResult: manusAnalysis });
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — Manus 执行：数据收集、分析、统计
-    // ════════════════════════════════════════════════════════════════════════
-    const executeResponse = await invokeLLM({
-      messages: [
-        {
-          role: "system",
-          content: manusSystemPrompt + "\n\n【执行阶段】根据任务分解计划，执行数据收集、分析和统计，输出完整的结构化分析报告。",
-        },
-        { role: "user", content: fullContext },
-        { role: "assistant", content: taskPlan },
-        { role: "user", content: "请现在执行分析，输出完整的数据报告。" },
-      ],
-    });
-    const manusReport = String(executeResponse.choices?.[0]?.message?.content || "");
-    await updateTaskStatus(taskId, "manus_working", { manusResult: manusReport });
-
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 3 — GPT 经理：审阅报告，给出观点和表达框架（内部指导）
+    // Step 2 — GPT 处理不擅长的部分（主观判断/策略/情绪）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
 
-    let gptGuidance: string;
-    const gptManagerMessage = `【用户原始任务】
+    let gptAnalysis = "";
+    const rpaState = getRpaStatus();
+
+    // 如果有需要 GPT 处理的部分，发给 ChatGPT
+    if (gptTasks && gptTasks !== "无") {
+      const gptMessage = `【用户原始任务】
 ${fullContext}
 
-【Manus 数据分析报告】
-${manusReport}
+【Manus 已完成的数据分析】
+${manusAnalysis}
 
-请你作为经理：
-1. 评估 Manus 报告的准确性和完整性（如有遗漏请指出）
-2. 从投资顾问角度补充你的核心观点和洞察
-3. 给出最终回复的表达框架建议（重点突出什么、语气如何、结构怎么组织）
-4. 这是内部指导，Manus 将据此整合最终回复`;
+【需要你处理的部分（Manus 不擅长）】
+${gptTasks}
 
-    const rpaState = getRpaStatus();
-    if (rpaState.status === "ready" || rpaState.status === "idle") {
-      try {
-        gptGuidance = await sendToChatGPT(gptManagerMessage, CHATGPT_CONVERSATION);
-      } catch {
+请你处理以上任务，输出你的分析和建议。这是内部工作笔记，不是最终给用户的回复。`;
+
+      if (rpaState.status === "ready" || rpaState.status === "idle") {
+        try {
+          gptAnalysis = await sendToChatGPT(gptMessage, CHATGPT_CONVERSATION);
+        } catch {
+          const fb = await invokeLLM({
+            messages: [
+              { role: "system", content: gptSummaryPrompt },
+              { role: "user", content: gptMessage },
+            ],
+          });
+          gptAnalysis = String(fb.choices?.[0]?.message?.content || "");
+        }
+      } else {
         const fb = await invokeLLM({
           messages: [
-            { role: "system", content: gptManagerPrompt },
-            { role: "user", content: gptManagerMessage },
+            { role: "system", content: gptSummaryPrompt },
+            { role: "user", content: gptMessage },
           ],
         });
-        gptGuidance = String(fb.choices?.[0]?.message?.content || "");
+        gptAnalysis = String(fb.choices?.[0]?.message?.content || "");
       }
-    } else {
-      const fb = await invokeLLM({
-        messages: [
-          { role: "system", content: gptManagerPrompt },
-          { role: "user", content: gptManagerMessage },
-        ],
-      });
-      gptGuidance = String(fb.choices?.[0]?.message?.content || "");
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 4 — Manus 整合：按 GPT 经理建议输出最终回复
+    // Step 3 — GPT 汇总：整合 Manus 报告 + GPT 分析，决定最终回复框架，输出最终完整回复
     // ════════════════════════════════════════════════════════════════════════
-    const integrateResponse = await invokeLLM({
-      messages: [
-        {
-          role: "system",
-          content: manusSystemPrompt +
-            "\n\n## 整合阶段任务\n" +
-            "你已完成数据分析，GPT 经理给出了表达建议。现在请按照经理的框架，将数据分析整合成最终的、直接给用户看的完整回复。\n\n" +
-            "**必须遵守的输出规则：**\n" +
-            "1. 不要包含任何内部流程说明（不提及 Manus、GPT经理、内部审核等）\n" +
-            "2. 直接以专业顾问身份输出给用户的回复\n" +
-            "3. 每个章节必须有 ## 标题\n" +
-            "4. 关键数字、结论必须 **加粗**\n" +
-            "5. 核心判断放在 > 引用块中\n" +
-            "6. 数据对比必须用 Markdown 表格\n" +
-            "7. 整体排版类似 GPT 专业风格，视觉层次丰富\n" +
-            "\n> ⚠️ 禁止输出无格式纯文本。如果你的回复没有标题、没有加粗、没有表格，视为格式不合格，必须重新排版。",
-        },
-        { role: "user", content: `原始任务：${taskDescription}${attachmentBlock}` },
-        { role: "assistant", content: `[数据分析报告]\n${manusReport}` },
-        {
-          role: "user",
-          content: `[经理指导意见]\n${gptGuidance}\n\n请按照以上指导，输出最终的完整回复：`,
-        },
-      ],
-    });
-    const manusIntegrated = String(integrateResponse.choices?.[0]?.message?.content || "");
+    const summaryMessage = `【用户原始任务】
+${fullContext}
 
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 5 — GPT 最终审核：确认质量，直接修正后输出
-    // ════════════════════════════════════════════════════════════════════════
-    const finalReviewMessage = `【用户任务】${taskDescription}
+【Manus 数据分析结果（Manus 擅长的部分）】
+${manusAnalysis}
+${gptAnalysis ? `
+【GPT 处理结果（主观判断/策略/建议部分）】
+${gptAnalysis}` : ""}
 
-【Manus 整合回复草稿】
-${manusIntegrated}
-
-请你做最终审核：
-- 如果内容准确、完整、表达清晰，直接输出原文（不要加任何说明）
-- 如果有问题，直接在原文基础上修正，输出修正后的完整版本
-- 不要输出任何审核说明、前言或后记，只输出给用户看的最终内容`;
+请你作为投资顾问，将以上两部分整合，输出最终完整回复。要求：
+- 直接以专业顾问身份输出，不提及内部分工流程
+- 每个章节必须有 ## 标题
+- 关键数字、结论必须 **加粗**
+- 核心判断放在 > 引用块中
+- 数据对比用 Markdown 表格
+- 整体排版专业、视觉层次丰富`;
 
     let finalReply: string;
     if (rpaState.status === "ready" || rpaState.status === "idle") {
       try {
-        finalReply = await sendToChatGPT(finalReviewMessage, CHATGPT_CONVERSATION);
+        finalReply = await sendToChatGPT(summaryMessage, CHATGPT_CONVERSATION);
       } catch {
         const fb = await invokeLLM({
           messages: [
-            {
-              role: "system",
-              content: "你是投资顾问经理。请对以下回复做最终审核，直接输出最终版本，不要加任何说明。",
-            },
-            { role: "user", content: finalReviewMessage },
+            { role: "system", content: gptSummaryPrompt },
+            { role: "user", content: summaryMessage },
           ],
         });
-        finalReply = String(fb.choices?.[0]?.message?.content || manusIntegrated);
+        finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
       }
     } else {
       const fb = await invokeLLM({
         messages: [
-          {
-            role: "system",
-            content: "你是投资顾问经理。请对以下回复做最终审核，直接输出最终版本，不要加任何说明。",
-          },
-          { role: "user", content: finalReviewMessage },
+          { role: "system", content: gptSummaryPrompt },
+          { role: "user", content: summaryMessage },
         ],
       });
-      finalReply = String(fb.choices?.[0]?.message?.content || manusIntegrated);
+      finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
     }
 
     // ── 只向用户输出一条最终回复 ─────────────────────────────────────────────

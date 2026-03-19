@@ -1,0 +1,1 @@
+ALTER TABLE `messages` MODIFY COLUMN `role` enum('user','manus','chatgpt','system','assistant') NOT NULL;

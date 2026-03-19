@@ -12,7 +12,7 @@ import {
   MessageSquare, Database, History
 } from "lucide-react";
 
-type MsgRole = "user" | "manus" | "chatgpt" | "system";
+type MsgRole = "user" | "manus" | "chatgpt" | "system" | "assistant";
 interface Msg {
   id: number;
   role: MsgRole;
@@ -27,19 +27,25 @@ interface TaskGroup {
   msgs: Msg[];
 }
 
+// 只展示给用户看的角色：user（用户输入）和assistant（最终整合回复）
+const VISIBLE_ROLES: MsgRole[] = ["user", "assistant"];
+
 const ROLE_META: Record<MsgRole, { label: string; abbr: string }> = {
-  user:    { label: "你",       abbr: "你" },
-  manus:   { label: "Manus",   abbr: "M"  },
-  chatgpt: { label: "ChatGPT", abbr: "G"  },
-  system:  { label: "系统",     abbr: "·"  },
+  user:      { label: "你",       abbr: "你" },
+  manus:     { label: "Manus",   abbr: "M"  },
+  chatgpt:   { label: "ChatGPT", abbr: "G"  },
+  system:    { label: "系统",     abbr: "·"  },
+  assistant: { label: "AI 回复",  abbr: "AI" },
 };
 
 function groupByTask(msgs: Msg[]): TaskGroup[] {
   const map = new Map<number, TaskGroup>();
-  for (const m of msgs) {
+  // 只处理可见消息
+  const visibleMsgs = msgs.filter(m => VISIBLE_ROLES.includes(m.role));
+  for (const m of visibleMsgs) {
     if (!m.taskId) continue;
     if (!map.has(m.taskId)) {
-      const userMsg = msgs.find(x => x.taskId === m.taskId && x.role === "user");
+      const userMsg = visibleMsgs.find(x => x.taskId === m.taskId && x.role === "user");
       map.set(m.taskId, {
         taskId: m.taskId,
         title: userMsg?.content.slice(0, 55) || `任务 #${m.taskId}`,
@@ -67,7 +73,8 @@ function MsgBubble({ msg }: { msg: Msg }) {
     );
   }
   const isUser = msg.role === "user";
-  const colorVar = msg.role === "manus" ? "manus" : msg.role === "chatgpt" ? "chatgpt" : "user";
+  // assistant（最终整合回复）使用 chatgpt 颜色风格
+  const colorVar = msg.role === "manus" ? "manus" : (msg.role === "chatgpt" || msg.role === "assistant") ? "chatgpt" : "user";
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} items-start`}>
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
@@ -96,22 +103,19 @@ function MsgBubble({ msg }: { msg: Msg }) {
   );
 }
 
-function TypingIndicator({ role }: { role: "manus" | "chatgpt" }) {
-  const label = role === "manus" ? "Manus 正在分析..." : "ChatGPT 正在审查...";
-  const abbr = role === "manus" ? "M" : "G";
+function TypingIndicator() {
   return (
     <div className="flex gap-3 items-start">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
-        style={{ background: `var(--${role}-bg)`, border: `1.5px solid var(--${role}-color)`, color: `var(--${role}-color)` }}>
-        {abbr}
+        style={{ background: "var(--chatgpt-bg)", border: "1.5px solid var(--chatgpt-color)", color: "var(--chatgpt-color)" }}>
+        AI
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium" style={{ color: `var(--${role}-color)` }}>{label}</span>
-        <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
-          style={{ background: `var(--${role}-bg)`, border: `1px solid var(--${role}-color)`, borderBottomLeftRadius: "0.375rem" }}>
-          {[0,1,2].map(i => (
-            <span key={i} className="typing-dot" style={{ background: `var(--${role}-color)`, animationDelay: `${i*0.2}s` }} />
-          ))}
+        <span className="text-xs font-medium" style={{ color: "var(--chatgpt-color)" }}>正在协作中...</span>
+        <div className="px-4 py-3 rounded-2xl flex items-center gap-2"
+          style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-color)", borderBottomLeftRadius: "0.375rem" }}>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--chatgpt-color)" }} />
+          <span className="text-xs" style={{ color: "oklch(0.65 0.01 270)" }}>Manus 分析 → ChatGPT 决策 → Manus 校验</span>
         </div>
       </div>
     </div>
@@ -377,8 +381,7 @@ export default function ChatRoom() {
           ) : (
             <>
               {displayMsgs.map((msg) => <MsgBubble key={msg.id} msg={msg} />)}
-              {isTypingManus && <TypingIndicator role="manus" />}
-              {isTypingGpt && <TypingIndicator role="chatgpt" />}
+              {(isTypingManus || isTypingGpt) && <TypingIndicator />}
             </>
           )}
           <div ref={bottomRef} />

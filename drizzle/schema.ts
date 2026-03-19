@@ -58,6 +58,7 @@ export const messages = mysqlTable("messages", {
     "manus",
     "chatgpt",
     "system",
+    "assistant",
   ]).notNull(),
   content: text("content").notNull(),
   metadata: json("metadata"),         // 额外信息（如数据库查询结果摘要）

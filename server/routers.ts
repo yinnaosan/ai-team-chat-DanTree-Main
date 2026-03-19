@@ -78,107 +78,96 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
     : "";
 
   try {
-    // Step 1: Manus 执行层分析（注入历史记忆）
+    // 后台静默执行：仅更新任务状态，不向用户显示中间过程消息
     await updateTaskStatus(taskId, "manus_working");
-    await insertMessage({
-      taskId,
-      userId,
-      role: "system",
-      content: "🔄 Manus 正在分析任务并执行数据处理...",
-    });
 
+    // ─── Step 1（静默）：Manus 执行层分析 ────────────────────────────────────────
     const manusResponse = await invokeLLM({
       messages: [
         {
           role: "system",
-          content: manusBasePrompt + memoryBlock + "\n\n请对以下任务进行分析和执行，输出详细的执行结果：",
+          content: manusBasePrompt + memoryBlock +
+            "\n\n请对以下任务进行分析和执行，输出结构化的分析结果，供 ChatGPT 主管决定最终回复框架：",
         },
-        {
-          role: "user",
-          content: taskDescription,
-        },
+        { role: "user", content: taskDescription },
       ],
     });
-
     const manusResult = String(manusResponse.choices?.[0]?.message?.content || "Manus 分析完成");
-
     await updateTaskStatus(taskId, "manus_working", { manusResult });
-    await insertMessage({
-      taskId,
-      userId,
-      role: "manus",
-      content: manusResult,
-      metadata: { phase: "execution" },
-    });
 
-    // Step 2: 发送给 ChatGPT 主管进行二次检查（RPA 固定导航到「投资」对话框）
+    // ─── Step 2（静默）：ChatGPT 主管决定最终回复框架 ──────────────────────────
     await updateTaskStatus(taskId, "gpt_reviewing");
-    await insertMessage({
-      taskId,
-      userId,
-      role: "system",
-      content: `🔍 正在通过 RPA 将分析结果发送给 ChatGPT 主管（对话框：「${targetConversation}」）...`,
-    });
 
-    const rpaState = getRpaStatus();
-    let gptSummary: string;
+    const gptPrompt =
+`你是用户的主管。Manus 已完成数据分析，现在由你决定最终回复的整体框架和表达方式。
 
-    const gptPrompt = `作为主管，请对以下由 Manus 执行层完成的工作进行二次检查和汇总：
-
-【原始任务】
+【用户任务】
 ${taskDescription}
 ${memoryBlock}
 
-【Manus 执行结果】
+【Manus 执行层分析结果（供参考）】
 ${manusResult}
 
 请你：
 1. 检查 Manus 的分析是否准确、完整
-2. 结合历史任务上下文，补充任何遗漏的关键点
-3. 从战略和决策角度提供建议
-4. 输出一份最终的综合报告给用户`;
+2. 结合历史任务上下文，补充遗漏的关键点
+3. 以主管角度决定最终回复的整体框架和表达方式
+4. 直接输出给用户看的最终整合回复（不要包含上面的内部流程说明）`;
 
+    let gptDraft: string;
+    const rpaState = getRpaStatus();
     if (rpaState.status === "ready" || rpaState.status === "idle") {
       try {
-        gptSummary = await sendToChatGPT(gptPrompt, targetConversation);
+        gptDraft = await sendToChatGPT(gptPrompt, targetConversation);
       } catch (rpaErr) {
         console.warn("[Collaboration] RPA failed, falling back to LLM:", rpaErr);
-        const fallbackResponse = await invokeLLM({
+        const fb = await invokeLLM({
           messages: [
-            {
-              role: "system",
-              content: `你是 ChatGPT，作为团队主管，负责对 Manus 执行层的工作进行二次检查和战略汇总。注意：当前 RPA 连接不可用，请以主管身份直接审查并汇总。`,
-            },
+            { role: "system", content: `你是 ChatGPT，作为用户主管，负责决定最终回复框架。RPA 连接不可用，请直接以主管身份回复。` },
             { role: "user", content: gptPrompt },
           ],
         });
-        gptSummary = `[RPA离线模式] ${String(fallbackResponse.choices?.[0]?.message?.content || "ChatGPT 审查完成")}`;
+        gptDraft = String(fb.choices?.[0]?.message?.content || "ChatGPT 审查完成");
       }
     } else {
-      const fallbackResponse = await invokeLLM({
+      const fb = await invokeLLM({
         messages: [
-          { role: "system", content: "你是 ChatGPT 主管，请审查 Manus 的工作并给出最终报告。注意：RPA 当前未连接，请以主管身份直接回复。" },
+          { role: "system", content: "你是 ChatGPT 主管，请审查 Manus 的工作并以主管身份直接回复用户。" },
           { role: "user", content: gptPrompt },
         ],
       });
-      gptSummary = `[RPA未连接] ${String(fallbackResponse.choices?.[0]?.message?.content || "ChatGPT 审查完成")}`;
+      gptDraft = String(fb.choices?.[0]?.message?.content || "ChatGPT 审查完成");
     }
 
+    // ─── Step 3（静默）：Manus 对 ChatGPT 草稿做最终校验 ──────────────────────────
+    const verifyResponse = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: manusBasePrompt +
+            "\n\n你的职责是对 ChatGPT 主管起草的回复进行最终校验：" +
+            "检查数据准确性、逻辑一致性。" +
+            "如果内容完全正确，直接输出原文不作任何修改。" +
+            "如果有错误或遗漏，在原文基础上直接补充修正，不要加入任何说明性文字。",
+        },
+        {
+          role: "user",
+          content: `原始任务：${taskDescription}\n\nChatGPT 主管草稿：\n${gptDraft}`,
+        },
+      ],
+    });
+    const finalReply = String(verifyResponse.choices?.[0]?.message?.content || gptDraft);
+
+    // ─── 只向用户输出一条最终整合回复（role: "assistant"） ──────────────────────
     await insertMessage({
       taskId,
       userId,
-      role: "chatgpt",
-      content: gptSummary,
-      metadata: { phase: "review" },
+      role: "assistant",
+      content: finalReply,
+      metadata: { phase: "final", manusResult, gptDraft },
     });
 
-    await updateTaskStatus(taskId, "completed", { gptSummary });
-    await insertMessage({
-      taskId,
-      userId,
-      role: "system",
-      content: "✅ 协作任务已完成！ChatGPT 主管已完成审查并提交最终报告。",
-    });
+    await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
 
     // ★ Step 3: 自动生成任务摘要并保存到长期记忆
     try {
@@ -190,7 +179,7 @@ ${manusResult}
           },
           {
             role: "user",
-            content: `任务：${taskDescription}\n\nManus结果：${manusResult}\n\nChatGPT汇总：${gptSummary}`,
+            content: `任务：${taskDescription}\n\nManus结果：${manusResult}\n\nChatGPT主管草稿：${gptDraft}\n\n最终回复：${finalReply}`,
           },
         ],
       });

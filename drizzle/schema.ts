@@ -1,17 +1,16 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  int,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  timestamp,
+  varchar,
+  json,
+  boolean,
+} from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -25,4 +24,66 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// 任务表：用户提交的协作任务
+export const tasks = mysqlTable("tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: mysqlEnum("status", [
+    "pending",
+    "manus_working",
+    "gpt_reviewing",
+    "completed",
+    "failed",
+  ])
+    .default("pending")
+    .notNull(),
+  manusResult: text("manusResult"),   // Manus执行结果
+  gptSummary: text("gptSummary"),     // ChatGPT汇总报告
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = typeof tasks.$inferInsert;
+
+// 消息表：群聊消息历史
+export const messages = mysqlTable("messages", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId"),              // 关联任务（可选）
+  userId: int("userId"),              // 关联用户（可选）
+  role: mysqlEnum("role", [
+    "user",
+    "manus",
+    "chatgpt",
+    "system",
+  ]).notNull(),
+  content: text("content").notNull(),
+  metadata: json("metadata"),         // 额外信息（如数据库查询结果摘要）
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;
+
+// 数据库连接配置表：用户的金融数据库连接信息
+export const dbConnections = mysqlTable("db_connections", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  dbType: mysqlEnum("dbType", ["mysql", "postgresql", "sqlite"]).notNull(),
+  host: varchar("host", { length: 256 }),
+  port: int("port"),
+  database: varchar("database", { length: 128 }),
+  username: varchar("username", { length: 128 }),
+  password: text("password"),         // 生产环境应加密存储
+  filePath: text("filePath"),         // SQLite 文件路径
+  isActive: boolean("isActive").default(false).notNull(),
+  lastTestedAt: timestamp("lastTestedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DbConnection = typeof dbConnections.$inferSelect;
+export type InsertDbConnection = typeof dbConnections.$inferInsert;

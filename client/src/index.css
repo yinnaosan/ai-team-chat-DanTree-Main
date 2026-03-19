@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -111,6 +112,15 @@
   --sidebar-accent-foreground:  oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.488 0.243 264.376);
+
+  /* AI角色专属颜色 */
+  --manus-color: oklch(0.62 0.18 255);
+  --manus-bg: oklch(0.20 0.04 255 / 0.15);
+  --chatgpt-color: oklch(0.68 0.16 155);
+  --chatgpt-bg: oklch(0.18 0.04 155 / 0.15);
+  --user-color: oklch(0.75 0.12 45);
+  --user-bg: oklch(0.20 0.04 45 / 0.15);
+  --system-color: oklch(0.55 0.01 240);
 }
 
 @layer base {
@@ -119,6 +129,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+  code, pre {
+    font-family: 'JetBrains Mono', monospace;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

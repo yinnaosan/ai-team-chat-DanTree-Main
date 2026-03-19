@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
@@ -8,8 +9,15 @@ export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
+  // 必须在 useEffect 中调用 navigate，不能在渲染阶段直接调用
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/chat");
+    }
+  }, [loading, isAuthenticated, navigate]);
+
+  // 已登录时显示加载状态，等待 useEffect 跳转
   if (!loading && isAuthenticated) {
-    navigate("/chat");
     return null;
   }
 

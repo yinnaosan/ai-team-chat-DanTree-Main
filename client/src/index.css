@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Google+Sans+Text:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -44,83 +44,57 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --radius: 0.75rem;
+  /* Gemini dark theme as default */
+  --background: oklch(0.13 0.005 270);
+  --foreground: oklch(0.92 0.005 270);
+  --card: oklch(0.17 0.006 270);
+  --card-foreground: oklch(0.92 0.005 270);
+  --popover: oklch(0.17 0.006 270);
+  --popover-foreground: oklch(0.92 0.005 270);
+  --primary: oklch(0.72 0.18 250);
+  --primary-foreground: oklch(0.13 0.005 270);
+  --secondary: oklch(0.22 0.008 270);
+  --secondary-foreground: oklch(0.85 0.005 270);
+  --muted: oklch(0.20 0.006 270);
+  --muted-foreground: oklch(0.58 0.01 270);
+  --accent: oklch(0.22 0.008 270);
+  --accent-foreground: oklch(0.92 0.005 270);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.25 0.007 270);
+  --input: oklch(0.22 0.007 270);
+  --ring: oklch(0.72 0.18 250);
+  --sidebar: oklch(0.15 0.005 270);
+  --sidebar-foreground: oklch(0.85 0.005 270);
+  --sidebar-primary: oklch(0.72 0.18 250);
+  --sidebar-primary-foreground: oklch(0.13 0.005 270);
+  --sidebar-accent: oklch(0.20 0.007 270);
+  --sidebar-accent-foreground: oklch(0.92 0.005 270);
+  --sidebar-border: oklch(0.22 0.007 270);
+  --sidebar-ring: oklch(0.72 0.18 250);
+  --chart-1: oklch(0.72 0.18 250);
+  --chart-2: oklch(0.72 0.18 155);
+  --chart-3: oklch(0.78 0.18 55);
+  --chart-4: oklch(0.72 0.18 300);
+  --chart-5: oklch(0.72 0.18 20);
+  /* AI role colors */
+  --manus-color: oklch(0.72 0.18 250);
+  --manus-bg: oklch(0.72 0.18 250 / 0.08);
+  --manus-border: oklch(0.72 0.18 250 / 0.25);
+  --chatgpt-color: oklch(0.72 0.18 155);
+  --chatgpt-bg: oklch(0.72 0.18 155 / 0.08);
+  --chatgpt-border: oklch(0.72 0.18 155 / 0.25);
+  --user-color: oklch(0.78 0.18 55);
+  --user-bg: oklch(0.78 0.18 55 / 0.08);
+  --user-border: oklch(0.78 0.18 55 / 0.25);
+  --system-color: oklch(0.55 0.01 270);
 }
 
+/* Dark class kept for compatibility but root is already dark */
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
-
-  /* AI角色专属颜色 */
-  --manus-color: oklch(0.62 0.18 255);
-  --manus-bg: oklch(0.20 0.04 255 / 0.15);
-  --chatgpt-color: oklch(0.68 0.16 155);
-  --chatgpt-bg: oklch(0.18 0.04 155 / 0.15);
-  --user-color: oklch(0.75 0.12 45);
-  --user-bg: oklch(0.20 0.04 45 / 0.15);
-  --system-color: oklch(0.55 0.01 240);
+  --background: oklch(0.13 0.005 270);
+  --foreground: oklch(0.92 0.005 270);
 }
 
 @layer base {
@@ -129,7 +103,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Google Sans Text', 'Google Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
   code, pre {
     font-family: 'JetBrains Mono', monospace;
@@ -188,4 +163,141 @@
       max-width: 1280px; /* Standard content width */
     }
   }
+}
+/* ─── Gemini Sidebar ─────────────────────────────────────────────────────── */
+.gemini-sidebar {
+  background: oklch(0.15 0.005 270);
+  border-right: 1px solid oklch(0.22 0.007 270);
+}
+
+.gemini-sidebar-item {
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: oklch(0.72 0.008 270);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.gemini-sidebar-item:hover {
+  background: oklch(0.20 0.007 270);
+  color: oklch(0.92 0.005 270);
+}
+.gemini-sidebar-item.active {
+  background: oklch(0.72 0.18 250 / 0.12);
+  color: oklch(0.80 0.15 250);
+}
+
+/* ─── Message Bubbles ────────────────────────────────────────────────────── */
+.msg-row { display: flex; gap: 0.75rem; padding: 0.25rem 0; }
+.msg-row.user { flex-direction: row-reverse; }
+
+.msg-avatar {
+  width: 2rem; height: 2rem;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.msg-avatar.manus  { background: var(--manus-bg);   color: var(--manus-color);   border: 1px solid var(--manus-border); }
+.msg-avatar.chatgpt{ background: var(--chatgpt-bg); color: var(--chatgpt-color); border: 1px solid var(--chatgpt-border); }
+.msg-avatar.user   { background: var(--user-bg);    color: var(--user-color);    border: 1px solid var(--user-border); }
+
+.msg-bubble {
+  border-radius: 1.25rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  max-width: 75%;
+  word-break: break-word;
+}
+.msg-bubble.user {
+  background: var(--user-bg);
+  border: 1px solid var(--user-border);
+  color: oklch(0.92 0.005 270);
+  border-bottom-right-radius: 0.375rem;
+}
+.msg-bubble.manus {
+  background: var(--manus-bg);
+  border: 1px solid var(--manus-border);
+  color: oklch(0.92 0.005 270);
+  border-bottom-left-radius: 0.375rem;
+}
+.msg-bubble.chatgpt {
+  background: var(--chatgpt-bg);
+  border: 1px solid var(--chatgpt-border);
+  color: oklch(0.92 0.005 270);
+  border-bottom-left-radius: 0.375rem;
+}
+.msg-bubble.system {
+  background: oklch(0.18 0.005 270);
+  border: 1px solid oklch(0.25 0.007 270);
+  color: oklch(0.55 0.01 270);
+  font-size: 0.75rem;
+  text-align: center;
+  margin: 0.5rem auto;
+  max-width: 85%;
+  border-radius: 0.75rem;
+}
+
+/* ─── Gemini Input ───────────────────────────────────────────────────────── */
+.gemini-input-wrap {
+  background: oklch(0.20 0.007 270);
+  border: 1px solid oklch(0.28 0.008 270);
+  border-radius: 1.5rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.gemini-input-wrap:focus-within {
+  border-color: oklch(0.72 0.18 250 / 0.6);
+  box-shadow: 0 0 0 3px oklch(0.72 0.18 250 / 0.08);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(0.30 0.008 270); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0.01 270); }
+
+/* ─── Prose (markdown inside messages) ──────────────────────────────────── */
+.prose-chat { font-size: 0.875rem; line-height: 1.65; }
+.prose-chat h1,.prose-chat h2,.prose-chat h3 {
+  font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem;
+  color: oklch(0.92 0.005 270);
+}
+.prose-chat p { margin-bottom: 0.5rem; }
+.prose-chat ul,.prose-chat ol { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.prose-chat li { margin-bottom: 0.25rem; }
+.prose-chat code {
+  background: oklch(0.22 0.007 270);
+  padding: 0.1em 0.35em; border-radius: 0.3rem;
+  font-size: 0.8em; font-family: 'JetBrains Mono', monospace;
+  color: oklch(0.78 0.15 250);
+}
+.prose-chat pre {
+  background: oklch(0.16 0.005 270);
+  padding: 0.75rem 1rem; border-radius: 0.75rem;
+  overflow-x: auto; margin-bottom: 0.5rem;
+}
+.prose-chat pre code { background: transparent; padding: 0; }
+.prose-chat strong { font-weight: 600; color: oklch(0.92 0.005 270); }
+.prose-chat blockquote {
+  border-left: 3px solid oklch(0.72 0.18 250 / 0.4);
+  padding-left: 0.75rem; font-style: italic;
+  color: oklch(0.65 0.01 270);
+}
+
+/* ─── Typing indicator ───────────────────────────────────────────────────── */
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; opacity: 0.6;
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-bounce {
+  0%,60%,100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
 }

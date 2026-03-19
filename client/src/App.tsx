@@ -7,6 +7,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ChatRoom from "./pages/ChatRoom";
 import Settings from "./pages/Settings";
+import AccessGate from "./pages/AccessGate";
+import AdminPanel from "./pages/AdminPanel";
 
 function Router() {
   return (
@@ -14,6 +16,8 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/chat"} component={ChatRoom} />
       <Route path={"/settings"} component={Settings} />
+      <Route path={"/access"} component={AccessGate} />
+      <Route path={"/admin"} component={AdminPanel} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

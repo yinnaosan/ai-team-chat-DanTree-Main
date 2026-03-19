@@ -32,3 +32,36 @@
 - [x] 设置页面：添加「ChatGPT 目标对话框名称」输入框
 - [x] 设置页面：添加「Manus 底层指令」多行文本输入框
 - [x] 后端： rpa.setConfig / rpa.getConfig tRPC procedure
+
+## 访问控制（仅限Owner）
+- [ ] 后端：所有 protectedProcedure 增加 Owner 身份校验，非Owner返回 FORBIDDEN
+- [ ] 后端：新增 ownerProcedure 中间件
+- [ ] 前端：登录后检查是否为 Owner，非Owner显示「无权限」页面
+- [ ] 前端：Home页面未登录时显示登录入口，登录后非Owner直接跳转无权限页
+
+## 密码访问控制 & 长久上下文记忆
+- [ ] 数据库：access_codes 表（Owner生成的访问密码，含使用次数/有效期）
+- [ ] 数据库：user_access 表（记录哪些用户已通过密码验证）
+- [ ] 数据库：memory_context 表（全局跨任务上下文摘要，供Manus和ChatGPT读取）
+- [ ] 后端：access.verify procedure（用户输入密码验证）
+- [ ] 后端：access.checkAccess procedure（检查当前用户是否已有访问权限）
+- [ ] 后端：access.generateCode procedure（Owner生成新密码）
+- [ ] 后端：access.listCodes procedure（Owner查看所有密码）
+- [ ] 后端：access.revokeCode procedure（Owner撤销密码）
+- [ ] 后端：协作流程注入历史上下文（最近N条任务摘要作为记忆）
+- [ ] 后端：每次任务完成后自动更新全局记忆摘要
+- [ ] 前端：密码输入页面（未授权用户看到此页面）
+- [ ] 前端：Owner管理面板（生成/查看/撤销访问密码）
+- [ ] 前端：聊天界面显示历史任务列表，支持点击查看完整上下文
+- [ ] 前端：所有tRPC调用增加访问权限检查
+
+## UI重设计 & 对话框名称更新 & 历史对话持久化
+- [ ] RPA默认：ChatGPT固定使用「投资manus」对话框
+- [ ] RPA默认：Manus固定使用「金融投资」对话框
+- [ ] 后端：getMessages支持加载全部历史（无分页限制）
+- [ ] 后端：新增getConversations接口，按任务分组返回历史对话列表
+- [ ] 前端：Gemini风格UI（深色，左侧历史对话列表，右侧主聊天区）
+- [ ] 前端：左侧面板显示所有历史任务，点击可切换查看
+- [ ] 前端：登录后自动加载全部历史消息，无需刷新
+- [ ] 前端：Home页面登录后检查访问权限，无权限跳转密码页
+- [ ] 前端：顶部导航Owner可见「管理」入口

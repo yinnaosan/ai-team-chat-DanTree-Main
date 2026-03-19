@@ -2,20 +2,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-// Mock database helpers
+// Mock database helpers — include ALL exports used by routers.ts
 vi.mock("./db", () => ({
   insertMessage: vi.fn().mockResolvedValue(undefined),
   getMessages: vi.fn().mockResolvedValue([
-    {
-      id: 1,
-      taskId: null,
-      userId: 1,
-      role: "user",
-      content: "测试消息",
-      metadata: null,
-      createdAt: new Date(),
-    },
+    { id: 1, taskId: null, userId: 1, role: "user", content: "测试消息", metadata: null, createdAt: new Date() },
   ]),
+  getAllMessages: vi.fn().mockResolvedValue([]),
+  getAllMessagesByUser: vi.fn().mockResolvedValue([]),
   getMessagesByTask: vi.fn().mockResolvedValue([]),
   createTask: vi.fn().mockResolvedValue([{ insertId: 42 }]),
   updateTaskStatus: vi.fn().mockResolvedValue(undefined),
@@ -27,14 +21,27 @@ vi.mock("./db", () => ({
   setActiveDbConnection: vi.fn().mockResolvedValue(undefined),
   deleteDbConnection: vi.fn().mockResolvedValue(undefined),
   getRpaConfig: vi.fn().mockResolvedValue({
-    id: 1,
-    userId: 1,
-    chatgptConversationName: "投资",
+    id: 1, userId: 1,
+    chatgptConversationName: "投资manus",
     manusSystemPrompt: "你是一个专业的金融投资分析师",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date(), updatedAt: new Date(),
   }),
   upsertRpaConfig: vi.fn().mockResolvedValue(undefined),
+  // Access control mocks
+  createAccessCode: vi.fn().mockResolvedValue(undefined),
+  listAccessCodes: vi.fn().mockResolvedValue([]),
+  revokeAccessCode: vi.fn().mockResolvedValue(undefined),
+  verifyAccessCode: vi.fn().mockResolvedValue(null),
+  incrementCodeUsage: vi.fn().mockResolvedValue(undefined),
+  getUserAccess: vi.fn().mockResolvedValue({ id: 1, userId: 1, codeId: 1, grantedAt: new Date() }),
+  grantUserAccess: vi.fn().mockResolvedValue(undefined),
+  revokeUserAccess: vi.fn().mockResolvedValue(undefined),
+  // Memory mocks
+  getRecentMemory: vi.fn().mockResolvedValue([]),
+  saveMemoryContext: vi.fn().mockResolvedValue(undefined),
+  // User mock
+  upsertUser: vi.fn().mockResolvedValue(undefined),
+  getUserByOpenId: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock RPA module
@@ -168,8 +175,8 @@ describe("rpa.getConfig", () => {
     const result = await caller.rpa.getConfig();
     expect(result).toHaveProperty("chatgptConversationName");
     expect(result).toHaveProperty("manusSystemPrompt");
-    // 默认对话框名称应为「投资」
-    expect(result.chatgptConversationName).toBe("投资");
+    // 默认对话框名称应为「投资manus」
+    expect(result.chatgptConversationName).toBe("投资manus");
   });
 });
 

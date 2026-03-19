@@ -1,12 +1,16 @@
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, ownerProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
+import { ENV } from "./_core/env";
 import {
   insertMessage,
   getMessages,
+  getAllMessages,
+  getAllMessagesByUser,
   getMessagesByTask,
   createTask,
   updateTaskStatus,
@@ -19,15 +23,43 @@ import {
   deleteDbConnection,
   getRpaConfig,
   upsertRpaConfig,
+  createAccessCode,
+  listAccessCodes,
+  revokeAccessCode,
+  verifyAccessCode,
+  incrementCodeUsage,
+  getUserAccess,
+  grantUserAccess,
+  revokeUserAccess,
+  getRecentMemory,
+  saveMemoryContext,
 } from "./db";
-import { connectToChatGPT, sendToChatGPT, getRpaStatus, navigateToConversation } from "./rpa";
+import { connectToChatGPT, sendToChatGPT, getRpaStatus } from "./rpa";
+import { TRPCError } from "@trpc/server";
+
+// ─── 访问权限检查中间件（Owner 或已授权用户均可访问）────────────────────────────
+
+async function requireAccess(userId: number, openId: string) {
+  // Owner 始终有权限
+  if (openId === ENV.ownerOpenId) return;
+  // 检查是否已通过密码授权
+  const access = await getUserAccess(userId);
+  if (!access) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "请先输入访问密码",
+    });
+  }
+}
 
 // ─── 任务协作核心流程 ─────────────────────────────────────────────────────────
 
 async function runCollaborationFlow(taskId: number, userId: number, taskDescription: string) {
   // 加载用户配置：对话框名称 + Manus 底层指令
   const userConfig = await getRpaConfig(userId);
-  const targetConversation = userConfig?.chatgptConversationName || "投资";
+  // ChatGPT主管使用「投资manus」，Manus执行层使用「金融投资」
+  const targetConversation = userConfig?.chatgptConversationName || "投资manus";
+  const manusConversation = "金融投资";
   const manusBasePrompt = userConfig?.manusSystemPrompt ||
     `你是 Manus，一个专注于数据统筹、分析和执行的AI助手。
 你的职责：
@@ -35,8 +67,18 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
 2. 执行数据查询、文档处理、数据分析和统计
 3. 输出结构化的分析结果，供 ChatGPT 主管进行二次审查
 4. 用中文回复，保持专业、简洁`;
+
+  // ★ 加载历史记忆上下文（最近10条任务摘要）
+  const recentMemory = await getRecentMemory(userId, 10);
+  const memoryBlock = recentMemory.length > 0
+    ? `\n\n【历史任务记忆（最近${recentMemory.length}条，用于跨任务连续跟进）】\n` +
+      recentMemory.map((m, i) =>
+        `${i + 1}. [${new Date(m.createdAt).toLocaleDateString("zh-CN")}] ${m.taskTitle}\n   摘要：${m.summary}`
+      ).join("\n")
+    : "";
+
   try {
-    // Step 1: Manus 执行层分析
+    // Step 1: Manus 执行层分析（注入历史记忆）
     await updateTaskStatus(taskId, "manus_working");
     await insertMessage({
       taskId,
@@ -45,12 +87,11 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
       content: "🔄 Manus 正在分析任务并执行数据处理...",
     });
 
-    // Manus 调用内置 LLM 进行数据分析（使用用户配置的底层指令）
     const manusResponse = await invokeLLM({
       messages: [
         {
           role: "system",
-          content: manusBasePrompt + "\n\n请对以下任务进行分析和执行，输出详细的执行结果：",
+          content: manusBasePrompt + memoryBlock + "\n\n请对以下任务进行分析和执行，输出详细的执行结果：",
         },
         {
           role: "user",
@@ -61,7 +102,6 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
 
     const manusResult = String(manusResponse.choices?.[0]?.message?.content || "Manus 分析完成");
 
-    // 保存 Manus 的分析结果
     await updateTaskStatus(taskId, "manus_working", { manusResult });
     await insertMessage({
       taskId,
@@ -71,73 +111,59 @@ async function runCollaborationFlow(taskId: number, userId: number, taskDescript
       metadata: { phase: "execution" },
     });
 
-    // Step 2: 发送给 ChatGPT 主管进行二次检查
+    // Step 2: 发送给 ChatGPT 主管进行二次检查（RPA 固定导航到「投资」对话框）
     await updateTaskStatus(taskId, "gpt_reviewing");
     await insertMessage({
       taskId,
       userId,
       role: "system",
-      content: "🔍 正在通过 RPA 将分析结果发送给 ChatGPT 主管进行审查...",
+      content: `🔍 正在通过 RPA 将分析结果发送给 ChatGPT 主管（对话框：「${targetConversation}」）...`,
     });
 
     const rpaState = getRpaStatus();
     let gptSummary: string;
 
-    if (rpaState.status === "ready" || rpaState.status === "idle") {
-      // 尝试通过 RPA 发送给 ChatGPT（固定导航到「投资」对话框）
-      const gptPrompt = `作为主管，请对以下由 Manus 执行层完成的工作进行二次检查和汇总：
+    const gptPrompt = `作为主管，请对以下由 Manus 执行层完成的工作进行二次检查和汇总：
 
 【原始任务】
 ${taskDescription}
+${memoryBlock}
 
 【Manus 执行结果】
 ${manusResult}
 
 请你：
 1. 检查 Manus 的分析是否准确、完整
-2. 补充任何遗漏的关键点
+2. 结合历史任务上下文，补充任何遗漏的关键点
 3. 从战略和决策角度提供建议
 4. 输出一份最终的综合报告给用户`;
 
+    if (rpaState.status === "ready" || rpaState.status === "idle") {
       try {
-        // 传入用户配置的目标对话框名称（默认「投资」）
         gptSummary = await sendToChatGPT(gptPrompt, targetConversation);
       } catch (rpaErr) {
-        // RPA 失败时，使用内置 LLM 模拟 ChatGPT 主管角色
         console.warn("[Collaboration] RPA failed, falling back to LLM:", rpaErr);
         const fallbackResponse = await invokeLLM({
           messages: [
             {
               role: "system",
-              content: `你是 ChatGPT，作为团队主管，负责对 Manus 执行层的工作进行二次检查和战略汇总。
-注意：当前 RPA 连接不可用，请以主管身份直接审查并汇总。`,
+              content: `你是 ChatGPT，作为团队主管，负责对 Manus 执行层的工作进行二次检查和战略汇总。注意：当前 RPA 连接不可用，请以主管身份直接审查并汇总。`,
             },
-            {
-              role: "user",
-              content: `原始任务：${taskDescription}\n\nManus执行结果：${manusResult}\n\n请进行审查并给出最终报告。`,
-            },
+            { role: "user", content: gptPrompt },
           ],
         });
         gptSummary = `[RPA离线模式] ${String(fallbackResponse.choices?.[0]?.message?.content || "ChatGPT 审查完成")}`;
       }
     } else {
-      // RPA 未就绪，使用备用方案
       const fallbackResponse = await invokeLLM({
         messages: [
-          {
-            role: "system",
-            content: "你是 ChatGPT 主管，请审查 Manus 的工作并给出最终报告。注意：RPA 当前未连接，请以主管身份直接回复。",
-          },
-          {
-            role: "user",
-            content: `任务：${taskDescription}\n\nManus结果：${manusResult}`,
-          },
+          { role: "system", content: "你是 ChatGPT 主管，请审查 Manus 的工作并给出最终报告。注意：RPA 当前未连接，请以主管身份直接回复。" },
+          { role: "user", content: gptPrompt },
         ],
       });
       gptSummary = `[RPA未连接] ${String(fallbackResponse.choices?.[0]?.message?.content || "ChatGPT 审查完成")}`;
     }
 
-    // 保存 ChatGPT 的汇总报告
     await insertMessage({
       taskId,
       userId,
@@ -153,6 +179,35 @@ ${manusResult}
       role: "system",
       content: "✅ 协作任务已完成！ChatGPT 主管已完成审查并提交最终报告。",
     });
+
+    // ★ Step 3: 自动生成任务摘要并保存到长期记忆
+    try {
+      const summaryResponse = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: "请用2-3句话简洁总结以下任务的核心结论，供后续任务参考。输出纯文本，不要标题或列表。",
+          },
+          {
+            role: "user",
+            content: `任务：${taskDescription}\n\nManus结果：${manusResult}\n\nChatGPT汇总：${gptSummary}`,
+          },
+        ],
+      });
+      const summary = String(summaryResponse.choices?.[0]?.message?.content || "");
+      if (summary) {
+        await saveMemoryContext({
+          userId,
+          taskId,
+          taskTitle: taskDescription.slice(0, 100),
+          summary,
+          keywords: taskDescription.slice(0, 50),
+        });
+      }
+    } catch (memErr) {
+      console.warn("[Memory] Failed to save memory context:", memErr);
+    }
+
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     await updateTaskStatus(taskId, "failed");
@@ -178,41 +233,102 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── 聊天 & 任务 ────────────────────────────────────────────────────────────
-  chat: router({
-    // 获取最近消息列表
-    getMessages: protectedProcedure
-      .input(z.object({ limit: z.number().min(1).max(200).default(100) }))
-      .query(async ({ input }) => {
-        const msgs = await getMessages(input.limit);
-        return msgs.reverse(); // 按时间正序返回
+  // ─── 访问控制 ────────────────────────────────────────────────────────────────
+  access: router({
+    // 检查当前用户是否有访问权限（Owner 或已授权用户）
+    check: protectedProcedure.query(async ({ ctx }) => {
+      const isOwner = ctx.user.openId === ENV.ownerOpenId;
+      if (isOwner) return { hasAccess: true, isOwner: true };
+      const access = await getUserAccess(ctx.user.id);
+      return { hasAccess: !!access, isOwner: false };
+    }),
+
+    // 用户输入密码验证
+    verify: protectedProcedure
+      .input(z.object({ code: z.string().min(1).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        const record = await verifyAccessCode(input.code);
+        if (!record) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "密码无效或已过期" });
+        }
+        await grantUserAccess(ctx.user.id, record.id);
+        await incrementCodeUsage(record.id);
+        return { success: true };
       }),
 
-    // 获取某任务的消息
+    // Owner：生成新访问密码
+    generateCode: ownerProcedure
+      .input(z.object({
+        label: z.string().max(128).optional(),
+        maxUses: z.number().min(-1).default(1),
+        expiresInDays: z.number().min(1).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const code = nanoid(12);
+        const expiresAt = input.expiresInDays
+          ? new Date(Date.now() + input.expiresInDays * 86400000)
+          : undefined;
+        await createAccessCode({ code, label: input.label, maxUses: input.maxUses, expiresAt });
+        return { code };
+      }),
+
+    // Owner：查看所有密码
+    listCodes: ownerProcedure.query(async () => {
+      return listAccessCodes();
+    }),
+
+    // Owner：撤销密码
+    revokeCode: ownerProcedure
+      .input(z.object({ codeId: z.number() }))
+      .mutation(async ({ input }) => {
+        await revokeAccessCode(input.codeId);
+        return { success: true };
+      }),
+
+    // Owner：撤销某用户的访问权限
+    revokeUser: ownerProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        await revokeUserAccess(input.userId);
+        return { success: true };
+      }),
+  }),
+
+  // ─── 聊天 & 任务 ────────────────────────────────────────────────────────────
+  chat: router({
+    // 登录即加载全部历史消息（跨会话永久保留）
+    getAllMessages: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      return getAllMessages();
+    }),
+
+    getMessages: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(200).default(100) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const msgs = await getMessages(input.limit);
+        return msgs.reverse();
+      }),
+
     getTaskMessages: protectedProcedure
       .input(z.object({ taskId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         return getMessagesByTask(input.taskId);
       }),
 
-    // 提交新任务
     submitTask: protectedProcedure
       .input(z.object({
         title: z.string().min(1).max(500),
         description: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         const userId = ctx.user.id;
         const description = input.description || input.title;
 
-        // 保存用户消息
-        await insertMessage({
-          userId,
-          role: "user",
-          content: input.title,
-        });
+        await insertMessage({ userId, role: "user", content: input.title });
 
-        // 创建任务记录
         const result = await createTask({
           userId,
           title: input.title,
@@ -220,57 +336,59 @@ export const appRouter = router({
           status: "pending",
         });
 
-        // 获取新创建的任务ID（MySQL insertId）
         const taskId = (result as any)[0]?.insertId as number;
+        if (!taskId) throw new Error("Failed to create task");
 
-        if (!taskId) {
-          throw new Error("Failed to create task");
-        }
-
-        // 异步执行协作流程（不阻塞请求）
         runCollaborationFlow(taskId, userId, description).catch(console.error);
-
         return { taskId, status: "started" };
       }),
 
-    // 获取用户任务列表
     getTasks: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       return getTasksByUser(ctx.user.id);
     }),
 
-    // 获取任务详情
     getTask: protectedProcedure
       .input(z.object({ taskId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         return getTaskById(input.taskId);
+      }),
+
+    // ★ 获取用户的历史记忆列表
+    getMemory: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        return getRecentMemory(ctx.user.id, input.limit);
       }),
   }),
 
   // ─── RPA 状态管理 ───────────────────────────────────────────────────────────
   rpa: router({
-    // 获取 RPA 连接状态
-    getStatus: protectedProcedure.query(() => {
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       return getRpaStatus();
     }),
 
-    // 连接到 ChatGPT 浏览器
-    connect: protectedProcedure.mutation(async () => {
+    connect: protectedProcedure.mutation(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       const success = await connectToChatGPT();
       return { success, ...getRpaStatus() };
     }),
 
-    // 测试发送一条消息
     test: protectedProcedure
       .input(z.object({ message: z.string().default("你好，请确认连接正常。") }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         const config = await getRpaConfig(ctx.user.id);
         const conversationName = config?.chatgptConversationName || "投资";
         const response = await sendToChatGPT(input.message, conversationName);
         return { success: true, response };
       }),
 
-    // 获取用户的 RPA 配置（对话框名称 + Manus 底层指令）
     getConfig: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       const config = await getRpaConfig(ctx.user.id);
       return {
         chatgptConversationName: config?.chatgptConversationName ?? "投资",
@@ -278,13 +396,13 @@ export const appRouter = router({
       };
     }),
 
-    // 保存用户的 RPA 配置
     setConfig: protectedProcedure
       .input(z.object({
         chatgptConversationName: z.string().min(1).max(256),
         manusSystemPrompt: z.string().max(8000).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         await upsertRpaConfig(ctx.user.id, {
           chatgptConversationName: input.chatgptConversationName,
           manusSystemPrompt: input.manusSystemPrompt,
@@ -295,12 +413,11 @@ export const appRouter = router({
 
   // ─── 数据库连接管理 ──────────────────────────────────────────────────────────
   dbConnect: router({
-    // 获取用户的数据库连接列表
     list: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       return getDbConnectionsByUser(ctx.user.id);
     }),
 
-    // 保存新的数据库连接
     save: protectedProcedure
       .input(z.object({
         name: z.string().min(1).max(128),
@@ -313,28 +430,29 @@ export const appRouter = router({
         filePath: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         await saveDbConnection({ ...input, userId: ctx.user.id });
         return { success: true };
       }),
 
-    // 设置活跃连接
     setActive: protectedProcedure
       .input(z.object({ connId: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         await setActiveDbConnection(ctx.user.id, input.connId);
         return { success: true };
       }),
 
-    // 删除连接
     delete: protectedProcedure
       .input(z.object({ connId: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
         await deleteDbConnection(ctx.user.id, input.connId);
         return { success: true };
       }),
 
-    // 获取活跃连接
     getActive: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
       return getActiveDbConnection(ctx.user.id);
     }),
   }),

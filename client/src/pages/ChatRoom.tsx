@@ -1,110 +1,95 @@
-import { useState, useRef, useEffect } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useLocation } from "wouter";
-import { getLoginUrl } from "@/const";
-import {
-  Bot, Brain, User, Settings, Send, Loader2,
-  Wifi, WifiOff, AlertCircle, CheckCircle2, Clock,
-  Database, ChevronRight, LogOut, RefreshCw
-} from "lucide-react";
 import { Streamdown } from "streamdown";
+import {
+  Bot, Brain, User, Settings, Send, Plus, Menu, X,
+  Wifi, WifiOff, ChevronRight, LogOut, Shield, Loader2,
+  MessageSquare, Database, History
+} from "lucide-react";
 
-// ─── 类型定义 ──────────────────────────────────────────────────────────────────
-
-type MessageRole = "user" | "manus" | "chatgpt" | "system";
-
-interface ChatMessage {
+type MsgRole = "user" | "manus" | "chatgpt" | "system";
+interface Msg {
   id: number;
-  role: MessageRole;
+  role: MsgRole;
   content: string;
-  createdAt: Date | string;
   taskId?: number | null;
-  metadata?: any;
+  createdAt: Date;
+}
+interface TaskGroup {
+  taskId: number;
+  title: string;
+  createdAt: Date;
+  msgs: Msg[];
 }
 
-// ─── 辅助组件 ──────────────────────────────────────────────────────────────────
+const ROLE_META: Record<MsgRole, { label: string; abbr: string }> = {
+  user:    { label: "你",       abbr: "你" },
+  manus:   { label: "Manus",   abbr: "M"  },
+  chatgpt: { label: "ChatGPT", abbr: "G"  },
+  system:  { label: "系统",     abbr: "·"  },
+};
 
-function RoleAvatar({ role }: { role: MessageRole }) {
-  if (role === "manus") {
-    return (
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--manus-bg)", border: "1.5px solid var(--manus-color)" }}>
-        <Bot className="w-4 h-4" style={{ color: "var(--manus-color)" }} />
-      </div>
-    );
+function groupByTask(msgs: Msg[]): TaskGroup[] {
+  const map = new Map<number, TaskGroup>();
+  for (const m of msgs) {
+    if (!m.taskId) continue;
+    if (!map.has(m.taskId)) {
+      const userMsg = msgs.find(x => x.taskId === m.taskId && x.role === "user");
+      map.set(m.taskId, {
+        taskId: m.taskId,
+        title: userMsg?.content.slice(0, 55) || `任务 #${m.taskId}`,
+        createdAt: m.createdAt,
+        msgs: [],
+      });
+    }
+    map.get(m.taskId)!.msgs.push(m);
   }
-  if (role === "chatgpt") {
-    return (
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--chatgpt-bg)", border: "1.5px solid var(--chatgpt-color)" }}>
-        <Brain className="w-4 h-4" style={{ color: "var(--chatgpt-color)" }} />
-      </div>
-    );
-  }
-  if (role === "user") {
-    return (
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--user-bg)", border: "1.5px solid var(--user-color)" }}>
-        <User className="w-4 h-4" style={{ color: "var(--user-color)" }} />
-      </div>
-    );
-  }
-  return null;
-}
-
-function RoleLabel({ role }: { role: MessageRole }) {
-  if (role === "manus") return <span className="text-xs font-semibold" style={{ color: "var(--manus-color)" }}>Manus · 执行层</span>;
-  if (role === "chatgpt") return <span className="text-xs font-semibold" style={{ color: "var(--chatgpt-color)" }}>ChatGPT · 主管</span>;
-  if (role === "user") return <span className="text-xs font-semibold" style={{ color: "var(--user-color)" }}>你</span>;
-  return null;
-}
-
-function SystemMessage({ content }: { content: string }) {
-  return (
-    <div className="flex justify-center my-2">
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50 text-xs text-muted-foreground max-w-md text-center">
-        {content}
-      </div>
-    </div>
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 }
 
-function MessageBubble({ msg }: { msg: ChatMessage }) {
-  if (msg.role === "system") return <SystemMessage content={msg.content} />;
-
+function MsgBubble({ msg }: { msg: Msg }) {
+  const meta = ROLE_META[msg.role] || ROLE_META.system;
+  if (msg.role === "system") {
+    return (
+      <div className="flex justify-center my-2">
+        <div className="px-3 py-1.5 rounded-full text-xs text-center max-w-[85%]"
+          style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.55 0.01 270)" }}>
+          {msg.content}
+        </div>
+      </div>
+    );
+  }
   const isUser = msg.role === "user";
-
+  const colorVar = msg.role === "manus" ? "manus" : msg.role === "chatgpt" ? "chatgpt" : "user";
   return (
-    <div className={`flex gap-3 message-bubble ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-      <RoleAvatar role={msg.role} />
-      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
-        <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-          <RoleLabel role={msg.role} />
-          <span className="text-xs text-muted-foreground">
+    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} items-start`}>
+      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
+        style={{ background: `var(--${colorVar}-bg)`, border: `1.5px solid var(--${colorVar}-border, var(--${colorVar}-color))`, color: `var(--${colorVar}-color)` }}>
+        {meta.abbr}
+      </div>
+      <div className={`flex flex-col gap-0.5 ${isUser ? "items-end" : "items-start"}`} style={{ maxWidth: "75%" }}>
+        <div className={`flex items-center gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+          <span className="text-xs font-medium" style={{ color: `var(--${colorVar}-color)` }}>{meta.label}</span>
+          <span className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <div
-          className="px-4 py-3 rounded-2xl text-sm leading-relaxed"
+        <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed"
           style={{
-            background: msg.role === "manus"
-              ? "var(--manus-bg)"
-              : msg.role === "chatgpt"
-                ? "var(--chatgpt-bg)"
-                : "var(--user-bg)",
-            border: `1px solid ${msg.role === "manus"
-              ? "oklch(0.62 0.18 255 / 0.25)"
-              : msg.role === "chatgpt"
-                ? "oklch(0.68 0.16 155 / 0.25)"
-                : "oklch(0.75 0.12 45 / 0.25)"}`,
-          }}
-        >
-          <Streamdown>{msg.content}</Streamdown>
+            background: `var(--${colorVar}-bg)`,
+            border: `1px solid var(--${colorVar}-border, var(--${colorVar}-color))`,
+            borderBottomRightRadius: isUser ? "0.375rem" : undefined,
+            borderBottomLeftRadius: !isUser ? "0.375rem" : undefined,
+            color: "oklch(0.92 0.005 270)",
+          }}>
+          <div className="prose-chat"><Streamdown>{msg.content}</Streamdown></div>
         </div>
       </div>
     </div>
@@ -112,314 +97,318 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 }
 
 function TypingIndicator({ role }: { role: "manus" | "chatgpt" }) {
+  const label = role === "manus" ? "Manus 正在分析..." : "ChatGPT 正在审查...";
+  const abbr = role === "manus" ? "M" : "G";
   return (
-    <div className="flex gap-3 message-bubble">
-      <RoleAvatar role={role} />
-      <div className="flex flex-col gap-1">
-        <RoleLabel role={role} />
+    <div className="flex gap-3 items-start">
+      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
+        style={{ background: `var(--${role}-bg)`, border: `1.5px solid var(--${role}-color)`, color: `var(--${role}-color)` }}>
+        {abbr}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium" style={{ color: `var(--${role}-color)` }}>{label}</span>
         <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
-          style={{
-            background: role === "manus" ? "var(--manus-bg)" : "var(--chatgpt-bg)",
-            border: `1px solid ${role === "manus" ? "oklch(0.62 0.18 255 / 0.25)" : "oklch(0.68 0.16 155 / 0.25)"}`,
-          }}>
-          <div className="w-1.5 h-1.5 rounded-full typing-dot" style={{ background: role === "manus" ? "var(--manus-color)" : "var(--chatgpt-color)" }} />
-          <div className="w-1.5 h-1.5 rounded-full typing-dot" style={{ background: role === "manus" ? "var(--manus-color)" : "var(--chatgpt-color)" }} />
-          <div className="w-1.5 h-1.5 rounded-full typing-dot" style={{ background: role === "manus" ? "var(--manus-color)" : "var(--chatgpt-color)" }} />
+          style={{ background: `var(--${role}-bg)`, border: `1px solid var(--${role}-color)`, borderBottomLeftRadius: "0.375rem" }}>
+          {[0,1,2].map(i => (
+            <span key={i} className="typing-dot" style={{ background: `var(--${role}-color)`, animationDelay: `${i*0.2}s` }} />
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-function RpaStatusBadge({ status, onConnect }: { status: string; onConnect: () => void }) {
-  if (status === "ready") {
-    return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-xs text-green-400">
-        <div className="w-1.5 h-1.5 rounded-full bg-green-400 rpa-pulse" />
-        RPA 已连接
-      </div>
-    );
-  }
-  if (status === "working") {
-    return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400">
-        <Loader2 className="w-3 h-3 animate-spin" />
-        RPA 工作中
-      </div>
-    );
-  }
-  if (status === "connecting") {
-    return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
-        <Loader2 className="w-3 h-3 animate-spin" />
-        连接中...
-      </div>
-    );
-  }
-  return (
-    <button
-      onClick={onConnect}
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
-    >
-      <WifiOff className="w-3 h-3" />
-      RPA 未连接 · 点击连接
-    </button>
-  );
-}
-
-// ─── 主页面 ────────────────────────────────────────────────────────────────────
-
 export default function ChatRoom() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
   const [, navigate] = useLocation();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
 
   const [input, setInput] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentTaskStatus, setCurrentTaskStatus] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [sending, setSending] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const [allMsgs, setAllMsgs] = useState<Msg[]>([]);
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
+  const [isTypingManus, setIsTypingManus] = useState(false);
+  const [isTypingGpt, setIsTypingGpt] = useState(false);
 
-  // 重定向未登录用户
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      window.location.href = getLoginUrl();
-    }
-  }, [loading, isAuthenticated]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const utils = trpc.useUtils();
 
-  // 获取消息列表（每3秒轮询一次）
-  const { data: messages = [], refetch: refetchMessages } = trpc.chat.getMessages.useQuery(
-    { limit: 100 },
-    { refetchInterval: 3000, enabled: isAuthenticated }
-  );
+  const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
-  // 获取RPA状态（每5秒轮询）
-  const { data: rpaStatus, refetch: refetchRpa } = trpc.rpa.getStatus.useQuery(
-    undefined,
-    { refetchInterval: 5000, enabled: isAuthenticated }
-  );
+  const { data: rawMsgs, isLoading: msgsLoading } = trpc.chat.getAllMessages.useQuery(undefined, {
+    enabled: isAuthenticated && !!accessData?.hasAccess,
+    refetchInterval: 3000,
+  });
 
-  // 提交任务
-  const submitTaskMutation = trpc.chat.submitTask.useMutation({
+  const { data: rpaStatus } = trpc.rpa.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated && !!accessData?.hasAccess,
+    refetchInterval: 5000,
+  });
+  const rpaConnected = rpaStatus?.status === "ready" || rpaStatus?.status === "working";
+
+  const submitMutation = trpc.chat.submitTask.useMutation({
     onSuccess: (data) => {
-      setCurrentTaskStatus("manus_working");
-      refetchMessages();
+      setActiveTaskId(data.taskId);
+      utils.chat.getAllMessages.invalidate();
     },
     onError: (err) => {
-      toast.error("提交失败", { description: err.message });
-      setIsSubmitting(false);
+      toast.error(err.message || "任务提交失败");
+      setSending(false);
+      setIsTypingManus(false);
+      setIsTypingGpt(false);
     },
   });
 
-  // 连接RPA
-  const connectRpaMutation = trpc.rpa.connect.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success("RPA 连接成功", { description: "已连接到 ChatGPT 浏览器" });
-      } else {
-        toast.error("RPA 连接失败", { description: data.error || "请确保 ChatGPT 已在浏览器中登录" });
-      }
-      refetchRpa();
-    },
-    onError: (err) => {
-      toast.error("连接失败", { description: err.message });
-    },
-  });
-
-  // 自动滚动到底部
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // 检测任务完成状态
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === "system" && lastMsg.content.includes("✅")) {
-        setIsSubmitting(false);
-        setCurrentTaskStatus("completed");
-      } else if (lastMsg.role === "system" && lastMsg.content.includes("❌")) {
-        setIsSubmitting(false);
-        setCurrentTaskStatus("failed");
-      }
+    if (!rawMsgs) return;
+    const mapped: Msg[] = rawMsgs.map((m) => ({
+      id: m.id,
+      role: m.role as MsgRole,
+      content: typeof m.content === "string" ? m.content : String(m.content),
+      taskId: m.taskId,
+      createdAt: new Date(m.createdAt),
+    }));
+    setAllMsgs(mapped);
+    setTaskGroups(groupByTask(mapped));
+    const last = mapped[mapped.length - 1];
+    if (last?.role === "chatgpt" || last?.content?.includes("❌")) {
+      setIsTypingManus(false);
+      setIsTypingGpt(false);
+      setSending(false);
     }
-  }, [messages]);
+  }, [rawMsgs]);
 
-  const handleSubmit = async () => {
-    if (!input.trim() || isSubmitting) return;
-    const taskText = input.trim();
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [allMsgs, isTypingManus, isTypingGpt]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) navigate("/");
+  }, [authLoading, isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (!accessLoading && accessData && !accessData.hasAccess) navigate("/access");
+  }, [accessLoading, accessData, navigate]);
+
+  const handleSubmit = useCallback(() => {
+    const text = input.trim();
+    if (!text || sending) return;
     setInput("");
-    setIsSubmitting(true);
-    setCurrentTaskStatus("pending");
-    await submitTaskMutation.mutateAsync({ title: taskText });
-  };
+    setSending(true);
+    setIsTypingManus(true);
+    submitMutation.mutate({ title: text }, {
+      onSuccess: () => setTimeout(() => setIsTypingGpt(true), 2500),
+    });
+  }, [input, sending, submitMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
-  if (loading) {
+  const displayMsgs = activeTaskId === null
+    ? allMsgs
+    : allMsgs.filter((m) => m.taskId === activeTaskId || !m.taskId);
+
+  if (authLoading || accessLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "oklch(0.13 0.005 270)" }}>
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!isAuthenticated) return null;
-
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      {/* 顶部导航栏 */}
-      <header className="flex-shrink-0 border-b border-border px-4 py-3 flex items-center justify-between bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
+    <div className="h-screen flex overflow-hidden" style={{ background: "oklch(0.13 0.005 270)" }}>
+
+      {/* ── Sidebar ── */}
+      <aside className={`flex flex-col shrink-0 transition-all duration-300 ${sidebarOpen ? "w-64" : "w-0 overflow-hidden"}`}
+        style={{ background: "oklch(0.15 0.005 270)", borderRight: "1px solid oklch(0.22 0.007 270)" }}>
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-4 shrink-0">
           <div className="flex items-center gap-2">
-            {/* Manus 角色标识 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium"
-              style={{ background: "var(--manus-bg)", borderColor: "oklch(0.62 0.18 255 / 0.3)", color: "var(--manus-color)" }}>
-              <Bot className="w-3.5 h-3.5" />
-              Manus
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.72 0.18 250 / 0.15)" }}>
+              <MessageSquare className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
             </div>
-            <span className="text-muted-foreground text-xs">+</span>
-            {/* ChatGPT 角色标识 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium"
-              style={{ background: "var(--chatgpt-bg)", borderColor: "oklch(0.68 0.16 155 / 0.3)", color: "var(--chatgpt-color)" }}>
-              <Brain className="w-3.5 h-3.5" />
-              ChatGPT
-            </div>
+            <span className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>AI Team Chat</span>
           </div>
-          <span className="text-muted-foreground text-xs hidden sm:block">AI 协作群聊</span>
+          <button onClick={() => setSidebarOpen(false)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors" style={{ color: "oklch(0.55 0.01 270)" }}>
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* RPA 状态 */}
-          <RpaStatusBadge
-            status={rpaStatus?.status || "idle"}
-            onConnect={() => connectRpaMutation.mutate()}
-          />
-
-          {/* 设置按钮 */}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/settings")}>
-            <Settings className="w-4 h-4" />
-          </Button>
-
-          {/* 用户信息 & 登出 */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:block">{user?.name}</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { logout(); navigate("/"); }}>
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+        {/* New task */}
+        <div className="px-3 mb-3 shrink-0">
+          <button onClick={() => setActiveTaskId(null)}
+            className="w-full h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+            style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>
+            <Plus className="w-4 h-4" />新任务
+          </button>
         </div>
-      </header>
 
-      {/* 消息区域 */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-16">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: "var(--manus-bg)", border: "1.5px solid var(--manus-color)" }}>
-                <Bot className="w-6 h-6" style={{ color: "var(--manus-color)" }} />
+        {/* History */}
+        <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
+          <p className="text-xs px-2 py-1.5 flex items-center gap-1.5" style={{ color: "oklch(0.45 0.01 270)" }}>
+            <History className="w-3 h-3" />历史对话
+          </p>
+
+          <button onClick={() => setActiveTaskId(null)}
+            className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors"
+            style={{
+              background: activeTaskId === null ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
+              color: activeTaskId === null ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+            }}>
+            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">全部对话</span>
+            <span className="ml-auto opacity-50">{allMsgs.filter(m => m.role === "user").length}</span>
+          </button>
+
+          {taskGroups.map((g) => (
+            <button key={g.taskId} onClick={() => setActiveTaskId(g.taskId)}
+              className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors"
+              style={{
+                background: activeTaskId === g.taskId ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
+                color: activeTaskId === g.taskId ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+              }}>
+              <ChevronRight className="w-3 h-3 shrink-0 opacity-50" />
+              <span className="truncate">{g.title}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid oklch(0.22 0.007 270)" }}>
+          {/* RPA + dialog names */}
+          <div className="px-2 py-2 rounded-xl mb-2 space-y-1.5" style={{ background: "oklch(0.18 0.005 270)" }}>
+            <div className="flex items-center gap-2">
+              {rpaConnected
+                ? <Wifi className="w-3 h-3" style={{ color: "oklch(0.72 0.18 155)" }} />
+                : <WifiOff className="w-3 h-3" style={{ color: "oklch(0.45 0.01 270)" }} />}
+              <span className="text-xs" style={{ color: rpaConnected ? "oklch(0.72 0.18 155)" : "oklch(0.45 0.01 270)" }}>
+                {rpaConnected ? "ChatGPT 已连接" : "ChatGPT 未连接"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--manus-color)" }} />
+              <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>金融投资</span>
+              <span className="mx-1 text-xs" style={{ color: "oklch(0.35 0.007 270)" }}>·</span>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--chatgpt-color)" }} />
+              <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>投资manus</span>
+            </div>
+          </div>
+
+          {[
+            { icon: Settings, label: "设置", action: () => navigate("/settings") },
+            ...(accessData?.isOwner ? [{ icon: Shield, label: "管理面板", action: () => navigate("/admin") }] : []),
+            { icon: LogOut, label: "退出登录", action: logout },
+          ].map(({ icon: Icon, label, action }) => (
+            <button key={label} onClick={action}
+              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors hover:bg-white/5"
+              style={{ color: "oklch(0.65 0.008 270)" }}>
+              <Icon className="w-3.5 h-3.5" />{label}
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {/* ── Main ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Top bar */}
+        <header className="h-12 flex items-center gap-3 px-4 shrink-0" style={{ borderBottom: "1px solid oklch(0.20 0.007 270)" }}>
+          {!sidebarOpen && (
+            <button onClick={() => setSidebarOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors" style={{ color: "oklch(0.55 0.01 270)" }}>
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
+          <span className="text-sm font-medium truncate" style={{ color: "oklch(0.85 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>
+            {activeTaskId === null ? "全部对话" : taskGroups.find(g => g.taskId === activeTaskId)?.title || `任务 #${activeTaskId}`}
+          </span>
+          <div className="ml-auto hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+              style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-border, var(--manus-color))", color: "var(--manus-color)" }}>
+              <Bot className="w-3 h-3" />Manus · 金融投资
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+              style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-border, var(--chatgpt-color))", color: "var(--chatgpt-color)" }}>
+              <Brain className="w-3 h-3" />ChatGPT · 投资manus
+            </div>
+          </div>
+        </header>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {msgsLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-3">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: "oklch(0.72 0.18 250)" }} />
+                <p className="text-sm" style={{ color: "oklch(0.55 0.01 270)" }}>正在加载历史对话...</p>
               </div>
-              <span className="text-2xl text-muted-foreground">+</span>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: "var(--chatgpt-bg)", border: "1.5px solid var(--chatgpt-color)" }}>
-                <Brain className="w-6 h-6" style={{ color: "var(--chatgpt-color)" }} />
+            </div>
+          ) : displayMsgs.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-5 max-w-md">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  <MessageSquare className="w-8 h-8" style={{ color: "oklch(0.72 0.18 250)" }} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>开始协作</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "oklch(0.55 0.01 270)" }}>
+                    输入你的金融投资任务，Manus 将通过「金融投资」对话框执行分析，
+                    ChatGPT 将通过「投资manus」对话框进行审查和战略汇总。
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-6 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                  <div className="flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5" style={{ color: "var(--manus-color)" }} />
+                    数据统筹 · 分析执行
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5" style={{ color: "var(--chatgpt-color)" }} />
+                    审查 · 战略汇总
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">AI 协作团队就绪</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                输入任务，Manus 将执行分析，ChatGPT 将审查并汇总报告
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md w-full mt-4">
-              {[
-                "分析我的投资组合过去30天的收益表现",
-                "查询持仓中风险最高的3支股票",
-                "对比本月与上月的交易频率和盈亏比",
-                "生成本周金融市场摘要报告",
-              ].map((example) => (
-                <button
-                  key={example}
-                  onClick={() => setInput(example)}
-                  className="text-left px-3 py-2.5 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-accent/50 transition-all text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg as ChatMessage} />
-            ))}
-            {/* 正在工作的打字指示器 */}
-            {isSubmitting && currentTaskStatus === "manus_working" && (
-              <TypingIndicator role="manus" />
-            )}
-            {isSubmitting && currentTaskStatus === "gpt_reviewing" && (
-              <TypingIndicator role="chatgpt" />
-            )}
-          </>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* 输入区域 */}
-      <div className="flex-shrink-0 border-t border-border px-4 py-4 bg-card/30 backdrop-blur-sm">
-        {/* 任务状态条 */}
-        {isSubmitting && (
-          <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/15 text-xs text-primary">
-            <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
-            <span>
-              {currentTaskStatus === "manus_working" && "Manus 正在执行数据分析..."}
-              {currentTaskStatus === "gpt_reviewing" && "ChatGPT 主管正在审查并汇总报告..."}
-              {currentTaskStatus === "pending" && "任务已提交，等待处理..."}
-            </span>
-          </div>
-        )}
-
-        <div className="flex gap-2 items-end">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入任务，例如：分析我的投资组合表现... (Enter 发送，Shift+Enter 换行)"
-            className="flex-1 min-h-[52px] max-h-[160px] resize-none bg-card border-border focus:border-primary/50 text-sm"
-            disabled={isSubmitting}
-          />
-          <Button
-            onClick={handleSubmit}
-            disabled={!input.trim() || isSubmitting}
-            size="icon"
-            className="h-[52px] w-[52px] flex-shrink-0"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </Button>
+          ) : (
+            <>
+              {displayMsgs.map((msg) => <MsgBubble key={msg.id} msg={msg} />)}
+              {isTypingManus && <TypingIndicator role="manus" />}
+              {isTypingGpt && <TypingIndicator role="chatgpt" />}
+            </>
+          )}
+          <div ref={bottomRef} />
         </div>
 
-        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Bot className="w-3 h-3" style={{ color: "var(--manus-color)" }} />
-              执行层
-            </span>
-            <span className="flex items-center gap-1">
-              <Brain className="w-3 h-3" style={{ color: "var(--chatgpt-color)" }} />
-              主管审查
-            </span>
+        {/* Input */}
+        <div className="px-6 pb-5 pt-2 shrink-0">
+          <div className="flex items-end gap-3 px-4 py-3 rounded-2xl"
+            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)", transition: "border-color 0.15s" }}>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="输入任务，按 Enter 发送，Shift+Enter 换行..."
+              className="flex-1 bg-transparent border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm min-h-[24px] max-h-[160px] p-0 leading-relaxed placeholder:text-muted-foreground"
+              rows={1}
+              disabled={sending}
+              style={{ color: "oklch(0.92 0.005 270)" }}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!input.trim() || sending}
+              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-30"
+              style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
           </div>
-          <span>Enter 发送</span>
+          <p className="text-center text-xs mt-2" style={{ color: "oklch(0.38 0.008 270)" }}>
+            Manus「金融投资」执行分析 · ChatGPT「投资manus」审查汇总 · 所有对话永久保存
+          </p>
         </div>
       </div>
     </div>

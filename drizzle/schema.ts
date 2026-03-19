@@ -103,3 +103,48 @@ const rpaConfigs = mysqlTable("rpa_configs", {
 export { rpaConfigs };
 export type RpaConfig = typeof rpaConfigs.$inferSelect;
 export type InsertRpaConfig = typeof rpaConfigs.$inferInsert;
+
+// 访问密码表：Owner 生成的邀请码
+export const accessCodes = mysqlTable("access_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 64 }).notNull().unique(),
+  label: varchar("label", { length: 128 }),       // 备注，如「给张三」
+  maxUses: int("maxUses").default(1).notNull(),    // 最多可使用次数（-1 表示无限）
+  usedCount: int("usedCount").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  expiresAt: timestamp("expiresAt"),               // 可选过期时间
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AccessCode = typeof accessCodes.$inferSelect;
+export type InsertAccessCode = typeof accessCodes.$inferInsert;
+
+// 用户访问权限表：记录哪些用户已通过密码验证
+export const userAccess = mysqlTable("user_access", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  accessCodeId: int("accessCodeId").notNull(),     // 使用的哪个密码
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  revokedAt: timestamp("revokedAt"),               // 被撤销的时间
+});
+
+export type UserAccess = typeof userAccess.$inferSelect;
+export type InsertUserAccess = typeof userAccess.$inferInsert;
+
+// 全局记忆上下文表：跨任务的长期记忆摘要
+export const memoryContext = mysqlTable("memory_context", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  // 每条记忆对应一个已完成的任务
+  taskId: int("taskId").notNull(),
+  // 任务摘要（由 LLM 自动生成，用于后续任务的上下文注入）
+  summary: text("summary").notNull(),
+  // 原始任务标题
+  taskTitle: text("taskTitle").notNull(),
+  // 关键词（便于相关任务检索）
+  keywords: text("keywords"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MemoryContext = typeof memoryContext.$inferSelect;
+export type InsertMemoryContext = typeof memoryContext.$inferInsert;

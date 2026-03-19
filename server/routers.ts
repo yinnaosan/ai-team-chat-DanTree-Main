@@ -43,6 +43,13 @@ import {
   saveMemoryContext,
   setPinned,
   setFavorited,
+  createConversationGroup,
+  getConversationGroupsByUser,
+  deleteConversationGroup,
+  setConversationGroup,
+  renameConversationGroup,
+  setGroupCollapsed,
+  getAllMessagesByUser,
 } from "./db";
 import { storagePut } from "./storage";
 import { connectToChatGPT, sendToChatGPT, getRpaStatus } from "./rpa";
@@ -525,10 +532,10 @@ export const appRouter = router({
 
   // ─── 聊天 & 任务 ──────────────────────────────────────────────────────────
   chat: router({
-    // 全部历史消息（跨会话）
+    // 全部历史消息（跨会话，按用户过滤）
     getAllMessages: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
-      return getAllMessages();
+      return getAllMessagesByUser(ctx.user.id);
     }),
 
     getMessages: protectedProcedure
@@ -544,6 +551,89 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         return getMessagesByTask(input.taskId);
+      }),
+
+    // 按会话ID获取消息（独立对话框隔离）
+    getConversationMessages: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        return getMessagesByConversation(input.conversationId);
+      }),
+
+    // 获取用户的所有会话列表
+    listConversations: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      return getConversationsByUser(ctx.user.id);
+    }),
+
+    // 获取用户所有分组（含分组内的会话）
+    listGroups: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      const groups = await getConversationGroupsByUser(ctx.user.id);
+      const convs = await getConversationsByUser(ctx.user.id);
+      return groups.map(g => ({
+        ...g,
+        conversations: convs.filter(c => c.groupId === g.id),
+      }));
+    }),
+
+    // 创建新分组
+    createGroup: protectedProcedure
+      .input(z.object({ name: z.string().min(1).max(64), color: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const id = await createConversationGroup({
+          userId: ctx.user.id,
+          name: input.name,
+          color: input.color ?? "blue",
+        });
+        return { id };
+      }),
+
+    // 删除分组（会话不删除，只解绑）
+    deleteGroup: protectedProcedure
+      .input(z.object({ groupId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await deleteConversationGroup(input.groupId, ctx.user.id);
+        return { success: true };
+      }),
+
+    // 重命名分组
+    renameGroup: protectedProcedure
+      .input(z.object({ groupId: z.number(), name: z.string().min(1).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await renameConversationGroup(input.groupId, ctx.user.id, input.name);
+        return { success: true };
+      }),
+
+    // 将会话移入/移出分组
+    moveToGroup: protectedProcedure
+      .input(z.object({ conversationId: z.number(), groupId: z.number().nullable() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await setConversationGroup(input.conversationId, ctx.user.id, input.groupId);
+        return { success: true };
+      }),
+
+    // 折叠/展开分组
+    toggleGroupCollapse: protectedProcedure
+      .input(z.object({ groupId: z.number(), isCollapsed: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await setGroupCollapsed(input.groupId, ctx.user.id, input.isCollapsed);
+        return { success: true };
+      }),
+
+    // 创建新会话（点击「新任务」时调用）
+    createConversation: protectedProcedure
+      .input(z.object({ title: z.string().optional(), groupId: z.number().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const id = await createConversation({ userId: ctx.user.id, title: input.title });
+        return { id };
       }),
 
     // 提交任务（支持会话ID和附件）

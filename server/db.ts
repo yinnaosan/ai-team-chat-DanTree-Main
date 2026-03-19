@@ -2,8 +2,9 @@ import { eq, desc, and, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
-  accessCodes, userAccess, memoryContext, conversations, attachments,
+  accessCodes, userAccess, memoryContext, conversations, attachments, conversationGroups,
   InsertMessage, InsertTask, InsertDbConnection, InsertConversation, InsertAttachment,
+  InsertConversationGroup,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -373,4 +374,64 @@ export async function saveMemoryContext(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(memoryContext).values(data);
+}
+
+// ─── Conversation Group helpers ───────────────────────────────────────────────
+
+/** 创建分组 */
+export async function createConversationGroup(data: InsertConversationGroup) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(conversationGroups).values(data);
+  return (result as any)[0]?.insertId as number;
+}
+
+/** 获取用户所有分组，按 sortOrder 升序 */
+export async function getConversationGroupsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(conversationGroups)
+    .where(eq(conversationGroups.userId, userId))
+    .orderBy(conversationGroups.sortOrder, conversationGroups.createdAt);
+}
+
+/** 删除分组（不删除其中的会话，只清除 groupId 引用） */
+export async function deleteConversationGroup(groupId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // 先解绑该组内的所有会话
+  await db.update(conversations).set({ groupId: null }).where(
+    and(eq(conversations.groupId, groupId), eq(conversations.userId, userId))
+  );
+  // 再删除分组
+  await db.delete(conversationGroups).where(
+    and(eq(conversationGroups.id, groupId), eq(conversationGroups.userId, userId))
+  );
+}
+
+/** 将会话移入/移出分组（groupId 为 null 表示移出） */
+export async function setConversationGroup(convId: number, userId: number, groupId: number | null) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(conversations).set({ groupId }).where(
+    and(eq(conversations.id, convId), eq(conversations.userId, userId))
+  );
+}
+
+/** 重命名分组 */
+export async function renameConversationGroup(groupId: number, userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(conversationGroups).set({ name }).where(
+    and(eq(conversationGroups.id, groupId), eq(conversationGroups.userId, userId))
+  );
+}
+
+/** 折叠/展开分组 */
+export async function setGroupCollapsed(groupId: number, userId: number, isCollapsed: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(conversationGroups).set({ isCollapsed }).where(
+    and(eq(conversationGroups.id, groupId), eq(conversationGroups.userId, userId))
+  );
 }

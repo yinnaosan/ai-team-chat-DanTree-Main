@@ -20,6 +20,7 @@ import {
   MessageSquare, Database, History, Download, Star, Pin,
   MoreHorizontal, ChevronRight, FileText, Table2, Copy, Check,
   Paperclip, Image, Film, Music, File, XCircle, Sparkles,
+  FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,24 +30,15 @@ interface Msg {
   role: MsgRole;
   content: string;
   taskId?: number | null;
+  conversationId?: number | null;
   createdAt: Date;
 }
-interface TaskGroup {
-  taskId: number;
-  title: string;
-  createdAt: Date;
-  msgs: Msg[];
-  pinned?: boolean;
-  starred?: boolean;
-}
-
-const VISIBLE_ROLES: MsgRole[] = ["user", "assistant"];
 
 // ─── Attachment Types ─────────────────────────────────────────────────────────
 interface PendingFile {
-  id: string;          // local UUID
+  id: string;
   file: File;
-  preview?: string;    // data URL for images
+  preview?: string;
   uploading: boolean;
   uploadedUrl?: string;
   error?: string;
@@ -70,12 +62,9 @@ function formatFileSize(bytes: number): string {
 function FileCard({ pf, onRemove }: { pf: PendingFile; onRemove: () => void }) {
   const Icon = getFileIcon(pf.file.type);
   const isImage = pf.file.type.startsWith("image/");
-
   return (
     <div className="relative flex items-center gap-2 px-2.5 py-2 rounded-xl group/card"
       style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.27 0.008 270)", minWidth: "140px", maxWidth: "180px" }}>
-
-      {/* Thumbnail or icon */}
       {isImage && pf.preview ? (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
           <img src={pf.preview} alt={pf.file.name} className="w-full h-full object-cover" />
@@ -86,53 +75,19 @@ function FileCard({ pf, onRemove }: { pf: PendingFile; onRemove: () => void }) {
           <Icon className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
         </div>
       )}
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate" style={{ color: "oklch(0.88 0.005 270)" }}>{pf.file.name}</p>
         <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>{formatFileSize(pf.file.size)}</p>
       </div>
-
-      {/* Status */}
-      {pf.uploading && (
-        <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />
-      )}
-      {pf.error && (
-        <span className="text-xs shrink-0" style={{ color: "oklch(0.65 0.18 25)" }}>失败</span>
-      )}
-      {pf.uploadedUrl && !pf.uploading && (
-        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "oklch(0.72 0.18 155)" }} />
-      )}
-
-      {/* Remove */}
-      <button
-        onClick={onRemove}
+      {pf.uploading && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />}
+      {pf.error && <span className="text-xs shrink-0" style={{ color: "oklch(0.65 0.18 25)" }}>失败</span>}
+      {pf.uploadedUrl && !pf.uploading && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "oklch(0.72 0.18 155)" }} />}
+      <button onClick={onRemove}
         className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity"
         style={{ background: "oklch(0.55 0.18 25)", color: "white" }}>
         <XCircle className="w-3 h-3" />
       </button>
     </div>
-  );
-}
-
-function groupByTask(msgs: Msg[]): TaskGroup[] {
-  const map = new Map<number, TaskGroup>();
-  const visibleMsgs = msgs.filter(m => VISIBLE_ROLES.includes(m.role));
-  for (const m of visibleMsgs) {
-    if (!m.taskId) continue;
-    if (!map.has(m.taskId)) {
-      const userMsg = visibleMsgs.find(x => x.taskId === m.taskId && x.role === "user");
-      map.set(m.taskId, {
-        taskId: m.taskId,
-        title: userMsg?.content.slice(0, 55) || `任务 #${m.taskId}`,
-        createdAt: m.createdAt,
-        msgs: [],
-      });
-    }
-    map.get(m.taskId)!.msgs.push(m);
-  }
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 }
 
@@ -172,20 +127,12 @@ function downloadText(content: string, filename: string, mime: string) {
 }
 
 // ─── Message Components ───────────────────────────────────────────────────────
-
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
   return (
-    <button onClick={handleCopy}
+    <button onClick={() => { navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
       className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all hover:bg-white/8"
-      style={{ color: "oklch(0.55 0.01 270)" }}
-      title="复制内容">
+      style={{ color: "oklch(0.55 0.01 270)" }}>
       {copied ? <Check className="w-3 h-3" style={{ color: "oklch(0.72 0.18 155)" }} /> : <Copy className="w-3 h-3" />}
       {copied ? "已复制" : "复制"}
     </button>
@@ -196,13 +143,11 @@ function DownloadMenu({ content, taskTitle }: { content: string; taskTitle?: str
   const [open, setOpen] = useState(false);
   const tables = useMemo(() => extractTables(content), [content]);
   const slug = (taskTitle || "ai-reply").slice(0, 30).replace(/\s+/g, "-");
-
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all hover:bg-white/8"
-        style={{ color: "oklch(0.55 0.01 270)" }}
-        title="下载">
+        style={{ color: "oklch(0.55 0.01 270)" }}>
         <Download className="w-3 h-3" />下载
       </button>
       {open && (
@@ -211,30 +156,22 @@ function DownloadMenu({ content, taskTitle }: { content: string; taskTitle?: str
           <div className="absolute left-0 top-7 z-50 rounded-xl py-1 min-w-[160px] shadow-xl"
             style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
             <button onClick={() => { downloadText(content, `${slug}.md`, "text/markdown"); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(0.82 0.005 270)" }}>
-              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
-              下载 Markdown (.md)
+              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />下载 Markdown
             </button>
             <button onClick={() => { downloadText(content, `${slug}.txt`, "text/plain"); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(0.82 0.005 270)" }}>
-              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.01 270)" }} />
-              下载纯文本 (.txt)
+              <FileText className="w-3.5 h-3.5" />下载纯文本
             </button>
-            {tables.length > 0 && (
-              <>
-                <div className="mx-3 my-1" style={{ borderTop: "1px solid oklch(0.28 0.008 270)" }} />
-                {tables.map((t, i) => (
-                  <button key={i} onClick={() => { downloadText(tableToCSV(t), `${slug}-table${tables.length > 1 ? `-${i + 1}` : ""}.csv`, "text/csv"); setOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8 transition-colors"
-                    style={{ color: "oklch(0.82 0.005 270)" }}>
-                    <Table2 className="w-3.5 h-3.5" style={{ color: "oklch(0.74 0.14 155)" }} />
-                    {tables.length > 1 ? `下载表格 ${i + 1} (.csv)` : "下载表格 (.csv)"}
-                  </button>
-                ))}
-              </>
-            )}
+            {tables.length > 0 && tables.map((t, i) => (
+              <button key={i} onClick={() => { downloadText(tableToCSV(t), `${slug}-table${i + 1}.csv`, "text/csv"); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                style={{ color: "oklch(0.82 0.005 270)" }}>
+                <Table2 className="w-3.5 h-3.5" style={{ color: "oklch(0.74 0.14 155)" }} />下载表格 {tables.length > 1 ? i + 1 : ""}(.csv)
+              </button>
+            ))}
           </div>
         </>
       )}
@@ -242,21 +179,17 @@ function DownloadMenu({ content, taskTitle }: { content: string; taskTitle?: str
   );
 }
 
-// ChatGPT 风格：AI 消息无气泡，左对齐纯文本
 function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
   const isAssistant = msg.role === "assistant";
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = isAssistant ? "AI 协作回复" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
   const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
-
   return (
     <div className="flex gap-4 items-start py-3 group">
-      {/* Avatar */}
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
         style={{ background: `var(--${colorVar}-bg)`, border: `1.5px solid var(--${colorVar}-border)`, color: `var(--${colorVar}-color)` }}>
         {abbr}
       </div>
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm font-semibold" style={{ color: `var(--${colorVar}-color)` }}>{label}</span>
@@ -264,11 +197,9 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        {/* No bubble: clean text with full-width markdown */}
         <div className="prose-chat w-full">
           <Streamdown>{msg.content}</Streamdown>
         </div>
-        {/* Action row (visible on hover) */}
         <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <CopyButton text={msg.content} />
           <DownloadMenu content={msg.content} taskTitle={taskTitle} />
@@ -278,7 +209,6 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
   );
 }
 
-// 用户消息保留圆角气泡（右对齐）
 function UserMessage({ msg }: { msg: Msg }) {
   return (
     <div className="flex gap-4 items-start py-3 flex-row-reverse">
@@ -337,61 +267,15 @@ function TypingIndicator() {
   );
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-interface SidebarItemProps {
-  group: TaskGroup;
-  active: boolean;
-  onClick: () => void;
-  onPin: () => void;
-  onStar: () => void;
-}
-
-function SidebarItem({ group, active, onClick, onPin, onStar }: SidebarItemProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <div className="relative group/item">
-      <button onClick={onClick}
-        className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors"
-        style={{
-          background: active ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
-          color: active ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
-        }}>
-        {group.pinned
-          ? <Pin className="w-3 h-3 shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />
-          : <MessageSquare className="w-3 h-3 shrink-0 opacity-50" />}
-        <span className="truncate flex-1">{group.title}</span>
-        {group.starred && <Star className="w-2.5 h-2.5 shrink-0" style={{ color: "oklch(0.78 0.18 55)" }} />}
-      </button>
-      {/* Hover action button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"
-        style={{ color: "oklch(0.55 0.01 270)" }}>
-        <MoreHorizontal className="w-3 h-3" />
-      </button>
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[140px] shadow-xl"
-            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
-            <button onClick={() => { onPin(); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8 transition-colors"
-              style={{ color: "oklch(0.82 0.005 270)" }}>
-              <Pin className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
-              {group.pinned ? "取消置顶" : "置顶"}
-            </button>
-            <button onClick={() => { onStar(); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8 transition-colors"
-              style={{ color: "oklch(0.82 0.005 270)" }}>
-              <Star className="w-3.5 h-3.5" style={{ color: "oklch(0.78 0.18 55)" }} />
-              {group.starred ? "取消收藏" : "收藏"}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+// ─── Color map for groups ─────────────────────────────────────────────────────
+const GROUP_COLORS: Record<string, string> = {
+  blue: "oklch(0.72 0.18 250)",
+  green: "oklch(0.72 0.18 155)",
+  orange: "oklch(0.78 0.18 55)",
+  red: "oklch(0.65 0.18 25)",
+  purple: "oklch(0.72 0.18 300)",
+  pink: "oklch(0.72 0.18 340)",
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ChatRoom() {
@@ -401,27 +285,13 @@ export default function ChatRoom() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
-  const [allMsgs, setAllMsgs] = useState<Msg[]>([]);
-  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  // Local pin/star state (persisted in memory for session)
-  const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set());
-  const [starredIds, setStarredIds] = useState<Set<number>>(new Set());
-  const [showPinned, setShowPinned] = useState(true);
-  const [showStarred, setShowStarred] = useState(true);
-  const [showRecent, setShowRecent] = useState(true);
 
-  // ─── New task dialog state ─────────────────────────────────────────────────────
-  const [newTaskDialogOpen, setNewTaskDialogOpen] = useState(false);
-  const [newTaskName, setNewTaskName] = useState("");
-  const newTaskInputRef = useRef<HTMLInputElement>(null);
+  // Active conversation state
+  const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [convMessages, setConvMessages] = useState<Msg[]>([]);
 
-  // Local conversation list (augments taskGroups with named conversations)
-  const [conversations, setConversations] = useState<Array<{ id: string; title: string; createdAt: Date }>>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
-
-  // ─── File upload state ─────────────────────────────────────────────────────────
+  // File upload state
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -431,24 +301,25 @@ export default function ChatRoom() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const utils = trpc.useUtils();
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  // ─── New task dialog ──────────────────────────────────────────────────────
+  const [newTaskDialogOpen, setNewTaskDialogOpen] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const newTaskInputRef = useRef<HTMLInputElement>(null);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    setShowScrollBtn(distFromBottom > 120);
-  }, []);
+  // ─── Group dialog ─────────────────────────────────────────────────────────
+  const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupColor, setNewGroupColor] = useState("blue");
+  const [renameGroupId, setRenameGroupId] = useState<number | null>(null);
+  const [renameGroupName, setRenameGroupName] = useState("");
 
+  // ─── Move to group dialog ─────────────────────────────────────────────────
+  const [moveConvId, setMoveConvId] = useState<number | null>(null);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+
+  // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
     enabled: isAuthenticated,
-  });
-
-  const { data: rawMsgs, isLoading: msgsLoading } = trpc.chat.getAllMessages.useQuery(undefined, {
-    enabled: isAuthenticated && !!accessData?.hasAccess,
-    refetchInterval: 3000,
   });
 
   const { data: rpaStatus } = trpc.rpa.getStatus.useQuery(undefined, {
@@ -457,49 +328,51 @@ export default function ChatRoom() {
   });
   const rpaConnected = rpaStatus?.status === "ready" || rpaStatus?.status === "working";
 
-  const submitMutation = trpc.chat.submitTask.useMutation({
-    onSuccess: (data) => {
-      setActiveTaskId(data.taskId);
-      utils.chat.getAllMessages.invalidate();
-    },
-    onError: (err) => {
-      toast.error(err.message || "任务提交失败");
-      setSending(false);
-      setIsTyping(false);
-    },
+  // All conversations (ungrouped + grouped)
+  const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
+    enabled: isAuthenticated && !!accessData?.hasAccess,
+    refetchInterval: 10000,
   });
 
+  // Groups with their conversations
+  const { data: groups, refetch: refetchGroups } = trpc.chat.listGroups.useQuery(undefined, {
+    enabled: isAuthenticated && !!accessData?.hasAccess,
+    refetchInterval: 10000,
+  });
+
+  // Messages for the active conversation
+  const { data: rawConvMsgs, isLoading: msgsLoading, refetch: refetchMsgs } = trpc.chat.getConversationMessages.useQuery(
+    { conversationId: activeConvId! },
+    {
+      enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
+      refetchInterval: 3000,
+    }
+  );
+
   useEffect(() => {
-    if (!rawMsgs) return;
-    const mapped: Msg[] = rawMsgs.map((m) => ({
+    if (!rawConvMsgs) return;
+    const mapped: Msg[] = rawConvMsgs.map((m) => ({
       id: m.id,
       role: m.role as MsgRole,
       content: typeof m.content === "string" ? m.content : String(m.content),
       taskId: m.taskId,
+      conversationId: m.conversationId,
       createdAt: new Date(m.createdAt),
     }));
-    setAllMsgs(mapped);
-    const groups = groupByTask(mapped);
-    setTaskGroups(groups.map(g => ({
-      ...g,
-      pinned: pinnedIds.has(g.taskId),
-      starred: starredIds.has(g.taskId),
-    })));
+    setConvMessages(mapped);
     const last = mapped[mapped.length - 1];
     if (last?.role === "assistant" || last?.content?.includes("[ERROR]")) {
       setIsTyping(false);
       setSending(false);
     }
-  }, [rawMsgs, pinnedIds, starredIds]);
+  }, [rawConvMsgs]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (distFromBottom < 200) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [allMsgs, isTyping]);
+    if (distFromBottom < 200) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [convMessages, isTyping]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate("/");
@@ -509,78 +382,92 @@ export default function ChatRoom() {
     if (!accessLoading && accessData && !accessData.hasAccess) navigate("/access");
   }, [accessLoading, accessData, navigate]);
 
-  // ─── File handlers ─────────────────────────────────────────────────────────
+  // ─── Mutations ────────────────────────────────────────────────────────────
+  const createConvMutation = trpc.chat.createConversation.useMutation({
+    onSuccess: (data) => {
+      refetchConvs();
+      refetchGroups();
+      setActiveConvId(data.id);
+      setConvMessages([]);
+      setNewTaskDialogOpen(false);
+      setNewTaskName("");
+      setTimeout(() => document.querySelector<HTMLTextAreaElement>("textarea")?.focus(), 100);
+    },
+    onError: (err) => toast.error(err.message || "创建会话失败"),
+  });
+
+  const submitMutation = trpc.chat.submitTask.useMutation({
+    onSuccess: () => {
+      refetchMsgs();
+      refetchConvs();
+    },
+    onError: (err) => {
+      toast.error(err.message || "任务提交失败");
+      setSending(false);
+      setIsTyping(false);
+    },
+  });
+
+  const createGroupMutation = trpc.chat.createGroup.useMutation({
+    onSuccess: () => { refetchGroups(); setNewGroupDialogOpen(false); setNewGroupName(""); toast.success("分组已创建"); },
+    onError: (err) => toast.error(err.message || "创建分组失败"),
+  });
+
+  const deleteGroupMutation = trpc.chat.deleteGroup.useMutation({
+    onSuccess: () => { refetchGroups(); refetchConvs(); toast.success("分组已删除"); },
+    onError: (err) => toast.error(err.message || "删除分组失败"),
+  });
+
+  const renameGroupMutation = trpc.chat.renameGroup.useMutation({
+    onSuccess: () => { refetchGroups(); setRenameGroupId(null); },
+    onError: (err) => toast.error(err.message || "重命名失败"),
+  });
+
+  const moveToGroupMutation = trpc.chat.moveToGroup.useMutation({
+    onSuccess: () => { refetchGroups(); refetchConvs(); setMoveDialogOpen(false); toast.success("已移入分组"); },
+    onError: (err) => toast.error(err.message || "移动失败"),
+  });
+
+  // ─── File handlers ────────────────────────────────────────────────────────
   const addFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
-    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-    const ALLOWED = [
-      "image/", "video/", "audio/",
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument",
-      "text/",
-    ];
+    const MAX_SIZE = 50 * 1024 * 1024;
+    const ALLOWED = ["image/", "video/", "audio/", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument", "text/"];
     arr.forEach(file => {
       if (file.size > MAX_SIZE) { toast.error(`文件过大：${file.name}（最大 50MB）`); return; }
-      const allowed = ALLOWED.some(t => file.type.startsWith(t));
-      if (!allowed) { toast.error(`不支持的文件类型：${file.name}`); return; }
-
+      if (!ALLOWED.some(t => file.type.startsWith(t))) { toast.error(`不支持的文件类型：${file.name}`); return; }
       const id = crypto.randomUUID();
       const pf: PendingFile = { id, file, uploading: true };
-
-      // Generate preview for images
       if (file.type.startsWith("image/")) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, preview: e.target?.result as string } : p));
-        };
+        reader.onload = (e) => setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, preview: e.target?.result as string } : p));
         reader.readAsDataURL(file);
       }
-
       setPendingFiles(prev => [...prev, pf]);
-
-      // Upload to server
       const formData = new FormData();
       formData.append("file", file);
       fetch("/api/upload", { method: "POST", body: formData, credentials: "include" })
         .then(r => r.json())
         .then((data: any) => {
-          if (data.url) {
-            setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: data.url } : p));
-          } else {
-            setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: data.error || "上传失败" } : p));
-          }
+          if (data.url) setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: data.url } : p));
+          else setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: data.error || "上传失败" } : p));
         })
-        .catch(() => {
-          setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: "网络错误" } : p));
-        });
+        .catch(() => setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: "网络错误" } : p)));
     });
   }, []);
 
-  const removeFile = useCallback((id: string) => {
-    setPendingFiles(prev => prev.filter(p => p.id !== id));
-  }, []);
-
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
+    e.preventDefault(); setIsDragOver(false);
     if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
   }, [addFiles]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
-    // Build attachment context
+    if (!activeConvId) {
+      toast.error("请先点击「新任务」创建一个对话");
+      return;
+    }
     const uploadedFiles = pendingFiles.filter(p => p.uploadedUrl && !p.error);
     const attachmentNote = uploadedFiles.length > 0
       ? `\n\n[附件: ${uploadedFiles.map(p => `${p.file.name}(${p.uploadedUrl})`).join(", ")}]`
@@ -589,63 +476,29 @@ export default function ChatRoom() {
     setPendingFiles([]);
     setSending(true);
     setIsTyping(true);
-    submitMutation.mutate({ title: text + attachmentNote });
-  }, [input, sending, pendingFiles, submitMutation]);
+    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId });
+  }, [input, sending, pendingFiles, activeConvId, submitMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
   };
 
-  // ─── New task dialog handlers ─────────────────────────────────────────────────────
-  const openNewTaskDialog = useCallback(() => {
-    setNewTaskName("");
-    setNewTaskDialogOpen(true);
-    // Focus input after dialog opens
-    setTimeout(() => newTaskInputRef.current?.focus(), 80);
-  }, []);
+  // ─── Derived data ─────────────────────────────────────────────────────────
+  // Ungrouped conversations (not in any group)
+  const groupedConvIds = useMemo(() => {
+    if (!groups) return new Set<number>();
+    return new Set(groups.flatMap(g => g.conversations.map(c => c.id)));
+  }, [groups]);
 
-  const confirmNewTask = useCallback(() => {
-    const title = newTaskName.trim() || `新任务 ${new Date().toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
-    const id = crypto.randomUUID();
-    const conv = { id, title, createdAt: new Date() };
-    setConversations(prev => [conv, ...prev]);
-    setActiveConvId(id);
-    setActiveTaskId(null); // reset task filter for new empty conversation
-    setNewTaskDialogOpen(false);
-    setNewTaskName("");
-    // Focus the main input
-    setTimeout(() => {
-      const ta = document.querySelector<HTMLTextAreaElement>("textarea[placeholder]");
-      ta?.focus();
-    }, 100);
-  }, [newTaskName]);
+  const ungroupedConvs = useMemo(() => {
+    if (!allConversations) return [];
+    return allConversations.filter(c => !groupedConvIds.has(c.id));
+  }, [allConversations, groupedConvIds]);
 
-  const togglePin = useCallback((taskId: number) => {
-    setPinnedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
-      return next;
-    });
-  }, []);
-
-  const toggleStar = useCallback((taskId: number) => {
-    setStarredIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
-      return next;
-    });
-  }, []);
-
-  const pinnedGroups = taskGroups.filter(g => pinnedIds.has(g.taskId));
-  const starredGroups = taskGroups.filter(g => starredIds.has(g.taskId) && !pinnedIds.has(g.taskId));
-  const recentGroups = taskGroups.filter(g => !pinnedIds.has(g.taskId) && !starredIds.has(g.taskId)).slice().reverse();
-
-  const displayMsgs = activeTaskId === null
-    ? allMsgs
-    : allMsgs.filter((m) => m.taskId === activeTaskId || !m.taskId);
-
-  const activeTaskTitle = activeTaskId === null ? undefined
-    : taskGroups.find(g => g.taskId === activeTaskId)?.title;
+  const activeConvTitle = useMemo(() => {
+    if (!activeConvId || !allConversations) return null;
+    return allConversations.find(c => c.id === activeConvId)?.title || `对话 #${activeConvId}`;
+  }, [activeConvId, allConversations]);
 
   if (authLoading || accessLoading) {
     return (
@@ -656,7 +509,21 @@ export default function ChatRoom() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden" style={{ background: "oklch(0.13 0.005 270)" }}>
+    <div className="h-screen flex overflow-hidden" style={{ background: "oklch(0.13 0.005 270)" }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
+      onDrop={handleDrop}>
+
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+          style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "2px dashed oklch(0.72 0.18 250 / 0.5)" }}>
+          <div className="text-center space-y-2">
+            <Paperclip className="w-10 h-10 mx-auto" style={{ color: "oklch(0.72 0.18 250)" }} />
+            <p className="text-sm font-medium" style={{ color: "oklch(0.72 0.18 250)" }}>拖放文件到此处上传</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Sidebar ── */}
       <aside className={`flex flex-col shrink-0 transition-all duration-300 ${sidebarOpen ? "w-64" : "w-0 overflow-hidden"}`}
@@ -675,122 +542,70 @@ export default function ChatRoom() {
           </button>
         </div>
 
-        {/* New task */}
-        <div className="px-3 mb-3 shrink-0">
-          <button onClick={openNewTaskDialog}
-            className="w-full h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+        {/* Action buttons */}
+        <div className="px-3 mb-3 shrink-0 flex gap-2">
+          <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
+            className="flex-1 h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
             style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
             <Plus className="w-4 h-4" />新任务
           </button>
+          <button onClick={() => { setNewGroupName(""); setNewGroupColor("blue"); setNewGroupDialogOpen(true); }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: "oklch(0.72 0.18 155 / 0.10)", border: "1px solid oklch(0.72 0.18 155 / 0.25)", color: "oklch(0.72 0.18 155)" }}
+            title="新建分组">
+            <FolderPlus className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Conversation list with groups */}
+        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
 
-          {/* Named conversations (created via "New Task" dialog) */}
-          {conversations.length > 0 && (
-            <div className="mb-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>
-                <Sparkles className="w-3 h-3" />
-                <span>任务会话</span>
-                <span className="ml-auto opacity-60">{conversations.length}</span>
-              </div>
-              {conversations.map(conv => (
-                <button
-                  key={conv.id}
-                  onClick={() => { setActiveConvId(conv.id); setActiveTaskId(null); }}
-                  className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors group/conv"
-                  style={{
-                    background: activeConvId === conv.id ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
-                    color: activeConvId === conv.id ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
-                  }}>
-                  <MessageSquare className="w-3 h-3 shrink-0 opacity-60" />
-                  <span className="truncate flex-1">{conv.title}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setConversations(prev => prev.filter(c => c.id !== conv.id)); if (activeConvId === conv.id) setActiveConvId(null); }}
-                    className="w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/conv:opacity-100 transition-opacity hover:bg-white/10"
-                    style={{ color: "oklch(0.55 0.01 270)" }}>
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </button>
-              ))}
-              <div className="mx-2 my-1.5" style={{ borderTop: "1px solid oklch(0.22 0.007 270)" }} />
-            </div>
-          )}
+          {/* Groups */}
+          {groups && groups.map(group => (
+            <GroupSection
+              key={group.id}
+              group={group}
+              activeConvId={activeConvId}
+              onSelectConv={setActiveConvId}
+              onRename={(id, name) => { setRenameGroupId(id); setRenameGroupName(name); }}
+              onDelete={(id) => deleteGroupMutation.mutate({ groupId: id })}
+              onMoveConv={(convId) => { setMoveConvId(convId); setMoveDialogOpen(true); }}
+            />
+          ))}
 
-          {/* All conversations entry */}
-          <button onClick={() => { setActiveTaskId(null); setActiveConvId(null); }}
-            className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors mb-1"
-            style={{
-              background: activeTaskId === null && activeConvId === null ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
-              color: activeTaskId === null && activeConvId === null ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
-            }}>
-            <History className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate flex-1">全部对话</span>
-            <span className="opacity-50">{allMsgs.filter(m => m.role === "user").length}</span>
-          </button>
-
-          {/* Pinned group */}
-          {pinnedGroups.length > 0 && (
-            <div className="mb-1">
-              <button onClick={() => setShowPinned(o => !o)}
-                className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg hover:bg-white/5 transition-colors"
-                style={{ color: "oklch(0.45 0.01 270)" }}>
-                <ChevronRight className={`w-3 h-3 transition-transform ${showPinned ? "rotate-90" : ""}`} />
-                <Pin className="w-3 h-3" />置顶
-                <span className="ml-auto opacity-60">{pinnedGroups.length}</span>
-              </button>
-              {showPinned && pinnedGroups.map(g => (
-                <SidebarItem key={g.taskId} group={g} active={activeTaskId === g.taskId}
-                  onClick={() => setActiveTaskId(g.taskId)}
-                  onPin={() => togglePin(g.taskId)}
-                  onStar={() => toggleStar(g.taskId)} />
-              ))}
-            </div>
-          )}
-
-          {/* Starred group */}
-          {starredGroups.length > 0 && (
-            <div className="mb-1">
-              <button onClick={() => setShowStarred(o => !o)}
-                className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg hover:bg-white/5 transition-colors"
-                style={{ color: "oklch(0.45 0.01 270)" }}>
-                <ChevronRight className={`w-3 h-3 transition-transform ${showStarred ? "rotate-90" : ""}`} />
-                <Star className="w-3 h-3" />收藏
-                <span className="ml-auto opacity-60">{starredGroups.length}</span>
-              </button>
-              {showStarred && starredGroups.map(g => (
-                <SidebarItem key={g.taskId} group={g} active={activeTaskId === g.taskId}
-                  onClick={() => setActiveTaskId(g.taskId)}
-                  onPin={() => togglePin(g.taskId)}
-                  onStar={() => toggleStar(g.taskId)} />
-              ))}
-            </div>
-          )}
-
-          {/* Recent group */}
-          {recentGroups.length > 0 && (
+          {/* Ungrouped conversations */}
+          {ungroupedConvs.length > 0 && (
             <div>
-              <button onClick={() => setShowRecent(o => !o)}
-                className="w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg hover:bg-white/5 transition-colors"
-                style={{ color: "oklch(0.45 0.01 270)" }}>
-                <ChevronRight className={`w-3 h-3 transition-transform ${showRecent ? "rotate-90" : ""}`} />
-                <History className="w-3 h-3" />最近
-                <span className="ml-auto opacity-60">{recentGroups.length}</span>
-              </button>
-              {showRecent && recentGroups.map(g => (
-                <SidebarItem key={g.taskId} group={g} active={activeTaskId === g.taskId}
-                  onClick={() => setActiveTaskId(g.taskId)}
-                  onPin={() => togglePin(g.taskId)}
-                  onStar={() => toggleStar(g.taskId)} />
+              {groups && groups.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-2" style={{ color: "oklch(0.42 0.01 270)" }}>
+                  <History className="w-3 h-3" />
+                  <span>未分组</span>
+                  <span className="ml-auto opacity-60">{ungroupedConvs.length}</span>
+                </div>
+              )}
+              {ungroupedConvs.slice().reverse().map(conv => (
+                <ConvItem
+                  key={conv.id}
+                  conv={conv}
+                  active={activeConvId === conv.id}
+                  onSelect={() => setActiveConvId(conv.id)}
+                  onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
+                />
               ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {(!allConversations || allConversations.length === 0) && (
+            <div className="px-3 py-8 text-center">
+              <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: "oklch(0.55 0.01 270)" }} />
+              <p className="text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>点击「新任务」开始</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid oklch(0.22 0.007 270)" }}>
-          {/* RPA status */}
           <div className="px-2 py-2 rounded-xl mb-2 space-y-1.5" style={{ background: "oklch(0.18 0.005 270)" }}>
             <div className="flex items-center gap-2">
               {rpaConnected
@@ -808,10 +623,8 @@ export default function ChatRoom() {
               <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>投资manus</span>
             </div>
           </div>
-
           {[
             { icon: Settings, label: "设置", action: () => navigate("/settings") },
-            ...(accessData?.isOwner ? [{ icon: Shield, label: "管理面板", action: () => navigate("/admin") }] : []),
             { icon: LogOut, label: "退出登录", action: logout },
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
@@ -834,7 +647,7 @@ export default function ChatRoom() {
             </button>
           )}
           <span className="text-sm font-medium truncate" style={{ color: "oklch(0.85 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>
-            {activeTaskId === null ? "全部对话" : taskGroups.find(g => g.taskId === activeTaskId)?.title || `任务 #${activeTaskId}`}
+            {activeConvTitle || "选择或新建任务"}
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
@@ -850,16 +663,14 @@ export default function ChatRoom() {
 
         {/* Messages */}
         <div className="relative flex-1 overflow-hidden">
-          <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto">
+          <div ref={scrollRef} onScroll={() => {
+            const el = scrollRef.current;
+            if (!el) return;
+            setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 120);
+          }} className="h-full overflow-y-auto">
             <div className="max-w-3xl mx-auto px-6 py-4">
-              {msgsLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center space-y-3">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: "oklch(0.72 0.18 250)" }} />
-                    <p className="text-sm" style={{ color: "oklch(0.55 0.01 270)" }}>正在加载历史对话...</p>
-                  </div>
-                </div>
-              ) : displayMsgs.length === 0 ? (
+              {!activeConvId ? (
+                // No conversation selected
                 <div className="flex items-center justify-center min-h-[60vh]">
                   <div className="text-center space-y-5 max-w-md">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
@@ -869,10 +680,14 @@ export default function ChatRoom() {
                     <div>
                       <h3 className="text-lg font-semibold mb-2" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>开始协作</h3>
                       <p className="text-sm leading-relaxed" style={{ color: "oklch(0.55 0.01 270)" }}>
-                        输入你的金融投资任务，Manus 将通过「金融投资」对话框执行分析，
-                        ChatGPT 将通过「投资manus」对话框进行审查和战略汇总。
+                        点击左侧「新任务」创建独立对话框，每个任务完全隔离，AI 自动携带历史摘要实现跨任务联动。
                       </p>
                     </div>
+                    <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
+                      className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
+                      style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
+                      <Plus className="w-4 h-4" />新建任务
+                    </button>
                     <div className="flex items-center justify-center gap-6 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
                       <div className="flex items-center gap-1.5">
                         <Database className="w-3.5 h-3.5" style={{ color: "var(--manus-color)" }} />
@@ -885,10 +700,32 @@ export default function ChatRoom() {
                     </div>
                   </div>
                 </div>
+              ) : msgsLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "oklch(0.72 0.18 250)" }} />
+                </div>
+              ) : convMessages.length === 0 ? (
+                // Empty conversation
+                <div className="flex items-center justify-center min-h-[60vh]">
+                  <div className="text-center space-y-4 max-w-sm">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto"
+                      style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                      <Sparkles className="w-6 h-6" style={{ color: "oklch(0.72 0.18 250)" }} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold mb-1" style={{ color: "oklch(0.92 0.005 270)" }}>
+                        {activeConvTitle || "新任务"}
+                      </h3>
+                      <p className="text-sm" style={{ color: "oklch(0.55 0.01 270)" }}>
+                        输入你的任务，AI 团队将协作完成分析
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <>
-                  {displayMsgs.map((msg) => (
-                    <MsgRow key={msg.id} msg={msg} taskTitle={activeTaskTitle} />
+                  {convMessages.map((msg) => (
+                    <MsgRow key={msg.id} msg={msg} taskTitle={activeConvTitle || undefined} />
                   ))}
                   {isTyping && <TypingIndicator />}
                 </>
@@ -897,159 +734,299 @@ export default function ChatRoom() {
             </div>
           </div>
 
-          {/* Scroll to bottom button */}
+          {/* Scroll to bottom */}
           {showScrollBtn && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
-              style={{
-                background: "oklch(0.22 0.008 270)",
-                border: "1px solid oklch(0.35 0.01 270)",
-                boxShadow: "0 2px 12px oklch(0 0 0 / 0.4)",
-                color: "oklch(0.75 0.01 270)",
-              }}
-              aria-label="滚动到最新消息">
+            <button onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110"
+              style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.65 0.01 270)" }}>
               <ChevronDown className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        {/* Input */}
-        <div className="px-6 pb-5 pt-2 shrink-0"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}>
+        {/* Input area */}
+        <div className="px-4 pb-4 pt-2 shrink-0">
           <div className="max-w-3xl mx-auto">
-
-            {/* Drag overlay */}
-            {isDragOver && (
-              <div className="mb-2 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
-                style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "2px dashed oklch(0.72 0.18 250 / 0.5)", color: "oklch(0.72 0.18 250)" }}>
-                <Paperclip className="w-4 h-4" />
-                松开以上传文件
-              </div>
-            )}
-
-            {/* File preview cards */}
+            {/* File previews */}
             {pendingFiles.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-2 px-1">
                 {pendingFiles.map(pf => (
-                  <FileCard key={pf.id} pf={pf} onRemove={() => removeFile(pf.id)} />
+                  <FileCard key={pf.id} pf={pf} onRemove={() => setPendingFiles(prev => prev.filter(p => p.id !== pf.id))} />
                 ))}
               </div>
             )}
-
-            {/* Input box */}
-            <div className="flex items-end gap-3 px-4 py-3 rounded-2xl"
-              style={{
-                background: "oklch(0.20 0.007 270)",
-                border: `1px solid ${isDragOver ? "oklch(0.72 0.18 250 / 0.6)" : "oklch(0.28 0.008 270)"}`,
-                transition: "border-color 0.15s",
-              }}>
-
-              {/* Attach button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={sending}
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-white/8 disabled:opacity-30"
-                style={{ color: "oklch(0.55 0.01 270)" }}
-                title="上传文件">
-                <Paperclip className="w-4 h-4" />
-              </button>
-
+            <div className="rounded-2xl overflow-hidden transition-all"
+              style={{ background: "oklch(0.17 0.005 270)", border: `1px solid ${isDragOver ? "oklch(0.72 0.18 250 / 0.6)" : "oklch(0.25 0.007 270)"}` }}>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入任务，按 Enter 发送，Shift+Enter 换行..."
-                className="flex-1 bg-transparent border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm min-h-[24px] max-h-[160px] p-0 leading-relaxed placeholder:text-muted-foreground"
-                rows={1}
-                disabled={sending}
-                style={{ color: "oklch(0.92 0.005 270)" }}
+                placeholder={activeConvId ? "输入任务内容... (Enter 发送，Shift+Enter 换行)" : "请先点击「新任务」创建对话框"}
+                disabled={!activeConvId || sending}
+                rows={3}
+                className="resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                style={{ color: "oklch(0.88 0.005 270)" }}
               />
-              <button
-                onClick={handleSubmit}
-                disabled={(!input.trim() && pendingFiles.length === 0) || sending}
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-30"
-                style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center justify-between px-3 pb-2.5">
+                <div className="flex items-center gap-1">
+                  <input ref={fileInputRef} type="file" multiple className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                    onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/8"
+                    style={{ color: "oklch(0.50 0.01 270)" }} title="添加附件">
+                    <Paperclip className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <button onClick={handleSubmit} disabled={!input.trim() || !activeConvId || sending}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{ background: input.trim() && activeConvId && !sending ? "oklch(0.72 0.18 250)" : "oklch(0.25 0.007 270)", color: "white" }}>
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
-
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-              className="hidden"
-              onChange={(e) => { if (e.target.files) { addFiles(e.target.files); e.target.value = ""; } }}
-            />
-
-            <p className="text-center text-xs mt-2" style={{ color: "oklch(0.38 0.008 270)" }}>
-              Manus「金融投资」执行分析 · ChatGPT「投资manus」审查汇总 · 支持拖拽上传文件
+            <p className="text-center text-xs mt-1.5" style={{ color: "oklch(0.38 0.007 270)" }}>
+              Manus 分析 · ChatGPT 审核 · 内部静默流转
             </p>
           </div>
         </div>
       </div>
 
-      {/* ─── New Task Dialog ──────────────────────────────────────────────────────── */}
+      {/* ── New Task Dialog ── */}
       <Dialog open={newTaskDialogOpen} onOpenChange={setNewTaskDialogOpen}>
-        <DialogContent
-          className="sm:max-w-md"
-          style={{
-            background: "oklch(0.17 0.006 270)",
-            border: "1px solid oklch(0.28 0.008 270)",
-            borderRadius: "1rem",
-          }}>
+        <DialogContent className="sm:max-w-md" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.27 0.008 270)" }}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-base" style={{ color: "oklch(0.92 0.005 270)" }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
-                <Sparkles className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
-              </div>
-              新建任务
-            </DialogTitle>
+            <DialogTitle style={{ color: "oklch(0.92 0.005 270)" }}>新建任务</DialogTitle>
           </DialogHeader>
-
           <div className="py-2">
-            <p className="text-xs mb-3" style={{ color: "oklch(0.52 0.01 270)" }}>
-              给这个任务起一个名字，方便在左侧栏找到它。也可以直接点确认使用默认名称。
+            <p className="text-sm mb-3" style={{ color: "oklch(0.60 0.01 270)" }}>
+              每个任务拥有独立对话框，AI 自动携带历史摘要实现跨任务联动。
             </p>
             <Input
               ref={newTaskInputRef}
               value={newTaskName}
               onChange={(e) => setNewTaskName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") confirmNewTask(); }}
-              placeholder="例：氪深300分析、Q1投资回顾..."
-              className="text-sm"
-              style={{
-                background: "oklch(0.22 0.007 270)",
-                border: "1px solid oklch(0.32 0.009 270)",
-                color: "oklch(0.92 0.005 270)",
-                borderRadius: "0.75rem",
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createConvMutation.mutate({ title: newTaskName.trim() || undefined }); } }}
+              placeholder="任务名称（可选）"
+              className="border-0 text-sm"
+              style={{ background: "oklch(0.22 0.007 270)", color: "oklch(0.88 0.005 270)" }}
             />
           </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setNewTaskDialogOpen(false)}
-              className="text-sm"
-              style={{ color: "oklch(0.55 0.01 270)" }}>
-              取消
-            </Button>
-            <Button
-              onClick={confirmNewTask}
-              className="text-sm font-medium"
-              style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-              创建任务
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewTaskDialogOpen(false)} style={{ color: "oklch(0.60 0.01 270)" }}>取消</Button>
+            <Button onClick={() => createConvMutation.mutate({ title: newTaskName.trim() || undefined })}
+              disabled={createConvMutation.isPending}
+              style={{ background: "oklch(0.72 0.18 250)", color: "white", border: "none" }}>
+              {createConvMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "开始任务"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── New Group Dialog ── */}
+      <Dialog open={newGroupDialogOpen} onOpenChange={setNewGroupDialogOpen}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.27 0.008 270)" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "oklch(0.92 0.005 270)" }}>新建分组</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <Input
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && newGroupName.trim()) createGroupMutation.mutate({ name: newGroupName.trim(), color: newGroupColor }); }}
+              placeholder="分组名称"
+              className="border-0 text-sm"
+              style={{ background: "oklch(0.22 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>颜色</span>
+              <div className="flex gap-1.5">
+                {Object.entries(GROUP_COLORS).map(([key, color]) => (
+                  <button key={key} onClick={() => setNewGroupColor(key)}
+                    className="w-5 h-5 rounded-full transition-all hover:scale-110"
+                    style={{ background: color, outline: newGroupColor === key ? `2px solid ${color}` : "none", outlineOffset: "2px" }} />
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewGroupDialogOpen(false)} style={{ color: "oklch(0.60 0.01 270)" }}>取消</Button>
+            <Button onClick={() => createGroupMutation.mutate({ name: newGroupName.trim(), color: newGroupColor })}
+              disabled={!newGroupName.trim() || createGroupMutation.isPending}
+              style={{ background: "oklch(0.72 0.18 155)", color: "white", border: "none" }}>
+              {createGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "创建"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Rename Group Dialog ── */}
+      <Dialog open={renameGroupId !== null} onOpenChange={(open) => { if (!open) setRenameGroupId(null); }}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.27 0.008 270)" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "oklch(0.92 0.005 270)" }}>重命名分组</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              value={renameGroupName}
+              onChange={(e) => setRenameGroupName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && renameGroupName.trim() && renameGroupId) renameGroupMutation.mutate({ groupId: renameGroupId, name: renameGroupName.trim() }); }}
+              placeholder="新名称"
+              className="border-0 text-sm"
+              style={{ background: "oklch(0.22 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRenameGroupId(null)} style={{ color: "oklch(0.60 0.01 270)" }}>取消</Button>
+            <Button onClick={() => { if (renameGroupId && renameGroupName.trim()) renameGroupMutation.mutate({ groupId: renameGroupId, name: renameGroupName.trim() }); }}
+              disabled={!renameGroupName.trim() || renameGroupMutation.isPending}
+              style={{ background: "oklch(0.72 0.18 250)", color: "white", border: "none" }}>
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Move to Group Dialog ── */}
+      <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.27 0.008 270)" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "oklch(0.92 0.005 270)" }}>移入分组</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-1">
+            <button onClick={() => { if (moveConvId) moveToGroupMutation.mutate({ conversationId: moveConvId, groupId: null }); }}
+              className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-white/5 transition-colors"
+              style={{ color: "oklch(0.65 0.008 270)" }}>
+              不属于任何分组
+            </button>
+            {groups && groups.map(g => (
+              <button key={g.id} onClick={() => { if (moveConvId) moveToGroupMutation.mutate({ conversationId: moveConvId, groupId: g.id }); }}
+                className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
+                style={{ color: "oklch(0.82 0.005 270)" }}>
+                <Folder className="w-4 h-4" style={{ color: GROUP_COLORS[g.color] || GROUP_COLORS.blue }} />
+                {g.name}
+                <span className="ml-auto text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>{g.conversations.length} 个任务</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Group Section Component ──────────────────────────────────────────────────
+interface GroupSectionProps {
+  group: {
+    id: number;
+    name: string;
+    color: string;
+    isCollapsed: boolean;
+    conversations: Array<{ id: number; title: string | null; createdAt: Date; updatedAt: Date }>;
+  };
+  activeConvId: number | null;
+  onSelectConv: (id: number) => void;
+  onRename: (id: number, name: string) => void;
+  onDelete: (id: number) => void;
+  onMoveConv: (convId: number) => void;
+}
+
+function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv }: GroupSectionProps) {
+  const [collapsed, setCollapsed] = useState(group.isCollapsed);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const color = GROUP_COLORS[group.color] || GROUP_COLORS.blue;
+
+  return (
+    <div className="mb-1">
+      <div className="flex items-center gap-1 group/group">
+        <button onClick={() => setCollapsed(o => !o)}
+          className="flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-xs"
+          style={{ color: "oklch(0.60 0.01 270)" }}>
+          <ChevronRight className={`w-3 h-3 transition-transform shrink-0 ${collapsed ? "" : "rotate-90"}`} />
+          {collapsed ? <Folder className="w-3 h-3 shrink-0" style={{ color }} /> : <FolderOpen className="w-3 h-3 shrink-0" style={{ color }} />}
+          <span className="truncate font-medium" style={{ color }}>{group.name}</span>
+          <span className="ml-auto opacity-50 shrink-0">{group.conversations.length}</span>
+        </button>
+        <div className="relative">
+          <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover/group:opacity-100 transition-opacity hover:bg-white/10"
+            style={{ color: "oklch(0.55 0.01 270)" }}>
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-6 z-50 rounded-xl py-1 min-w-[140px] shadow-xl"
+                style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                <button onClick={() => { onRename(group.id, group.name); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: "oklch(0.82 0.005 270)" }}>
+                  <Pencil className="w-3.5 h-3.5" />重命名
+                </button>
+                <button onClick={() => { onDelete(group.id); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: "oklch(0.65 0.18 25)" }}>
+                  <Trash2 className="w-3.5 h-3.5" />删除分组
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      {!collapsed && group.conversations.slice().reverse().map(conv => (
+        <ConvItem
+          key={conv.id}
+          conv={conv}
+          active={activeConvId === conv.id}
+          onSelect={() => onSelectConv(conv.id)}
+          onMove={() => onMoveConv(conv.id)}
+          indent
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Conversation Item Component ──────────────────────────────────────────────
+interface ConvItemProps {
+  conv: { id: number; title: string | null; createdAt: Date };
+  active: boolean;
+  onSelect: () => void;
+  onMove: () => void;
+  indent?: boolean;
+}
+
+function ConvItem({ conv, active, onSelect, onMove, indent }: ConvItemProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className={`relative group/item ${indent ? "pl-4" : ""}`}>
+      <button onClick={onSelect}
+        className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors"
+        style={{
+          background: active ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
+          color: active ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+        }}>
+        <MessageSquare className="w-3 h-3 shrink-0 opacity-50" />
+        <span className="truncate flex-1">{conv.title || `对话 #${conv.id}`}</span>
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"
+        style={{ color: "oklch(0.55 0.01 270)" }}>
+        <MoreHorizontal className="w-3 h-3" />
+      </button>
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[140px] shadow-xl"
+            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+            <button onClick={() => { onMove(); setMenuOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+              style={{ color: "oklch(0.82 0.005 270)" }}>
+              <MoveRight className="w-3.5 h-3.5" />移入分组
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

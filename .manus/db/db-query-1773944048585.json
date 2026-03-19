@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE `conversation_groups` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `userId` int NOT NULL,\n  `name` varchar(128) NOT NULL,\n  `color` varchar(32) NOT NULL DEFAULT 'blue',\n  `isCollapsed` boolean NOT NULL DEFAULT false,\n  `sortOrder` int NOT NULL DEFAULT 0,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `conversation_groups_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `conversations` ADD `groupId` int;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nCREATE TABLE `conversation_groups` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `userId` int NOT NULL,\n  `name` varchar(128) NOT NULL,\n  `color` varchar(32) NOT NULL DEFAULT 'blue',\n  `isCollapsed` boolean NOT NULL DEFAULT false,\n  `sortOrder` int NOT NULL DEFAULT 0,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `conversation_groups_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `conversations` ADD `groupId` int;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1515
+}

@@ -24,11 +24,27 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// 会话分组表：用户可以把多个会话收纳进一个小组
+export const conversationGroups = mysqlTable("conversation_groups", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  color: varchar("color", { length: 32 }).default("blue").notNull(), // 分组颜色标识
+  isCollapsed: boolean("isCollapsed").default(false).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ConversationGroup = typeof conversationGroups.$inferSelect;
+export type InsertConversationGroup = typeof conversationGroups.$inferInsert;
+
 // 会话表：每次点击「新任务」创建一个独立会话
 export const conversations = mysqlTable("conversations", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   title: text("title"),                  // 会话标题（第一条用户消息的前55字）
+  groupId: int("groupId"),                // 所属小组（可为空）
   isPinned: boolean("isPinned").default(false).notNull(),
   isFavorited: boolean("isFavorited").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

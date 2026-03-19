@@ -57,6 +57,13 @@
       "when": 1773941406748,
       "tag": "0007_next_lily_hollister",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1773944038822,
+      "tag": "0008_lucky_darwin",
+      "breakpoints": true
     }
   ]
 }

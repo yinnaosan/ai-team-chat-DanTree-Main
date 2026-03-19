@@ -165,3 +165,29 @@
 - [x] 前端：设置页「ChatGPT 连接」标签添加可调整大小的内嵌窗口
 - [x] 前端：窗口内显示 chatgpt.com，用户可手动登录
 - [x] 前端：添加「刷新连接」按钮，登录后点击让 RPA 重新检测登录状态
+
+## 任务会话完全隔离（新任务 = 新对话框）
+- [ ] 后端：submitTask 接收 conversationId 参数，消息绑定到指定会话
+- [ ] 后端：getMessages 支持按 conversationId 过滤，只返回该会话消息
+- [ ] 前端：每个命名任务会话维护独立消息列表，切换时只显示该会话消息
+- [ ] 前端：新任务创建后聊天区域清空，从空白开始
+- [ ] 前端：侧边栏任务会话显示最后一条消息预览
+
+## 设置页内嵌完整浏览器窗口
+- [ ] 后端：添加通用网页代理路由 /api/web-proxy，支持任意 URL 转发并移除 X-Frame-Options
+- [ ] 前端：设置页「ChatGPT 连接」标签改为内嵌浏览器，默认加载 Google 搜索
+- [ ] 前端：地址栏支持输入任意 URL 并按 Enter 跳转
+- [ ] 前端：快捷按钮：Google / ChatGPT / 刷新 / 新窗口
+- [ ] 前端：拖拽手柄调整窗口高度（300-900px）
+
+## 新任务=新空白对话框 + 跨任务记忆联动 + 侧边栏分组
+- [x] 数据库：conversation_groups 表（id, userId, name, color, createdAt）
+- [x] 数据库：conversations 表添加 groupId 字段
+- [x] 后端：group.create / group.list / group.delete / group.addConversation procedure
+- [x] 后端：chat.getConversationMessages 按 conversationId 隔离返回消息
+- [x] 后端：chat.submitTask 传入 conversationId，消息绑定到该会话
+- [x] 前端：新任务弹窗确认后立即切换到空白对话界面（清空显示消息）
+- [x] 前端：发消息时携带当前 conversationId，消息只属于该会话
+- [x] 前端：切换会话时调用 getConversationMessages 加载该会话消息
+- [x] 前端：侧边栏支持创建分组，任务可拖入分组
+- [x] 前端：分组可折叠展开，显示组内任务列表

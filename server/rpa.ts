@@ -94,28 +94,47 @@ export async function navigateToConversation(conversationName: string): Promise<
       await page.waitForTimeout(500);
     }
 
-    // 方法1：直接在侧边栏搜索对话框名称
-    // ChatGPT 侧边栏的对话列表项通常是 <a> 或 <li> 包含对话标题
-    const conversationLinks = page.locator(`nav a, [data-testid*="conversation"], aside a`);
-    const allLinks = await conversationLinks.all();
+    // 方法1：精确文本匹配（最可靠）
+    const exactMatch = page.locator(`text="${conversationName}"`);
+    const exactCount = await exactMatch.count().catch(() => 0);
+    if (exactCount > 0) {
+      await exactMatch.first().click();
+      await page.waitForTimeout(1500);
+      await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+      lockedConversationName = conversationName;
+      console.log(`[RPA] 已成功导航到对话框「${conversationName}」（精确匹配）`);
+      return true;
+    }
 
-    for (const link of allLinks) {
-      const text = await link.innerText().catch(() => "");
+    // 方法2：宽泛文本包含匹配（遍历所有可点击元素）
+    const allClickable = page.locator(`nav a, aside a, [role="listitem"] a, li a, [data-testid*="conversation"]`);
+    const allItems = await allClickable.all();
+    for (const item of allItems) {
+      const text = await item.innerText().catch(() => "");
       if (text.trim().includes(conversationName)) {
-        await link.click();
+        await item.click();
         await page.waitForTimeout(1500);
-        // 等待输入框出现，确认已进入对话
-        await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 });
+        await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
         lockedConversationName = conversationName;
-        console.log(`[RPA] 已成功导航到对话框「${conversationName}」`);
+        console.log(`[RPA] 已成功导航到对话框「${conversationName}」（包含匹配）`);
         return true;
       }
     }
 
-    // 方法2：使用搜索功能（如果方法1未找到）
+    // 方法3：使用 getByText 宽泛匹配
+    const byText = page.getByText(conversationName, { exact: false });
+    const byTextCount = await byText.count().catch(() => 0);
+    if (byTextCount > 0) {
+      await byText.first().click();
+      await page.waitForTimeout(1500);
+      lockedConversationName = conversationName;
+      console.log(`[RPA] 通过 getByText 找到对话框「${conversationName}」`);
+      return true;
+    }
+
+    // 方法4：使用搜索功能
     const searchBtn = page.locator('button[aria-label*="Search"], [data-testid*="search"]').first();
     const isSearchVisible = await searchBtn.isVisible().catch(() => false);
-
     if (isSearchVisible) {
       await searchBtn.click();
       await page.waitForTimeout(500);
@@ -123,28 +142,16 @@ export async function navigateToConversation(conversationName: string): Promise<
       if (await searchInput.isVisible().catch(() => false)) {
         await searchInput.fill(conversationName);
         await page.waitForTimeout(800);
-
-        // 点击搜索结果中的第一个匹配项
-        const searchResult = page.locator(`[data-testid*="result"] a, .search-result a`).first();
+        const searchResult = page.locator(`[data-testid*="result"] a, .search-result a, [role="option"]`).first();
         if (await searchResult.isVisible().catch(() => false)) {
           await searchResult.click();
           await page.waitForTimeout(1500);
-          await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 });
+          await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
           lockedConversationName = conversationName;
-          console.log(`[RPA] 通过搜索找到并导航到对话框「${conversationName}」`);
+          console.log(`[RPA] 通过搜索找到对话框「${conversationName}」`);
           return true;
         }
       }
-    }
-
-    // 方法3：直接文本匹配（更宽泛的选择器）
-    const anyMatchingElement = page.locator(`text="${conversationName}"`).first();
-    if (await anyMatchingElement.isVisible().catch(() => false)) {
-      await anyMatchingElement.click();
-      await page.waitForTimeout(1500);
-      lockedConversationName = conversationName;
-      console.log(`[RPA] 通过文本匹配找到对话框「${conversationName}」`);
-      return true;
     }
 
     console.warn(`[RPA] 未找到名为「${conversationName}」的对话框，将使用当前对话框`);

@@ -18,238 +18,130 @@ import {
 // ─── Tab 类型 ─────────────────────────────────────────────────────────────────
 type SettingsTab = "gpt-preview" | "rpa" | "database" | "about";
 
-// ─── ChatGPT 预览窗口 ─────────────────────────────────────────────────────────
+// ─── ChatGPT 连接引导面板 ──────────────────────────────────────────────────────
 function ChatGPTPreviewPanel({ rpaStatus }: { rpaStatus: any }) {
-  const [iframeKey, setIframeKey] = useState(0);
-  const [iframeError, setIframeError] = useState(false);
-  const [iframeLoading, setIframeLoading] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
   const isConnected = rpaStatus?.status === "ready" || rpaStatus?.status === "working";
   const CHATGPT_URL = "https://chatgpt.com/";
-  const CHATGPT_PROXY_URL = "/api/chatgpt-proxy/";
   const CONVERSATION_NAME = "投资manus";
   const MANUS_CONVERSATION = "金融投资";
-  const [useProxy, setUseProxy] = useState(true);
-  const [windowHeight, setWindowHeight] = useState(520);
-  const resizeRef = useRef<HTMLDivElement>(null);
-  const isResizing = useRef(false);
-  const startY = useRef(0);
-  const startH = useRef(0);
 
-  const handleResizeStart = (e: React.MouseEvent) => {
-    isResizing.current = true;
-    startY.current = e.clientY;
-    startH.current = windowHeight;
-    document.addEventListener("mousemove", handleResizeMove);
-    document.addEventListener("mouseup", handleResizeEnd);
-    e.preventDefault();
-  };
-
-  const handleResizeMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const delta = e.clientY - startY.current;
-    const newH = Math.max(300, Math.min(900, startH.current + delta));
-    setWindowHeight(newH);
-  }, []);
-
-  const handleResizeEnd = useCallback(() => {
-    isResizing.current = false;
-    document.removeEventListener("mousemove", handleResizeMove);
-    document.removeEventListener("mouseup", handleResizeEnd);
-  }, [handleResizeMove]);
-
-  const handleReload = () => {
-    setIframeError(false);
-    setIframeLoading(true);
-    setIframeKey(k => k + 1);
-  };
+  const steps = [
+    { num: "1", title: "点击下方按钮打开 ChatGPT", desc: "在新标签页中打开 chatgpt.com" },
+    { num: "2", title: "登录你的 ChatGPT 账号", desc: "使用 Google 或邮箱登录" },
+    { num: "3", title: "切换到「投资manus」对话项目", desc: "在左侧边栏找到并点击该项目" },
+    { num: "4", title: "返回此页面，点击「检测连接」", desc: "RPA 将自动验证登录状态" },
+  ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
 
       {/* 状态卡片 */}
       <div className="grid grid-cols-2 gap-3">
-        {/* ChatGPT 连接状态 */}
-        <div className="p-3 rounded-xl border space-y-2"
+        <div className="p-4 rounded-xl border space-y-2"
           style={{
             background: isConnected ? "oklch(0.72 0.18 155 / 0.06)" : "oklch(0.18 0.005 270)",
             borderColor: isConnected ? "oklch(0.72 0.18 155 / 0.25)" : "oklch(0.28 0.008 270)",
           }}>
           <div className="flex items-center gap-2">
             {isConnected
-              ? <Wifi className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 155)" }} />
-              : <WifiOff className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.01 270)" }} />}
-            <span className="text-xs font-medium" style={{ color: isConnected ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)" }}>
+              ? <Wifi className="w-4 h-4" style={{ color: "oklch(0.72 0.18 155)" }} />
+              : <WifiOff className="w-4 h-4" style={{ color: "oklch(0.55 0.01 270)" }} />}
+            <span className="text-sm font-semibold" style={{ color: isConnected ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)" }}>
               {isConnected ? "RPA 已连接" : "RPA 未连接"}
             </span>
           </div>
           <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
-            {isConnected ? "ChatGPT 浏览器自动化就绪" : "请在「RPA 连接」标签页建立连接"}
+            {isConnected ? "ChatGPT 浏览器自动化就绪，可以开始任务" : "需要先登录 ChatGPT 并建立连接"}
           </p>
         </div>
 
-        {/* 对话框配置 */}
-        <div className="p-3 rounded-xl border space-y-2"
+        <div className="p-4 rounded-xl border space-y-2"
           style={{ background: "oklch(0.72 0.18 250 / 0.06)", borderColor: "oklch(0.72 0.18 250 / 0.25)" }}>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
-            <span className="text-xs font-medium" style={{ color: "oklch(0.72 0.18 250)" }}>对话框已锁定</span>
+            <ShieldCheck className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+            <span className="text-sm font-semibold" style={{ color: "oklch(0.72 0.18 250)" }}>对话框已锁定</span>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--chatgpt-color)" }} />
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--chatgpt-color, oklch(0.72 0.18 155))" }} />
               <span className="text-xs font-mono" style={{ color: "oklch(0.82 0.005 270)" }}>ChatGPT → 「{CONVERSATION_NAME}」</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--manus-color)" }} />
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--manus-color, oklch(0.72 0.18 250))" }} />
               <span className="text-xs font-mono" style={{ color: "oklch(0.82 0.005 270)" }}>Manus → 「{MANUS_CONVERSATION}」</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 操作说明 */}
-      <div className="px-3 py-2.5 rounded-xl flex items-start gap-2.5"
-        style={{ background: "oklch(0.78 0.18 55 / 0.07)", border: "1px solid oklch(0.78 0.18 55 / 0.2)" }}>
-        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "oklch(0.78 0.18 55)" }} />
-        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.75 0.01 270)" }}>
-          请在下方窗口中确认：<strong style={{ color: "oklch(0.92 0.005 270)" }}>① 已登录你的 ChatGPT 账号</strong>，
-          <strong style={{ color: "oklch(0.92 0.005 270)" }}>② 当前对话项目为「{CONVERSATION_NAME}」</strong>。
-          如需切换，直接在窗口内操作即可。
-        </p>
-      </div>
-
-      {/* iframe 工具栏 */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-t-xl"
-        style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", borderBottom: "none" }}>
-        <div className="flex items-center gap-2">
-          <Monitor className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.01 270)" }} />
-          <span className="text-xs font-mono" style={{ color: "oklch(0.55 0.01 270)" }}>
-            {useProxy ? "代理模式 (chatgpt.com)" : "chatgpt.com"}
-          </span>
-          {!iframeError && !iframeLoading && (
-            <span className="flex items-center gap-1 text-xs" style={{ color: "oklch(0.72 0.18 155)" }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              已加载
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => { setUseProxy(p => !p); setIframeError(false); setIframeLoading(true); setIframeKey(k => k + 1); }}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: useProxy ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)" }}
-            title={useProxy ? "切换到直连模式" : "切换到代理模式"}>
-            <Wifi className="w-3 h-3" />{useProxy ? "代理中" : "直连"}
-          </button>
-          <button
-            onClick={handleReload}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "oklch(0.55 0.01 270)" }}
-            title="刷新">
-            <RefreshCw className="w-3 h-3" />刷新
-          </button>
+      {/* 主操作按钮 */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid oklch(0.25 0.007 270)" }}>
+        {/* 顶部渐变横幅 */}
+        <div className="px-6 py-5 flex items-center justify-between"
+          style={{ background: "linear-gradient(135deg, oklch(0.15 0.02 270), oklch(0.18 0.015 250))" }}>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>手动登录 ChatGPT</p>
+            <p className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>在新标签页中打开，登录后返回此页面检测连接</p>
+          </div>
           <a
             href={CHATGPT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "oklch(0.55 0.01 270)" }}
-            title="在新窗口打开">
-            <ExternalLink className="w-3 h-3" />新窗口
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90 active:scale-95"
+            style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.08 0.01 270)" }}>
+            <ExternalLink className="w-4 h-4" />
+            打开 ChatGPT
           </a>
         </div>
-      </div>
 
-      {/* iframe 主体 */}
-      <div className="relative rounded-b-xl overflow-hidden"
-        style={{
-          height: `${windowHeight}px`,
-          border: "1px solid oklch(0.25 0.007 270)",
-          background: "oklch(0.12 0.004 270)",
-        }}>
-
-        {/* 加载中遮罩 */}
-        {iframeLoading && !iframeError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-10 gap-3"
-            style={{ background: "oklch(0.12 0.004 270)" }}>
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "oklch(0.72 0.18 250)" }} />
-            <p className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>正在加载 ChatGPT...</p>
+        {/* 步骤说明 */}
+        <div className="px-6 py-4 space-y-3" style={{ background: "oklch(0.13 0.004 270)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "oklch(0.45 0.01 270)" }}>操作步骤</p>
+          <div className="space-y-2.5">
+            {steps.map((step) => (
+              <div key={step.num} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.15)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
+                  {step.num}
+                </div>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>{step.title}</p>
+                  <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>{step.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-
-        {/* 加载失败提示 */}
-        {iframeError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-10 gap-4 px-8 text-center"
-            style={{ background: "oklch(0.12 0.004 270)" }}>
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ background: "oklch(0.78 0.18 55 / 0.1)", border: "1px solid oklch(0.78 0.18 55 / 0.2)" }}>
-              <AlertTriangle className="w-6 h-6" style={{ color: "oklch(0.78 0.18 55)" }} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium" style={{ color: "oklch(0.92 0.005 270)" }}>浏览器安全限制</p>
-              <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.01 270)" }}>
-                ChatGPT 设置了 <code className="px-1 py-0.5 rounded text-xs" style={{ background: "oklch(0.20 0.007 270)" }}>X-Frame-Options</code> 安全头，
-                阻止了 iframe 嵌入。请点击「新窗口」按钮在独立标签页中打开并确认登录状态。
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleReload}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-                style={{ background: "oklch(0.22 0.008 270)", border: "1px solid oklch(0.30 0.009 270)", color: "oklch(0.75 0.01 270)" }}>
-                <RefreshCw className="w-3 h-3" />重试
-              </button>
-              <a
-                href={CHATGPT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-                style={{ background: "oklch(0.72 0.18 250 / 0.15)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
-                <ExternalLink className="w-3 h-3" />在新窗口打开 ChatGPT
-              </a>
-            </div>
-          </div>
-        )}
-
-        <iframe
-          key={iframeKey}
-          ref={iframeRef}
-          src={useProxy ? CHATGPT_PROXY_URL : CHATGPT_URL}
-          className="w-full h-full border-0"
-          title="ChatGPT 登录窗口"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-modals"
-          onLoad={() => {
-            setIframeLoading(false);
-            setIframeError(false);
-          }}
-          onError={() => {
-            setIframeLoading(false);
-            setIframeError(true);
-          }}
-          style={{ display: iframeError ? "none" : "block" }}
-        />
-      </div>
-
-      {/* 拖拽调整高度手柄 */}
-      <div
-        ref={resizeRef}
-        onMouseDown={handleResizeStart}
-        className="flex items-center justify-center w-full h-4 rounded-b-xl cursor-ns-resize select-none transition-colors hover:bg-white/5"
-        style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", borderTop: "none", marginTop: "-1px" }}
-        title="拖拽调整窗口高度">
-        <div className="flex gap-1">
-          {[0,1,2].map(i => (
-            <div key={i} className="w-6 h-0.5 rounded-full" style={{ background: "oklch(0.35 0.008 270)" }} />
-          ))}
         </div>
       </div>
 
-      {/* 底部提示 */}
-      <p className="text-center text-xs" style={{ color: "oklch(0.40 0.008 270)" }}>
-        如果 iframe 无法加载，请点击「新窗口」按钮在独立标签页中确认登录状态和对话项目
-      </p>
+      {/* 快捷链接 */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "ChatGPT 主页", url: "https://chatgpt.com/", icon: "💬" },
+          { label: "Google 登录", url: "https://accounts.google.com/", icon: "🔑" },
+          { label: "投资manus 项目", url: "https://chatgpt.com/", icon: "📁" },
+        ].map((link) => (
+          <a
+            key={link.label}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all hover:opacity-80"
+            style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)" }}>
+            <span className="text-lg">{link.icon}</span>
+            <span className="text-xs" style={{ color: "oklch(0.65 0.01 270)" }}>{link.label}</span>
+          </a>
+        ))}
+      </div>
+
+      {/* 提示说明 */}
+      <div className="px-4 py-3 rounded-xl flex items-start gap-2.5"
+        style={{ background: "oklch(0.72 0.18 250 / 0.05)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+        <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />
+        <p className="text-xs leading-relaxed" style={{ color: "oklch(0.60 0.01 270)" }}>
+          ChatGPT 不支持在网页内嵌入（安全限制），需要在独立标签页中登录。登录后 RPA 会自动检测到登录状态，无需再次操作。
+        </p>
+      </div>
     </div>
   );
 }

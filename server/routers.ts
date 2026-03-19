@@ -53,7 +53,7 @@ import {
   searchConversations,
 } from "./db";
 import { storagePut } from "./storage";
-import { connectToChatGPT, sendToChatGPT, getRpaStatus } from "./rpa";
+import { connectToChatGPT, sendToChatGPT, getRpaStatus, setLocalProxyUrl, checkLocalProxy } from "./rpa";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
 
@@ -739,10 +739,13 @@ export const appRouter = router({
     getConfig: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       const config = await getRpaConfig(ctx.user.id);
+      // 启动时恢复本地代理 URL
+      if (config?.localProxyUrl) setLocalProxyUrl(config.localProxyUrl);
       return {
         chatgptConversationName: "投资manus",
         manusConversationName: "金融投资",
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
+        localProxyUrl: config?.localProxyUrl ?? "",
       };
     }),
 
@@ -758,6 +761,26 @@ export const appRouter = router({
           manusSystemPrompt: input.manusSystemPrompt,
         });
         return { success: true };
+      }),
+
+    // 设置本地中转服务 URL
+    setProxyUrl: protectedProcedure
+      .input(z.object({ url: z.string().max(512) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const url = input.url.trim() || null;
+        await upsertRpaConfig(ctx.user.id, { localProxyUrl: url });
+        setLocalProxyUrl(url);
+        return { success: true };
+      }),
+
+    // 测试本地中转服务连接
+    testProxy: protectedProcedure
+      .input(z.object({ url: z.string().max(512) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const result = await checkLocalProxy(input.url);
+        return result;
       }),
   }),
 

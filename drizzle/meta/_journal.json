@@ -64,6 +64,20 @@
       "when": 1773944038822,
       "tag": "0008_lucky_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1773949847919,
+      "tag": "0009_unusual_darkstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1773950032118,
+      "tag": "0010_spicy_whizzer",
+      "breakpoints": true
     }
   ]
 }

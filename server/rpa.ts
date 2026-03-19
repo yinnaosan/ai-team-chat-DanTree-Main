@@ -1,12 +1,10 @@
 /**
- * RPA Module — 通过 Playwright 操控用户已登录的 ChatGPT 浏览器
+ * RPA Module — ChatGPT 通信层
  *
- * 核心逻辑：
- * 1. 连接到沙盒中已运行的 Chromium（CDP 9222端口）
- * 2. 在 ChatGPT 侧边栏中搜索并定位名为「投资」的对话框（可配置）
- * 3. 每次任务前先导航到该对话框，确保 ChatGPT 的训练记忆完整保留
- * 4. 向该对话框输入 Manus 的分析结果，等待 ChatGPT 主管回复
- * 5. 抓取回复内容并返回
+ * 优先级：
+ *   1. 本地中转服务（HTTP proxy）— 用户本地运行 chatgpt-bridge.mjs
+ *   2. CDP 直连（沙盒内 Chrome 9222 端口）— 旧方案，保留兼容
+ *   3. 降级：抛出错误，由调用方使用内置 LLM 兜底
  */
 
 import { chromium, type Browser, type Page } from "playwright";
@@ -17,17 +15,85 @@ let chatPage: Page | null = null;
 export type RpaStatus = "idle" | "connecting" | "ready" | "working" | "error";
 let rpaStatus: RpaStatus = "idle";
 let rpaError: string | null = null;
-// 当前锁定的对话框名称
 let lockedConversationName: string | null = null;
 
-export function getRpaStatus(): { status: RpaStatus; error: string | null; lockedConversation: string | null } {
-  return { status: rpaStatus, error: rpaError, lockedConversation: lockedConversationName };
+// 本地中转服务 URL（由用户在设置页配置）
+let localProxyUrl: string | null = null;
+
+export function setLocalProxyUrl(url: string | null) {
+  localProxyUrl = url ? url.replace(/\/$/, "") : null;
+  if (localProxyUrl) {
+    console.log(`[RPA] 本地中转服务已配置: ${localProxyUrl}`);
+  }
+}
+
+export function getLocalProxyUrl() {
+  return localProxyUrl;
+}
+
+export function getRpaStatus(): { status: RpaStatus; error: string | null; lockedConversation: string | null; mode: string } {
+  const mode = localProxyUrl ? "local-proxy" : (rpaStatus === "ready" ? "cdp" : "none");
+  return { status: localProxyUrl ? "ready" : rpaStatus, error: rpaError, lockedConversation: lockedConversationName, mode };
 }
 
 /**
- * 连接到用户已登录的 ChatGPT 浏览器（通过 CDP）
+ * 通过本地中转服务检查健康状态
+ */
+export async function checkLocalProxy(proxyUrl: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const url = proxyUrl.replace(/\/$/, "");
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json() as { status: string; error?: string };
+    if (data.status === "ready") return { ok: true };
+    return { ok: false, error: data.error || `状态: ${data.status}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 通过本地中转服务发送消息
+ */
+async function sendViaLocalProxy(prompt: string, conversationName: string): Promise<string> {
+  const url = localProxyUrl!;
+  const res = await fetch(`${url}/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: prompt, conversation: conversationName }),
+    signal: AbortSignal.timeout(150000), // 150秒超时
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error: string };
+    throw new Error(err.error || `本地中转服务返回错误: ${res.status}`);
+  }
+
+  const data = await res.json() as { success: boolean; reply?: string; error?: string };
+  if (!data.success || !data.reply) {
+    throw new Error(data.error || "本地中转服务未返回回复内容");
+  }
+  return data.reply;
+}
+
+/**
+ * 连接到用户已登录的 ChatGPT 浏览器（CDP，旧方案）
  */
 export async function connectToChatGPT(): Promise<boolean> {
+  // 如果已配置本地中转服务，直接返回成功
+  if (localProxyUrl) {
+    const check = await checkLocalProxy(localProxyUrl);
+    if (check.ok) {
+      rpaStatus = "ready";
+      rpaError = null;
+      return true;
+    }
+    rpaStatus = "error";
+    rpaError = `本地中转服务不可用: ${check.error}`;
+    return false;
+  }
+
+  // 旧 CDP 方案
   try {
     rpaStatus = "connecting";
     rpaError = null;
@@ -41,7 +107,6 @@ export async function connectToChatGPT(): Promise<boolean> {
 
     const context = contexts[0];
     const pages = context.pages();
-
     chatPage = pages.find(p => p.url().includes("chatgpt.com")) || null;
 
     if (!chatPage) {
@@ -49,9 +114,7 @@ export async function connectToChatGPT(): Promise<boolean> {
       await chatPage.goto("https://chatgpt.com", { waitUntil: "domcontentloaded", timeout: 30000 });
     }
 
-    // 等待页面加载完成
     await chatPage.waitForTimeout(2000);
-
     const isLoggedIn = await chatPage.locator('#prompt-textarea').isVisible().catch(() => false);
 
     if (!isLoggedIn) {
@@ -61,7 +124,7 @@ export async function connectToChatGPT(): Promise<boolean> {
     }
 
     rpaStatus = "ready";
-    console.log("[RPA] 已成功连接到 ChatGPT 浏览器");
+    console.log("[RPA] 已成功连接到 ChatGPT 浏览器（CDP）");
     return true;
   } catch (err) {
     rpaStatus = "error";
@@ -72,161 +135,94 @@ export async function connectToChatGPT(): Promise<boolean> {
 }
 
 /**
- * 在 ChatGPT 侧边栏中定位并导航到指定名称的对话框
- * @param conversationName 目标对话框名称，如「投资」
- * @returns 是否成功导航到目标对话框
+ * 在 ChatGPT 侧边栏中定位并导航到指定名称的对话框（CDP 模式）
  */
 export async function navigateToConversation(conversationName: string): Promise<boolean> {
-  if (!chatPage) {
-    throw new Error("RPA 未连接，请先调用 connectToChatGPT()");
-  }
-
+  if (!chatPage) throw new Error("RPA 未连接，请先调用 connectToChatGPT()");
   const page = chatPage;
 
   try {
-    console.log(`[RPA] 正在定位对话框「${conversationName}」...`);
-
-    // 确保侧边栏可见（有时需要展开）
-    const sidebarToggle = page.locator('[data-testid="open-sidebar-button"], button[aria-label*="sidebar"], button[aria-label*="Open"]').first();
-    const isSidebarToggleVisible = await sidebarToggle.isVisible().catch(() => false);
-    if (isSidebarToggleVisible) {
+    const sidebarToggle = page.locator('[data-testid="open-sidebar-button"], button[aria-label*="sidebar"]').first();
+    if (await sidebarToggle.isVisible().catch(() => false)) {
       await sidebarToggle.click().catch(() => {});
       await page.waitForTimeout(500);
     }
 
-    // 方法1：精确文本匹配（最可靠）
     const exactMatch = page.locator(`text="${conversationName}"`);
-    const exactCount = await exactMatch.count().catch(() => 0);
-    if (exactCount > 0) {
+    if (await exactMatch.count().catch(() => 0) > 0) {
       await exactMatch.first().click();
       await page.waitForTimeout(1500);
-      await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
       lockedConversationName = conversationName;
-      console.log(`[RPA] 已成功导航到对话框「${conversationName}」（精确匹配）`);
       return true;
     }
 
-    // 方法2：宽泛文本包含匹配（遍历所有可点击元素）
-    const allClickable = page.locator(`nav a, aside a, [role="listitem"] a, li a, [data-testid*="conversation"]`);
-    const allItems = await allClickable.all();
-    for (const item of allItems) {
+    const allClickable = page.locator(`nav a, aside a, [role="listitem"] a, li a`);
+    for (const item of await allClickable.all()) {
       const text = await item.innerText().catch(() => "");
       if (text.trim().includes(conversationName)) {
         await item.click();
         await page.waitForTimeout(1500);
-        await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
         lockedConversationName = conversationName;
-        console.log(`[RPA] 已成功导航到对话框「${conversationName}」（包含匹配）`);
         return true;
       }
     }
 
-    // 方法3：使用 getByText 宽泛匹配
-    const byText = page.getByText(conversationName, { exact: false });
-    const byTextCount = await byText.count().catch(() => 0);
-    if (byTextCount > 0) {
-      await byText.first().click();
-      await page.waitForTimeout(1500);
-      lockedConversationName = conversationName;
-      console.log(`[RPA] 通过 getByText 找到对话框「${conversationName}」`);
-      return true;
-    }
-
-    // 方法4：使用搜索功能
-    const searchBtn = page.locator('button[aria-label*="Search"], [data-testid*="search"]').first();
-    const isSearchVisible = await searchBtn.isVisible().catch(() => false);
-    if (isSearchVisible) {
-      await searchBtn.click();
-      await page.waitForTimeout(500);
-      const searchInput = page.locator('input[placeholder*="Search"], input[type="search"]').first();
-      if (await searchInput.isVisible().catch(() => false)) {
-        await searchInput.fill(conversationName);
-        await page.waitForTimeout(800);
-        const searchResult = page.locator(`[data-testid*="result"] a, .search-result a, [role="option"]`).first();
-        if (await searchResult.isVisible().catch(() => false)) {
-          await searchResult.click();
-          await page.waitForTimeout(1500);
-          await page.locator('#prompt-textarea').waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-          lockedConversationName = conversationName;
-          console.log(`[RPA] 通过搜索找到对话框「${conversationName}」`);
-          return true;
-        }
-      }
-    }
-
-    console.warn(`[RPA] 未找到名为「${conversationName}」的对话框，将使用当前对话框`);
-    lockedConversationName = null;
+    console.warn(`[RPA] 未找到对话框「${conversationName}」，使用当前对话框`);
     return false;
   } catch (err) {
-    console.error(`[RPA] 导航到对话框「${conversationName}」失败:`, err);
+    console.error(`[RPA] 导航失败:`, err);
     return false;
   }
 }
 
 /**
- * 向 ChatGPT 指定对话框发送消息并等待回复
- * @param prompt 要发送的消息内容
- * @param conversationName 目标对话框名称（每次都会先导航到该对话框）
+ * 向 ChatGPT 发送消息并等待回复
+ * 优先使用本地中转服务，其次 CDP 直连
  */
-// ★ ChatGPT 始终使用「投资manus」对话框，该默认值硬编码
+// ★ ChatGPT 始终使用「投资manus」对话框
 export async function sendToChatGPT(prompt: string, conversationName = "投资manus"): Promise<string> {
-  // 确保已连接
+  // 优先：本地中转服务
+  if (localProxyUrl) {
+    console.log(`[RPA] 通过本地中转服务发送消息到「${conversationName}」`);
+    return sendViaLocalProxy(prompt, conversationName);
+  }
+
+  // 备用：CDP 直连
   if (!chatPage || rpaStatus === "idle" || rpaStatus === "error") {
     const connected = await connectToChatGPT();
-    if (!connected) {
-      throw new Error(rpaError || "ChatGPT RPA 未就绪");
-    }
+    if (!connected) throw new Error(rpaError || "ChatGPT RPA 未就绪");
   }
 
   rpaStatus = "working";
-
   try {
     const page = chatPage!;
     await page.bringToFront();
+    await navigateToConversation(conversationName);
 
-    // ★ 核心：每次发送前先导航到「投资」对话框
-    const navigated = await navigateToConversation(conversationName);
-    if (!navigated) {
-      console.warn(`[RPA] 未能定位到「${conversationName}」对话框，将在当前对话框中发送`);
-    }
-
-    // 等待输入框可用
     const textarea = page.locator('#prompt-textarea');
     await textarea.waitFor({ state: "visible", timeout: 15000 });
-
-    // 输入内容
     await textarea.click();
     await textarea.fill(prompt);
     await page.waitForTimeout(500);
 
-    // 发送消息
     const sendBtn = page.locator('[data-testid="send-button"]');
-    const isSendVisible = await sendBtn.isVisible().catch(() => false);
-    if (isSendVisible) {
+    if (await sendBtn.isVisible().catch(() => false)) {
       await sendBtn.click();
     } else {
       await textarea.press("Enter");
     }
 
-    // 等待回复开始（停止按钮出现）
     await page.waitForSelector('[data-testid="stop-button"]', { timeout: 15000 }).catch(() => {});
-
-    // 等待回复完成（停止按钮消失）
     await page.waitForFunction(
       () => !document.querySelector('[data-testid="stop-button"]'),
       { timeout: 120000, polling: 1000 }
     );
 
-    // 抓取最后一条 assistant 回复
     const responseElements = await page.locator('[data-message-author-role="assistant"]').all();
-
-    if (responseElements.length === 0) {
-      throw new Error("未获取到 ChatGPT 的回复");
-    }
+    if (responseElements.length === 0) throw new Error("未获取到 ChatGPT 的回复");
 
     const lastResponse = responseElements[responseElements.length - 1];
     const responseText = await lastResponse.innerText();
-
     rpaStatus = "ready";
     return responseText.trim();
   } catch (err) {
@@ -235,9 +231,6 @@ export async function sendToChatGPT(prompt: string, conversationName = "投资ma
   }
 }
 
-/**
- * 断开 RPA 连接
- */
 export async function disconnectRpa(): Promise<void> {
   if (browser) {
     await browser.close().catch(() => {});

@@ -270,7 +270,7 @@ export async function getRpaConfig(userId: number) {
 
 export async function upsertRpaConfig(
   userId: number,
-  config: { chatgptConversationName?: string; manusSystemPrompt?: string }
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; localProxyUrl?: string | null }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

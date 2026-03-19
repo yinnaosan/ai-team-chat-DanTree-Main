@@ -158,6 +158,10 @@ export default function Settings() {
     manusSystemPrompt: "",
   });
 
+  // 本地中转服务配置
+  const [proxyUrl, setProxyUrl] = useState("");
+  const [proxyTestResult, setProxyTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+
   // 数据库连接表单
   const [dbForm, setDbForm] = useState({
     name: "",
@@ -178,6 +182,7 @@ export default function Settings() {
         chatgptConversationName: savedRpaConfig.chatgptConversationName || "投资manus",
         manusSystemPrompt: savedRpaConfig.manusSystemPrompt || "",
       });
+      setProxyUrl(savedRpaConfig.localProxyUrl || "");
     }
   }, [savedRpaConfig]);
 
@@ -194,6 +199,20 @@ export default function Settings() {
   const saveRpaConfigMutation = trpc.rpa.setConfig.useMutation({
     onSuccess: () => toast.success("配置已保存！每次任务将自动使用此设置"),
     onError: (err) => toast.error("保存失败", { description: err.message }),
+  });
+
+  const setProxyUrlMutation = trpc.rpa.setProxyUrl.useMutation({
+    onSuccess: () => { toast.success("本地中转服务地址已保存"); refetchRpa(); },
+    onError: (err) => toast.error("保存失败", { description: err.message }),
+  });
+
+  const testProxyMutation = trpc.rpa.testProxy.useMutation({
+    onSuccess: (data) => {
+      setProxyTestResult(data);
+      if (data.ok) toast.success("本地中转服务连接成功！ChatGPT 已就绪");
+      else toast.error("连接失败", { description: data.error });
+    },
+    onError: (err) => { setProxyTestResult({ ok: false, error: err.message }); toast.error("连接失败", { description: err.message }); },
   });
 
   const connectRpaMutation = trpc.rpa.connect.useMutation({
@@ -376,62 +395,108 @@ export default function Settings() {
               </div>
             </section>
 
-            {/* RPA 连接 */}
+            {/* 本地中转服务（方案B） */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4" style={{ color: "var(--chatgpt-color)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>ChatGPT RPA 连接</h2>
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>ChatGPT 本地中转服务</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(0.72 0.18 250)" }}>推荐</span>
               </div>
 
-              <div className="p-4 rounded-xl space-y-4"
+              {/* 连接状态 */}
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                 style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium" style={{ color: "oklch(0.92 0.005 270)" }}>浏览器自动化状态</p>
-                    <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
-                      通过 RPA 操控已登录的 ChatGPT 账号，无需 API Key
-                    </p>
-                  </div>
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium`}
-                    style={{
-                      background: isConnected ? "oklch(0.72 0.18 155 / 0.1)" : "oklch(0.55 0.01 270 / 0.1)",
-                      border: `1px solid ${isConnected ? "oklch(0.72 0.18 155 / 0.3)" : "oklch(0.40 0.01 270 / 0.3)"}`,
-                      color: isConnected ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)",
-                    }}>
-                    {isConnected
-                      ? <><span className="w-1.5 h-1.5 rounded-full bg-current" />已连接</>
-                      : <><WifiOff className="w-3 h-3" />未连接</>}
-                  </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium" style={{ color: "oklch(0.92 0.005 270)" }}>连接状态</p>
+                  <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
+                    {isConnected ? "本地中转服务已就绪，ChatGPT 可正常工作" : "未连接，请配置并启动本地中转服务"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                  style={{
+                    background: isConnected ? "oklch(0.72 0.18 155 / 0.1)" : "oklch(0.55 0.01 270 / 0.1)",
+                    border: `1px solid ${isConnected ? "oklch(0.72 0.18 155 / 0.3)" : "oklch(0.40 0.01 270 / 0.3)"}`,
+                    color: isConnected ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)",
+                  }}>
+                  {isConnected
+                    ? <><span className="w-1.5 h-1.5 rounded-full bg-current" />已连接</>
+                    : <><WifiOff className="w-3 h-3" />未连接</>}
+                </div>
+              </div>
+
+              {/* 使用说明 */}
+              <div className="p-4 rounded-xl space-y-3"
+                style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+                <div className="p-3 rounded-lg text-xs space-y-1.5"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.06)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.65 0.01 270)" }}>
+                  <p className="font-semibold" style={{ color: "oklch(0.88 0.005 270)" }}>使用步骤</p>
+                  <p>1. 在本地电脑下载中转脚本（点击下方按钮获取）</p>
+                  <p>2. 安装依赖：<code className="px-1 rounded" style={{ background: "oklch(0.20 0.007 270)", color: "oklch(0.80 0.15 250)" }}>npm install playwright &amp;&amp; npx playwright install chromium</code></p>
+                  <p>3. 启动服务：<code className="px-1 rounded" style={{ background: "oklch(0.20 0.007 270)", color: "oklch(0.80 0.15 250)" }}>node chatgpt-bridge.mjs</code></p>
+                  <p>4. 在弹出的 Chrome 中登录 ChatGPT，导航到「投资manus」对话框</p>
+                  <p>5. 在下方输入代理地址，点击测试连接</p>
                 </div>
 
-                {rpaStatus?.error && (
-                  <div className="px-3 py-2 rounded-lg text-xs"
-                    style={{ background: "oklch(0.55 0.18 25 / 0.1)", border: "1px solid oklch(0.55 0.18 25 / 0.2)", color: "oklch(0.72 0.18 25)" }}>
-                    错误：{rpaStatus.error}
+                {/* 下载脚本按钮 */}
+                <a
+                  href="/chatgpt-bridge.zip"
+                  onClick={(e) => { e.preventDefault(); toast.info("请在代码面板中下载 chatgpt-bridge 文件夹"); }}
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer"
+                  style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.30 0.008 270)", color: "oklch(0.82 0.005 270)" }}>
+                  <ExternalLink className="w-4 h-4" />
+                  下载中转脚本（chatgpt-bridge 文件夹）
+                </a>
+
+                {/* 代理地址输入 */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>
+                    本地中转服务地址
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={proxyUrl}
+                      onChange={(e) => { setProxyUrl(e.target.value); setProxyTestResult(null); }}
+                      placeholder="http://localhost:7788"
+                      className="flex-1 text-sm font-mono"
+                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                    />
+                    <Button
+                      onClick={() => testProxyMutation.mutate({ url: proxyUrl || "http://localhost:7788" })}
+                      disabled={testProxyMutation.isPending}
+                      variant="outline"
+                      className="shrink-0 gap-1.5 text-xs"
+                      style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.75 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
+                      {testProxyMutation.isPending
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <RefreshCw className="w-3.5 h-3.5" />}
+                      测试
+                    </Button>
                   </div>
-                )}
 
-                <div className="p-3 rounded-lg text-xs space-y-1"
-                  style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.22 0.007 270)", color: "oklch(0.55 0.01 270)" }}>
-                  <p className="font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>连接前请确认：</p>
-                  <p>1. 已在「ChatGPT 状态」标签页中确认登录状态</p>
-                  <p>2. 已导航到「投资manus」对话项目</p>
-                  <p>3. 点击下方按钮建立 RPA 连接</p>
+                  {/* 测试结果 */}
+                  {proxyTestResult && (
+                    <div className="px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+                      style={{
+                        background: proxyTestResult.ok ? "oklch(0.72 0.18 155 / 0.08)" : "oklch(0.55 0.18 25 / 0.08)",
+                        border: `1px solid ${proxyTestResult.ok ? "oklch(0.72 0.18 155 / 0.25)" : "oklch(0.55 0.18 25 / 0.25)"}`,
+                        color: proxyTestResult.ok ? "oklch(0.72 0.18 155)" : "oklch(0.72 0.18 25)",
+                      }}>
+                      {proxyTestResult.ok
+                        ? <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" />连接成功！本地中转服务已就绪</>
+                        : <><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{proxyTestResult.error || "连接失败"}</>}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={() => setProxyUrlMutation.mutate({ url: proxyUrl })}
+                    disabled={setProxyUrlMutation.isPending}
+                    className="w-full gap-2"
+                    style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                    {setProxyUrlMutation.isPending
+                      ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
+                      : <><Save className="w-4 h-4" />保存中转地址</>}
+                  </Button>
                 </div>
-
-                <Button
-                  onClick={() => connectRpaMutation.mutate()}
-                  disabled={connectRpaMutation.isPending || isConnected}
-                  className="w-full gap-2"
-                  style={isConnected
-                    ? { background: "oklch(0.72 0.18 155 / 0.1)", border: "1px solid oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.72 0.18 155)" }
-                    : { background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-                  {connectRpaMutation.isPending
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />连接中...</>
-                    : isConnected
-                    ? <><CheckCircle2 className="w-4 h-4" />已连接</>
-                    : <><Wifi className="w-4 h-4" />连接 ChatGPT 浏览器</>}
-                </Button>
               </div>
             </section>
           </div>

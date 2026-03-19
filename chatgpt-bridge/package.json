@@ -1,0 +1,12 @@
+{
+  "name": "chatgpt-bridge",
+  "version": "1.0.0",
+  "description": "ChatGPT 本地浏览器中转服务",
+  "type": "module",
+  "scripts": {
+    "start": "node chatgpt-bridge.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

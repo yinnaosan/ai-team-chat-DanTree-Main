@@ -129,6 +129,10 @@ const rpaConfigs = mysqlTable("rpa_configs", {
   userId: int("userId").notNull().unique(),
   // ChatGPT 目标对话框名称（如「投资」）
   chatgptConversationName: varchar("chatgptConversationName", { length: 256 }).default("投资"),
+  // OpenAI API Key（方案A：直接调用 GPT-4 API）
+  openaiApiKey: varchar("openaiApiKey", { length: 256 }),
+  // 本地中转服务地址（方案B：本地 ChatGPT 浏览器中转）
+  localProxyUrl: varchar("localProxyUrl", { length: 512 }),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

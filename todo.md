@@ -219,3 +219,20 @@
 - [x] 后端：Step3 — GPT 接收 Manus 报告 + 自己处理的部分，决定最终回复框架，输出最终整合回复
 - [x] 前端：更新加载动画文案（Manus 分析擅长领域 → GPT 处理主观判断 → GPT 汇总输出）
 - [x] 测试：12 个测试全部通过
+
+## ChatGPT API 替代 RPA（方案A）
+- [ ] 后端：添加 openaiApiKey 存储到 settings 表
+- [ ] 后端：新增 callOpenAI(prompt) 函数，使用 OpenAI API 调用 GPT-4
+- [ ] 后端：修改 runCollaborationFlow，优先用 OpenAI API，其次 RPA，最后内置 LLM 降级
+- [ ] 后端：新增 rpa.setOpenAIKey / rpa.getOpenAIStatus procedure
+- [ ] 前端：设置页 RPA 连接标签添加 OpenAI API Key 输入框
+- [ ] 前端：显示 API Key 连接状态（已配置/未配置）
+- [ ] 测试：验证 API Key 存储和调用逻辑
+
+## 本地 ChatGPT 浏览器中转方案
+- [x] 生成本地中转脚本 chatgpt-bridge.mjs（Node.js + Playwright）
+- [x] 后端：在 rpa_configs 添加 localProxyUrl 字段
+- [x] 后端：修改 sendToChatGPT，优先通过 HTTP 调用本地中转服务
+- [x] 后端：新增 rpa.setProxyUrl / rpa.testProxy procedure
+- [x] 前端：设置页添加本地代理 URL 输入框和测试按钮
+- [x] 交付：提供完整使用说明

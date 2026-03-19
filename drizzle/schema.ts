@@ -123,16 +123,14 @@ export const dbConnections = mysqlTable("db_connections", {
 export type DbConnection = typeof dbConnections.$inferSelect;
 export type InsertDbConnection = typeof dbConnections.$inferInsert;
 
-// RPA 配置表：存储用户的 RPA 设置
+// OpenAI API 配置表：存储用户的 ChatGPT API 设置
 const rpaConfigs = mysqlTable("rpa_configs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().unique(),
-  // ChatGPT 目标对话框名称（如「投资」）
-  chatgptConversationName: varchar("chatgptConversationName", { length: 256 }).default("投资"),
-  // OpenAI API Key（方案A：直接调用 GPT-4 API）
+  // OpenAI API Key
   openaiApiKey: varchar("openaiApiKey", { length: 256 }),
-  // 本地中转服务地址（方案B：本地 ChatGPT 浏览器中转）
-  localProxyUrl: varchar("localProxyUrl", { length: 512 }),
+  // 使用的模型（默认 gpt-4.5-mini）
+  openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4.5-mini"),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

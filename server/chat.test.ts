@@ -22,7 +22,8 @@ vi.mock("./db", () => ({
   deleteDbConnection: vi.fn().mockResolvedValue(undefined),
   getRpaConfig: vi.fn().mockResolvedValue({
     id: 1, userId: 1,
-    chatgptConversationName: "投资manus",
+    openaiApiKey: "sk-test-key",
+    openaiModel: "gpt-4.5-mini",
     manusSystemPrompt: "你是一个专业的金融投资分析师",
     createdAt: new Date(), updatedAt: new Date(),
   }),
@@ -45,17 +46,30 @@ vi.mock("./db", () => ({
   getConversationById: vi.fn().mockResolvedValue({ id: 42, userId: 1, title: '测试会话', createdAt: new Date(), updatedAt: new Date() }),
   updateConversationTitle: vi.fn().mockResolvedValue(undefined),
   getMessagesByConversation: vi.fn().mockResolvedValue([]),
+  setPinned: vi.fn().mockResolvedValue(undefined),
+  setFavorited: vi.fn().mockResolvedValue(undefined),
+  setConversationPinned: vi.fn().mockResolvedValue(undefined),
+  setConversationFavorited: vi.fn().mockResolvedValue(undefined),
+  insertAttachment: vi.fn().mockResolvedValue(undefined),
+  getAttachmentsByConversation: vi.fn().mockResolvedValue([]),
+  getAttachmentsByMessage: vi.fn().mockResolvedValue([]),
+  createConversationGroup: vi.fn().mockResolvedValue(1),
+  getConversationGroupsByUser: vi.fn().mockResolvedValue([]),
+  deleteConversationGroup: vi.fn().mockResolvedValue(undefined),
+  setConversationGroup: vi.fn().mockResolvedValue(undefined),
+  renameConversationGroup: vi.fn().mockResolvedValue(undefined),
+  setGroupCollapsed: vi.fn().mockResolvedValue(undefined),
+  searchConversations: vi.fn().mockResolvedValue([]),
   // User mock
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock RPA module
+// Mock RPA module (OpenAI API 模块)
 vi.mock("./rpa", () => ({
-  connectToChatGPT: vi.fn().mockResolvedValue(true),
-  sendToChatGPT: vi.fn().mockResolvedValue("ChatGPT 审查完成：分析结果准确"),
-  getRpaStatus: vi.fn().mockReturnValue({ status: "idle", error: null }),
-  disconnectRpa: vi.fn().mockResolvedValue(undefined),
+  callOpenAI: vi.fn().mockResolvedValue("GPT 分析完成：投资建议如下..."),
+  testOpenAIConnection: vi.fn().mockResolvedValue({ ok: true, model: "gpt-4.5-mini" }),
+  DEFAULT_MODEL: "gpt-4.5-mini",
 }));
 
 // Mock LLM
@@ -63,6 +77,18 @@ vi.mock("./_core/llm", () => ({
   invokeLLM: vi.fn().mockResolvedValue({
     choices: [{ message: { content: "Manus 分析完成：数据处理结果如下..." } }],
   }),
+}));
+
+// Mock storage
+vi.mock("./storage", () => ({
+  storagePut: vi.fn().mockResolvedValue({ key: "test-key", url: "https://cdn.example.com/test.jpg" }),
+}));
+
+// Mock fileProcessor
+vi.mock("./fileProcessor", () => ({
+  getFileCategory: vi.fn().mockReturnValue("document"),
+  extractFileContent: vi.fn().mockResolvedValue("文件内容"),
+  formatFileSize: vi.fn().mockReturnValue("1.0 MB"),
 }));
 
 function createAuthContext(): TrpcContext {
@@ -116,13 +142,53 @@ describe("chat.getTasks", () => {
   });
 });
 
-describe("rpa.getStatus", () => {
-  it("returns RPA status object", async () => {
+describe("rpa.getConfig", () => {
+  it("返回用户的 OpenAI API 配置，包括模型和底层指令", async () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
-    const result = await caller.rpa.getStatus();
-    expect(result).toHaveProperty("status");
-    expect(result).toHaveProperty("error");
+    const result = await caller.rpa.getConfig();
+    expect(result).toHaveProperty("openaiApiKey");
+    expect(result).toHaveProperty("openaiModel");
+    expect(result).toHaveProperty("hasApiKey");
+    expect(result).toHaveProperty("manusSystemPrompt");
+    // 已配置 API Key 时 hasApiKey 应为 true
+    expect(result.hasApiKey).toBe(true);
+  });
+});
+
+describe("rpa.setConfig", () => {
+  it("保存 OpenAI 模型配置", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      openaiModel: "gpt-4.5-mini",
+      manusSystemPrompt: "你是一个专业的金融投资分析师，负责分析股票、基金、期货市场数据",
+    });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("保存 API Key 和模型配置", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      openaiApiKey: "sk-test-key-12345",
+      openaiModel: "gpt-4o",
+    });
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("rpa.testConnection", () => {
+  it("测试 OpenAI API 连接", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.testConnection({
+      apiKey: "sk-test-key-12345",
+      model: "gpt-4.5-mini",
+    });
+    expect(result).toHaveProperty("ok");
+    expect(result.ok).toBe(true);
+    expect(result).toHaveProperty("model");
   });
 });
 
@@ -171,37 +237,5 @@ describe("auth.logout", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.auth.logout();
     expect(result).toEqual({ success: true });
-  });
-});
-
-describe("rpa.getConfig", () => {
-  it("返回用户的 RPA 配置，包括对话框名称和底层指令", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
-    const result = await caller.rpa.getConfig();
-    expect(result).toHaveProperty("chatgptConversationName");
-    expect(result).toHaveProperty("manusSystemPrompt");
-    // 默认对话框名称应为「投资manus」
-    expect(result.chatgptConversationName).toBe("投资manus");
-  });
-});
-
-describe("rpa.setConfig", () => {
-  it("保存对话框名称配置", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
-    const result = await caller.rpa.setConfig({
-      chatgptConversationName: "投资manus",
-      manusSystemPrompt: "你是一个专业的金融投资分析师，负责分析股票、基金、期货市场数据",
-    });
-    expect(result).toEqual({ success: true });
-  });
-
-  it("保存时对话框名称不能为空", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
-    await expect(
-      caller.rpa.setConfig({ chatgptConversationName: "" })
-    ).rejects.toThrow();
   });
 });

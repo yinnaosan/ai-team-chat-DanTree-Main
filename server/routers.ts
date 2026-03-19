@@ -53,7 +53,7 @@ import {
   searchConversations,
 } from "./db";
 import { storagePut } from "./storage";
-import { connectToChatGPT, sendToChatGPT, getRpaStatus, setLocalProxyUrl, checkLocalProxy } from "./rpa";
+import { callOpenAI, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
 
@@ -190,26 +190,27 @@ async function runCollaborationFlow(
     // Step 2 — GPT 处理不擅长的部分（主观判断/策略/情绪）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
-
     let gptAnalysis = "";
-    const rpaState = getRpaStatus();
-
-    // 如果有需要 GPT 处理的部分，发给 ChatGPT
+    // 如果有需要 GPT 处理的部分，调用 OpenAI API 或 invokeLLM
     if (gptTasks && gptTasks !== "无") {
       const gptMessage = `【用户原始任务】
 ${fullContext}
-
 【Manus 已完成的数据分析】
 ${manusAnalysis}
-
 【需要你处理的部分（Manus 不擅长）】
 ${gptTasks}
-
 请你处理以上任务，输出你的分析和建议。这是内部工作笔记，不是最终给用户的回复。`;
-
-      if (rpaState.status === "ready" || rpaState.status === "idle") {
+      // 优先使用用户配置的 OpenAI API Key
+      if (userConfig?.openaiApiKey) {
         try {
-          gptAnalysis = await sendToChatGPT(gptMessage, CHATGPT_CONVERSATION);
+          gptAnalysis = await callOpenAI({
+            apiKey: userConfig.openaiApiKey,
+            model: userConfig.openaiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: gptSummaryPrompt },
+              { role: "user", content: gptMessage },
+            ],
+          });
         } catch {
           const fb = await invokeLLM({
             messages: [
@@ -229,7 +230,6 @@ ${gptTasks}
         gptAnalysis = String(fb.choices?.[0]?.message?.content || "");
       }
     }
-
     // ════════════════════════════════════════════════════════════════════════
     // Step 3 — GPT 汇总：整合 Manus 报告 + GPT 分析，决定最终回复框架，输出最终完整回复
     // ════════════════════════════════════════════════════════════════════════
@@ -251,9 +251,17 @@ ${gptAnalysis}` : ""}
 - 整体排版专业、视觉层次丰富`;
 
     let finalReply: string;
-    if (rpaState.status === "ready" || rpaState.status === "idle") {
+    // 优先使用用户配置的 OpenAI API Key 调用 GPT
+    if (userConfig?.openaiApiKey) {
       try {
-        finalReply = await sendToChatGPT(summaryMessage, CHATGPT_CONVERSATION);
+        finalReply = await callOpenAI({
+          apiKey: userConfig.openaiApiKey,
+          model: userConfig.openaiModel || DEFAULT_MODEL,
+          messages: [
+            { role: "system", content: gptSummaryPrompt },
+            { role: "user", content: summaryMessage },
+          ],
+        });
       } catch {
         const fb = await invokeLLM({
           messages: [
@@ -715,76 +723,48 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── RPA 状态管理 ─────────────────────────────────────────────────────────
+  // ─── ChatGPT API 配置 ────────────────────────────────────────────────────────────────────────────────────────
   rpa: router({
-    getStatus: protectedProcedure.query(async ({ ctx }) => {
-      await requireAccess(ctx.user.id, ctx.user.openId);
-      return getRpaStatus();
-    }),
-
-    connect: protectedProcedure.mutation(async ({ ctx }) => {
-      await requireAccess(ctx.user.id, ctx.user.openId);
-      const success = await connectToChatGPT();
-      return { success, ...getRpaStatus() };
-    }),
-
-    test: protectedProcedure
-      .input(z.object({ message: z.string().default("你好，请确认连接正常。") }))
-      .mutation(async ({ ctx, input }) => {
-        await requireAccess(ctx.user.id, ctx.user.openId);
-        const response = await sendToChatGPT(input.message, "投资manus");
-        return { success: true, response };
-      }),
-
+    // 获取当前 API 配置状态
     getConfig: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       const config = await getRpaConfig(ctx.user.id);
-      // 启动时恢复本地代理 URL
-      if (config?.localProxyUrl) setLocalProxyUrl(config.localProxyUrl);
       return {
-        chatgptConversationName: "投资manus",
-        manusConversationName: "金融投资",
+        openaiApiKey: config?.openaiApiKey ? "•".repeat(8) + config.openaiApiKey.slice(-4) : "",
+        openaiModel: config?.openaiModel ?? DEFAULT_MODEL,
+        hasApiKey: !!config?.openaiApiKey,
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
-        localProxyUrl: config?.localProxyUrl ?? "",
       };
     }),
-
+    // 保存 API Key 和模型选择
     setConfig: protectedProcedure
       .input(z.object({
-        chatgptConversationName: z.string().min(1).max(256),
+        openaiApiKey: z.string().max(256).optional(),
+        openaiModel: z.string().max(128).optional(),
         manusSystemPrompt: z.string().max(8000).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         await upsertRpaConfig(ctx.user.id, {
-          chatgptConversationName: input.chatgptConversationName,
+          openaiApiKey: input.openaiApiKey,
+          openaiModel: input.openaiModel,
           manusSystemPrompt: input.manusSystemPrompt,
         });
         return { success: true };
       }),
-
-    // 设置本地中转服务 URL
-    setProxyUrl: protectedProcedure
-      .input(z.object({ url: z.string().max(512) }))
+    // 测试 API Key 连接
+    testConnection: protectedProcedure
+      .input(z.object({
+        apiKey: z.string().min(1),
+        model: z.string().default(DEFAULT_MODEL),
+      }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
-        const url = input.url.trim() || null;
-        await upsertRpaConfig(ctx.user.id, { localProxyUrl: url });
-        setLocalProxyUrl(url);
-        return { success: true };
-      }),
-
-    // 测试本地中转服务连接
-    testProxy: protectedProcedure
-      .input(z.object({ url: z.string().max(512) }))
-      .mutation(async ({ ctx, input }) => {
-        await requireAccess(ctx.user.id, ctx.user.openId);
-        const result = await checkLocalProxy(input.url);
+        const result = await testOpenAIConnection(input.apiKey, input.model);
         return result;
       }),
   }),
-
-  // ─── 数据库连接管理 ───────────────────────────────────────────────────────
+    // ─── 数据库连接管理 ───────────────────────────────────────────────────────
   dbConnect: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);

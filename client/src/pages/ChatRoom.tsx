@@ -389,11 +389,10 @@ export default function ChatRoom() {
     enabled: isAuthenticated,
   });
 
-  const { data: rpaStatus } = trpc.rpa.getStatus.useQuery(undefined, {
+  const { data: rpaConfig } = trpc.rpa.getConfig.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
-    refetchInterval: 5000,
   });
-  const rpaConnected = rpaStatus?.status === "ready" || rpaStatus?.status === "working";
+  const rpaConnected = rpaConfig?.hasApiKey === true;
 
   // All conversations (ungrouped + grouped)
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {

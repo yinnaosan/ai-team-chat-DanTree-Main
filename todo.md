@@ -236,3 +236,17 @@
 - [x] 后端：新增 rpa.setProxyUrl / rpa.testProxy procedure
 - [x] 前端：设置页添加本地代理 URL 输入框和测试按钮
 - [x] 交付：提供完整使用说明
+
+## OpenAI API 接入（GPT 作为主大脑）
+- [ ] 后端：rpa_configs 表添加 openaiApiKey 和 openaiModel 字段
+- [ ] 后端：添加 callOpenAI 函数（支持多轮对话）
+- [ ] 后端：重构 runCollaborationFlow，GPT 主导多轮对话，Manus 作为执行工具
+- [ ] 后端：rpa.setConfig 支持保存 openaiApiKey 和 openaiModel
+- [ ] 前端：设置页添加 OpenAI API Key 输入框（密码类型）和模型选择下拉菜单
+- [ ] 前端：显示 API Key 连接状态（已配置/未配置）
+
+## Bug 修复：rpa.getStatus 路由不存在
+- [x] 修复 ChatRoom.tsx：trpc.rpa.getStatus → trpc.rpa.getConfig（rpa.getStatus 路由已废弃）
+- [x] 修复 routers.ts：移除 getRpaStatus/sendToChatGPT 调用，改为 callOpenAI
+- [x] 修复 db.ts：upsertRpaConfig 类型签名添加 openaiModel 字段
+- [x] 更新 chat.test.ts：mock 适配新的 OpenAI API 架构，12 个测试全部通过

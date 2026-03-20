@@ -287,3 +287,7 @@
 - [x] 前端：AccessGate.tsx 增加已有权限检查（已验证直接跳转 /chat）
 - [x] 前端：AccessGate.tsx 增加 Owner 检查（Owner 直接跳转 /chat）
 - [x] 前端：Home.tsx 登录后自动检查访问权限，Owner 跳 /chat，访客跳 /access
+
+## LLM 稳定性修复
+- [x] 给 invokeLLM 调用加上自动重试（最多2次，间隔2秒），处理上游临时500错误
+- [x] 修复 Settings.tsx：Owner 访问管理 Tab 因异步 isOwner 加载时序问题不可见

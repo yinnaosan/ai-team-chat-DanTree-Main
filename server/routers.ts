@@ -67,6 +67,30 @@ async function requireAccess(userId: number, openId: string) {
   }
 }
 
+// ─── 带重试的 invokeLLM 包装（针对上游临时 500 错误）────────────────────
+async function invokeLLMWithRetry(
+  params: Parameters<typeof invokeLLM>[0],
+  maxRetries = 2,
+  delayMs = 2000
+): Promise<ReturnType<typeof invokeLLM>> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await invokeLLM(params);
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // 只对上游临时错误重试（500/502/503/超时）
+      const isRetryable = msg.includes("500") || msg.includes("502") || msg.includes("503")
+        || msg.includes("upstream") || msg.includes("timeout") || msg.includes("ECONNRESET");
+      if (!isRetryable || attempt === maxRetries) throw err;
+      console.warn(`[LLM] Attempt ${attempt + 1} failed (${msg}), retrying in ${delayMs}ms...`);
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+  }
+  throw lastError;
+}
+
 // ─── 四步协作流程（全程静默，只输出一条最终回复）─────────────────────────────
 //
 //  Step 1 — Manus 分解任务：理解需求，拆解子步骤，识别数据需求
@@ -171,7 +195,7 @@ async function runCollaborationFlow(
 
     const [manusEnhancedResult, gptPlanResult] = await Promise.all([
       // Manus：完善任务描述，补充专业细节和数据收集方向
-      invokeLLM({
+      invokeLLMWithRetry({
         messages: [
           { role: "system", content: manusSystemPrompt },
           {
@@ -219,7 +243,7 @@ async function runCollaborationFlow(
     // Step 2 — Manus 按 GPT 框架执行完整数据分析（内置 LLM，免费）
     // ════════════════════════════════════════════════════════════════════════
     console.log(`[Collaboration] Task ${taskId} Step2: Manus executing data analysis...`);
-    const manusResponse = await invokeLLM({
+    const manusResponse = await invokeLLMWithRetry({
       messages: [
         { role: "system", content: manusSystemPrompt },
         {
@@ -319,7 +343,7 @@ ${manusAnalysis}
 
     // ── 自动生成任务摘要保存到长期记忆 ───────────────────────────────────────
     try {
-      const summaryResponse = await invokeLLM({
+      const summaryResponse = await invokeLLMWithRetry({
         messages: [
           {
             role: "system",

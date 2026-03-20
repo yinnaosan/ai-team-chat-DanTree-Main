@@ -57,12 +57,13 @@ export default function Settings() {
   );
 
   // ─── 访问管理 hooks（必须在所有条件 return 之前）────────────────────────────
-  const { data: accessCheck } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
+  const { data: accessCheck, isLoading: accessCheckLoading } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
   const isOwner = accessCheck?.isOwner ?? false;
 
+  // listCodes 是 ownerProcedure，必须等 isOwner 确认后才能调用
   const { data: accessCodes = [], refetch: refetchCodes } = trpc.access.listCodes.useQuery(
     undefined,
-    { enabled: isAuthenticated }
+    { enabled: isAuthenticated && isOwner }
   );
 
   const [codeLabel, setCodeLabel] = useState("");
@@ -127,7 +128,8 @@ export default function Settings() {
     onError: (err) => toast.error("删除失败", { description: err.message }),
   });
 
-  if (loading) {
+  // 等待 auth 和 accessCheck 都加载完成，防止 Tab 因 isOwner=false 而闪烁消失
+  if (loading || (isAuthenticated && accessCheckLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "oklch(0.13 0.005 270)" }}>
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.72 0.18 250)" }} />

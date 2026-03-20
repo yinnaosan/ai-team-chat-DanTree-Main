@@ -403,20 +403,25 @@ export default function Settings() {
                 {/* 分隔线 */}
                 <div style={{ borderTop: "1px solid oklch(0.23 0.007 270)" }} />
 
-                {/* Manus 数据引擎专属指令（高级） */}
+                {/* 全局任务指令（最高优先级） */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>
-                    Manus 数据引擎专属指令（高级，可选）
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-semibold" style={{ color: "oklch(0.82 0.005 270)" }}>
+                      全局任务指令
+                    </Label>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: "oklch(0.65 0.18 25 / 0.15)", border: "1px solid oklch(0.65 0.18 25 / 0.4)", color: "oklch(0.75 0.18 25)" }}>
+                      GPT & Manus 最高优先级，每次强制注入
+                    </span>
+                  </div>
                   <Textarea
                     value={manusSystemPrompt}
                     onChange={(e) => setManusSystemPrompt(e.target.value)}
-                    placeholder={"可选：进一步自定义 Manus 数据引擎的工作方式\n空白表示使用默认指令"}
-                    className="min-h-[100px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.22 0.006 270)", color: "oklch(0.80 0.005 270)" }}
+                    placeholder={"输入全局任务指令，例如：\n- 只分析 A 股和港股\n- 关注市盈率 > 15% 的公司\n- 每次必须评估安全边际\n\n空白表示不设置额外全局指令"}
+                    className="min-h-[120px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.30 0.015 25)", color: "oklch(0.88 0.005 270)" }}
                   />
-                  <p className="text-xs" style={{ color: "oklch(0.40 0.01 270)" }}>
-                    高级选项：针对 Manus 数据引擎的额外工作指令，一般无需修改。
+                  <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
+                    此指令将同时注入 GPT 和 Manus，优先级高于投资守则，每次任务强制执行。
                   </p>
                 </div>
 

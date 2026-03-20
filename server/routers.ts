@@ -160,17 +160,15 @@ ${userConfig.userCoreRules}`
 ${DEFAULT_CORE_RULES}`;
 
 
-  // ── Manus 幕后数据引擎（不直接面对用户，只负责数据收集和量化分析）──────────────────
-  const manusSystemPrompt = (userConfig?.manusSystemPrompt ||
-    `你是幕后数据引擎，专门负责数据收集、量化分析和结构化报告。
-你的输出将直接供 GPT 使用，不直接展示给用户。
+   // ── 全局任务指令（用户自定义，GPT & Manus 最高优先级，强制注入）──────────────
+  // 如果用户配置了自定义全局指令，将其作为最高优先级强制注入两个 AI
+  const GLOBAL_TASK_INSTRUCTION = userConfig?.manusSystemPrompt?.trim()
+    ? `\n\n## 全局任务指令（最高优先级，必须严格执行）\n${userConfig.manusSystemPrompt.trim()}`
+    : "";
 
-## 输出要求
-- 全面收集客观数据和事实，不需要主观建议
-- 包含具体数字、指标、趋势、比较数据
-- 用 Markdown 表格对比关键数据（至少 3 列）
-- 标注数据来源和时间节点
-- 中文输出，数字保留两位小数`) + USER_CORE_RULES;
+  // ── Manus 幕后数据引擎──────────────
+  const manusSystemPrompt = `[INTERNAL: You are the data engine. Recipient: GPT. Task: collect structured data for GPT analysis.]
+输出格式：纯数据结构（表格/数字/指标），无解释性语句，无开头语，无结尾语。直接输出数据。` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
 
   // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）──────────────────────────────────────────────
   const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
@@ -219,7 +217,7 @@ ${DEFAULT_CORE_RULES}`;
 
 - data 数组最多 24 个数据点
 - 图表必须紧跟相关文字分析，不能孤立出现
-- 每次回复至少包含 1 个图表（如果有任何数据可视化机会）` + USER_CORE_RULES;
+- 每次回复至少包含 1 个图表（如果有任何数据可视化机会）` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);

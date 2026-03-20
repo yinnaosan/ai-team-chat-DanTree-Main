@@ -70,10 +70,11 @@ async function requireAccess(userId: number, openId: string) {
 // ─── 带重试的 invokeLLM 包装（针对上游临时 500 错误）────────────────────
 async function invokeLLMWithRetry(
   params: Parameters<typeof invokeLLM>[0],
-  maxRetries = 2,
-  delayMs = 2000
+  maxRetries = 3
 ): Promise<ReturnType<typeof invokeLLM>> {
   let lastError: unknown;
+  // 指数退避：第1次重试等1s，第2次等3s，第3次等9s
+  const delays = [1000, 3000, 9000];
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await invokeLLM(params);
@@ -84,8 +85,9 @@ async function invokeLLMWithRetry(
       const isRetryable = msg.includes("500") || msg.includes("502") || msg.includes("503")
         || msg.includes("upstream") || msg.includes("timeout") || msg.includes("ECONNRESET");
       if (!isRetryable || attempt === maxRetries) throw err;
-      console.warn(`[LLM] Attempt ${attempt + 1} failed (${msg}), retrying in ${delayMs}ms...`);
-      await new Promise(res => setTimeout(res, delayMs));
+      const delay = delays[attempt] ?? 9000;
+      console.warn(`[LLM] Attempt ${attempt + 1} failed (${msg}), retrying in ${delay}ms...`);
+      await new Promise(res => setTimeout(res, delay));
     }
   }
   throw lastError;
@@ -261,12 +263,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
     console.log(`[Collaboration] Task ${taskId} Step2: Manus enhancing + data collection...`);
-    const manusResponse = await invokeLLMWithRetry({
-      messages: [
-        { role: "system", content: manusSystemPrompt },
-        {
-          role: "user",
-          content: `你是幕后数据引擎，请分两步完成以下工作：
+    const step2UserContent = `你是幕后数据引擎，请分两步完成以下工作：
 
 【原始任务】
 ${fullContext}
@@ -286,12 +283,42 @@ ${gptStep1Output}
 - 关注市场：美国>香港>大陆>欧盟>英国，标注跨市场关联
 - 用 Markdown 表格对比关键数据（至少3列），标注数据来源和时间节点
 - 根据任务复杂度自适应输出长度（简单任务500字，复杂任务不超过2000字）
-- 专注客观数据，不需要主观建议（主观分析由 GPT 负责）`,
-        },
-      ],
-    });
-    const manusReport = String(manusResponse.choices?.[0]?.message?.content || "");
-    console.log(`[Collaboration] Task ${taskId} Step2: Manus report done, length=${manusReport.length}`);
+- 专注客观数据，不需要主观建议（主观分析由 GPT 负责）`;
+
+    let manusReport: string;
+    try {
+      const manusResponse = await invokeLLMWithRetry({
+        messages: [
+          { role: "system", content: manusSystemPrompt },
+          { role: "user", content: step2UserContent },
+        ],
+      });
+      manusReport = String(manusResponse.choices?.[0]?.message?.content || "");
+      console.log(`[Collaboration] Task ${taskId} Step2: Manus report done, length=${manusReport.length}`);
+    } catch (manusErr) {
+      // Manus LLM 上游不稳定时，自动降级用 GPT 完成数据收集
+      console.warn(`[Collaboration] Task ${taskId} Step2: Manus FAILED, falling back to GPT for data collection:`, (manusErr as Error)?.message);
+      if (userConfig?.openaiApiKey) {
+        try {
+          manusReport = await callOpenAI({
+            apiKey: userConfig.openaiApiKey,
+            model: userConfig.openaiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: manusSystemPrompt },
+              { role: "user", content: step2UserContent },
+            ],
+            maxTokens: 2000,
+          });
+          console.log(`[Collaboration] Task ${taskId} Step2: GPT fallback done, length=${manusReport.length}`);
+        } catch (gptFallbackErr) {
+          console.warn(`[Collaboration] Task ${taskId} Step2: GPT fallback also failed, using GPT Step1 output as data`);
+          manusReport = `## 数据收集（基于已有分析）\n\n由于数据引擎暂时不可用，以下基于 GPT 初步分析：\n\n${gptStep1Output}`;
+        }
+      } else {
+        // 没有 GPT Key，用 Step1 的初步分析作为数据基础继续
+        manusReport = `## 数据收集（基于已有分析）\n\n由于数据引擎暂时不可用，以下基于初步分析框架：\n\n${gptStep1Output}`;
+      }
+    }
     await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
 
     // ════════════════════════════════════════════════════════════════════════

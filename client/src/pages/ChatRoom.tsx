@@ -473,7 +473,6 @@ export default function ChatRoom() {
   // All conversations (ungrouped + grouped)
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
-    refetchInterval: 10000,
   });
 
   // Search results
@@ -486,7 +485,6 @@ export default function ChatRoom() {
   // Groups with their conversations
   const { data: groups, refetch: refetchGroups } = trpc.chat.listGroups.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
-    refetchInterval: 10000,
   });
 
   // Messages for the active conversation
@@ -494,7 +492,7 @@ export default function ChatRoom() {
     { conversationId: activeConvId! },
     {
       enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
-      refetchInterval: 3000,
+      refetchInterval: 5000,
     }
   );
 
@@ -502,7 +500,7 @@ export default function ChatRoom() {
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const { data: activeTaskData } = trpc.chat.getTask.useQuery(
     { taskId: activeTaskId! },
-    { enabled: isTyping && activeTaskId !== null, refetchInterval: 2000 }
+    { enabled: isTyping && activeTaskId !== null, refetchInterval: 3000 }
   );
   useEffect(() => {
     if (!activeTaskData) return;

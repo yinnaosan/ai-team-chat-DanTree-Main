@@ -166,7 +166,7 @@ export default function AccessGate() {
 
         {/* 底部说明 */}
         <p className="text-center text-xs text-muted-foreground mt-6">
-          AI Team Chat · 私有协作平台
+          DanTree · 私有协作平台
         </p>
       </div>
     </div>

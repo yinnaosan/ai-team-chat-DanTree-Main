@@ -155,7 +155,7 @@ export async function exportConversationAsPDF(
   // 底部 branding
   pdf.setFontSize(8.5);
   pdf.setTextColor(80, 80, 105);
-  pdf.text("AI Team Chat — 智能投资协作平台", MARGIN, pageH - 14);
+  pdf.text("DanTree — 智能投资协作平台", MARGIN, pageH - 14);
   pdf.setDrawColor(50, 50, 72);
   pdf.setLineWidth(0.25);
   pdf.line(MARGIN, pageH - 18, pageW - MARGIN, pageH - 18);

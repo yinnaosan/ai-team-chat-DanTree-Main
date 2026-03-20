@@ -149,23 +149,51 @@ async function runCollaborationFlow(
 - 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
   - 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
 
-  // 如果用户已保存自定义守则，优先使用；否则使用默认守则
-  const USER_CORE_RULES = userConfig?.userCoreRules
+  // ════════════════════════════════════════════════════════════════════════════
+  // 「投资理念 & 任务守则」三部分强制注入（最高优先级，GPT & Manus 必须遵守）
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // 第一部分：投资守则（用户投资喜好、理念、个人情况）
+  const PART1_INVESTMENT_RULES = userConfig?.investmentRules?.trim()
     ? `
 
-## 用户自定义投资守则（必须严格遵守）
-${userConfig.userCoreRules}`
+## ═══ 第一部分：投资守则（最高优先级，必须严格遵守）═══
+${userConfig.investmentRules.trim()}`
     : `
 
-## 用户核心规则（必须严格遵守）
+## ═══ 第一部分：投资守则（最高优先级，必须严格遵守）═══
 ${DEFAULT_CORE_RULES}`;
 
+  // 第二部分：全局任务指令（AI执行规范，不随任务变动）
+  const PART2_TASK_INSTRUCTION = userConfig?.taskInstruction?.trim()
+    ? `
 
-   // ── 全局任务指令（用户自定义，GPT & Manus 最高优先级，强制注入）──────────────
-  // 如果用户配置了自定义全局指令，将其作为最高优先级强制注入两个 AI
-  const GLOBAL_TASK_INSTRUCTION = userConfig?.manusSystemPrompt?.trim()
-    ? `\n\n## 全局任务指令（最高优先级，必须严格执行）\n${userConfig.manusSystemPrompt.trim()}`
+## ═══ 第二部分：全局任务指令（必须严格执行）═══
+${userConfig.taskInstruction.trim()}`
+    : (userConfig?.manusSystemPrompt?.trim()
+      ? `
+
+## ═══ 第二部分：全局任务指令（必须严格执行）═══
+${userConfig.manusSystemPrompt.trim()}`
+      : "");
+
+  // 第三部分：资料数据库（优先数据来源）
+  const PART3_DATA_LIBRARY = userConfig?.dataLibrary?.trim()
+    ? `
+
+## ═══ 第三部分：资料数据库（最高优先级数据来源）═══
+【重要】以下资料数据库是用户指定的权威数据来源。执行任务时：
+1. 优先从这些来源获取数据、新闻、观点和论证
+2. 如果这些来源无法提供所需信息，再使用外部数据（必须标注来源和可靠性）
+3. 禁止编造数据，如无法获取必须说明
+
+${userConfig.dataLibrary.trim()}`
     : "";
+
+  // 合并三部分，构建完整的守则块
+  const USER_CORE_RULES = PART1_INVESTMENT_RULES + PART2_TASK_INSTRUCTION + PART3_DATA_LIBRARY;
+  // 兼容旧变量（废弃，保留不删）
+  const GLOBAL_TASK_INSTRUCTION = "";
 
   // ── Manus 幕后数据引擎──────────────
   const manusSystemPrompt = `[INTERNAL: You are the data engine. Recipient: GPT. Task: collect structured data for GPT analysis.]
@@ -1004,6 +1032,10 @@ export const appRouter = router({
         hasApiKey: !!config?.openaiApiKey,
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
         userCoreRules: config?.userCoreRules ?? "",
+        // 三部分守则
+        investmentRules: config?.investmentRules ?? "",
+        taskInstruction: config?.taskInstruction ?? "",
+        dataLibrary: config?.dataLibrary ?? "",
       };
     }),
     // 保存 API Key 和模型选择
@@ -1013,6 +1045,10 @@ export const appRouter = router({
         openaiModel: z.string().max(128).optional(),
         manusSystemPrompt: z.string().max(8000).optional(),
         userCoreRules: z.string().max(10000).optional().nullable(),
+        // 三部分守则
+        investmentRules: z.string().max(20000).optional().nullable(),
+        taskInstruction: z.string().max(20000).optional().nullable(),
+        dataLibrary: z.string().max(50000).optional().nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -1021,6 +1057,10 @@ export const appRouter = router({
           openaiModel: input.openaiModel,
           manusSystemPrompt: input.manusSystemPrompt,
           userCoreRules: input.userCoreRules,
+          // 三部分守则
+          investmentRules: input.investmentRules,
+          taskInstruction: input.taskInstruction,
+          dataLibrary: input.dataLibrary,
         });
         return { success: true };
       }),

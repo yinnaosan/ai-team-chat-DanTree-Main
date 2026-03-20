@@ -501,3 +501,12 @@
 - [x] 替换品牌图标：使用用户提供的 logo 生成各尺寸图标并上传 CDN
 - [x] 添加 PWA 安装引导横幅（底部提示条，检测 beforeinstallprompt 事件）
 - [x] 制作专属离线页面（offline.html）并更新 Service Worker
+
+## 图标修复 + 品牌命名（2026-03-20）
+- [x] 修复图标裁剪：只保留圆角矩形内容区域，去掉黑色背景边缘
+- [x] 全局应用名称改为 DanTree（manifest、index.html、App.tsx、侧边栏等）
+
+## 投资守则三部分重构（2026-03-20）
+- [x] 数据库：rpa_configs 新增 investment_rules / task_instruction / data_library 三个字段
+- [x] 后端：三部分内容注入 AI 提示词，data_library 作为最高优先级数据来源
+- [x] 前端：设置页面重构为三个独立 Tab（投资守则 / 全局任务指令 / 资料数据库）

@@ -869,7 +869,7 @@ export default function ChatRoom() {
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.72 0.18 250 / 0.15)" }}>
               <MessageSquare className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
             </div>
-            <span className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>AI Team Chat</span>
+            <span className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>DanTree</span>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors" style={{ color: "oklch(0.55 0.01 270)" }}>
             <X className="w-3.5 h-3.5" />

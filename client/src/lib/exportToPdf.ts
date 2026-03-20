@@ -66,7 +66,7 @@ function drawCoverPage(pdf: jsPDF, title: string, subtitle: string) {
   // 底部信息
   pdf.setFontSize(9);
   pdf.setTextColor(100, 100, 120);
-  pdf.text("AI Team Chat — 智能投资协作平台", MARGIN, pageH - 16);
+  pdf.text("DanTree — 智能投资协作平台", MARGIN, pageH - 16);
   pdf.text(new Date().toLocaleString("zh-CN"), pageW - MARGIN, pageH - 16, { align: "right" });
 
   // 底部装饰线

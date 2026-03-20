@@ -1,0 +1,17 @@
+{
+  "query": "DESCRIBE rpa_configs; SELECT id, user_core_rules FROM rpa_configs LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute DESCRIBE rpa_configs; SELECT id, user_core_rules FROM rpa_configs LIMIT 3;",
+  "returncode": 1,
+  "logs": [
+    "Field\tType\tNull\tKey\tDefault\tExtra",
+    "id\tint\tNO\tPRI\tNULL\tauto_increment",
+    "userId\tint\tNO\tUNI\tNULL\t",
+    "manusSystemPrompt\ttext\tYES\t\tNULL\t",
+    "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t",
+    "updatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+    "openaiApiKey\tvarchar(256)\tYES\t\tNULL\t",
+    "openaiModel\tvarchar(128)\tYES\t\tgpt-4.5-mini\t",
+    "userCoreRules\ttext\tYES\t\tNULL",
+    "ERROR 1054 (42S22) at line 1: Unknown column 'user_core_rules' in 'field list'"
+  ]
+}

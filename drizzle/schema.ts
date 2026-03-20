@@ -138,7 +138,13 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4o-mini"),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
-  // 用户自定义投资理念守则，覆盖默认守则
+  // 第一部分：投资守则（用户投资喜好、理念、个人情况）
+  investmentRules: text("investmentRules"),
+  // 第二部分：全局任务指令（AI执行规范，不随任务变动）
+  taskInstruction: text("taskInstruction"),
+  // 第三部分：资料数据库（优先数据来源：链接/API/权威资料）
+  dataLibrary: text("dataLibrary"),
+  // 兼容旧字段（废弃，保留不删）
   userCoreRules: text("userCoreRules"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

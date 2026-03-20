@@ -49,7 +49,7 @@ export default function Home() {
             <MessageSquare className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-foreground">AI Team Chat</h1>
+            <h1 className="text-sm font-semibold text-foreground">DanTree</h1>
             <p className="text-xs text-muted-foreground">智能协作平台</p>
           </div>
         </div>

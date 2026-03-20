@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 type SettingsTab = "api" | "database" | "access" | "about";
+type RulesTab = "investment" | "task" | "data";
 
 export default function Settings() {
   const { isAuthenticated, loading } = useAuth();
@@ -28,6 +29,11 @@ export default function Settings() {
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [manusSystemPrompt, setManusSystemPrompt] = useState("");
   const [userCoreRules, setUserCoreRules] = useState("");
+  // 三部分守则独立字段
+  const [investmentRules, setInvestmentRules] = useState("");
+  const [taskInstruction, setTaskInstruction] = useState("");
+  const [dataLibrary, setDataLibrary] = useState("");
+  const [activeRulesTab, setActiveRulesTab] = useState<RulesTab>("investment");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
   // 数据库连接表单
@@ -50,6 +56,9 @@ export default function Settings() {
       setSelectedModel(savedConfig.openaiModel || "gpt-4o-mini");
       setManusSystemPrompt(savedConfig.manusSystemPrompt || "");
       setUserCoreRules(savedConfig.userCoreRules || "");
+      setInvestmentRules((savedConfig as any).investmentRules || "");
+      setTaskInstruction((savedConfig as any).taskInstruction || "");
+      setDataLibrary((savedConfig as any).dataLibrary || "");
     }
   }, [savedConfig]);
 
@@ -425,108 +434,132 @@ export default function Settings() {
               </div>
             </section>
 
-            {/* 投资理念 & 任务守则（合并：GPT守则 + Manus数据引擎指令，统一保存） */}
+            {/* 投资理念 & 任务守则（三部分独立 Tab） */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
                 <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>投资理念 & 任务守则</h2>
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: userCoreRules.trim() ? "oklch(0.72 0.18 155 / 0.12)" : "oklch(0.22 0.007 270)",
-                           color: userCoreRules.trim() ? "oklch(0.72 0.18 155)" : "oklch(0.50 0.01 270)",
-                           border: `1px solid ${userCoreRules.trim() ? "oklch(0.72 0.18 155 / 0.25)" : "oklch(0.28 0.008 270)"}` }}>
-                  {userCoreRules.trim() ? "自定义守则已启用" : "使用默认守则"}
+                  style={{ background: "oklch(0.65 0.18 25 / 0.15)", color: "oklch(0.75 0.18 25)", border: "1px solid oklch(0.65 0.18 25 / 0.4)" }}>
+                  GPT & Manus 最高优先级，强制遵守
                 </span>
               </div>
-              <div className="p-4 rounded-xl space-y-4"
-                style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
 
-                {/* GPT + Manus 共同遵守的投资守则 */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>
-                    投资守则（GPT & Manus 最高优先级，每次任务强制注入）
-                  </Label>
-                  <Textarea
-                    value={userCoreRules}
-                    onChange={(e) => setUserCoreRules(e.target.value)}
-                    placeholder={"空白时自动使用内置的完整段永平价值投资体系守则。\n点击下方「填入默认守则」可查看并编辑完整内容。"}
-                    className="min-h-[320px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
-                  />
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                      GPT 和 Manus 都必须完全遵守。{userCoreRules.trim() ? `已自定义（${userCoreRules.length} 字符）` : "空白时自动使用内置守则。"}
+              {/* 三部分内部 Tab 导航 */}
+              <div className="flex gap-1 p-1 rounded-lg"
+                style={{ background: "oklch(0.15 0.005 270)", border: "1px solid oklch(0.22 0.007 270)" }}>
+                {([
+                  { id: "investment" as RulesTab, label: "投资守则", color: "oklch(0.72 0.18 155)" },
+                  { id: "task" as RulesTab, label: "全局任务指令", color: "oklch(0.75 0.18 25)" },
+                  { id: "data" as RulesTab, label: "资料数据库", color: "oklch(0.72 0.18 250)" },
+                ] as const).map(({ id, label, color }) => (
+                  <button key={id}
+                    onClick={() => setActiveRulesTab(id)}
+                    className="flex-1 py-1.5 px-2 rounded text-xs font-medium transition-all"
+                    style={{
+                      background: activeRulesTab === id ? "oklch(0.22 0.008 270)" : "transparent",
+                      color: activeRulesTab === id ? color : "oklch(0.50 0.01 270)",
+                      boxShadow: activeRulesTab === id ? "0 1px 3px oklch(0 0 0 / 0.3)" : "none",
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 投资守则 Tab */}
+              {activeRulesTab === "investment" && (
+                <div className="p-4 rounded-xl space-y-3"
+                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 155 / 0.2)" }}>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
+                      表明您的投资喜好、理念、个人情况。GPT & Manus 每次任务必须遵守。
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setUserCoreRules(DEFAULT_INVESTMENT_RULES)}
-                      className="text-xs px-2 py-1 rounded transition-colors hover:opacity-80"
-                      style={{ color: "oklch(0.72 0.18 250)", background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
+                    <button type="button"
+                      onClick={() => setInvestmentRules(DEFAULT_INVESTMENT_RULES)}
+                      className="ml-auto text-xs px-2 py-1 rounded shrink-0 transition-colors hover:opacity-80"
+                      style={{ color: "oklch(0.72 0.18 155)", background: "oklch(0.72 0.18 155 / 0.1)", border: "1px solid oklch(0.72 0.18 155 / 0.25)" }}>
                       填入默认守则
                     </button>
                   </div>
-                </div>
-
-                {/* 分隔线 */}
-                <div style={{ borderTop: "1px solid oklch(0.23 0.007 270)" }} />
-
-                {/* 全局任务指令（最高优先级） */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-semibold" style={{ color: "oklch(0.82 0.005 270)" }}>
-                      全局任务指令
-                    </Label>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: "oklch(0.65 0.18 25 / 0.15)", border: "1px solid oklch(0.65 0.18 25 / 0.4)", color: "oklch(0.75 0.18 25)" }}>
-                      GPT & Manus 最高优先级，每次强制注入
-                    </span>
-                  </div>
                   <Textarea
-                    value={manusSystemPrompt}
-                    onChange={(e) => setManusSystemPrompt(e.target.value)}
-                    placeholder={"输入全局任务指令，例如：\n- 只分析 A 股和港股\n- 关注市盈率 > 15% 的公司\n- 每次必须评估安全边际\n\n空白表示不设置额外全局指令"}
-                    className="min-h-[120px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.30 0.015 25)", color: "oklch(0.88 0.005 270)" }}
+                    value={investmentRules}
+                    onChange={(e) => setInvestmentRules(e.target.value)}
+                    placeholder={"示例：\n我的投资理念基于段永平价値投资体系。\n我关注美股和港股，尤其是科技和消费行业。\n我的风险承受能力中等，希望长期持有。"}
+                    className="min-h-[280px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 270)" }}
                   />
-                  <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
-                    此指令将同时注入 GPT 和 Manus，优先级高于投资守则，每次任务强制执行。
-                  </p>
-                </div>
-
-                {/* 统一保存按钮 */}
-                <div className="flex gap-2 pt-1">
-                  {userCoreRules.trim() && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        if (confirm("确认清空自定义守则，恢复使用内置默认守则？")) {
-                          setUserCoreRules("");
-                          saveConfigMutation.mutate({
-                            openaiModel: selectedModel,
-                            userCoreRules: null,
-                            manusSystemPrompt,
-                          });
-                        }
-                      }}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                      {investmentRules.trim() ? `已自定义（${investmentRules.length} 字符）` : "空白时自动使用内置默认守则"}
+                    </p>
+                    <Button size="sm"
+                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, investmentRules: investmentRules.trim() || null } as any)}
                       disabled={saveConfigMutation.isPending}
-                      className="gap-2 text-sm"
-                      style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
-                      <RefreshCw className="w-3.5 h-3.5" />清空自定义
+                      className="gap-1.5 h-7 text-xs"
+                      style={{ background: "oklch(0.72 0.18 155)", color: "oklch(0.13 0.005 270)" }}>
+                      {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      保存投资守则
                     </Button>
-                  )}
-                  <Button
-                    onClick={() => saveConfigMutation.mutate({
-                      openaiModel: selectedModel,
-                      userCoreRules: userCoreRules.trim() || null,
-                      manusSystemPrompt,
-                    })}
-                    disabled={saveConfigMutation.isPending}
-                    className="flex-1 gap-2"
-                    style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-                    {saveConfigMutation.isPending
-                      ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
-                      : <><Save className="w-4 h-4" />保存守则与指令</>}
-                  </Button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* 全局任务指令 Tab */}
+              {activeRulesTab === "task" && (
+                <div className="p-4 rounded-xl space-y-3"
+                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.65 0.18 25 / 0.2)" }}>
+                  <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
+                    每次执行任务时强制遵守的全局指令，优先级高于投资守则。GPT & Manus 均必遵守。
+                  </p>
+                  <Textarea
+                    value={taskInstruction}
+                    onChange={(e) => setTaskInstruction(e.target.value)}
+                    placeholder={"示例：\n- 每次回复必须以中文输出\n- 每次任务开头声明：已遵守投资守则 ✓\n- 每次回复末尾提供 2-3 个后续跟进问题\n- 任务之间主动引用历史结论进行对比"}
+                    className="min-h-[200px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                  <div className="flex justify-end">
+                    <Button size="sm"
+                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, taskInstruction: taskInstruction.trim() || null } as any)}
+                      disabled={saveConfigMutation.isPending}
+                      className="gap-1.5 h-7 text-xs"
+                      style={{ background: "oklch(0.65 0.18 25)", color: "oklch(0.13 0.005 270)" }}>
+                      {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      保存任务指令
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* 资料数据库 Tab */}
+              {activeRulesTab === "data" && (
+                <div className="p-4 rounded-xl space-y-3"
+                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
+                    所有观点搜索、数据来源、新闻消息、权威论证、市场政策等内容优先来自这里。无法匹配时才使用外部数据。
+                  </p>
+                  <Textarea
+                    value={dataLibrary}
+                    onChange={(e) => setDataLibrary(e.target.value)}
+                    placeholder={"示例：\n## 权威数据源\n- 中国证监会公告：https://www.csrc.gov.cn\n- 美联储利率决议：https://www.federalreserve.gov\n- 工业和信息化部数据：https://data.stats.gov.cn\n\n## 市场行情数据\n- 雪球网：https://xueqiu.com\n- 东方财富：https://www.eastmoney.com\n- Yahoo Finance：https://finance.yahoo.com\n\n## 个人笔记 / 自定义资料\n可在此处粘贴文章、数据、研究报告等任意内容"}
+                    className="min-h-[280px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                      {dataLibrary.trim() ? `已配置 ${dataLibrary.split('\n').filter(l => l.includes('http')).length} 个数据源` : "未配置数据源，将使用通用搜索"}
+                    </p>
+                    <Button size="sm"
+                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
+                      disabled={saveConfigMutation.isPending}
+                      className="gap-1.5 h-7 text-xs"
+                      style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                      {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      保存资料库
+                    </Button>
+                  </div>
+                </div>
+              )}
             </section>
           </div>
         )}

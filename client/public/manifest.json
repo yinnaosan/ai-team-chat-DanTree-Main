@@ -1,6 +1,6 @@
 {
-  "name": "AI Team Chat — 智能协作平台",
-  "short_name": "AI Team Chat",
+  "name": "DanTree",
+  "short_name": "DanTree",
   "description": "AI 驱动的投资分析协作平台，Manus + GPT 双引擎协同",
   "start_url": "/",
   "display": "standalone",
@@ -12,23 +12,23 @@
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_34fb0db0.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_45cf0f29.png",
       "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-144x144_734eaeef.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-144x144_db34c328.png",
       "sizes": "144x144",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-192x192_e4a35bae.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-192x192_ed338022.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-512x512_d4e37337.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-512x512_84cef6e1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -42,7 +42,7 @@
       "url": "/chat",
       "icons": [
         {
-          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_34fb0db0.png",
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_45cf0f29.png",
           "sizes": "96x96"
         }
       ]

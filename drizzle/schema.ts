@@ -78,6 +78,7 @@ export const tasks = mysqlTable("tasks", {
   conversationId: int("conversationId"),  // 所属会话
   isPinned: boolean("isPinned").default(false).notNull(),     // 是否置顶
   isFavorited: boolean("isFavorited").default(false).notNull(), // 是否收藏
+  analysisMode: mysqlEnum("analysisMode", ["quick", "standard", "deep"]).default("standard").notNull(), // 分析深度模式
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

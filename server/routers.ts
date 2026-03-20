@@ -109,7 +109,8 @@ async function runCollaborationFlow(
   userId: number,
   taskDescription: string,
   conversationId?: number,
-  attachmentContext?: string   // 附件提取的文本内容（可选）
+  attachmentContext?: string,   // 附件提取的文本内容（可选）
+  analysisMode: "quick" | "standard" | "deep" = "standard"  // 分析深度模式
 ) {
   const userConfig = await getRpaConfig(userId);
   // ════════════════════════════════════════════════════════════════════════════
@@ -256,6 +257,37 @@ ${DEFAULT_CORE_RULES}`;
 
   const fullContext = taskDescription + memoryBlock + attachmentBlock;
 
+  // ══ 分析模式配置 ═══════════════════════════════════════════════════════════════════════
+  const modeConfig = {
+    quick: {
+      label: "快速模式",
+      step1MaxTokens: 600,
+      step2MaxWords: 2000,
+      step3MaxTokens: 1200,
+      step1Hint: "快速模式：输出简洁。框架不超过 3 层，数据需求不超过 5 条。",
+      step2Hint: "快速模式：总输出不超过 2000 字。只输出核心指标。",
+      step3Hint: "快速模式：输出简洁报告，不超过 800 字。直接给出结论和关键数据，省略详细推理过程。",
+    },
+    standard: {
+      label: "标准模式",
+      step1MaxTokens: 1200,
+      step2MaxWords: 6000,
+      step3MaxTokens: 2400,
+      step1Hint: "",
+      step2Hint: "",
+      step3Hint: "",
+    },
+    deep: {
+      label: "深度模式",
+      step1MaxTokens: 2000,
+      step2MaxWords: 10000,
+      step3MaxTokens: 4000,
+      step1Hint: "深度模式：尽可能全面。框架要包含宏观环境、行业地位、企业基本面、估值、安全边际全部层次。数据需求尽可能详细。",
+      step2Hint: "深度模式：尽可能全面收集数据，总输出不超过 10000 字。包含历史数据对比、竞争对标全面对比。",
+      step3Hint: "深度模式：输出最全面、最详细的投资分析报告。每个论点展开完整推理链，不得因篇幅省略任何分析维度。",
+    },
+  }[analysisMode];
+
   try {
     // ════════════════════════════════════════════════════════════════════════
     // Step 1 — GPT 主导规划：制定分析框架，开始处理擅长的主观/逻辑部分
@@ -268,11 +300,13 @@ ${DEFAULT_CORE_RULES}`;
 ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${attachmentBlock}
 
 ---
+【当前分析模式：${modeConfig.label}】${modeConfig.step1Hint ? "\n" + modeConfig.step1Hint : ""}
+
 你的任务（Step 1）——作为首席投资顾问，先建立严谨的分析框架，再向数据引擎发出精确的数据需求：
 
-1. **判断连续性**：结合对话历史，判断是延续还是新任务。如是延续，引用上一次的具体结论（不是模糊的“上次分析了”）。
+1. **判断连续性**：结合对话历史，判断是延续还是新任务。如是延续，引用上一次的具体结论（不是模糊的"上次分析了"）。
 2. **建立分析框架**：明确本次分析的层次结构（如：宏观环境 → 行业地位 → 企业基本面 → 估值 → 安全边际 → 投资建议）。
-3. **初步判断（必须具体）**：对主观逻辑、市场情绪、投资逻辑给出初步判断和假设，必须包含具体的方向性结论（如“初步判断该公司护城河尚在，但待数据验证利润率走向”）。
+3. **初步判断（必须具体）**：对主观逻辑、市场情绪、投资逻辑给出初步判断和假设，必须包含具体的方向性结论（如"初步判断该公司护城河尚在，但待数据验证利润率走向"）。
 4. **精确数据需求清单**：向数据引擎发出精确指令，包括：
    - 具体指标名称（如：Trailing PE、Forward PE、EV/EBITDA、自由现金流收益率）
    - 时间范围（如：最近 5 年财务数据、近 12 个月股价走势）
@@ -299,7 +333,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
             { role: "system", content: gptSystemPrompt },
             { role: "user", content: gptStep1UserMsg },
           ],
-          maxTokens: 1200,
+          maxTokens: modeConfig.step1MaxTokens,
         });
         gptStep1Output = step1Res;
       } catch (e) {
@@ -332,8 +366,9 @@ ${gptStep1Output}
 3. 数据精度：保留两位小数；标注时间节点（Q/FY）；标注币种
 4. 覆盖全部需求清单中的每个指标，缺少的用 N/A 标注，不得略过
 5. 如涉及多市场，加一行传导关系说明（一句话即可）
-6. **总输出不超过 6000 字**，不重复数据，不填充废话
-7. 禁止：主观建议、模糊表达、重复数据、超过 6000 字`;
+6. **总输出不超过 ${modeConfig.step2MaxWords} 字**，不重复数据，不填充废话
+7. 禁止：主观建议、模糊表达、重复数据、超过 ${modeConfig.step2MaxWords} 字
+${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
 
     let manusReport: string;
     try {
@@ -357,8 +392,8 @@ ${gptStep1Output}
               { role: "system", content: manusSystemPrompt },
               { role: "user", content: step2UserContent },
             ],
-            maxTokens: 2000,
-          });
+            maxTokens: modeConfig.step1MaxTokens * 2,
+        });
           console.log(`[Collaboration] Task ${taskId} Step2: GPT fallback done, length=${manusReport.length}`);
         } catch (gptFallbackErr) {
           console.warn(`[Collaboration] Task ${taskId} Step2: GPT fallback also failed, using GPT Step1 output as data`);
@@ -387,6 +422,8 @@ ${gptStep1Output}
 ${manusReport}
 
 ---
+【当前分析模式：${modeConfig.label}】${modeConfig.step3Hint ? "\n" + modeConfig.step3Hint : ""}
+
 你现在是这次任务的最终决策者。请基于以上所有信息，输出一份**完整、深度、有明确判断**的分析回复。
 
 **核心要求（不可省略）：**
@@ -825,6 +862,7 @@ export const appRouter = router({
         description: z.string().optional(),
         conversationId: z.number().optional(),
         attachmentIds: z.array(z.number()).optional(), // 已上传的附件ID列表
+        analysisMode: z.enum(["quick", "standard", "deep"]).default("standard"),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -858,6 +896,7 @@ export const appRouter = router({
           title: input.title,
           description,
           status: "pending",
+          analysisMode: input.analysisMode,
         });
         const taskId = (result as any)[0]?.insertId as number;
         if (!taskId) throw new Error("Failed to create task");
@@ -878,7 +917,7 @@ export const appRouter = router({
         }
 
         // 异步执行四步协作流程
-        runCollaborationFlow(taskId, userId, description, conversationId, attachmentContext)
+        runCollaborationFlow(taskId, userId, description, conversationId, attachmentContext, input.analysisMode)
           .catch((err) => {
             console.error('[runCollaborationFlow] FATAL ERROR:', err?.message || err);
             console.error('[runCollaborationFlow] Stack:', err?.stack);

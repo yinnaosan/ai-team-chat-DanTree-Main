@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `analysisMode` enum('quick','standard','deep') DEFAULT 'standard' NOT NULL;

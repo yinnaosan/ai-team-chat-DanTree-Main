@@ -501,6 +501,7 @@ export default function ChatRoom() {
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
 
   const [input, setInput] = useState("");
+  const [analysisMode, setAnalysisMode] = useState<"quick" | "standard" | "deep">("standard");
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
@@ -789,7 +790,7 @@ export default function ChatRoom() {
     setIsTyping(true);
     setTaskPhase("manus_working");
     setActiveTaskId(null);
-    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId });
+    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId, analysisMode });
   }, [input, sending, pendingFiles, activeConvId, submitMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1298,7 +1299,7 @@ export default function ChatRoom() {
                 style={{ color: "oklch(0.88 0.005 270)" }}
               />
               <div className="flex items-center justify-between px-3 pb-2.5">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <input ref={fileInputRef} type="file" multiple className="hidden"
                     accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
                     onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
@@ -1307,6 +1308,29 @@ export default function ChatRoom() {
                     style={{ color: "oklch(0.50 0.01 270)" }} title="添加附件">
                     <Paperclip className="w-3.5 h-3.5" />
                   </button>
+                  {/* 分析模式选择器 */}
+                  <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: "oklch(0.13 0.005 270)" }}>
+                    {([
+                      { value: "quick", label: "快速", desc: "简洁结论，节省时间" },
+                      { value: "standard", label: "标准", desc: "平衡深度与速度" },
+                      { value: "deep", label: "深度", desc: "全面详细分析" },
+                    ] as const).map(({ value, label, desc }) => (
+                      <button
+                        key={value}
+                        onClick={() => setAnalysisMode(value)}
+                        title={desc}
+                        className="px-2.5 py-1 rounded-md text-xs font-medium transition-all"
+                        style={{
+                          background: analysisMode === value
+                            ? value === "quick" ? "oklch(0.65 0.15 145)" : value === "deep" ? "oklch(0.65 0.18 30)" : "oklch(0.72 0.18 250)"
+                            : "transparent",
+                          color: analysisMode === value ? "white" : "oklch(0.45 0.01 270)",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <button onClick={() => handleSubmit()} disabled={!input.trim() || !activeConvId || sending}
                   className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"

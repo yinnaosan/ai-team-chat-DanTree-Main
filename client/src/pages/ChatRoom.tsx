@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { InlineChart, parseChartBlocks } from "@/components/InlineChart";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
@@ -159,37 +160,65 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function DownloadMenu({ content, taskTitle }: { content: string; taskTitle?: string }) {
+function DownloadMenu({ content, taskTitle, msgRef }: { content: string; taskTitle?: string; msgRef?: React.RefObject<HTMLDivElement | null> }) {
   const [open, setOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const tables = useMemo(() => extractTables(content), [content]);
   const slug = (taskTitle || "ai-reply").slice(0, 30).replace(/\s+/g, "-");
+
+  const handlePdfExport = async () => {
+    setOpen(false);
+    if (!msgRef?.current) {
+      // fallback: export as text if no ref
+      const { exportAsText } = await import("@/lib/exportMessage");
+      exportAsText(content, taskTitle);
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      const { exportAsPDF } = await import("@/lib/exportMessage");
+      await exportAsPDF(msgRef.current, taskTitle);
+    } catch {
+      toast.error("导出 PDF 失败，请重试");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all hover:bg-white/8"
-        style={{ color: "oklch(0.55 0.01 270)" }}>
-        <Download className="w-3 h-3" />下载
+        style={{ color: pdfLoading ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}
+        disabled={pdfLoading}>
+        {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+        {pdfLoading ? "导出中..." : "导出"}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-7 z-50 rounded-xl py-1 min-w-[160px] shadow-xl"
+          <div className="absolute left-0 top-7 z-50 rounded-xl py-1 min-w-[170px] shadow-xl"
             style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
             <button onClick={() => { downloadText(content, `${slug}.md`, "text/markdown"); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(0.82 0.005 270)" }}>
-              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />下载 Markdown
+              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />Markdown (.md)
             </button>
             <button onClick={() => { downloadText(content, `${slug}.txt`, "text/plain"); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(0.82 0.005 270)" }}>
-              <FileText className="w-3.5 h-3.5" />下载纯文本
+              <FileText className="w-3.5 h-3.5" />纯文本 (.txt)
+            </button>
+            <button onClick={handlePdfExport}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+              style={{ color: "oklch(0.82 0.005 270)" }}>
+              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 25)" }} />PDF 文档 (.pdf)
             </button>
             {tables.length > 0 && tables.map((t, i) => (
               <button key={i} onClick={() => { downloadText(tableToCSV(t), `${slug}-table${i + 1}.csv`, "text/csv"); setOpen(false); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
                 style={{ color: "oklch(0.82 0.005 270)" }}>
-                <Table2 className="w-3.5 h-3.5" style={{ color: "oklch(0.74 0.14 155)" }} />下载表格 {tables.length > 1 ? i + 1 : ""}(.csv)
+                <Table2 className="w-3.5 h-3.5" style={{ color: "oklch(0.74 0.14 155)" }} />表格 {tables.length > 1 ? i + 1 : ""} (.csv)
               </button>
             ))}
           </div>
@@ -212,9 +241,11 @@ function parseFollowups(content: string): { cleanContent: string; followups: str
 function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
+  const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = isAssistant ? "AI 协作回复" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
   const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
+  const msgRef = React.useRef<HTMLDivElement>(null);
   return (
     <div className="flex gap-4 items-start py-3 group">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
@@ -228,54 +259,59 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <div className="prose-chat w-full">
-          <MarkdownErrorBoundary fallback={cleanContent}>
-            <ReactMarkdown
-              key={`md-${msg.id}`}
-              remarkPlugins={[remarkGfm]}
-              components={{
-                table: ({ children }) => (
-                  <div className="overflow-x-auto my-3">
-                    <table className="min-w-full border-collapse text-sm">{children}</table>
-                  </div>
-                ),
-                th: ({ children }) => (
-                  <th className="border px-3 py-1.5 text-left font-semibold" style={{ borderColor: "oklch(0.32 0.01 270)", background: "oklch(0.22 0.01 270)" }}>{children}</th>
-                ),
-                td: ({ children }) => (
-                  <td className="border px-3 py-1.5" style={{ borderColor: "oklch(0.32 0.01 270)" }}>{children}</td>
-                ),
-                code: ({ className, children, ...props }) => {
-                  const isBlock = className?.includes("language-");
-                  return isBlock ? (
-                    <pre className="rounded-lg p-3 my-2 overflow-x-auto text-xs" style={{ background: "oklch(0.15 0.01 270)" }}>
-                      <code className={className}>{children}</code>
-                    </pre>
-                  ) : (
-                    <code className="px-1 py-0.5 rounded text-xs" style={{ background: "oklch(0.22 0.01 270)", color: "oklch(0.82 0.12 250)" }} {...props}>{children}</code>
-                  );
-                },
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 pl-3 my-2 italic" style={{ borderColor: "oklch(0.55 0.18 250)", color: "oklch(0.65 0.01 270)" }}>{children}</blockquote>
-                ),
-                h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-1.5">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-semibold mt-2 mb-1">{children}</h3>,
-                strong: ({ children }) => <strong className="font-bold" style={{ color: "oklch(0.92 0.005 270)" }}>{children}</strong>,
-                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "oklch(0.72 0.18 250)" }}>{children}</a>,
-                ul: ({ children }) => <ul className="list-disc pl-5 my-1.5 space-y-0.5">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5">{children}</ol>,
-                li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
-                p: ({ children }) => <p className="text-sm leading-relaxed my-1.5">{children}</p>,
-              }}
-            >
-              {cleanContent}
-            </ReactMarkdown>
-          </MarkdownErrorBoundary>
+        <div className="prose-chat w-full" ref={msgRef}>
+          {chartBlocks.map((block, idx) =>
+            block.type === "chart" ? (
+              <InlineChart key={idx} raw={block.raw} />
+            ) : (
+              <MarkdownErrorBoundary key={idx} fallback={block.text}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto my-3">
+                        <table className="min-w-full border-collapse text-sm">{children}</table>
+                      </div>
+                    ),
+                    th: ({ children }) => (
+                      <th className="border px-3 py-1.5 text-left font-semibold" style={{ borderColor: "oklch(0.32 0.01 270)", background: "oklch(0.22 0.01 270)" }}>{children}</th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="border px-3 py-1.5" style={{ borderColor: "oklch(0.32 0.01 270)" }}>{children}</td>
+                    ),
+                    code: ({ className, children, ...props }) => {
+                      const isBlock = className?.includes("language-");
+                      return isBlock ? (
+                        <pre className="rounded-lg p-3 my-2 overflow-x-auto text-xs" style={{ background: "oklch(0.15 0.01 270)" }}>
+                          <code className={className}>{children}</code>
+                        </pre>
+                      ) : (
+                        <code className="px-1 py-0.5 rounded text-xs" style={{ background: "oklch(0.22 0.01 270)", color: "oklch(0.82 0.12 250)" }} {...props}>{children}</code>
+                      );
+                    },
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-4 pl-3 my-2 italic" style={{ borderColor: "oklch(0.55 0.18 250)", color: "oklch(0.65 0.01 270)" }}>{children}</blockquote>
+                    ),
+                    h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-1.5">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-base font-semibold mt-2 mb-1">{children}</h3>,
+                    strong: ({ children }) => <strong className="font-bold" style={{ color: "oklch(0.92 0.005 270)" }}>{children}</strong>,
+                    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "oklch(0.72 0.18 250)" }}>{children}</a>,
+                    ul: ({ children }) => <ul className="list-disc pl-5 my-1.5 space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5">{children}</ol>,
+                    li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+                    p: ({ children }) => <p className="text-sm leading-relaxed my-1.5">{children}</p>,
+                  }}
+                >
+                  {block.text}
+                </ReactMarkdown>
+              </MarkdownErrorBoundary>
+            )
+          )}
         </div>
         <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <CopyButton text={cleanContent} />
-          <DownloadMenu content={cleanContent} taskTitle={taskTitle} />
+          <DownloadMenu content={cleanContent} taskTitle={taskTitle} msgRef={msgRef} />
         </div>
         {followups.length > 0 && onFollowup && (
           <div className="flex flex-wrap gap-2 mt-3">
@@ -601,10 +637,14 @@ export default function ChatRoom() {
       refetchGroups();
       refetchConvs();
       toast.success("对话已删除");
-      // 如果删除的是当前活跃对话，清除选中状态
       setActiveConvId(prev => prev === null ? null : prev);
     },
     onError: (err) => toast.error(err.message || "删除失败"),
+  });
+
+  const pinConvMutation = trpc.conversation.pin.useMutation({
+    onSuccess: () => { refetchGroups(); refetchConvs(); },
+    onError: (err) => toast.error(err.message || "操作失败"),
   });
 
   // ─── File handlers ────────────────────────────────────────────────────────
@@ -836,6 +876,7 @@ export default function ChatRoom() {
                 deleteConvMutation.mutate({ conversationId: convId });
                 if (activeConvId === convId) setActiveConvId(null);
               }}
+              onPinConv={(convId, pinned) => pinConvMutation.mutate({ conversationId: convId, pinned })}
             />
           ))}
 
@@ -860,6 +901,7 @@ export default function ChatRoom() {
                     deleteConvMutation.mutate({ conversationId: id });
                     if (activeConvId === id) setActiveConvId(null);
                   }}
+                  onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
                 />
               ))}
             </div>
@@ -1202,7 +1244,7 @@ interface GroupSectionProps {
     name: string;
     color: string;
     isCollapsed: boolean;
-    conversations: Array<{ id: number; title: string | null; createdAt: Date; updatedAt: Date }>;
+    conversations: Array<{ id: number; title: string | null; createdAt: Date; updatedAt: Date; isPinned?: boolean }>;
   };
   activeConvId: number | null;
   onSelectConv: (id: number) => void;
@@ -1210,9 +1252,10 @@ interface GroupSectionProps {
   onDelete: (id: number) => void;
   onMoveConv: (convId: number) => void;
   onDeleteConv: (convId: number) => void;
+  onPinConv: (convId: number, pinned: boolean) => void;
 }
 
-function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv, onDeleteConv }: GroupSectionProps) {
+function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv, onDeleteConv, onPinConv }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(group.isCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const color = GROUP_COLORS[group.color] || GROUP_COLORS.blue;
@@ -1262,6 +1305,7 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
           onSelect={() => onSelectConv(conv.id)}
           onMove={() => onMoveConv(conv.id)}
           onDelete={onDeleteConv}
+          onPin={onPinConv}
           indent
         />
       ))}
@@ -1271,17 +1315,19 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
 
 // ─── Conversation Item Component ──────────────────────────────────────────────
 interface ConvItemProps {
-  conv: { id: number; title: string | null; createdAt: Date };
+  conv: { id: number; title: string | null; createdAt: Date; isPinned?: boolean };
   active: boolean;
   onSelect: () => void;
   onMove: () => void;
   onDelete: (id: number) => void;
+  onPin: (id: number, pinned: boolean) => void;
   indent?: boolean;
 }
 
-function ConvItem({ conv, active, onSelect, onMove, onDelete, indent }: ConvItemProps) {
+function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, indent }: ConvItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const isPinned = conv.isPinned ?? false;
   return (
     <div className={`relative group/item ${indent ? "pl-4" : ""}`}>
       <button onClick={onSelect}
@@ -1290,7 +1336,9 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, indent }: ConvItem
           background: active ? "oklch(0.72 0.18 250 / 0.14)" : "transparent",
           color: active ? "oklch(0.85 0.15 250)" : "oklch(0.78 0.008 270)",
         }}>
-        <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />
+        {isPinned
+          ? <Pin className="w-3 h-3 shrink-0" style={{ color: "oklch(0.82 0.18 75)" }} />
+          : <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />}
         <span className="truncate flex-1 leading-snug">{conv.title || `对话 #${conv.id}`}</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
@@ -1301,8 +1349,13 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, indent }: ConvItem
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[140px] shadow-xl"
+          <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[150px] shadow-xl"
             style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+            <button onClick={() => { onPin(conv.id, !isPinned); setMenuOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+              style={{ color: isPinned ? "oklch(0.82 0.18 75)" : "oklch(0.82 0.005 270)" }}>
+              <Pin className="w-3.5 h-3.5" />{isPinned ? "取消置顶" : "置顶对话"}
+            </button>
             <button onClick={() => { onMove(); setMenuOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(0.82 0.005 270)" }}>

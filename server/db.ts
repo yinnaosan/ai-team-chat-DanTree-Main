@@ -69,13 +69,13 @@ export async function createConversation(data: { userId: number; title?: string 
   return (result as any)[0]?.insertId as number;
 }
 
-/** 获取用户所有会话，按置顶>收藏>时间倒序 */
+/** 获取用户所有会话，按置顶>最近消息时间倒序 */
 export async function getConversationsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(conversations)
     .where(eq(conversations.userId, userId))
-    .orderBy(desc(conversations.isPinned), desc(conversations.isFavorited), desc(conversations.updatedAt))
+    .orderBy(desc(conversations.isPinned), desc(conversations.lastMessageAt))
     .limit(200);
 }
 
@@ -106,10 +106,11 @@ export async function insertMessage(msg: InsertMessage) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(messages).values(msg);
-  // 同步更新会话的 updatedAt，使其按最近消息时间排序
+  // 同步更新会话的 lastMessageAt，使列表按最近消息时间排序
   if (msg.conversationId) {
+    const now = new Date();
     await db.update(conversations)
-      .set({ updatedAt: new Date() })
+      .set({ lastMessageAt: now, updatedAt: now })
       .where(eq(conversations.id, msg.conversationId));
   }
   return (result as any)[0]?.insertId as number;

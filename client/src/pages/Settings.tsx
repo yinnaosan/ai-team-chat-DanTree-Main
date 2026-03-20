@@ -368,7 +368,7 @@ export default function Settings() {
               </div>
             </section>
 
-            {/* 投资理念 & 任务守则 */}
+            {/* 投资理念 & 任务守则（合并：GPT守则 + Manus数据引擎指令，统一保存） */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
@@ -380,11 +380,13 @@ export default function Settings() {
                   {userCoreRules.trim() ? "自定义守则已启用" : "使用默认守则"}
                 </span>
               </div>
-              <div className="p-4 rounded-xl space-y-3"
+              <div className="p-4 rounded-xl space-y-4"
                 style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+
+                {/* GPT + Manus 共同遵守的投资守则 */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>
-                    自定义投资守则（每次任务强制注入）
+                    投资守则（GPT & Manus 最高优先级，每次任务强制注入）
                   </Label>
                   <Textarea
                     value={userCoreRules}
@@ -394,10 +396,32 @@ export default function Settings() {
                     style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
                   />
                   <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                    内容将作为最高优先级指令注入每次任务，Manus 和 GPT 都必须遵守。空白时自动使用内置的段永平价値投资守则。
+                    GPT 和 Manus 都必须完全遵守。空白时自动使用内置的段永平价値投资守则。
                   </p>
                 </div>
-                <div className="flex gap-2">
+
+                {/* 分隔线 */}
+                <div style={{ borderTop: "1px solid oklch(0.23 0.007 270)" }} />
+
+                {/* Manus 数据引擎专属指令（高级） */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>
+                    Manus 数据引擎专属指令（高级，可选）
+                  </Label>
+                  <Textarea
+                    value={manusSystemPrompt}
+                    onChange={(e) => setManusSystemPrompt(e.target.value)}
+                    placeholder={"可选：进一步自定义 Manus 数据引擎的工作方式\n空白表示使用默认指令"}
+                    className="min-h-[100px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.22 0.006 270)", color: "oklch(0.80 0.005 270)" }}
+                  />
+                  <p className="text-xs" style={{ color: "oklch(0.40 0.01 270)" }}>
+                    高级选项：针对 Manus 数据引擎的额外工作指令，一般无需修改。
+                  </p>
+                </div>
+
+                {/* 统一保存按钮 */}
+                <div className="flex gap-2 pt-1">
                   {userCoreRules.trim() && (
                     <Button
                       variant="outline"
@@ -406,66 +430,29 @@ export default function Settings() {
                         saveConfigMutation.mutate({
                           openaiModel: selectedModel,
                           userCoreRules: null,
+                          manusSystemPrompt,
                         });
                       }}
                       disabled={saveConfigMutation.isPending}
                       className="gap-2 text-sm"
                       style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
-                      <RefreshCw className="w-3.5 h-3.5" />恢复默认
+                      <RefreshCw className="w-3.5 h-3.5" />恢复默认守则
                     </Button>
                   )}
                   <Button
                     onClick={() => saveConfigMutation.mutate({
                       openaiModel: selectedModel,
                       userCoreRules: userCoreRules.trim() || null,
+                      manusSystemPrompt,
                     })}
                     disabled={saveConfigMutation.isPending}
                     className="flex-1 gap-2"
                     style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
                     {saveConfigMutation.isPending
                       ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
-                      : <><Save className="w-4 h-4" />保存守则</>}
+                      : <><Save className="w-4 h-4" />保存守则与指令</>}
                   </Button>
                 </div>
-              </div>
-            </section>
-
-            {/* Manus 系统提示词（高级选项） */}
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" style={{ color: "oklch(0.55 0.01 270)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.75 0.01 270)" }}>Manus 数据引擎指令（高级）</h2>
-              </div>
-              <div className="p-4 rounded-xl space-y-3"
-                style={{ background: "oklch(0.16 0.004 270)", border: "1px solid oklch(0.21 0.006 270)" }}>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>
-                    自定义 Manus 数据引擎系统指令（可选）
-                  </Label>
-                  <Textarea
-                    value={manusSystemPrompt}
-                    onChange={(e) => setManusSystemPrompt(e.target.value)}
-                    placeholder={"可选：自定义 Manus 数据引擎的工作指令\n空白表示使用默认指令"}
-                    className="min-h-[100px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.22 0.006 270)", color: "oklch(0.80 0.005 270)" }}
-                  />
-                  <p className="text-xs" style={{ color: "oklch(0.40 0.01 270)" }}>
-                    高级选项：自定义 Manus 数据引擎的基础指令，一般无需修改。
-                  </p>
-                </div>
-                <Button
-                  onClick={() => saveConfigMutation.mutate({
-                    openaiModel: selectedModel,
-                    manusSystemPrompt,
-                  })}
-                  disabled={saveConfigMutation.isPending}
-                  variant="outline"
-                  className="w-full gap-2 text-sm"
-                  style={{ borderColor: "oklch(0.28 0.007 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.17 0.005 270)" }}>
-                  {saveConfigMutation.isPending
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
-                    : <><Save className="w-4 h-4" />保存指令</>}
-                </Button>
               </div>
             </section>
           </div>

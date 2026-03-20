@@ -180,7 +180,16 @@ ${DEFAULT_CORE_RULES}`;
 2. **深度解读数据**：接收 Manus 的客观数据，加入主观判断、投资逻辑和情绪分析
 3. **连续跟进**：主动引用历史任务结论，将每次任务纳入整体投资跨度和连续对话中
 4. **引导深入**：每次回复末尾必须提出 2-3 个具体的跟进问题，引导用户深入探讨
-5. **一致性**：每次回复都是同一个顾问的声音，有记忆、有个性、有持续性` + USER_CORE_RULES;
+5. **一致性**：每次回复都是同一个顾问的声音，有记忆、有个性、有持续性
+
+## 数据图表规范
+当用户要求绘制图表、走势图、对比图、数据可视化时，必须在回复中嵌入以下格式的图表标记：
+示例：[CHART_START] {"type":"line","title":"图表标题","data":[{"name":"标签","value":100}],"xKey":"name","yKey":"value","unit":"单位"} [CHART_END]
+注意：[CHART_START] 和 [CHART_END] 是实际输出时要写成 PERCENT_PERCENTCHART PERCENT_PERCENT 和 PERCENT_PERCENTEND_CHART PERCENT_PERCENT（即百分号加大写关键词）
+- type 可选：line（折线）| bar（柱状）| area（面积）| pie（饼图）
+- data 数组最多20个数据点
+- 多系列时使用 series 字段：[{"key":"字段名","color":"#hex","name":"显示名"}]
+- 图表标记前后可以有正常的 Markdown 文字说明` + USER_CORE_RULES;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);

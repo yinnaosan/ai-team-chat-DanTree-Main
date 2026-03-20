@@ -51,6 +51,7 @@ vi.mock("./db", () => ({
   setFavorited: vi.fn().mockResolvedValue(undefined),
   setConversationPinned: vi.fn().mockResolvedValue(undefined),
   setConversationFavorited: vi.fn().mockResolvedValue(undefined),
+  deleteConversationAndMessages: vi.fn().mockResolvedValue(undefined),
   insertAttachment: vi.fn().mockResolvedValue(undefined),
   getAttachmentsByConversation: vi.fn().mockResolvedValue([]),
   getAttachmentsByMessage: vi.fn().mockResolvedValue([]),
@@ -260,6 +261,47 @@ describe("auth.logout", () => {
     ctx.res.clearCookie = (name: string) => { clearedCookies.push(name); };
     const caller = appRouter.createCaller(ctx);
     const result = await caller.auth.logout();
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("conversation.pin", () => {
+  it("置顶/取消置顶对话", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.conversation.pin({ conversationId: 42, pinned: true });
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("conversation.delete", () => {
+  it("删除对话及其消息", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.conversation.delete({ conversationId: 42 });
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("rpa.getConfig - userCoreRules", () => {
+  it("返回用户自定义守则字段", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.getConfig();
+    expect(result).toHaveProperty("userCoreRules");
+    expect(result.userCoreRules).toBe("自定义守则示例");
+  });
+});
+
+describe("rpa.setConfig - userCoreRules", () => {
+  it("保存用户自定义守则", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      openaiApiKey: "sk-test",
+      openaiModel: "gpt-4o",
+      userCoreRules: "我的自定义投资守则：专注长期价值",
+    });
     expect(result).toEqual({ success: true });
   });
 });

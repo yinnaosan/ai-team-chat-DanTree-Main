@@ -359,3 +359,30 @@
 - [x] 前端：ConvItem 菜单加入「删除对话」选项，带内联确认弹窗
 - [x] 前端：删除时若为当前活跃对话则清除选中状态
 - [x] 前端：GroupSection 内的 ConvItem 也支持删除
+
+## 对话置顶 + 按最近消息时间排序
+- [ ] 数据库：conversations 表添加 lastMessageAt 字段（bigint，默认 createdAt）
+- [ ] 后端：insertMessage 时更新 conversations.lastMessageAt
+- [ ] 后端：getConversationsByUser 按 isPinned DESC, lastMessageAt DESC 排序
+- [ ] 后端：conversation.pin procedure 已存在（setConversationPinned），直接复用
+- [ ] 前端：ConvItem 菜单加入「置顶/取消置顶」选项
+- [ ] 前端：置顶对话标题旁显示金色图钉图标
+- [ ] 前端：列表渲染顺序：置顶 > lastMessageAt 降序（后端已排序，前端无需额外处理）
+
+## 消息导出功能（Markdown/PDF/纯文本）
+- [ ] 前端：每条 AI 回复右上角添加导出按钮（悬停显示，下拉选择格式）
+- [ ] 前端：导出 Markdown（直接下载 .md 文件）
+- [ ] 前端：导出纯文本（去除 Markdown 标记，下载 .txt）
+- [ ] 前端：导出 PDF（使用 html2canvas + jsPDF 或 window.print 方式）
+- [ ] 前端：整个对话导出（侧边栏或顶部按钮，导出当前会话所有消息）
+
+## 数据图表绘制能力（Chart.js）
+- [ ] 后端：Manus Step2 识别图表需求，在回复中嵌入 %%CHART%%...%%END_CHART%% 标记（JSON格式的Chart.js配置）
+- [ ] 后端：系统提示词中加入图表绘制指令（当用户要求图表/走势图/对比图时触发）
+- [ ] 前端：安装 chart.js + react-chartjs-2
+- [ ] 前端：消息渲染时解析 %%CHART%% 标记，提取 Chart.js 配置并渲染为交互式图表
+- [ ] 前端：支持折线图、柱状图、饼图、散点图等常见类型
+- [ ] 前端：图表下方显示导出按钮（下载为 PNG）
+
+## Settings页UI合并
+- [x] 将「投资理念 & 任务守则」和「Manus 数据引擎指令（高级）」合并为同一个卡片区域，统一一个保存按鈕

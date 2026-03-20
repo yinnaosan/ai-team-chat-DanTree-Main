@@ -47,6 +47,7 @@ export const conversations = mysqlTable("conversations", {
   groupId: int("groupId"),                // 所属小组（可为空）
   isPinned: boolean("isPinned").default(false).notNull(),
   isFavorited: boolean("isFavorited").default(false).notNull(),
+  lastMessageAt: timestamp("lastMessageAt").defaultNow().notNull(), // 最近消息时间（用于排序）
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

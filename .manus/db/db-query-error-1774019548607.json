@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE `tasks` MODIFY COLUMN `status` enum('pending','gpt_planning','manus_working','manus_analyzing','gpt_reviewing','streaming','completed','failed') NOT NULL DEFAULT 'pending';\nALTER TABLE `conversations` ADD `lastMessageAt` timestamp DEFAULT (now()) NOT NULL;\nALTER TABLE `rpa_configs` ADD `userCoreRules` text;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `tasks` MODIFY COLUMN `status` enum('pending','gpt_planning','manus_working','manus_analyzing','gpt_reviewing','streaming','completed','failed') NOT NULL DEFAULT 'pending';\nALTER TABLE `conversations` ADD `lastMessageAt` timestamp DEFAULT (now()) NOT NULL;\nALTER TABLE `rpa_configs` ADD `userCoreRules` text;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1060 (42S21) at line 2: Duplicate column name 'lastMessageAt'"
+  ]
+}

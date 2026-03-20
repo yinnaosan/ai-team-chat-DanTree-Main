@@ -52,9 +52,10 @@ import {
   setGroupCollapsed,
   getAllMessagesByUser,
   searchConversations,
+  updateMessageContent,
 } from "./db";
 import { storagePut } from "./storage";
-import { callOpenAI, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
+import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
 
@@ -295,26 +296,24 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
     console.log(`[Collaboration] Task ${taskId} Step2: Manus enhancing + data collection...`);
-    const step2UserContent = `你是幕后数据引擎，专业负责量化数据收集。请严格按照首席顾问的数据需求清单执行：
+    const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
-【原始任务】
+【任务】
 ${fullContext}
 
-【首席顾问的分析框架与精确数据需求】
+【首席顾问的分析框架与数据需求】
 ${gptStep1Output}
 
 ---
-**数据收集要求（严格执行）：**
+**输出规则：**
 
-1. **严格按需求清单收集**：首席顾问列出了具体指标，你必须每一项都提供具体数字，不允许用“暂无公开数据”或“需进一步查证”来回避
-2. **数据精度要求**：所有数字保留两位小数；时间节点必须标注（如 Q3 FY2024）；币种必须标注（USD/HKD/CNY）
-3. **对比表格必须包含**：
-   - 企业当前值 vs 行业均值 vs 主要竞争对手 vs 历史平均（至少 4 列）
-   - 趋势数据必须包含最少 3 年纵向对比
-4. **标注数据来源**：每个数据点必须标注来源（公司财报/Bloomberg/Wind/市场公开数据）和时间
-5. **跨市场关联**：如涉及多市场，必须标注市场间的传导关系和影响路径
-6. **输出长度**：根据任务复杂度自适应（简单任务 600-800 字，复杂任务 1500-2500 字）
-7. **禁止**：不需要主观建议（主观分析由首席顾问负责）；不允许用模糊文字替代具体数字`;
+1. 纯数据输出：只输出数字、表格、指标名称。无需开头语、过渡语、总结语、解释性文字、来源标注
+2. 格式：优先表格（指标 | 当前值 | 行业均 | 竞争对手 | 历史均），表格不够用时再用简短列表
+3. 数据精度：保留两位小数；标注时间节点（Q/FY）；标注币种
+4. 覆盖全部需求清单中的每个指标，缺少的用 N/A 标注，不得略过
+5. 如涉及多市场，加一行传导关系说明（一句话即可）
+6. **总输出不超过 6000 字**，不重复数据，不填充废话
+7. 禁止：主观建议、模糊表达、重复数据、超过 6000 字`;
 
     let manusReport: string;
     try {
@@ -356,6 +355,8 @@ ${gptStep1Output}
     // Step 3 — GPT 整合输出（接收 Manus 报告，深度思考，输出最终回复）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
+
+    // 注：不截断 Manus 报告，完整传递。通过 Step2 指令已要求 Manus 严格控制输出在 6000 字以内。
     const gptUserMessage = `【用户原始任务】
 ${taskDescription}${historyBlock}
 
@@ -377,6 +378,12 @@ ${manusReport}
 6. **上下文连贯**：如果是历史任务的延续，主动引用之前的分析结论，保持对话连贯性
 7. **格式要求**：使用 Markdown 标题、加粗、表格等结构化输出，重点数据和判断要突出显示
 
+**输出要求：**
+- 报告必须详细完整，不得因篇幅原因省略任何重要分析维度
+- 每个论点都要有完整的推理链，不能只给结论
+- 涉及数字的地方必须精确引用 Manus 数据，不能用"约"、"大概"等模糊表述
+- 最终判断要明确、可操作（如：目标价位区间、建仓时机条件、止损线设置）
+
 **回复末尾必须提出2-3个具体的后续跟进问题。格式要求：**
 - 每个问题必须完整包裹在标记内：%%FOLLOWUP%%问题内容%%END%%
 - 不要在标记外再写数字列表（1. 2. 3.），直接连续写三个标记即可
@@ -384,11 +391,24 @@ ${manusReport}
 %%FOLLOWUP%%客户端升级周期对利润率影响如何？%%END%%
 %%FOLLOWUP%%与上季度相比库存去化进展怎样？%%END%%`;
 
+    // ── 先写入占位消息（streaming 状态），前端立即开始接收流 ───────────────────
+    const streamMsgId = await insertMessage({
+      taskId,
+      userId,
+      conversationId,
+      role: "assistant",
+      content: "",
+      metadata: { phase: "streaming" },
+    });
+    await updateTaskStatus(taskId, "streaming", { streamMsgId });
+
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
       try {
-        console.log(`[Collaboration] Task ${taskId} Step3: Calling GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
-        finalReply = await callOpenAI({
+        console.log(`[Collaboration] Task ${taskId} Step3: Streaming GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
+        let accumulated = "";
+        let lastDbUpdate = Date.now();
+        const stream = callOpenAIStream({
           apiKey: userConfig.openaiApiKey,
           model: userConfig.openaiModel || DEFAULT_MODEL,
           messages: [
@@ -396,16 +416,32 @@ ${manusReport}
             { role: "user", content: gptUserMessage },
           ],
         });
-        console.log(`[Collaboration] Task ${taskId} Step3: GPT final reply OK, length=${finalReply.length}`);
+        for await (const chunk of stream) {
+          accumulated += chunk;
+          // 每 300ms 批量写入数据库一次（避免频繁写库）
+          if (Date.now() - lastDbUpdate > 300) {
+            await updateMessageContent(streamMsgId, accumulated);
+            lastDbUpdate = Date.now();
+          }
+        }
+        // 最终完整写入
+        await updateMessageContent(streamMsgId, accumulated);
+        finalReply = accumulated;
+        console.log(`[Collaboration] Task ${taskId} Step3: Streaming done, length=${finalReply.length}`);
       } catch (gptErr) {
-        console.error(`[Collaboration] Task ${taskId} Step3: GPT FAILED, falling back to invokeLLM:`, (gptErr as Error)?.message);
-        const fb = await invokeLLM({
+        const errMsg = (gptErr as Error)?.message || "";
+        console.error(`[Collaboration] Task ${taskId} Step3: GPT FAILED, falling back to invokeLLM:`, errMsg);
+        if (errMsg.includes("TPM") || errMsg.includes("tokens per min") || errMsg.includes("Request too large")) {
+          console.warn(`[Collaboration] Task ${taskId} Step3: TPM limit hit — Manus report length=${manusReport.length}.`);
+        }
+        const fb = await invokeLLMWithRetry({
           messages: [
             { role: "system", content: gptSystemPrompt },
             { role: "user", content: gptUserMessage },
           ],
         });
         finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
+        await updateMessageContent(streamMsgId, finalReply);
       }
     } else {
       const fb = await invokeLLM({
@@ -415,18 +451,12 @@ ${manusReport}
         ],
       });
       finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
+      await updateMessageContent(streamMsgId, finalReply);
     }
 
-        // ── 只向用户输出一条最终回复 ─────────────────────────────────────────────
-    const msgId = await insertMessage({
-      taskId,
-      userId,
-      conversationId,
-      role: "assistant",
-      content: finalReply,
-      metadata: { phase: "final" },
-    });
-
+    // ── 标记消息为 final，更新任务状态 ─────────────────────────────────────────
+    // 用 updateMessageContent 已写入内容，这里只需更新 metadata
+    const msgId = streamMsgId;
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
 
     // ── 自动生成任务摘要保存到长期记忆 ───────────────────────────────────────
@@ -863,6 +893,29 @@ export const appRouter = router({
         await requireAccess(ctx.user.id, ctx.user.openId);
         await setFavorited(input.taskId, ctx.user.id, input.favorited);
         return { success: true };
+      }),
+
+    retryTask: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const userId = ctx.user.id;
+        const task = await getTaskById(input.taskId);
+        if (!task || task.userId !== userId) throw new Error("Task not found");
+        if (task.status !== "failed") throw new Error("Only failed tasks can be retried");
+
+        // 重置任务状态为pending，清空旧结果
+        await updateTaskStatus(input.taskId, "pending", { manusResult: undefined, gptSummary: undefined });
+
+        // 重新异步执行协作流程
+        const description = task.description || task.title;
+        const conversationId = task.conversationId ?? undefined;
+        runCollaborationFlow(input.taskId, userId, description, conversationId)
+          .catch((err) => {
+            console.error('[retryTask] FATAL ERROR:', err?.message || err);
+          });
+
+        return { taskId: input.taskId, status: "started" };
       }),
 
     getMemory: protectedProcedure

@@ -523,12 +523,16 @@ export default function ChatRoom() {
     enabled: isAuthenticated && !!accessData?.hasAccess,
   });
 
+  // streaming 状态标志（用于加快轮询）
+  const [isStreaming, setIsStreaming] = useState(false);
+
   // Messages for the active conversation
   const { data: rawConvMsgs, isLoading: msgsLoading, refetch: refetchMsgs } = trpc.chat.getConversationMessages.useQuery(
     { conversationId: activeConvId! },
     {
       enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
-      refetchInterval: isTyping ? 2000 : 5000, // 任务进行时加快轮询
+      // streaming 时 500ms 轮询，普通进行时 2s，空闲时 5s
+      refetchInterval: isStreaming ? 500 : isTyping ? 2000 : 5000,
     }
   );
 
@@ -541,9 +545,17 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!activeTaskData) return;
     const status = activeTaskData.status;
-    if (status === "manus_working") setTaskPhase("manus_working");
-    else if (status === "gpt_reviewing" || status === "gpt_planning") setTaskPhase("gpt_reviewing");
+    if (status === "manus_working") { setTaskPhase("manus_working"); setIsStreaming(false); }
+    else if (status === "manus_analyzing") { setTaskPhase("manus_analyzing"); setIsStreaming(false); }
+    else if (status === "gpt_reviewing" || status === "gpt_planning") { setTaskPhase("gpt_reviewing"); setIsStreaming(false); }
+    else if (status === "streaming") {
+      // GPT 正在流式输出，隐藏 typing 指示器，加快轮询显示实时内容
+      setTaskPhase("gpt_reviewing");
+      setIsStreaming(true);
+      setIsTyping(false); // 隐藏 loading 动画，展示实际内容
+    }
     else if (status === "completed" || status === "failed") {
+      setIsStreaming(false);
       setIsTyping(false);
       setSending(false);
       setActiveTaskId(null);
@@ -583,12 +595,13 @@ export default function ChatRoom() {
     }));
     setConvMessages(mapped);
     const last = mapped[mapped.length - 1];
-    if (last?.role === "assistant" || last?.content?.includes("[ERROR]")) {
+    // streaming 状态下，消息内容正在逐步写入，不重置状态
+    if (!isStreaming && (last?.role === "assistant" || last?.content?.includes("[ERROR]"))) {
       setIsTyping(false);
       setSending(false);
       setActiveTaskId(null);
     }
-  }, [rawConvMsgs]);
+  }, [rawConvMsgs, isStreaming]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -666,6 +679,18 @@ export default function ChatRoom() {
   const pinConvMutation = trpc.conversation.pin.useMutation({
     onSuccess: () => { refetchGroups(); refetchConvs(); },
     onError: (err) => toast.error(err.message || "操作失败"),
+  });
+
+  const retryTaskMutation = trpc.chat.retryTask.useMutation({
+    onSuccess: (data) => {
+      if (data?.taskId) setActiveTaskId(data.taskId);
+      setSending(true);
+      setIsTyping(true);
+      setTaskPhase("manus_working");
+      toast.success("任务已重新开始");
+      refetchMsgs();
+    },
+    onError: (err) => toast.error(err.message || "重试失败"),
   });
 
   // ─── File handlers ────────────────────────────────────────────────────────
@@ -999,7 +1024,7 @@ export default function ChatRoom() {
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
             {/* 数据引擎状态标志 - 只显示固定职责名称 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
               style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-border)", color: "var(--manus-color)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 {isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing")
@@ -1010,7 +1035,7 @@ export default function ChatRoom() {
               <span>数据引擎</span>
             </div>
             {/* 首席顾问状态标志 - 只显示固定职责名称 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
               style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-border)", color: rpaConnected ? "var(--chatgpt-color)" : "oklch(0.42 0.01 270)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 {isTyping && taskPhase === "gpt_reviewing"
@@ -1152,6 +1177,38 @@ export default function ChatRoom() {
                     />
                   ))}
                   {isTyping && <TypingIndicator phase={taskPhase} />}
+                  {/* streaming 状态：显示打字光标动画 */}
+                  {isStreaming && (
+                    <span className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse" style={{ background: "oklch(0.72 0.18 250)", verticalAlign: "text-bottom" }} />
+                  )}
+                  {/* 任务失败重试按钮：当最后一条是系统错误消息且任务已失败时显示 */}
+                  {(() => {
+                    if (isTyping || sending) return null;
+                    const lastMsg = convMessages[convMessages.length - 1];
+                    if (!lastMsg || lastMsg.role !== "system" || !lastMsg.content.includes("处理任务时发生错误")) return null;
+                    const failedTaskId = lastMsg.taskId;
+                    if (!failedTaskId) return null;
+                    return (
+                      <div className="flex justify-center py-3">
+                        <button
+                          onClick={() => retryTaskMutation.mutate({ taskId: failedTaskId })}
+                          disabled={retryTaskMutation.isPending}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                          style={{
+                            background: "oklch(0.65 0.18 25 / 0.12)",
+                            border: "1px solid oklch(0.65 0.18 25 / 0.35)",
+                            color: "oklch(0.75 0.18 25)",
+                          }}
+                        >
+                          {retryTaskMutation.isPending
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                          }
+                          <span>重试任务</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
               <div ref={bottomRef} />

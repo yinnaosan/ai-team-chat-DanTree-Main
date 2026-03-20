@@ -116,6 +116,13 @@ export async function insertMessage(msg: InsertMessage) {
   return (result as any)[0]?.insertId as number;
 }
 
+/** 更新消息内容（用于流式输出逐步更新） */
+export async function updateMessageContent(messageId: number, content: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(messages).set({ content }).where(eq(messages.id, messageId));
+}
+
 export async function getMessages(limit = 100) {
   const db = await getDb();
   if (!db) return [];
@@ -179,8 +186,8 @@ export async function createTask(task: InsertTask) {
 
 export async function updateTaskStatus(
   taskId: number,
-  status: "pending" | "manus_working" | "manus_analyzing" | "gpt_reviewing" | "completed" | "failed",
-  extra?: { manusResult?: string; gptSummary?: string }
+  status: "pending" | "manus_working" | "manus_analyzing" | "gpt_reviewing" | "streaming" | "completed" | "failed",
+  extra?: { manusResult?: string; gptSummary?: string; streamMsgId?: number }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

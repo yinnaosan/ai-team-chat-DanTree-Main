@@ -414,3 +414,22 @@
 
 ## 右上角状态标志修复
 - [x] 右上角只显示固定职责名称（数据引擎 / 首席顾问），移除动态工作状态文字，只用点颜色区分工作/空闲
+
+## 任务失败重试功能
+- [ ] 后端：添加task.retry procedure，重置任务状态并重新执行runCollaborationFlow
+- [ ] 前端：任务失败时在消息区显示重试按钮，点击重新执行并更新UI状态
+
+## Step2 Manus输出长度优化
+- [ ] 移除Step2固定字数限制（500/2000字），改为按需精炼输出（Manus自主决定，避免冗余重复）
+
+## GPT 流式输出（Streaming）+ AI 协作模式优化
+- [x] 后端：rpa.ts 新增 callOpenAIStream 函数（AsyncGenerator，逐 token 生成）
+- [x] 后端：routers.ts Step3 改为流式输出——先写入空占位消息，streaming 逐步追加内容到数据库
+- [x] 后端：db.ts 新增 updateMessageContent 函数（用于流式追加）
+- [x] 数据库：tasks.status 枚举新增 streaming 状态
+- [x] 前端：ChatRoom 新增 isStreaming 状态，streaming 时 500ms 高频轮询消息
+- [x] 前端：streaming 状态显示打字光标动画（蓝色闪烁竖线）
+- [x] 前端：streaming 阶段隐藏 TypingIndicator，直接展示实时生成内容
+- [x] 后端：Step2 Manus 指令优化——明确告知 Manus 正在与 GPT 内部协作，输出纯数据结构（无废话）
+- [x] 后端：Step3 GPT 指令明确——最终报告完整详细，这是给用户看的
+- [x] 后端：移除 Step3 Manus 报告截断逻辑，改为从源头约束输出格式

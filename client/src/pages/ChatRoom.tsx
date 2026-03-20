@@ -272,6 +272,13 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
 }
 
 function UserMessage({ msg }: { msg: Msg }) {
+  const [copied, setCopied] = React.useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
   return (
     <div className="flex gap-4 items-start py-3 flex-row-reverse">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
@@ -285,9 +292,17 @@ function UserMessage({ msg }: { msg: Msg }) {
           </span>
           <span className="text-sm font-semibold" style={{ color: "oklch(0.82 0.005 270)" }}>你</span>
         </div>
-        <div className="px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed"
+        <div className="group relative px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed"
           style={{ background: "var(--user-bg)", border: "1px solid var(--user-border)", color: "oklch(0.92 0.005 270)", wordBreak: "break-word" }}>
           {msg.content}
+          <button
+            onClick={handleCopy}
+            className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
+            style={{ background: "oklch(0.22 0.008 270)", border: "1px solid oklch(0.28 0.01 270)", color: "oklch(0.65 0.01 270)" }}
+            title="复制消息"
+          >
+            {copied ? <Check className="w-3 h-3" style={{ color: "oklch(0.75 0.15 145)" }} /> : <Copy className="w-3 h-3" />}
+          </button>
         </div>
       </div>
     </div>
@@ -313,11 +328,18 @@ function MsgRow({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
 
 function TypingIndicator({ phase }: { phase?: string }) {
   const steps = [
-    { key: "manus_working", label: "数据收集中", Icon: Database, color: "var(--manus-color)" },
+    { key: "manus_working", label: "规划分析中", Icon: Database, color: "var(--manus-color)" },
+    { key: "manus_analyzing", label: "数据执行中", Icon: Database, color: "var(--manus-color)" },
     { key: "gpt_reviewing", label: "顾问整合中", Icon: Brain, color: "var(--chatgpt-color)" },
   ];
-  const currentIdx = steps.findIndex(s => s.key === phase);
-  const activeIdx = currentIdx >= 0 ? currentIdx : 0;
+  // manus_working 对应第一阶段（并行规划），第二次 manus_working 对应第二阶段（数据执行）
+  // 简化处理：manus_working 显示第一阶段，gpt_reviewing 显示第三阶段
+  const phaseMap: Record<string, number> = {
+    manus_working: 0,
+    manus_analyzing: 1,
+    gpt_reviewing: 2,
+  };
+  const activeIdx = phase ? (phaseMap[phase] ?? 0) : 0;
   return (
     <div className="flex gap-4 items-start py-3">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"

@@ -157,7 +157,7 @@ export async function createTask(task: InsertTask) {
 
 export async function updateTaskStatus(
   taskId: number,
-  status: "pending" | "manus_working" | "gpt_reviewing" | "completed" | "failed",
+  status: "pending" | "manus_working" | "manus_analyzing" | "gpt_reviewing" | "completed" | "failed",
   extra?: { manusResult?: string; gptSummary?: string }
 ) {
   const db = await getDb();

@@ -85,6 +85,13 @@
       "when": 1773971045104,
       "tag": "0011_worthless_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1773972612773,
+      "tag": "0012_even_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

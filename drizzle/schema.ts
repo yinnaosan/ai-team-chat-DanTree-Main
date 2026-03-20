@@ -64,6 +64,7 @@ export const tasks = mysqlTable("tasks", {
     "pending",
     "gpt_planning",
     "manus_working",
+    "manus_analyzing",
     "gpt_reviewing",
     "completed",
     "failed",

@@ -133,7 +133,7 @@ async function runCollaborationFlow(
 - 包含具体数字、指标、趋势、比较数据
 - 用 Markdown 表格对比关键数据（至少 3 列）
 - 标注数据来源和时间节点
-- 中文输出，数字保畠2位小数`) + USER_CORE_RULES;
+- 中文输出，数字保留2位小数`) + USER_CORE_RULES;
 
   // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）────────────────────
   const gptSystemPrompt = `你是用户的首席投资顾问，也是用户唯一的对话伙伴。
@@ -164,45 +164,105 @@ async function runCollaborationFlow(
 
   try {
     // ════════════════════════════════════════════════════════════════════════
-    // Step 1 — Manus 数据分析（内置 LLM，免费，快）
+    // Step 1 — 并行：Manus 完善任务描述 + GPT 制定分析框架（同时进行，节约时间）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
-    console.log(`[Collaboration] Task ${taskId} Step1: Manus analysis starting...`);
+    console.log(`[Collaboration] Task ${taskId} Step1: Parallel - Manus enhancing + GPT planning...`);
+
+    const [manusEnhancedResult, gptPlanResult] = await Promise.all([
+      // Manus：完善任务描述，补充专业细节和数据收集方向
+      invokeLLM({
+        messages: [
+          { role: "system", content: manusSystemPrompt },
+          {
+            role: "user",
+            content: `你是数据引擎，请先完善以下任务描述，使其更加专业全面，然后列出你将收集的关键数据点。
+
+原始任务：${fullContext}
+
+【投资理念约束】严格按照段永平价值投资体系，重点关注美国、香港、大陆、欧盟、英国市场，聚焦企业内在价值和安全边际相关数据。
+
+请输出：
+1. 完善后的任务描述（补充专业术语、明确分析维度，符合价值投资视角）
+2. 数据收集清单（具体指标、时间范围、对比基准，优先收集与企业内在价值相关的数据）`,
+          },
+        ],
+      }),
+      // GPT：制定分析框架和指令（轻量调用，仅规划不分析）
+      userConfig?.openaiApiKey
+        ? callOpenAI({
+            apiKey: userConfig.openaiApiKey,
+            model: userConfig.openaiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: gptSystemPrompt },
+              {
+                role: "user",
+                content: `用户任务：${taskDescription.slice(0, 300)}
+
+【投资理念】段永平体系：企业内在价值、安全边际、长期持有。关注市场：美国>香港>大陆>欧盟>英国。
+
+请用80字以内制定数据分析框架：需要哪些数据、分析角度、最终回复结构（符合价值投资视角）。只输出框架，不要分析内容。`,
+              },
+            ],
+            maxTokens: 300, // 限制 token，保持轻量
+          })
+        : Promise.resolve("标准分析框架：数据收集→趋势分析→跨市场关联→投资建议"),
+    ]);
+
+    const manusEnhanced = String(manusEnhancedResult.choices?.[0]?.message?.content || fullContext);
+    const gptPlan = typeof gptPlanResult === "string"
+      ? gptPlanResult
+      : String((gptPlanResult as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || "");
+    console.log(`[Collaboration] Task ${taskId} Step1 done. Enhanced=${manusEnhanced.length}, Plan=${gptPlan.length}`);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Step 2 — Manus 按 GPT 框架执行完整数据分析（内置 LLM，免费）
+    // ════════════════════════════════════════════════════════════════════════
+    console.log(`[Collaboration] Task ${taskId} Step2: Manus executing data analysis...`);
     const manusResponse = await invokeLLM({
       messages: [
-        {
-          role: "system",
-          content: manusSystemPrompt,
-        },
+        { role: "system", content: manusSystemPrompt },
         {
           role: "user",
-          content: `请对以下任务进行全面的数据收集、量化分析和结构化报告。要求：
-• 尽可能全面收集相关数据和事实
-• 包含具体数字、指标、趋势分析
-• 用 Markdown 表格对比关键数据
-• 标注数据来源和时间节点
-• 尽量详尽，不需要主观建议，专注于客观数据
+          content: `请按照以下分析框架，对完善后的任务进行全面数据收集和量化分析。
 
-任务：${fullContext}`,
+分析框架（GPT制定）：${gptPlan}
+
+完善后的任务描述：${manusEnhanced}
+
+【投资理念约束】严格按照段永平价值投资体系筛选数据：
+- 优先收集企业内在价值、估值（PE/PB/DCF）、护城河相关数据
+- 关注美国、香港、大陆、欧盟、英国市场的跨市场关联数据
+- 标注安全边际相关指标（历史估值区间、当前位置）
+- 每次任务执行前、执行中、输出前自我复查是否遵守价值投资原则
+
+要求：
+• 严格按框架收集数据，包含具体数字、指标、趋势
+• 用 Markdown 表格对比关键数据（至少3列）
+• 标注数据来源和时间节点
+• 专注客观数据，不需要主观建议`,
         },
       ],
     });
     const manusAnalysis = String(manusResponse.choices?.[0]?.message?.content || "");
-    console.log(`[Collaboration] Task ${taskId} Step1: Manus analysis done, length=${manusAnalysis.length}`);
-    await updateTaskStatus(taskId, "manus_working", { manusResult: manusAnalysis });
+    console.log(`[Collaboration] Task ${taskId} Step2: Manus analysis done, length=${manusAnalysis.length}`);
+    await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusAnalysis });
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — GPT 整合输出（OpenAI API，主观判断 + 最终完整回复）
+    // Step 3 — GPT 整合输出（OpenAI API，主观判断 + 最终完整回复）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
-    const gptUserMessage = `【用户任务】
-${fullContext}
+    const gptUserMessage = `【用户原始任务】
+${taskDescription}
+
+【Manus 完善后的任务描述】
+${manusEnhanced.slice(0, 500)}
 
 【Manus 数据分析报告】
 ${manusAnalysis}
 
-请基于以上数据分析，输出最终完整回复。要求：
-1. 深度解读 Manus 的数据，补充主观判断、投资策略和情绪分析
+请基于以上完整数据，输出最终回复。要求：
+1. 深度解读数据，补充主观判断、投资策略和情绪分析
 2. 严格遵守投资理念（段永平体系）进行判断
 3. 关注美国、香港、大陆、欧盟、英国市场的跨市场关联性
 4. 进行正推（当前→未来）和倒推（结果→原因）双向验证
@@ -211,7 +271,7 @@ ${manusAnalysis}
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
       try {
-        console.log(`[Collaboration] Task ${taskId} Step2: Calling GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
+        console.log(`[Collaboration] Task ${taskId} Step3: Calling GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
         finalReply = await callOpenAI({
           apiKey: userConfig.openaiApiKey,
           model: userConfig.openaiModel || DEFAULT_MODEL,
@@ -220,9 +280,9 @@ ${manusAnalysis}
             { role: "user", content: gptUserMessage },
           ],
         });
-        console.log(`[Collaboration] Task ${taskId} Step2: GPT final reply OK, length=${finalReply.length}`);
+        console.log(`[Collaboration] Task ${taskId} Step3: GPT final reply OK, length=${finalReply.length}`);
       } catch (gptErr) {
-        console.error(`[Collaboration] Task ${taskId} Step2: GPT FAILED, falling back to invokeLLM:`, (gptErr as Error)?.message);
+        console.error(`[Collaboration] Task ${taskId} Step3: GPT FAILED, falling back to invokeLLM:`, (gptErr as Error)?.message);
         const fb = await invokeLLM({
           messages: [
             { role: "system", content: gptSystemPrompt },
@@ -232,7 +292,6 @@ ${manusAnalysis}
         finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
       }
     } else {
-      // 没有 OpenAI API Key，全程使用内置 LLM
       const fb = await invokeLLM({
         messages: [
           { role: "system", content: gptSystemPrompt },

@@ -326,3 +326,36 @@
 
 ## 跟进问题修复
 - [x] 统一跟进问题发送路径：handleSubmit接受可选text参数，跟进问题直接调用handleSubmit(q)
+
+## 跟进问题格式修复
+- [ ] 后端：Step3 prompt明确禁止在%%FOLLOWUP%%标记外写列表，问题内容必须完整在标记内
+- [ ] 前端：parseFollowups增强容错，处理GPT在标记内外混写的情况
+
+## 任务栏排序
+- [ ] 后端：listConversations 按最近消息时间（lastMessageAt）降序排列
+- [ ] 后端：数据库 conversations 表增加 lastMessageAt 字段，每次发消息时更新
+- [ ] 前端：任务栏列表按 lastMessageAt 排序，最新对话排最上面
+
+## 对话框置顶功能
+- [ ] 前端：ConvItem 右键菜单或长按菜单加入「置顶/取消置顶」选项
+- [ ] 前端：置顶的对话框显示金色星星标记
+- [ ] 前端：列表排序：置顶 > 按updatedAt降序
+- [ ] 后端：setConversationPinned 已存在，直接复用
+
+## ConvItem 菜单完善
+- [ ] 后端：新增 deleteConversation procedure（删除会话及其消息）
+- [ ] 前端：ConvItem 菜单加入「置顶/取消置顶」（星星）、「收藏/取消收藏」、「删除」、「移入分组」
+- [ ] 前端：置顶的对话框在标题旁显示金色星星图标
+- [ ] 前端：按 isPinned > updatedAt 降序排列
+
+## 守则自定义保存
+- [x] 后端：rpa_configs 表加入 userCoreRules 字段，存储用户自定义守则
+- [x] 后端：getRpaConfig 返回 userCoreRules，upsertRpaConfig 支持更新
+- [x] 后端：runCollaborationFlow 优先使用 userCoreRules，fallback 到默认 USER_CORE_RULES
+- [x] 前端：Settings.tsx 「投资理念 & 任务守则」区域改为可编辑 textarea，加保存按鈕
+
+## 对话删除功能
+- [x] 后端：conversation.delete procedure 已存在（deleteConversationAndMessages）
+- [x] 前端：ConvItem 菜单加入「删除对话」选项，带内联确认弹窗
+- [x] 前端：删除时若为当前活跃对话则清除选中状态
+- [x] 前端：GroupSection 内的 ConvItem 也支持删除

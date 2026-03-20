@@ -21,6 +21,7 @@ import {
   updateConversationTitle,
   setConversationPinned,
   setConversationFavorited,
+  deleteConversationAndMessages,
   insertAttachment,
   getAttachmentsByConversation,
   getAttachmentsByMessage,
@@ -110,12 +111,11 @@ async function runCollaborationFlow(
   attachmentContext?: string   // 附件提取的文本内容（可选）
 ) {
   const userConfig = await getRpaConfig(userId);
-
-  // ══════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
   // 用户核心规则（每次任务必须严格遵守）
-  // ══════════════════════════════════════════════════════════════════════════
-  const USER_CORE_RULES = `
-## 用户核心规则（必须严格遵守）
+  // ════════════════════════════════════════════════════════════════════════════
+  // 如果用户已自定义守则，优先使用自定义守则；否则使用默认守则
+  const DEFAULT_CORE_RULES = ` 用户核心规则（必须严格遵守）
 
 ### 投资理念（段永平体系）
 - 以企业内在价值为核心，不做短线投机
@@ -145,10 +145,21 @@ async function runCollaborationFlow(
 ### 任务执行规范
 - 每次任务执行前、执行中、输出前必须自我复查是否遵守以上规则
 - 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
-- 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
+  - 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
+
+  // 如果用户已保存自定义守则，优先使用；否则使用默认守则
+  const USER_CORE_RULES = userConfig?.userCoreRules
+    ? `
+
+## 用户自定义投资守则（必须严格遵守）
+${userConfig.userCoreRules}`
+    : `
+
+## 用户核心规则（必须严格遵守）
+${DEFAULT_CORE_RULES}`;
 
 
-  // ── Manus 幕后数据引擎（不直接面对用户，只负责数据收集和量化分析）────────────────────
+  // ── Manus 幕后数据引擎（不直接面对用户，只负责数据收集和量化分析）──────────────────
   const manusSystemPrompt = (userConfig?.manusSystemPrompt ||
     `你是幕后数据引擎，专门负责数据收集、量化分析和结构化报告。
 你的输出将直接供 GPT 使用，不直接展示给用户。
@@ -160,7 +171,7 @@ async function runCollaborationFlow(
 - 标注数据来源和时间节点
 - 中文输出，数字保留2位小数`) + USER_CORE_RULES;
 
-  // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）────────────────────
+  // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）──────────────────
   const gptSystemPrompt = `你是用户的首席投资顾问，也是用户唯一的对话伙伴。
 你和 Manus（数据引擎）共同工作，但用户只知道你——不要提及 Manus、不要提及内部分工。
 
@@ -169,7 +180,7 @@ async function runCollaborationFlow(
 2. **深度解读数据**：接收 Manus 的客观数据，加入主观判断、投资逻辑和情绪分析
 3. **连续跟进**：主动引用历史任务结论，将每次任务纳入整体投资跨度和连续对话中
 4. **引导深入**：每次回复末尾必须提出 2-3 个具体的跟进问题，引导用户深入探讨
-5. **一致性**：每次回复都是同一个顾问的声音，有记忆、有个性、有持续性` + USER_CORE_RULES;;
+5. **一致性**：每次回复都是同一个顾问的声音，有记忆、有个性、有持续性` + USER_CORE_RULES;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);
@@ -340,8 +351,12 @@ ${manusReport}
 2. 严格遵守投资理念（段永平体系）：内在价值、安全边际、长期持有
 3. 进行正推（当前→未来）和倒推（结果→原因）双向验证
 4. 如果是历史任务的延续，主动引用上下文，保持对话连贯性
-5. 回复末尾必须提出2-3个具体的后续跟进问题，每个问题必须用以下格式包裹：
-%%FOLLOWUP%%问题内容%%END%%`;
+5. 回复末尾必须提出2-3个具体的后续跟进问题。格式要求：
+   - 每个问题必须完整包裹在标记内：%%FOLLOWUP%%问题内容%%END%%
+   - 不要在标记外再写数字列表（1. 2. 3.），直接连续写三个标记即可
+   - 示例：%%FOLLOWUP%%苹果Q2营收预期是多少？%%END%%
+   %%FOLLOWUP%%客户端升级周期对利润率影响如何？%%END%%
+   %%FOLLOWUP%%与上季度相比库存去化进展怎样？%%END%%`;
 
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
@@ -542,6 +557,15 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         await setConversationFavorited(input.conversationId, ctx.user.id, input.favorited);
+        return { success: true };
+      }),
+
+    // 删除会话及其所有消息
+    delete: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await deleteConversationAndMessages(input.conversationId, ctx.user.id);
         return { success: true };
       }),
   }),
@@ -834,6 +858,7 @@ export const appRouter = router({
         openaiModel: config?.openaiModel ?? DEFAULT_MODEL,
         hasApiKey: !!config?.openaiApiKey,
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
+        userCoreRules: config?.userCoreRules ?? "",
       };
     }),
     // 保存 API Key 和模型选择
@@ -842,6 +867,7 @@ export const appRouter = router({
         openaiApiKey: z.string().max(256).optional(),
         openaiModel: z.string().max(128).optional(),
         manusSystemPrompt: z.string().max(8000).optional(),
+        userCoreRules: z.string().max(10000).optional().nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -849,6 +875,7 @@ export const appRouter = router({
           openaiApiKey: input.openaiApiKey,
           openaiModel: input.openaiModel,
           manusSystemPrompt: input.manusSystemPrompt,
+          userCoreRules: input.userCoreRules,
         });
         return { success: true };
       }),

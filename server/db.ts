@@ -106,6 +106,12 @@ export async function insertMessage(msg: InsertMessage) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(messages).values(msg);
+  // 同步更新会话的 updatedAt，使其按最近消息时间排序
+  if (msg.conversationId) {
+    await db.update(conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversations.id, msg.conversationId));
+  }
   return (result as any)[0]?.insertId as number;
 }
 
@@ -135,6 +141,21 @@ export async function getMessagesByTask(taskId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(messages).where(eq(messages.taskId, taskId)).orderBy(messages.createdAt);
+}
+
+/** 删除会话及其所有消息（验证属于该用户） */
+export async function deleteConversationAndMessages(conversationId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // 验证会话属于该用户
+  const conv = await db.select().from(conversations)
+    .where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId)))
+    .limit(1);
+  if (!conv.length) throw new Error("Conversation not found or not authorized");
+  // 删除所有消息
+  await db.delete(messages).where(eq(messages.conversationId, conversationId));
+  // 删除会话本身
+  await db.delete(conversations).where(eq(conversations.id, conversationId));
 }
 
 /** 按会话ID获取消息 */
@@ -270,7 +291,7 @@ export async function getRpaConfig(userId: number) {
 
 export async function upsertRpaConfig(
   userId: number,
-  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null }
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

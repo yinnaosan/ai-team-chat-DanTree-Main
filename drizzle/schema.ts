@@ -125,8 +125,8 @@ export const dbConnections = mysqlTable("db_connections", {
 export type DbConnection = typeof dbConnections.$inferSelect;
 export type InsertDbConnection = typeof dbConnections.$inferInsert;
 
-// OpenAI API 配置表：存储用户的 ChatGPT API 设置
-const rpaConfigs = mysqlTable("rpa_configs", {
+// OpenAI API 配置表：存储用户的 ChatGPT API 配置
+export const rpaConfigs = mysqlTable("rpa_configs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().unique(),
   // OpenAI API Key
@@ -135,11 +135,11 @@ const rpaConfigs = mysqlTable("rpa_configs", {
   openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4o-mini"),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
+  // 用户自定义投资理念守则，覆盖默认守则
+  userCoreRules: text("userCoreRules"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
-export { rpaConfigs };
 export type RpaConfig = typeof rpaConfigs.$inferSelect;
 export type InsertRpaConfig = typeof rpaConfigs.$inferInsert;
 

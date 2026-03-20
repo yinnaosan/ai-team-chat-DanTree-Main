@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE rpa_configs ADD COLUMN userCoreRules TEXT NULL COMMENT '用户自定义投资理念守则，覆盖默认守则';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE rpa_configs ADD COLUMN userCoreRules TEXT NULL COMMENT '用户自定义投资理念守则，覆盖默认守则';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 955
+}

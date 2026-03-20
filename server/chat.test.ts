@@ -25,6 +25,7 @@ vi.mock("./db", () => ({
     openaiApiKey: "sk-test-key",
     openaiModel: "gpt-4o-mini",
     manusSystemPrompt: "你是一个专业的金融投资分析师",
+    userCoreRules: "自定义守则示例",
     createdAt: new Date(), updatedAt: new Date(),
   }),
   upsertRpaConfig: vi.fn().mockResolvedValue(undefined),
@@ -151,8 +152,11 @@ describe("rpa.getConfig", () => {
     expect(result).toHaveProperty("openaiModel");
     expect(result).toHaveProperty("hasApiKey");
     expect(result).toHaveProperty("manusSystemPrompt");
+    expect(result).toHaveProperty("userCoreRules");
     // 已配置 API Key 时 hasApiKey 应为 true
     expect(result.hasApiKey).toBe(true);
+    // userCoreRules 应返回已保存的自定义守则
+    expect(result.userCoreRules).toBe("自定义守则示例");
   });
 });
 
@@ -173,6 +177,26 @@ describe("rpa.setConfig", () => {
     const result = await caller.rpa.setConfig({
       openaiApiKey: "sk-test-key-12345",
       openaiModel: "gpt-4o",
+    });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("保存自定义投资守则", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      openaiModel: "gpt-4o-mini",
+      userCoreRules: "自定义投资守则\n- 安全边际优先\n- 长期持有",
+    });
+    expect(result).toEqual({ success: true });
+  });
+
+  it("清除自定义守则（传 null）", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.rpa.setConfig({
+      openaiModel: "gpt-4o-mini",
+      userCoreRules: null,
     });
     expect(result).toEqual({ success: true });
   });

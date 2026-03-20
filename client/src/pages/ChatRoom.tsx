@@ -596,6 +596,17 @@ export default function ChatRoom() {
     onError: (err) => toast.error(err.message || "移动失败"),
   });
 
+  const deleteConvMutation = trpc.conversation.delete.useMutation({
+    onSuccess: () => {
+      refetchGroups();
+      refetchConvs();
+      toast.success("对话已删除");
+      // 如果删除的是当前活跃对话，清除选中状态
+      setActiveConvId(prev => prev === null ? null : prev);
+    },
+    onError: (err) => toast.error(err.message || "删除失败"),
+  });
+
   // ─── File handlers ────────────────────────────────────────────────────────
   const addFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
@@ -821,6 +832,10 @@ export default function ChatRoom() {
               onRename={(id, name) => { setRenameGroupId(id); setRenameGroupName(name); }}
               onDelete={(id) => deleteGroupMutation.mutate({ groupId: id })}
               onMoveConv={(convId) => { setMoveConvId(convId); setMoveDialogOpen(true); }}
+              onDeleteConv={(convId) => {
+                deleteConvMutation.mutate({ conversationId: convId });
+                if (activeConvId === convId) setActiveConvId(null);
+              }}
             />
           ))}
 
@@ -841,6 +856,10 @@ export default function ChatRoom() {
                   active={activeConvId === conv.id}
                   onSelect={() => setActiveConvId(conv.id)}
                   onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
+                  onDelete={(id) => {
+                    deleteConvMutation.mutate({ conversationId: id });
+                    if (activeConvId === id) setActiveConvId(null);
+                  }}
                 />
               ))}
             </div>
@@ -1190,9 +1209,10 @@ interface GroupSectionProps {
   onRename: (id: number, name: string) => void;
   onDelete: (id: number) => void;
   onMoveConv: (convId: number) => void;
+  onDeleteConv: (convId: number) => void;
 }
 
-function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv }: GroupSectionProps) {
+function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv, onDeleteConv }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(group.isCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const color = GROUP_COLORS[group.color] || GROUP_COLORS.blue;
@@ -1241,6 +1261,7 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
           active={activeConvId === conv.id}
           onSelect={() => onSelectConv(conv.id)}
           onMove={() => onMoveConv(conv.id)}
+          onDelete={onDeleteConv}
           indent
         />
       ))}
@@ -1254,11 +1275,13 @@ interface ConvItemProps {
   active: boolean;
   onSelect: () => void;
   onMove: () => void;
+  onDelete: (id: number) => void;
   indent?: boolean;
 }
 
-function ConvItem({ conv, active, onSelect, onMove, indent }: ConvItemProps) {
+function ConvItem({ conv, active, onSelect, onMove, onDelete, indent }: ConvItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <div className={`relative group/item ${indent ? "pl-4" : ""}`}>
       <button onClick={onSelect}
@@ -1285,6 +1308,36 @@ function ConvItem({ conv, active, onSelect, onMove, indent }: ConvItemProps) {
               style={{ color: "oklch(0.82 0.005 270)" }}>
               <MoveRight className="w-3.5 h-3.5" />移入分组
             </button>
+            <button onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+              style={{ color: "oklch(0.65 0.18 25)" }}>
+              <Trash2 className="w-3.5 h-3.5" />删除对话
+            </button>
+          </div>
+        </>
+      )}
+      {/* 删除确认对话框 */}
+      {confirmDelete && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setConfirmDelete(false)} />
+          <div className="absolute right-0 top-8 z-50 rounded-xl p-3 shadow-xl"
+            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.35 0.12 25 / 0.5)", minWidth: "180px" }}>
+            <p className="text-xs mb-2.5" style={{ color: "oklch(0.82 0.005 270)" }}>
+              确定删除「{conv.title || `对话 #${conv.id}`}」？
+            </p>
+            <p className="text-xs mb-3" style={{ color: "oklch(0.50 0.01 270)" }}>删除后无法恢复</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+                style={{ color: "oklch(0.65 0.01 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                取消
+              </button>
+              <button onClick={() => { onDelete(conv.id); setConfirmDelete(false); }}
+                className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: "oklch(0.55 0.18 25)", color: "white" }}>
+                删除
+              </button>
+            </div>
           </div>
         </>
       )}

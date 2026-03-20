@@ -27,6 +27,7 @@ export default function Settings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [manusSystemPrompt, setManusSystemPrompt] = useState("");
+  const [userCoreRules, setUserCoreRules] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
   // 数据库连接表单
@@ -48,6 +49,7 @@ export default function Settings() {
     if (savedConfig) {
       setSelectedModel(savedConfig.openaiModel || "gpt-4o-mini");
       setManusSystemPrompt(savedConfig.manusSystemPrompt || "");
+      setUserCoreRules(savedConfig.userCoreRules || "");
     }
   }, [savedConfig]);
 
@@ -366,38 +368,100 @@ export default function Settings() {
               </div>
             </section>
 
-            {/* Manus 系统提示词 */}
+            {/* 投资理念 & 任务守则 */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+                <Brain className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
                 <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>投资理念 & 任务守则</h2>
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: userCoreRules.trim() ? "oklch(0.72 0.18 155 / 0.12)" : "oklch(0.22 0.007 270)",
+                           color: userCoreRules.trim() ? "oklch(0.72 0.18 155)" : "oklch(0.50 0.01 270)",
+                           border: `1px solid ${userCoreRules.trim() ? "oklch(0.72 0.18 155 / 0.25)" : "oklch(0.28 0.008 270)"}` }}>
+                  {userCoreRules.trim() ? "自定义守则已启用" : "使用默认守则"}
+                </span>
               </div>
               <div className="p-4 rounded-xl space-y-3"
                 style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>
-                    最高优先级指令（每次任务强制注入）
+                    自定义投资守则（每次任务强制注入）
+                  </Label>
+                  <Textarea
+                    value={userCoreRules}
+                    onChange={(e) => setUserCoreRules(e.target.value)}
+                    placeholder={"输入自定义投资守则，例如：\n\n### 投资理念\n- 以企业内在价値为核心\n- 安全边际优先\n\n### 重点关注市场\n1. 美国纽约证券交易所\n2. 香港恒生指数\n\n空白表示使用系统默认守则（段永平价値投资体系）"}
+                    className="min-h-[200px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                  <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                    内容将作为最高优先级指令注入每次任务，Manus 和 GPT 都必须遵守。空白时自动使用内置的段永平价値投资守则。
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {userCoreRules.trim() && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setUserCoreRules("");
+                        saveConfigMutation.mutate({
+                          openaiModel: selectedModel,
+                          userCoreRules: null,
+                        });
+                      }}
+                      disabled={saveConfigMutation.isPending}
+                      className="gap-2 text-sm"
+                      style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
+                      <RefreshCw className="w-3.5 h-3.5" />恢复默认
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => saveConfigMutation.mutate({
+                      openaiModel: selectedModel,
+                      userCoreRules: userCoreRules.trim() || null,
+                    })}
+                    disabled={saveConfigMutation.isPending}
+                    className="flex-1 gap-2"
+                    style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                    {saveConfigMutation.isPending
+                      ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
+                      : <><Save className="w-4 h-4" />保存守则</>}
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            {/* Manus 系统提示词（高级选项） */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" style={{ color: "oklch(0.55 0.01 270)" }} />
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.75 0.01 270)" }}>Manus 数据引擎指令（高级）</h2>
+              </div>
+              <div className="p-4 rounded-xl space-y-3"
+                style={{ background: "oklch(0.16 0.004 270)", border: "1px solid oklch(0.21 0.006 270)" }}>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>
+                    自定义 Manus 数据引擎系统指令（可选）
                   </Label>
                   <Textarea
                     value={manusSystemPrompt}
                     onChange={(e) => setManusSystemPrompt(e.target.value)}
-                    placeholder={"输入你的投资理念、任务守则、数据引用来源链接等...\n\nManus 和 GPT 在每次任务执行时都必须完全遵守此处内容。"}
-                    className="min-h-[160px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                    placeholder={"可选：自定义 Manus 数据引擎的工作指令\n空白表示使用默认指令"}
+                    className="min-h-[100px] text-sm font-mono resize-y"
+                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.22 0.006 270)", color: "oklch(0.80 0.005 270)" }}
                   />
-                  <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                    此处内容将作为最高优先级指令注入每次任务，Manus 和 GPT 都必须遵守，包括投资理念、数据引用来源（那二十多条链接）等。
+                  <p className="text-xs" style={{ color: "oklch(0.40 0.01 270)" }}>
+                    高级选项：自定义 Manus 数据引擎的基础指令，一般无需修改。
                   </p>
                 </div>
                 <Button
                   onClick={() => saveConfigMutation.mutate({
-                    openaiApiKey: apiKeyInput.trim() || undefined,
                     openaiModel: selectedModel,
                     manusSystemPrompt,
                   })}
                   disabled={saveConfigMutation.isPending}
-                  className="w-full gap-2"
-                  style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                  variant="outline"
+                  className="w-full gap-2 text-sm"
+                  style={{ borderColor: "oklch(0.28 0.007 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.17 0.005 270)" }}>
                   {saveConfigMutation.isPending
                     ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
                     : <><Save className="w-4 h-4" />保存指令</>}

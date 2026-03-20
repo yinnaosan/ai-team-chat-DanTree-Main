@@ -361,3 +361,10 @@
   0%,60%,100% { transform: translateY(0); }
   30% { transform: translateY(-5px); }
 }
+
+/* ─── Three-phase progress bar animation ───────────────────────────────────────────────── */
+@keyframes progressPulse {
+  0%   { opacity: 0.35; transform: scaleX(0.92); }
+  50%  { opacity: 1;    transform: scaleX(1); }
+  100% { opacity: 0.35; transform: scaleX(0.92); }
+}

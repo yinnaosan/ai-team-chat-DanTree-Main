@@ -1035,6 +1035,60 @@ export default function ChatRoom() {
           </div>
         </header>
 
+        {/* Three-phase progress bar */}
+        {isTyping && (
+          <div className="shrink-0 px-4 py-2" style={{ borderBottom: "1px solid oklch(0.18 0.007 270)" }}>
+            <div className="max-w-3xl mx-auto">
+              {/* Stage labels */}
+              <div className="flex items-center justify-between mb-1.5">
+                {[
+                  { key: "manus_working", label: "规划分析", icon: "01" },
+                  { key: "manus_analyzing", label: "数据收集", icon: "02" },
+                  { key: "gpt_reviewing", label: "分析整合", icon: "03" },
+                ].map((stage, i) => {
+                  const phaseOrder: Record<string, number> = { manus_working: 0, manus_analyzing: 1, gpt_reviewing: 2 };
+                  const currentOrder = phaseOrder[taskPhase] ?? 0;
+                  const stageOrder = phaseOrder[stage.key] ?? i;
+                  const isActive = taskPhase === stage.key;
+                  const isDone = currentOrder > stageOrder;
+                  return (
+                    <div key={stage.key} className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                        style={{
+                          background: isActive ? "oklch(0.72 0.18 250 / 0.15)" : isDone ? "oklch(0.55 0.12 155 / 0.15)" : "oklch(0.15 0.005 270)",
+                          color: isActive ? "oklch(0.72 0.18 250)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(0.38 0.01 270)",
+                          border: `1px solid ${isActive ? "oklch(0.72 0.18 250 / 0.3)" : isDone ? "oklch(0.55 0.12 155 / 0.3)" : "oklch(0.22 0.007 270)"}`
+                        }}>{stage.icon}</span>
+                      <span className="text-xs" style={{ color: isActive ? "oklch(0.85 0.005 270)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(0.38 0.01 270)" }}>
+                        {stage.label}
+                      </span>
+                      {isDone && <span className="text-[10px]" style={{ color: "oklch(0.65 0.15 155)" }}>✓</span>}
+                      {isActive && <span className="text-[10px] animate-pulse" style={{ color: "oklch(0.72 0.18 250)" }}>•••</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Progress track */}
+              <div className="relative h-0.5 rounded-full overflow-hidden" style={{ background: "oklch(0.18 0.007 270)" }}>
+                {/* Completed segments */}
+                <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+                  style={{
+                    background: "oklch(0.65 0.15 155)",
+                    width: taskPhase === "manus_working" ? "0%" : taskPhase === "manus_analyzing" ? "33.3%" : taskPhase === "gpt_reviewing" ? "66.6%" : "100%"
+                  }} />
+                {/* Active animated segment */}
+                <div className="absolute inset-y-0 rounded-full"
+                  style={{
+                    background: "linear-gradient(90deg, oklch(0.72 0.18 250 / 0.8), oklch(0.72 0.18 250))",
+                    left: taskPhase === "manus_working" ? "0%" : taskPhase === "manus_analyzing" ? "33.3%" : taskPhase === "gpt_reviewing" ? "66.6%" : "100%",
+                    width: "33.3%",
+                    animation: "progressPulse 1.8s ease-in-out infinite"
+                  }} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Messages */}
         <div className="relative flex-1 overflow-hidden">
           <div ref={scrollRef} onScroll={() => {

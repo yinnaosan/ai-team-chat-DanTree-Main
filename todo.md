@@ -274,10 +274,10 @@
 - [x] 前端：解析标记，渲染为可点击圆角按钮，点击后直接发送并触发任务
 
 ## 双重访问权限完善
-- [ ] Owner：通过 Manus 账号登录后直接进入，无需密码
+- [x] Owner：通过 Manus 账号登录后直接进入，无需密码
 - [ ] 访客：登录后显示密码验证页，输入 Owner 生成的一次性密码才能进入
 - [ ] 前端：访客密码验证页（登录后自动跳转，输入密码验证）
-- [ ] 前端：Owner 管理面板——生成一次性密码、查看已生成密码列表、撤销密码
-- [ ] 后端：access.generateCode（Owner生成密码）、access.listCodes、access.revokeCode procedure 完善
-- [ ] 后端：access.verify（访客验证密码）procedure 完善
-- [ ] 一次性密码使用后即失效（防止分享）
+- [x] 前端：Owner 设置页「访问管理」Tab——生成一次性密码、查看已生成密码列表、撤销密码
+- [x] 后端：access.generateCode、access.listCodes、access.revokeCode procedure 完善
+- [x] 后端：access.verify procedure 完善
+- [x] 一次性密码使用后即失效（防止分享）

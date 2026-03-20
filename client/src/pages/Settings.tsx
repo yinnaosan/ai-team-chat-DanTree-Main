@@ -12,10 +12,10 @@ import { getLoginUrl } from "@/const";
 import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
-  Key, Zap, AlertTriangle, Eye, EyeOff,
+  Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "about";
+type SettingsTab = "api" | "database" | "access" | "about";
 
 export default function Settings() {
   const { isAuthenticated, loading } = useAuth();
@@ -125,9 +125,41 @@ export default function Settings() {
 
   const hasApiKey = savedConfig?.hasApiKey;
 
+  // ─── 访问管理 ───────────────────────────────────────────────────────────────
+  const { data: accessCheck } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
+  const isOwner = accessCheck?.isOwner ?? false;
+
+  const { data: accessCodes = [], refetch: refetchCodes } = trpc.access.listCodes.useQuery(
+    undefined,
+    { enabled: isAuthenticated && isOwner }
+  );
+
+  const [codeLabel, setCodeLabel] = useState("");
+  const [codeMaxUses, setCodeMaxUses] = useState("1");
+  const [codeExpireDays, setCodeExpireDays] = useState("");
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+
+  const generateCodeMutation = trpc.access.generateCode.useMutation({
+    onSuccess: (data) => {
+      setGeneratedCode(data.code);
+      setCodeLabel("");
+      setCodeMaxUses("1");
+      setCodeExpireDays("");
+      refetchCodes();
+      toast.success("访客密码已生成");
+    },
+    onError: (err) => toast.error("生成失败", { description: err.message }),
+  });
+
+  const revokeCodeMutation = trpc.access.revokeCode.useMutation({
+    onSuccess: () => { toast.success("密码已撤销"); refetchCodes(); },
+    onError: (err) => toast.error("撤销失败", { description: err.message }),
+  });
+
   const tabs: { id: SettingsTab; label: string; icon: any; badge?: string }[] = [
     { id: "api", label: "ChatGPT API", icon: Key, badge: hasApiKey ? "已配置" : undefined },
     { id: "database", label: "数据库", icon: Database },
+    ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield }] : []),
     { id: "about", label: "关于", icon: Bot },
   ];
 
@@ -479,6 +511,145 @@ export default function Settings() {
         )}
 
         {/* ── Tab: 关于 ── */}
+        {activeTab === "access" && isOwner && (
+          <div className="space-y-4">
+            {/* 生成新密码 */}
+            <div className="p-4 rounded-xl space-y-3"
+              style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.92 0.005 270)" }}>
+                <Plus className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+                生成访客密码
+              </h2>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3">
+                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>备注标签（可选）</Label>
+                  <Input
+                    placeholder="如：朋友A"
+                    value={codeLabel}
+                    onChange={(e) => setCodeLabel(e.target.value)}
+                    className="h-8 text-sm"
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>使用次数</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="1"
+                    value={codeMaxUses}
+                    onChange={(e) => setCodeMaxUses(e.target.value)}
+                    className="h-8 text-sm"
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>有效天数（留空=永久）</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="永久有效"
+                    value={codeExpireDays}
+                    onChange={(e) => setCodeExpireDays(e.target.value)}
+                    className="h-8 text-sm"
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                  />
+                </div>
+              </div>
+              <Button
+                className="w-full h-8 text-sm font-medium"
+                style={{ background: "oklch(0.72 0.18 250)", color: "white" }}
+                disabled={generateCodeMutation.isPending}
+                onClick={() => generateCodeMutation.mutate({
+                  label: codeLabel || undefined,
+                  maxUses: parseInt(codeMaxUses) || 1,
+                  expiresInDays: codeExpireDays ? parseInt(codeExpireDays) : undefined,
+                })}
+              >
+                {generateCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                生成密码
+              </Button>
+
+              {/* 显示刚生成的密码 */}
+              {generatedCode && (
+                <div className="p-3 rounded-lg flex items-center justify-between gap-2"
+                  style={{ background: "oklch(0.72 0.18 155 / 0.12)", border: "1px solid oklch(0.72 0.18 155 / 0.4)" }}>
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>新密码（请立即复制）</div>
+                    <div className="font-mono text-base font-bold tracking-widest" style={{ color: "oklch(0.72 0.18 155)" }}>{generatedCode}</div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => { navigator.clipboard.writeText(generatedCode); toast.success("已复制到剪贴板"); }}
+                  >
+                    <Copy className="w-4 h-4" style={{ color: "oklch(0.72 0.18 155)" }} />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 密码列表 */}
+            <div className="p-4 rounded-xl space-y-2"
+              style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.92 0.005 270)" }}>
+                  <Shield className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+                  已生成密码 ({accessCodes.length})
+                </h2>
+                <Button size="icon" variant="ghost" onClick={() => refetchCodes()} className="w-6 h-6">
+                  <RefreshCw className="w-3 h-3" style={{ color: "oklch(0.55 0.01 270)" }} />
+                </Button>
+              </div>
+              {accessCodes.length === 0 ? (
+                <div className="text-xs text-center py-4" style={{ color: "oklch(0.42 0.01 270)" }}>暂无密码，点击上方「生成密码」创建</div>
+              ) : (
+                <div className="space-y-2">
+                  {accessCodes.map((c: any) => (
+                    <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg"
+                      style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.20 0.007 270)" }}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-semibold" style={{ color: c.isRevoked ? "oklch(0.40 0.01 270)" : "oklch(0.88 0.005 270)" }}>{c.code}</span>
+                          {c.isRevoked && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 25 / 0.2)", color: "oklch(0.60 0.12 25)" }}>已撤销</span>}
+                          {!c.isRevoked && c.usedCount >= c.maxUses && c.maxUses !== -1 && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 60 / 0.2)", color: "oklch(0.65 0.12 60)" }}>已用完</span>}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: "oklch(0.45 0.01 270)" }}>
+                          {c.label && <span className="mr-2">{c.label}</span>}
+                          已用 {c.usedCount}/{c.maxUses === -1 ? "∞" : c.maxUses} 次
+                          {c.expiresAt && <span className="ml-2">· 到期 {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button size="icon" variant="ghost" className="w-7 h-7"
+                          onClick={() => { navigator.clipboard.writeText(c.code); toast.success("已复制密码"); }}>
+                          <Copy className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.01 270)" }} />
+                        </Button>
+                        {!c.isRevoked && (
+                          <Button size="icon" variant="ghost" className="w-7 h-7"
+                            disabled={revokeCodeMutation.isPending}
+                            onClick={() => revokeCodeMutation.mutate({ codeId: c.id })}>
+                            <UserX className="w-3.5 h-3.5" style={{ color: "oklch(0.60 0.12 25)" }} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 说明 */}
+            <div className="p-3 rounded-xl text-xs" style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.60 0.01 270)" }}>
+              <p className="font-medium mb-1" style={{ color: "oklch(0.72 0.18 250)" }}>使用说明</p>
+              <p>· 将密码发给访客，访客登录后输入密码即可访问</p>
+              <p>· 使用次数为 1 时，密码使用后立即失效（防止分享）</p>
+              <p>· 点击撤销可立即禁止该密码的后续使用</p>
+            </div>
+          </div>
+        )}
+
         {activeTab === "about" && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"

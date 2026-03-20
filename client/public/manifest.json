@@ -1,0 +1,52 @@
+{
+  "name": "AI Team Chat — 智能协作平台",
+  "short_name": "AI Team Chat",
+  "description": "AI 驱动的投资分析协作平台，Manus + GPT 双引擎协同",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e1f20",
+  "theme_color": "#1e1f20",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "zh-CN",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_1bf4ba55.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-144x144_d7a0c26a.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-192x192_8e96188d.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-512x512_baf85c4a.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "新建任务",
+      "short_name": "新任务",
+      "description": "创建新的分析任务",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_1bf4ba55.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

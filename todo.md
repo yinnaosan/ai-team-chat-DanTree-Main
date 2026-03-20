@@ -490,3 +490,9 @@
 - [x] 图表增强：InlineChart.tsx 添加热力图（heatmap/treemap）——板块涨跌可视化
 - [x] 图表增强：K线图升级——添加 MA5/MA20 均线、成交量副图
 - [x] 图表增强：routers.ts 提示词更新，AI 知道可生成热力图和带成交量的K线图
+
+## PWA 桌面安装支持（2026-03-20）
+- [x] 生成 PWA 图标（96/144/192/512px），上传 CDN
+- [x] 创建 manifest.json（name/short_name/icons/theme_color/display:standalone）
+- [x] 创建 Service Worker（sw.js）：离线缓存 + 网络优先策略
+- [x] 更新 index.html：添加 manifest 链接、Apple Touch Icon、theme-color、SW 注册脚本

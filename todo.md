@@ -390,3 +390,6 @@
 ## Bug修复：任务排序和卡住问题
 - [x] 修复对话列表排序（回填 lastMessageAt + 移除前端 reverse）
 - [x] 修复任务执行卡住问题（客户端 5 分钟超时保护 + 轮询加速至 2s + Manus LLM 180s 超时）
+
+## GPT Step3 Prompt优化
+- [x] 修改Step3 prompt：从"浓缩总结"改为"整合Manus数据+完整推理+明确投资判断"

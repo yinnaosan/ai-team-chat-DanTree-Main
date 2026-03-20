@@ -62,6 +62,7 @@ export const tasks = mysqlTable("tasks", {
   description: text("description"),
   status: mysqlEnum("status", [
     "pending",
+    "gpt_planning",
     "manus_working",
     "gpt_reviewing",
     "completed",

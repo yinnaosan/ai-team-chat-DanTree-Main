@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE `tasks` MODIFY COLUMN `status` enum('pending','gpt_planning','manus_working','gpt_reviewing','completed','failed') NOT NULL DEFAULT 'pending';\nALTER TABLE `rpa_configs` ADD `openaiModel` varchar(128) DEFAULT 'gpt-4o-mini';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `tasks` MODIFY COLUMN `status` enum('pending','gpt_planning','manus_working','gpt_reviewing','completed','failed') NOT NULL DEFAULT 'pending';\nALTER TABLE `rpa_configs` ADD `openaiModel` varchar(128) DEFAULT 'gpt-4o-mini';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1060 (42S21) at line 2: Duplicate column name 'openaiModel'"
+  ]
+}

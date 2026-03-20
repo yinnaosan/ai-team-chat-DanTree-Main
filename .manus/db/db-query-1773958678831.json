@@ -1,0 +1,16 @@
+{
+  "query": "SELECT userId, openaiModel, (openaiApiKey IS NOT NULL AND openaiApiKey != '') as hasKey, LEFT(openaiApiKey, 8) as keyPrefix FROM rpa_configs LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT userId, openaiModel, (openaiApiKey IS NOT NULL AND openaiApiKey != '') as hasKey, LEFT(openaiApiKey, 8) as keyPrefix FROM rpa_configs LIMIT 10;",
+  "rows": [
+    {
+      "userId": "1",
+      "openaiModel": "gpt-4o-mini",
+      "hasKey": "1",
+      "keyPrefix": "sk-proj-"
+    }
+  ],
+  "messages": [],
+  "stdout": "userId\topenaiModel\thasKey\tkeyPrefix\n1\tgpt-4o-mini\t1\tsk-proj-\n",
+  "stderr": "",
+  "execution_time_ms": 103
+}

@@ -250,3 +250,22 @@
 - [x] 修复 routers.ts：移除 getRpaStatus/sendToChatGPT 调用，改为 callOpenAI
 - [x] 修复 db.ts：upsertRpaConfig 类型签名添加 openaiModel 字段
 - [x] 更新 chat.test.ts：mock 适配新的 OpenAI API 架构，12 个测试全部通过
+
+## 协作流程 A+B+C 全结合重构
+- [x] 后端：重构 runCollaborationFlow 为两步最优架构：Manus数据分析 → GPT整合输出（节约算力）
+- [x] 后端：新增 task status: gpt_planning（数据库迁移完成）
+- [x] 前端：ChatRoom 进度显示两阶段（数据收集中 / 顾问整合中）
+- [x] 前端：进度动画实时轮询任务状态并更新阶段
+- [x] 后端：注入用户核心规则（投资理念+市场范围+回复格式）到每次任务的 system prompt
+- [x] 后端：任务间关联记忆（历史任务摘要自动注入到 GPT 上下文）
+- [x] 后端：GPT 主角对话者定位，回复末尾必须提出 2-3 个跟进问题
+- [x] 后端：每次任务完成后自动保存摘要到记忆表，下次任务自动关联
+
+## 双重访问权限完善
+- [ ] Owner：通过 Manus 账号登录后直接进入，无需密码
+- [ ] 访客：登录后显示密码验证页，输入 Owner 生成的一次性密码才能进入
+- [ ] 前端：访客密码验证页（登录后自动跳转，输入密码验证）
+- [ ] 前端：Owner 管理面板——生成一次性密码、查看已生成密码列表、撤销密码
+- [ ] 后端：access.generateCode（Owner生成密码）、access.listCodes、access.revokeCode procedure 完善
+- [ ] 后端：access.verify（访客验证密码）procedure 完善
+- [ ] 一次性密码使用后即失效（防止分享）

@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, role, LEFT(content, 500) as content, metadata FROM messages WHERE taskId = 30008 ORDER BY id ASC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT id, role, LEFT(content, 500) as content, metadata FROM messages WHERE taskId = 30008 ORDER BY id ASC;",
+  "rows": [],
+  "messages": [
+    "30016\tassistant\t## 今日金价概览",
+    "截至 **2026年3月20日**，国际现货黄金价格保持在较高水平，波动性增大。COMEX黄金期货主力合约（GC=F）价格约在 **$2160 - $2180/盎司** 区间，日内涨幅在 **+0.1% 至 +0.5%**。",
+    "## 相关标的财产分析",
+    "黄金价格受到多种因素的影响，以下是当前主要相关标的的具体情况：",
+    "| 标的               | 当前价格范围          | 相关性分析                                                                                                                                           |",
+    "|--------------------|--------------------|-----------------------------------------------------------------------------------------------------\t{\"phase\": \"final\"}"
+  ],
+  "stdout": "id\trole\tcontent\tmetadata\n30016\tassistant\t## 今日金价概览\n\n截至 **2026年3月20日**，国际现货黄金价格保持在较高水平，波动性增大。COMEX黄金期货主力合约（GC=F）价格约在 **$2160 - $2180/盎司** 区间，日内涨幅在 **+0.1% 至 +0.5%**。\n\n## 相关标的财产分析\n\n黄金价格受到多种因素的影响，以下是当前主要相关标的的具体情况：\n\n| 标的               | 当前价格范围          | 相关性分析                                                                                                                                           |\n|--------------------|--------------------|-----------------------------------------------------------------------------------------------------\t{\"phase\": \"final\"}\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

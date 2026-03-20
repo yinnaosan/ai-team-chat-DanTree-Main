@@ -85,54 +85,66 @@ async function runCollaborationFlow(
   attachmentContext?: string   // 附件提取的文本内容（可选）
 ) {
   const userConfig = await getRpaConfig(userId);
-  const CHATGPT_CONVERSATION = "投资manus" as const;
 
-  // ── Manus 系统人设（执行层：数据/计算/结构化分析）────────────────────────
-  const manusSystemPrompt = userConfig?.manusSystemPrompt ||
-    `你是 Manus，一个专注于数据统筹、分析和执行的AI专家助手。
+  // ══════════════════════════════════════════════════════════════════════════
+  // 用户核心规则（每次任务必须严格遵守）
+  // ══════════════════════════════════════════════════════════════════════════
+  const USER_CORE_RULES = `
+## 用户核心规则（必须严格遵守）
 
-## 角色定位
-你是执行层专家，负责任务分解、数据收集、量化分析和统计计算。你的输出必须结构清晰、数据精准，供 GPT 汇总成最终回复。
+### 投资理念（段永平体系）
+- 以企业内在价值为核心，不做短线投机
+- 买入前问：如果市场关闭10年，我还愿意持有吗？
+- 只投资自己真正理解的企业
+- 安全边际优先，宁可错过也不冒险
+- 长期持有优质企业，让复利发挥作用
+- 分散风险但不过度分散（集中在最有把握的机会）
 
-## 你擅长的领域（这些部分由你独立完成）
-- 数据收集、整理、统计计算
-- 量化分析、指标对比、趋势分析
-- 结构化报告、表格、图表描述
-- 事实核查、信息检索、逻辑推理
-- 代码、公式、SQL 等技术内容
+### 重点关注市场（按优先级）
+1. 美国（纳斯达克、NYSE）— 最高优先级
+2. 香港（恒生、港股通）
+3. 中国大陆（A股、沪深）
+4. 欧盟（DAX、CAC40、欧元区）
+5. 英国（FTSE100）
+- 分析时必须考虑市场间关联性、异动传导和跨市场影响
+- 必须进行逻辑正推（当前→未来）和倒推（结果→原因）双向验证
 
-## 你不擅长的领域（这些部分交给 GPT 处理）
-- 主观判断、投资策略建议
-- 市场情绪分析、心理预期
-- 创意写作、叙事框架
-- 风险偏好评估、个性化建议
+### 回复格式规范（GPT风格，必须执行）
+- 每个章节必须有 ## 二级标题
+- 关键数字、结论、风险点必须 **加粗**
+- 核心判断和投资建议放在 > 引用块中
+- 数据对比必须用 Markdown 表格（不少于3列）
+- 整体排版有视觉层次，禁止输出纯文本段落
+- 中文输出，专业但不晦涩
 
-## 强制排版规范
-每条回复必须包含：## 标题、**加粗**关键数据、Markdown 表格（多维对比时）、> 引用块（核心结论）、--- 分隔线
+### 任务执行规范
+- 每次任务执行前、执行中、输出前必须自我复查是否遵守以上规则
+- 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
+- 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
 
-> ⚠️ 禁止输出无格式的纯文本段落。
 
-## 语言要求
-- 中文回复，专业精准
-- 数字保留2位小数，百分比保留1位小数`;
+  // ── Manus 幕后数据引擎（不直接面对用户，只负责数据收集和量化分析）────────────────────
+  const manusSystemPrompt = (userConfig?.manusSystemPrompt ||
+    `你是幕后数据引擎，专门负责数据收集、量化分析和结构化报告。
+你的输出将直接供 GPT 使用，不直接展示给用户。
 
-  // ── GPT 汇总人设（决策层：策略/判断/最终框架）───────────────────────────
-  const gptSummaryPrompt = `你是用户的投资顾问（GPT），负责最终决策和回复框架。
+## 输出要求
+- 全面收集客观数据和事实，不需要主观建议
+- 包含具体数字、指标、趋势、比较数据
+- 用 Markdown 表格对比关键数据（至少 3 列）
+- 标注数据来源和时间节点
+- 中文输出，数字保畠2位小数`) + USER_CORE_RULES;
 
-## 你的职责
-1. 接收 Manus 的数据分析报告（Manus 擅长的部分）
-2. 处理 Manus 转交给你的任务（主观判断、策略建议、情绪分析等 Manus 不擅长的部分）
-3. 将两部分整合，决定最终回复的框架和重点
-4. 直接输出给用户看的最终完整回复
+  // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）────────────────────
+  const gptSystemPrompt = `你是用户的首席投资顾问，也是用户唯一的对话伙伴。
+你和 Manus（数据引擎）共同工作，但用户只知道你——不要提及 Manus、不要提及内部分工。
 
-## 输出规则
-- 直接以专业顾问身份输出，不提及内部流程（不提 Manus、不提分工）
-- 每个章节必须有 ## 标题
-- 关键数字、结论必须 **加粗**
-- 核心判断放在 > 引用块中
-- 数据对比用 Markdown 表格
-- 整体排版专业、视觉层次丰富
-- 中文，专业但不晦涩`;
+## 你的核心职责
+1. **主导对话**：所有与用户的交流、解释、跟进问题都由你负责
+2. **深度解读数据**：接收 Manus 的客观数据，加入主观判断、投资逻辑和情绪分析
+3. **连续跟进**：主动引用历史任务结论，将每次任务纳入整体投资跨度和连续对话中
+4. **引导深入**：每次回复末尾必须提出 2-3 个具体的跟进问题，引导用户深入探讨
+5. **一致性**：每次回复都是同一个顾问的声音，有记忆、有个性、有持续性` + USER_CORE_RULES;;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);
@@ -151,137 +163,86 @@ async function runCollaborationFlow(
   const fullContext = taskDescription + memoryBlock + attachmentBlock;
 
   try {
+    // ════════════════════════════════════════════════════════════════════════
+    // Step 1 — Manus 数据分析（内置 LLM，免费，快）
+    // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
-
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 1 — Manus 能力评估：分析任务，明确自己负责部分和交给GPT的部分
-    // ════════════════════════════════════════════════════════════════════════
-    const assessResponse = await invokeLLM({
+    console.log(`[Collaboration] Task ${taskId} Step1: Manus analysis starting...`);
+    const manusResponse = await invokeLLM({
       messages: [
         {
           role: "system",
-          content: manusSystemPrompt + `
-
-## 能力评估阶段
-请对以下任务进行能力评估，并同时完成你自己负责的分析工作。
-
-输出格式（严格按此格式，方便程序解析）：
-
-===MANUS_ANALYSIS===
-[你自己擅长的部分：数据收集、量化分析、结构化报告、事实核查等，尽可能完整详尽，包含表格、数据、分析结论]
-===GPT_TASKS===
-[你不擅长的部分：将需要主观判断、策略建议、情绪分析的具体问题列出，供 GPT 处理。如果没有需要GPT处理的部分，写「无」]
-===END===`,
+          content: manusSystemPrompt,
         },
-        { role: "user", content: fullContext },
+        {
+          role: "user",
+          content: `请对以下任务进行全面的数据收集、量化分析和结构化报告。要求：
+• 尽可能全面收集相关数据和事实
+• 包含具体数字、指标、趋势分析
+• 用 Markdown 表格对比关键数据
+• 标注数据来源和时间节点
+• 尽量详尽，不需要主观建议，专注于客观数据
+
+任务：${fullContext}`,
+        },
       ],
     });
-    const assessContent = String(assessResponse.choices?.[0]?.message?.content || "");
-
-    // 解析 Manus 分析和 GPT 任务
-    const manusAnalysisMatch = assessContent.match(/===MANUS_ANALYSIS===([\s\S]*?)===GPT_TASKS===/);
-    const gptTasksMatch = assessContent.match(/===GPT_TASKS===([\s\S]*?)===END===/);
-    const manusAnalysis = manusAnalysisMatch ? manusAnalysisMatch[1].trim() : assessContent;
-    const gptTasks = gptTasksMatch ? gptTasksMatch[1].trim() : "";
-
+    const manusAnalysis = String(manusResponse.choices?.[0]?.message?.content || "");
+    console.log(`[Collaboration] Task ${taskId} Step1: Manus analysis done, length=${manusAnalysis.length}`);
     await updateTaskStatus(taskId, "manus_working", { manusResult: manusAnalysis });
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — GPT 处理不擅长的部分（主观判断/策略/情绪）
+    // Step 2 — GPT 整合输出（OpenAI API，主观判断 + 最终完整回复）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
-    let gptAnalysis = "";
-    // 如果有需要 GPT 处理的部分，调用 OpenAI API 或 invokeLLM
-    if (gptTasks && gptTasks !== "无") {
-      const gptMessage = `【用户原始任务】
-${fullContext}
-【Manus 已完成的数据分析】
-${manusAnalysis}
-【需要你处理的部分（Manus 不擅长）】
-${gptTasks}
-请你处理以上任务，输出你的分析和建议。这是内部工作笔记，不是最终给用户的回复。`;
-      // 优先使用用户配置的 OpenAI API Key
-      if (userConfig?.openaiApiKey) {
-        try {
-          gptAnalysis = await callOpenAI({
-            apiKey: userConfig.openaiApiKey,
-            model: userConfig.openaiModel || DEFAULT_MODEL,
-            messages: [
-              { role: "system", content: gptSummaryPrompt },
-              { role: "user", content: gptMessage },
-            ],
-          });
-        } catch {
-          const fb = await invokeLLM({
-            messages: [
-              { role: "system", content: gptSummaryPrompt },
-              { role: "user", content: gptMessage },
-            ],
-          });
-          gptAnalysis = String(fb.choices?.[0]?.message?.content || "");
-        }
-      } else {
-        const fb = await invokeLLM({
-          messages: [
-            { role: "system", content: gptSummaryPrompt },
-            { role: "user", content: gptMessage },
-          ],
-        });
-        gptAnalysis = String(fb.choices?.[0]?.message?.content || "");
-      }
-    }
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 3 — GPT 汇总：整合 Manus 报告 + GPT 分析，决定最终回复框架，输出最终完整回复
-    // ════════════════════════════════════════════════════════════════════════
-    const summaryMessage = `【用户原始任务】
+    const gptUserMessage = `【用户任务】
 ${fullContext}
 
-【Manus 数据分析结果（Manus 擅长的部分）】
+【Manus 数据分析报告】
 ${manusAnalysis}
-${gptAnalysis ? `
-【GPT 处理结果（主观判断/策略/建议部分）】
-${gptAnalysis}` : ""}
 
-请你作为投资顾问，将以上两部分整合，输出最终完整回复。要求：
-- 直接以专业顾问身份输出，不提及内部分工流程
-- 每个章节必须有 ## 标题
-- 关键数字、结论必须 **加粗**
-- 核心判断放在 > 引用块中
-- 数据对比用 Markdown 表格
-- 整体排版专业、视觉层次丰富`;
+请基于以上数据分析，输出最终完整回复。要求：
+1. 深度解读 Manus 的数据，补充主观判断、投资策略和情绪分析
+2. 严格遵守投资理念（段永平体系）进行判断
+3. 关注美国、香港、大陆、欧盟、英国市场的跨市场关联性
+4. 进行正推（当前→未来）和倒推（结果→原因）双向验证
+5. 回复末尾必须提出2-3个具体的后续跟进问题`;
 
     let finalReply: string;
-    // 优先使用用户配置的 OpenAI API Key 调用 GPT
     if (userConfig?.openaiApiKey) {
       try {
+        console.log(`[Collaboration] Task ${taskId} Step2: Calling GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
         finalReply = await callOpenAI({
           apiKey: userConfig.openaiApiKey,
           model: userConfig.openaiModel || DEFAULT_MODEL,
           messages: [
-            { role: "system", content: gptSummaryPrompt },
-            { role: "user", content: summaryMessage },
+            { role: "system", content: gptSystemPrompt },
+            { role: "user", content: gptUserMessage },
           ],
         });
-      } catch {
+        console.log(`[Collaboration] Task ${taskId} Step2: GPT final reply OK, length=${finalReply.length}`);
+      } catch (gptErr) {
+        console.error(`[Collaboration] Task ${taskId} Step2: GPT FAILED, falling back to invokeLLM:`, (gptErr as Error)?.message);
         const fb = await invokeLLM({
           messages: [
-            { role: "system", content: gptSummaryPrompt },
-            { role: "user", content: summaryMessage },
+            { role: "system", content: gptSystemPrompt },
+            { role: "user", content: gptUserMessage },
           ],
         });
         finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
       }
     } else {
+      // 没有 OpenAI API Key，全程使用内置 LLM
       const fb = await invokeLLM({
         messages: [
-          { role: "system", content: gptSummaryPrompt },
-          { role: "user", content: summaryMessage },
+          { role: "system", content: gptSystemPrompt },
+          { role: "user", content: gptUserMessage },
         ],
       });
       finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
     }
 
-    // ── 只向用户输出一条最终回复 ─────────────────────────────────────────────
+        // ── 只向用户输出一条最终回复 ─────────────────────────────────────────────
     const msgId = await insertMessage({
       taskId,
       userId,
@@ -323,13 +284,15 @@ ${gptAnalysis}` : ""}
 
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[Collaboration] Task', taskId, 'FAILED:', errMsg);
+    console.error('[Collaboration] Full error:', err);
     await updateTaskStatus(taskId, "failed");
     await insertMessage({
       taskId,
       userId,
       conversationId,
       role: "system",
-      content: "处理任务时发生错误，请稍后重试。",
+      content: `处理任务时发生错误：${errMsg}`,
       metadata: { error: errMsg },
     });
   }
@@ -682,7 +645,10 @@ export const appRouter = router({
 
         // 异步执行四步协作流程
         runCollaborationFlow(taskId, userId, description, conversationId, attachmentContext)
-          .catch(console.error);
+          .catch((err) => {
+            console.error('[runCollaborationFlow] FATAL ERROR:', err?.message || err);
+            console.error('[runCollaborationFlow] Stack:', err?.stack);
+          });
 
         return { taskId, conversationId, status: "started" };
       }),

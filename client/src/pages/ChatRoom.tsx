@@ -311,18 +311,41 @@ function MsgRow({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
   return <AIMessage msg={msg} taskTitle={taskTitle} />;
 }
 
-function TypingIndicator() {
+function TypingIndicator({ phase }: { phase?: string }) {
+  const steps = [
+    { key: "manus_working", label: "数据收集中", Icon: Database, color: "var(--manus-color)" },
+    { key: "gpt_reviewing", label: "顾问整合中", Icon: Brain, color: "var(--chatgpt-color)" },
+  ];
+  const currentIdx = steps.findIndex(s => s.key === phase);
+  const activeIdx = currentIdx >= 0 ? currentIdx : 0;
   return (
     <div className="flex gap-4 items-start py-3">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
         style={{ background: "var(--chatgpt-bg)", border: "1.5px solid var(--chatgpt-border)", color: "var(--chatgpt-color)" }}>
         AI
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <span className="text-sm font-semibold" style={{ color: "var(--chatgpt-color)" }}>AI 协作回复</span>
-        <div className="flex items-center gap-2 py-1">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--chatgpt-color)" }} />
-          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>Manus 分析擅长领域 → GPT 处理主观判断 → GPT 汇总输出</span>
+        <div className="flex items-center gap-2">
+          {steps.map((step, i) => {
+            const isActive = i === activeIdx;
+            const isDone = i < activeIdx;
+            return (
+              <div key={step.key} className="flex items-center gap-1.5">
+                {isActive ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: step.color }} />
+                ) : (
+                  <step.Icon className="w-3.5 h-3.5" style={{ color: isDone ? "oklch(0.72 0.18 155)" : "oklch(0.35 0.01 270)" }} />
+                )}
+                <span className="text-xs" style={{ color: isActive ? step.color : isDone ? "oklch(0.72 0.18 155)" : "oklch(0.35 0.01 270)" }}>
+                  {step.label}
+                </span>
+                {i < steps.length - 1 && (
+                  <span className="text-xs mx-0.5" style={{ color: "oklch(0.35 0.01 270)" }}>→</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -348,6 +371,7 @@ export default function ChatRoom() {
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [taskPhase, setTaskPhase] = useState<string>("manus_working");
 
   // Active conversation state
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
@@ -422,6 +446,24 @@ export default function ChatRoom() {
     }
   );
 
+  // 轮询当前活跃任务的状态（用于进度显示）
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const { data: activeTaskData } = trpc.chat.getTask.useQuery(
+    { taskId: activeTaskId! },
+    { enabled: isTyping && activeTaskId !== null, refetchInterval: 2000 }
+  );
+  useEffect(() => {
+    if (!activeTaskData) return;
+    const status = activeTaskData.status;
+    if (status === "manus_working") setTaskPhase("manus_working");
+    else if (status === "gpt_reviewing" || status === "gpt_planning") setTaskPhase("gpt_reviewing");
+    else if (status === "completed" || status === "failed") {
+      setIsTyping(false);
+      setSending(false);
+      setActiveTaskId(null);
+    }
+  }, [activeTaskData]);
+
   useEffect(() => {
     if (!rawConvMsgs) return;
     const mapped: Msg[] = rawConvMsgs.map((m) => ({
@@ -437,6 +479,7 @@ export default function ChatRoom() {
     if (last?.role === "assistant" || last?.content?.includes("[ERROR]")) {
       setIsTyping(false);
       setSending(false);
+      setActiveTaskId(null);
     }
   }, [rawConvMsgs]);
 
@@ -470,7 +513,8 @@ export default function ChatRoom() {
   });
 
   const submitMutation = trpc.chat.submitTask.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.taskId) setActiveTaskId(data.taskId);
       refetchMsgs();
       refetchConvs();
     },
@@ -478,6 +522,7 @@ export default function ChatRoom() {
       toast.error(err.message || "任务提交失败");
       setSending(false);
       setIsTyping(false);
+      setActiveTaskId(null);
     },
   });
 
@@ -549,6 +594,8 @@ export default function ChatRoom() {
     setPendingFiles([]);
     setSending(true);
     setIsTyping(true);
+    setTaskPhase("manus_working");
+    setActiveTaskId(null);
     submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId });
   }, [input, sending, pendingFiles, activeConvId, submitMutation]);
 
@@ -882,7 +929,7 @@ export default function ChatRoom() {
                   {convMessages.map((msg) => (
                     <MsgRow key={msg.id} msg={msg} taskTitle={activeConvTitle || undefined} />
                   ))}
-                  {isTyping && <TypingIndicator />}
+                  {isTyping && <TypingIndicator phase={taskPhase} />}
                 </>
               )}
               <div ref={bottomRef} />

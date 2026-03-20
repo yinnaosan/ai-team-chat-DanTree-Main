@@ -78,6 +78,13 @@
       "when": 1773950032118,
       "tag": "0010_spicy_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1773971045104,
+      "tag": "0011_worthless_mad_thinker",
+      "breakpoints": true
     }
   ]
 }

@@ -199,8 +199,19 @@ function DownloadMenu({ content, taskTitle }: { content: string; taskTitle?: str
   );
 }
 
-function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
+function parseFollowups(content: string): { cleanContent: string; followups: string[] } {
+  const followups: string[] = [];
+  const cleanContent = content.replace(/%%FOLLOWUP%%([\s\S]*?)%%END%%/g, (_, q) => {
+    const trimmed = q.trim();
+    if (trimmed) followups.push(trimmed);
+    return "";
+  }).trim();
+  return { cleanContent, followups };
+}
+
+function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
+  const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = isAssistant ? "AI 协作回复" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
   const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
@@ -218,7 +229,7 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
           </span>
         </div>
         <div className="prose-chat w-full">
-          <MarkdownErrorBoundary fallback={msg.content}>
+          <MarkdownErrorBoundary fallback={cleanContent}>
             <ReactMarkdown
               key={`md-${msg.id}`}
               remarkPlugins={[remarkGfm]}
@@ -258,14 +269,33 @@ function AIMessage({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
                 p: ({ children }) => <p className="text-sm leading-relaxed my-1.5">{children}</p>,
               }}
             >
-              {msg.content}
+              {cleanContent}
             </ReactMarkdown>
           </MarkdownErrorBoundary>
         </div>
         <div className="flex items-center gap-0.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <CopyButton text={msg.content} />
-          <DownloadMenu content={msg.content} taskTitle={taskTitle} />
+          <CopyButton text={cleanContent} />
+          <DownloadMenu content={cleanContent} taskTitle={taskTitle} />
         </div>
+        {followups.length > 0 && onFollowup && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {followups.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => onFollowup(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "oklch(0.18 0.025 250)",
+                  border: "1px solid oklch(0.35 0.08 250)",
+                  color: "oklch(0.72 0.12 250)",
+                }}
+              >
+                <ChevronRight className="w-3 h-3 shrink-0" />
+                <span>{q}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -320,10 +350,10 @@ function SystemMessage({ msg }: { msg: Msg }) {
   );
 }
 
-function MsgRow({ msg, taskTitle }: { msg: Msg; taskTitle?: string }) {
+function MsgRow({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   if (msg.role === "system") return <SystemMessage msg={msg} />;
   if (msg.role === "user") return <UserMessage msg={msg} />;
-  return <AIMessage msg={msg} taskTitle={taskTitle} />;
+  return <AIMessage msg={msg} taskTitle={taskTitle} onFollowup={onFollowup} />;
 }
 
 function TypingIndicator({ phase }: { phase?: string }) {
@@ -949,7 +979,26 @@ export default function ChatRoom() {
               ) : (
                 <>
                   {convMessages.map((msg) => (
-                    <MsgRow key={msg.id} msg={msg} taskTitle={activeConvTitle || undefined} />
+                    <MsgRow
+                      key={msg.id}
+                      msg={msg}
+                      taskTitle={activeConvTitle || undefined}
+                      onFollowup={(q) => {
+                        if (sending) return;
+                        setInput(q);
+                        // 自动触发发送
+                        setTimeout(() => {
+                          const text = q.trim();
+                          if (!text || !activeConvId) return;
+                          setInput("");
+                          setSending(true);
+                          setIsTyping(true);
+                          setTaskPhase("manus_working");
+                          setActiveTaskId(null);
+                          submitMutation.mutate({ title: text, conversationId: activeConvId });
+                        }, 50);
+                      }}
+                    />
                   ))}
                   {isTyping && <TypingIndicator phase={taskPhase} />}
                 </>

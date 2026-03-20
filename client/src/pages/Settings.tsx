@@ -483,21 +483,21 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"
               style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步协作流程</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步并行协作流程</h2>
               {[
                 {
-                  step: "Step 1", label: "Manus 能力评估 + 分析",
-                  desc: "接收任务，判断哪些部分自己擅长（数据/计算/结构化），完成自己负责的分析，并列出交给 GPT 的任务",
+                  step: "Step 1 并行", label: "Manus 完善任务 + GPT 制定框架",
+                  desc: "Manus 将你的任务专业化补全（补充细节、量化指标、分析维度）；GPT 同步制定分析框架和数据需求指令——两者并行执行，节约时间",
                   color: "oklch(0.72 0.18 250)", icon: Bot,
                 },
                 {
-                  step: "Step 2", label: "GPT 处理不擅长部分",
-                  desc: "Manus 将主观判断、策略建议、情绪分析等任务交给 ChatGPT API，由 GPT 独立处理（内部工作，不直接输出）",
-                  color: "oklch(0.72 0.18 155)", icon: Brain,
+                  step: "Step 2", label: "Manus 按框架执行数据分析",
+                  desc: "Manus 严格按照 GPT 制定的框架，收集数据、量化计算、结构化整理，生成内部数据报告（用户不可见，直接传给 GPT）",
+                  color: "oklch(0.72 0.18 250)", icon: Bot,
                 },
                 {
-                  step: "Step 3", label: "GPT 汇总输出",
-                  desc: "整合 Manus 数据报告 + GPT 自身分析，由 GPT 决定最终回复框架，输出唯一一条整合回复给用户",
+                  step: "Step 3", label: "GPT 整合输出，与你对话",
+                  desc: "GPT 接收 Manus 数据报告，结合历史任务记忆和投资理念，输出最终回复。回复末尾自动提出 2-3 个跟进问题，点击即可继续深入分析",
                   color: "oklch(0.72 0.18 155)", icon: Brain,
                 },
               ].map(({ step, label, desc, color, icon: Icon }, i) => (

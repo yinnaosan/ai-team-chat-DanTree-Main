@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE tasks MODIFY COLUMN manusResult LONGTEXT;\nALTER TABLE tasks MODIFY COLUMN gptSummary LONGTEXT;\nALTER TABLE messages MODIFY COLUMN content LONGTEXT;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE tasks MODIFY COLUMN manusResult LONGTEXT;\nALTER TABLE tasks MODIFY COLUMN gptSummary LONGTEXT;\nALTER TABLE messages MODIFY COLUMN content LONGTEXT;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1323
+}

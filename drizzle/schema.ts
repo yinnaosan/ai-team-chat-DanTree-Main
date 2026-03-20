@@ -72,8 +72,8 @@ export const tasks = mysqlTable("tasks", {
   ])
     .default("pending")
     .notNull(),
-  manusResult: text("manusResult"),   // Manus执行结果
-  gptSummary: text("gptSummary"),     // ChatGPT汇总报告
+  manusResult: text("manusResult"),   // Manus执行结果（数据库实际为LONGTEXT）
+  gptSummary: text("gptSummary"),     // ChatGPT汇总报告（数据库实际为LONGTEXT）
   conversationId: int("conversationId"),  // 所属会话
   isPinned: boolean("isPinned").default(false).notNull(),     // 是否置顶
   isFavorited: boolean("isFavorited").default(false).notNull(), // 是否收藏

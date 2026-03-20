@@ -998,39 +998,27 @@ export default function ChatRoom() {
             {activeConvTitle || "选择或新建任务"}
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
-            {/* 数据引擎状态标志 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              style={{
-                background: isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing") ? "oklch(0.18 0.04 155)" : "var(--manus-bg)",
-                border: `1px solid ${isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing") ? "oklch(0.45 0.15 155)" : "var(--manus-border)"}`,
-                color: "var(--manus-color)"
-              }}>
-              <span className="relative flex h-1.5 w-1.5 mr-0.5">
+            {/* 数据引擎状态标志 - 只显示固定职责名称 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+              style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-border)", color: "var(--manus-color)" }}>
+              <span className="relative flex h-1.5 w-1.5">
                 {isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing")
                   ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--manus-color)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--manus-color)" }} /></>
                   : <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "oklch(0.55 0.12 155)" }} />}
               </span>
               <Bot className="w-3 h-3" />
               <span>数据引擎</span>
-              <span style={{ color: "oklch(0.45 0.01 270)" }}>·</span>
-              <span>{isTyping && taskPhase === "manus_working" ? "规划中…" : isTyping && taskPhase === "manus_analyzing" ? "收集中…" : "就绪"}</span>
             </div>
-            {/* 首席顾问状态标志 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              style={{
-                background: isTyping && taskPhase === "gpt_reviewing" ? "oklch(0.18 0.04 280)" : "var(--chatgpt-bg)",
-                border: `1px solid ${isTyping && taskPhase === "gpt_reviewing" ? "oklch(0.45 0.15 280)" : "var(--chatgpt-border)"}`,
-                color: rpaConnected ? "var(--chatgpt-color)" : "oklch(0.42 0.01 270)"
-              }}>
-              <span className="relative flex h-1.5 w-1.5 mr-0.5">
+            {/* 首席顾问状态标志 - 只显示固定职责名称 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+              style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-border)", color: rpaConnected ? "var(--chatgpt-color)" : "oklch(0.42 0.01 270)" }}>
+              <span className="relative flex h-1.5 w-1.5">
                 {isTyping && taskPhase === "gpt_reviewing"
                   ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--chatgpt-color)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--chatgpt-color)" }} /></>
                   : <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: rpaConnected ? "oklch(0.65 0.18 155)" : "oklch(0.38 0.01 270)" }} />}
               </span>
               <Brain className="w-3 h-3" />
               <span>首席顾问</span>
-              <span style={{ color: "oklch(0.45 0.01 270)" }}>·</span>
-              <span>{isTyping && taskPhase === "gpt_reviewing" ? "分析中…" : rpaConnected ? "GPT 已接入" : "GPT 未接入"}</span>
             </div>
           </div>
         </header>

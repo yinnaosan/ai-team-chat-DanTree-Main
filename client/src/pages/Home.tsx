@@ -50,7 +50,7 @@ export default function Home() {
           </div>
           <div>
             <h1 className="text-sm font-semibold text-foreground">DanTree</h1>
-            <p className="text-xs text-muted-foreground">智能协作平台</p>
+            <p className="text-xs text-muted-foreground">智能投资分析平台</p>
           </div>
         </div>
         {!authLoading && (

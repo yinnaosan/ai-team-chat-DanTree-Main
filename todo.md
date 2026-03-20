@@ -510,3 +510,6 @@
 - [x] 数据库：rpa_configs 新增 investment_rules / task_instruction / data_library 三个字段
 - [x] 后端：三部分内容注入 AI 提示词，data_library 作为最高优先级数据来源
 - [x] 前端：设置页面重构为三个独立 Tab（投资守则 / 全局任务指令 / 资料数据库）
+
+## 全局品牌名称彻底替换（2026-03-20）
+- [ ] 全局搜索所有旧名称（AI Team Chat、智能协作平台、ai-team-chat等）并替换为DanTree

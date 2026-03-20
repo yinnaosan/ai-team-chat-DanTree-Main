@@ -433,3 +433,12 @@
 - [x] 后端：Step2 Manus 指令优化——明确告知 Manus 正在与 GPT 内部协作，输出纯数据结构（无废话）
 - [x] 后端：Step3 GPT 指令明确——最终报告完整详细，这是给用户看的
 - [x] 后端：移除 Step3 Manus 报告截断逻辑，改为从源头约束输出格式
+
+## PDF 完整报告导出
+- [x] 安装 html2canvas + jsPDF 依赖
+- [x] 升级 exportMessage.ts，新增 exportConversationAsPDF 函数（截图所有AI消息+图表，合成带封面的PDF）
+- [x] ChatRoom 顶部工具栏添加「导出报告」按钮（有AI回复时显示）
+- [x] 导出时显示 loading 状态（百分比进度），完成后自动下载
+- [x] PDF 包含：封面页（标题+时间戳）、所有 AI 回复（文字+图表截图）、页脚页码
+- [x] 单条消息「导出」菜单保留 PDF 选项（单条导出）
+- [x] 给 AIMessage 容器添加 data-pdf-message 标记，供批量截图识别

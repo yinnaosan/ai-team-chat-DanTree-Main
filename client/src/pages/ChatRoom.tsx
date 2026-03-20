@@ -23,7 +23,7 @@ import {
   MessageSquare, Database, History, Download, Star, Pin,
   MoreHorizontal, ChevronRight, FileText, Table2, Copy, Check,
   Paperclip, Image, Film, Music, File, XCircle, Sparkles,
-  FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight,
+  FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight, FileDown,
 } from "lucide-react";
 
 // ─── Markdown ErrorBoundary ─────────────────────────────────────────────────
@@ -247,7 +247,7 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
   const msgRef = React.useRef<HTMLDivElement>(null);
   return (
-    <div className="flex gap-4 items-start py-3 group">
+    <div className="flex gap-4 items-start py-3 group" data-pdf-message="ai">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
         style={{ background: `var(--${colorVar}-bg)`, border: `1.5px solid var(--${colorVar}-border)`, color: `var(--${colorVar}-color)` }}>
         {abbr}
@@ -437,6 +437,51 @@ function TypingIndicator({ phase }: { phase?: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Export Report Button ───────────────────────────────────────────────────────
+function ExportReportButton({ title }: { title: string }) {
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleExport = async () => {
+    setLoading(true);
+    setProgress(0);
+    try {
+      const { exportConversationAsPDF } = await import("@/lib/exportMessage");
+      await exportConversationAsPDF(title, (pct) => setProgress(pct));
+      toast.success("PDF 报告已下载");
+    } catch (err) {
+      console.error(err);
+      toast.error("导出失败，请重试");
+    } finally {
+      setLoading(false);
+      setProgress(0);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleExport}
+      disabled={loading}
+      data-export-ignore
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:bg-white/8 disabled:opacity-60"
+      style={{ color: loading ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)", border: "1px solid oklch(0.25 0.007 270)" }}
+      title="导出完整报告为 PDF"
+    >
+      {loading ? (
+        <>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <span>{progress > 0 ? `${progress}%` : "准备中..."}</span>
+        </>
+      ) : (
+        <>
+          <FileDown className="w-3.5 h-3.5" />
+          <span>导出报告</span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -1023,6 +1068,10 @@ export default function ChatRoom() {
             {activeConvTitle || "选择或新建任务"}
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
+            {/* 导出完整报告按钮 */}
+            {convMessages.some(m => m.role === "assistant") && (
+              <ExportReportButton title={activeConvTitle || "AI 分析报告"} />
+            )}
             {/* 数据引擎状态标志 - 只显示固定职责名称 */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
               style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-border)", color: "var(--manus-color)" }}>

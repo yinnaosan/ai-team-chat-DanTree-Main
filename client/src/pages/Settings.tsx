@@ -56,6 +56,37 @@ export default function Settings() {
     { enabled: isAuthenticated }
   );
 
+  // ─── 访问管理 hooks（必须在所有条件 return 之前）────────────────────────────
+  const { data: accessCheck } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
+  const isOwner = accessCheck?.isOwner ?? false;
+
+  const { data: accessCodes = [], refetch: refetchCodes } = trpc.access.listCodes.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
+  const [codeLabel, setCodeLabel] = useState("");
+  const [codeMaxUses, setCodeMaxUses] = useState("1");
+  const [codeExpireDays, setCodeExpireDays] = useState("");
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+
+  const generateCodeMutation = trpc.access.generateCode.useMutation({
+    onSuccess: (data) => {
+      setGeneratedCode(data.code);
+      setCodeLabel("");
+      setCodeMaxUses("1");
+      setCodeExpireDays("");
+      refetchCodes();
+      toast.success("访客密码已生成");
+    },
+    onError: (err) => toast.error("生成失败", { description: err.message }),
+  });
+
+  const revokeCodeMutation = trpc.access.revokeCode.useMutation({
+    onSuccess: () => { toast.success("密码已撤销"); refetchCodes(); },
+    onError: (err) => toast.error("撤销失败", { description: err.message }),
+  });
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const saveConfigMutation = trpc.rpa.setConfig.useMutation({
     onSuccess: () => {
@@ -124,37 +155,6 @@ export default function Settings() {
   };
 
   const hasApiKey = savedConfig?.hasApiKey;
-
-  // ─── 访问管理 ───────────────────────────────────────────────────────────────
-  const { data: accessCheck } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
-  const isOwner = accessCheck?.isOwner ?? false;
-
-  const { data: accessCodes = [], refetch: refetchCodes } = trpc.access.listCodes.useQuery(
-    undefined,
-    { enabled: isAuthenticated && isOwner }
-  );
-
-  const [codeLabel, setCodeLabel] = useState("");
-  const [codeMaxUses, setCodeMaxUses] = useState("1");
-  const [codeExpireDays, setCodeExpireDays] = useState("");
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-
-  const generateCodeMutation = trpc.access.generateCode.useMutation({
-    onSuccess: (data) => {
-      setGeneratedCode(data.code);
-      setCodeLabel("");
-      setCodeMaxUses("1");
-      setCodeExpireDays("");
-      refetchCodes();
-      toast.success("访客密码已生成");
-    },
-    onError: (err) => toast.error("生成失败", { description: err.message }),
-  });
-
-  const revokeCodeMutation = trpc.access.revokeCode.useMutation({
-    onSuccess: () => { toast.success("密码已撤销"); refetchCodes(); },
-    onError: (err) => toast.error("撤销失败", { description: err.message }),
-  });
 
   const tabs: { id: SettingsTab; label: string; icon: any; badge?: string }[] = [
     { id: "api", label: "ChatGPT API", icon: Key, badge: hasApiKey ? "已配置" : undefined },

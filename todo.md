@@ -275,9 +275,15 @@
 
 ## 双重访问权限完善
 - [x] Owner：通过 Manus 账号登录后直接进入，无需密码
-- [ ] 访客：登录后显示密码验证页，输入 Owner 生成的一次性密码才能进入
-- [ ] 前端：访客密码验证页（登录后自动跳转，输入密码验证）
+- [x] 访客：登录后显示密码验证页，输入 Owner 生成的一次性密码才能进入
+- [x] 前端：访客密码验证页（登录后自动跳转，输入密码验证）
 - [x] 前端：Owner 设置页「访问管理」Tab——生成一次性密码、查看已生成密码列表、撤销密码
 - [x] 后端：access.generateCode、access.listCodes、access.revokeCode procedure 完善
 - [x] 后端：access.verify procedure 完善
 - [x] 一次性密码使用后即失效（防止分享）
+
+## 访客验证页面完善
+- [x] 前端：AccessGate.tsx 增加登录状态检查（未登录先跳转登录）
+- [x] 前端：AccessGate.tsx 增加已有权限检查（已验证直接跳转 /chat）
+- [x] 前端：AccessGate.tsx 增加 Owner 检查（Owner 直接跳转 /chat）
+- [x] 前端：Home.tsx 登录后自动检查访问权限，Owner 跳 /chat，访客跳 /access

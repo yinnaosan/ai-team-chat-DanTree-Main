@@ -788,7 +788,7 @@ export default function ChatRoom() {
                     style={{ background: activeConvId === conv.id ? "oklch(0.72 0.18 250 / 0.12)" : "transparent" }}
                   >
                     <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.55 0.01 270)" }} />
-                    <span className="text-xs truncate" style={{ color: "oklch(0.75 0.005 270)" }}>
+                    <span className="text-sm font-semibold truncate" style={{ color: "oklch(0.78 0.008 270)" }}>
                       {idx >= 0 ? (
                         <>
                           {title.slice(0, idx)}
@@ -1274,13 +1274,13 @@ function ConvItem({ conv, active, onSelect, onMove, indent }: ConvItemProps) {
   return (
     <div className={`relative group/item ${indent ? "pl-4" : ""}`}>
       <button onClick={onSelect}
-        className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs transition-colors"
+        className="w-full text-left rounded-xl px-3 py-3 flex items-center gap-2.5 text-sm font-semibold transition-colors"
         style={{
-          background: active ? "oklch(0.72 0.18 250 / 0.12)" : "transparent",
-          color: active ? "oklch(0.80 0.15 250)" : "oklch(0.65 0.008 270)",
+          background: active ? "oklch(0.72 0.18 250 / 0.14)" : "transparent",
+          color: active ? "oklch(0.85 0.15 250)" : "oklch(0.78 0.008 270)",
         }}>
-        <MessageSquare className="w-3 h-3 shrink-0 opacity-50" />
-        <span className="truncate flex-1">{conv.title || `对话 #${conv.id}`}</span>
+        <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />
+        <span className="truncate flex-1 leading-snug">{conv.title || `对话 #${conv.id}`}</span>
       </button>
       <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
         className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"

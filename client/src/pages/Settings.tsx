@@ -160,12 +160,63 @@ export default function Settings() {
 
   const hasApiKey = savedConfig?.hasApiKey;
 
-  const tabs: { id: SettingsTab; label: string; icon: any; badge?: string }[] = [
+  const tabs: { id: SettingsTab; label: string; icon: any; badge?: string; ownerOnly?: boolean }[] = [
     { id: "api", label: "ChatGPT API", icon: Key, badge: hasApiKey ? "已配置" : undefined },
     { id: "database", label: "数据库", icon: Database },
-    ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield }] : []),
+    ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield, ownerOnly: true }] : []),
     { id: "about", label: "关于", icon: Bot },
   ];
+
+  const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
+- 以企业内在价值为核心，不做短线投机
+- 买入前问：如果市场关闭10年，我还愿意持有吗？
+- 只投资自己真正理解的企业（能力圈原则）
+- 安全边际优先，宁可错过也不冒险
+- 长期持有优质企业，让复利发挥作用
+- 分散风险但不过度分散（集中在最有把握的机会）
+- 买的是公司，不是股票代码
+
+### 估值方法
+- 优先使用自由现金流折现（DCF），辅以市盈率（PE）、市净率（PB）横向对比
+- 合理估值 = 未来3-5年自由现金流现值之和 / 流通股本
+- 安全边际要求：买入价不超过合理估值的70%（即30%折扣）
+- 对成长型公司：关注ROE、净利润率趋势，而非短期EPS
+
+### 护城河评估（必须逐项检查）
+1. 品牌护城河：用户是否愿意为品牌溢价付费？
+2. 网络效应：用户越多，产品价值是否越高？
+3. 转换成本：客户切换竞争对手的代价有多高？
+4. 成本优势：规模效应或独特资源是否带来持续低成本？
+5. 无形资产：专利、许可证、政府特许经营权
+
+### 重点关注市场（按优先级）
+1. 美国（纳斯达克、NYSE）— 最高优先级
+2. 香港（恒生、港股通）
+3. 中国大陆（A股、沪深）
+4. 欧盟（DAX、CAC40）
+5. 英国（FTSE100）
+- 分析时必须考虑市场间关联性、异动传导和跨市场影响
+- 必须进行逻辑正推（当前→未来）和倒推（结果→原因）双向验证
+
+### 风险控制规则
+- 单只股票仓位不超过总资产的20%
+- 同一行业仓位不超过总资产的35%
+- 必须评估：流动性风险、监管风险、汇率风险、竞争格局变化
+- 遇到无法理解的商业模式，直接排除，不做分析
+
+### 回复格式规范（必须执行）
+- 每个章节必须有 ## 二级标题
+- 关键数字、结论、风险点必须 **加粗**
+- 核心判断和投资建议放在 > 引用块中
+- 数据对比必须用 Markdown 表格（不少于3列）
+- 整体排版有视觉层次，禁止输出纯文本段落
+- 中文输出，专业但不晦涩
+
+### 任务执行规范
+- 每次任务执行前、执行中、输出前必须自我复查是否遵守以上规则
+- 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
+- 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进
+- 每次任务开头声明：已遵守投资守则 ✓`;
 
   const MODELS = [
     { value: "gpt-4o-mini", label: "GPT-4o mini", desc: "推荐 · 投资分析性价比最高", badge: "推荐" },
@@ -220,6 +271,12 @@ export default function Settings() {
                 <span className="px-1.5 py-0.5 rounded-full"
                   style={{ background: "oklch(0.72 0.18 155 / 0.15)", color: "oklch(0.72 0.18 155)", fontSize: "10px" }}>
                   {badge}
+                </span>
+              )}
+              {(tabs.find(t => t.id === id) as any)?.ownerOnly && (
+                <span className="px-1.5 py-0.5 rounded-full"
+                  style={{ background: "oklch(0.65 0.18 25 / 0.2)", color: "oklch(0.75 0.18 25)", fontSize: "10px", border: "1px solid oklch(0.65 0.18 25 / 0.4)" }}>
+                  Owner
                 </span>
               )}
             </button>
@@ -391,13 +448,22 @@ export default function Settings() {
                   <Textarea
                     value={userCoreRules}
                     onChange={(e) => setUserCoreRules(e.target.value)}
-                    placeholder={"输入自定义投资守则，例如：\n\n### 投资理念\n- 以企业内在价値为核心\n- 安全边际优先\n\n### 重点关注市场\n1. 美国纽约证券交易所\n2. 香港恒生指数\n\n空白表示使用系统默认守则（段永平价値投资体系）"}
-                    className="min-h-[200px] text-sm font-mono resize-y"
+                    placeholder={"空白时自动使用内置的完整段永平价值投资体系守则。\n点击下方「填入默认守则」可查看并编辑完整内容。"}
+                    className="min-h-[320px] text-sm font-mono resize-y"
                     style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
                   />
-                  <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                    GPT 和 Manus 都必须完全遵守。空白时自动使用内置的段永平价値投资守则。
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                      GPT 和 Manus 都必须完全遵守。{userCoreRules.trim() ? `已自定义（${userCoreRules.length} 字符）` : "空白时自动使用内置守则。"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setUserCoreRules(DEFAULT_INVESTMENT_RULES)}
+                      className="text-xs px-2 py-1 rounded transition-colors hover:opacity-80"
+                      style={{ color: "oklch(0.72 0.18 250)", background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
+                      填入默认守则
+                    </button>
+                  </div>
                 </div>
 
                 {/* 分隔线 */}
@@ -431,17 +497,19 @@ export default function Settings() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        setUserCoreRules("");
-                        saveConfigMutation.mutate({
-                          openaiModel: selectedModel,
-                          userCoreRules: null,
-                          manusSystemPrompt,
-                        });
+                        if (confirm("确认清空自定义守则，恢复使用内置默认守则？")) {
+                          setUserCoreRules("");
+                          saveConfigMutation.mutate({
+                            openaiModel: selectedModel,
+                            userCoreRules: null,
+                            manusSystemPrompt,
+                          });
+                        }
                       }}
                       disabled={saveConfigMutation.isPending}
                       className="gap-2 text-sm"
                       style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.65 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
-                      <RefreshCw className="w-3.5 h-3.5" />恢复默认守则
+                      <RefreshCw className="w-3.5 h-3.5" />清空自定义
                     </Button>
                   )}
                   <Button

@@ -517,3 +517,15 @@
 ## PWA图标和名称修复（2026-03-20）
 - [ ] 重新处理图标：直接使用原始logo（不裁剪），生成各尺寸并上传CDN
 - [ ] manifest.json名称改为DanTree，更新图标链接，更新SW版本强制刷新缓存
+
+## 图标精确裁剪（2026-03-20）
+- [ ] 精确裁剪图标至圆角矩形边缘（去掉外层黑色背景），透明背景
+- [ ] 上传CDN并更新manifest.json、index.html、Service Worker版本
+
+## 图标更新 & 安装App按钮
+- [x] 使用新版logo（白底圆角矩形，K线+光标图案）生成96/144/192/512/1024px各尺寸图标并上传CDN
+- [x] 更新manifest.json所有图标引用为v7版本
+- [x] 更新index.html所有图标引用为v7版本
+- [x] 更新offline.html图标引用为v7版本
+- [x] Service Worker升级为dantree-v4，强制清除旧缓存
+- [x] 侧边栏底部添加「安装桌面App」按钮（蓝色高亮，触发PWA安装提示；已安装时自动隐藏）

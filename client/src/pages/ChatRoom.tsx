@@ -546,6 +546,17 @@ export default function ChatRoom() {
   // ─── Memory panel state ────────────────────────────────────────────────
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
 
+  // ─── PWA Install ──────────────────────────────────────────────────────────
+  const [pwaInstallPrompt, setPwaInstallPrompt] = useState<any>(null);
+  const [pwaInstalled, setPwaInstalled] = useState(() =>
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setPwaInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
   // ─── Queries ────────────────────────────────────────────────
   const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -1062,6 +1073,25 @@ export default function ChatRoom() {
               </span>
             </div>
           </div>
+          {/* 安装App按钮 */}
+          {!pwaInstalled && (
+            <button
+              onClick={async () => {
+                if (pwaInstallPrompt) {
+                  await pwaInstallPrompt.prompt();
+                  const { outcome } = await pwaInstallPrompt.userChoice;
+                  if (outcome === "accepted") { setPwaInstalled(true); setPwaInstallPrompt(null); }
+                } else {
+                  toast.info("请在浏览器菜单中选择「安装应用」或「添加到主屏幕」");
+                }
+              }}
+              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors mb-0.5"
+              style={{ color: "oklch(0.75 0.15 250)", background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>安装桌面 App</span>
+            </button>
+          )}
           {[
             { icon: Settings, label: "设置", action: () => navigate("/settings") },
             { icon: LogOut, label: "退出登录", action: logout },

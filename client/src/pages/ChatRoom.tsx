@@ -528,7 +528,7 @@ export default function ChatRoom() {
     { conversationId: activeConvId! },
     {
       enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
-      refetchInterval: 5000,
+      refetchInterval: isTyping ? 2000 : 5000, // 任务进行时加快轮询
     }
   );
 
@@ -536,7 +536,7 @@ export default function ChatRoom() {
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const { data: activeTaskData } = trpc.chat.getTask.useQuery(
     { taskId: activeTaskId! },
-    { enabled: isTyping && activeTaskId !== null, refetchInterval: 3000 }
+    { enabled: isTyping && activeTaskId !== null, refetchInterval: 2000 }
   );
   useEffect(() => {
     if (!activeTaskData) return;
@@ -549,6 +549,27 @@ export default function ChatRoom() {
       setActiveTaskId(null);
     }
   }, [activeTaskData]);
+
+  // 客户端超时保护：任务运行超过 5 分钟自动解除卡住
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isTyping) {
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        setSending(false);
+        setActiveTaskId(null);
+        toast.error("任务超时（>5分钟），请重试");
+      }, 5 * 60 * 1000);
+    } else {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    }
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [isTyping]);
 
   useEffect(() => {
     if (!rawConvMsgs) return;
@@ -890,7 +911,7 @@ export default function ChatRoom() {
                   <span className="ml-auto opacity-60">{ungroupedConvs.length}</span>
                 </div>
               )}
-              {ungroupedConvs.slice().reverse().map(conv => (
+              {ungroupedConvs.map(conv => (
                 <ConvItem
                   key={conv.id}
                   conv={conv}
@@ -1297,7 +1318,7 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
           )}
         </div>
       </div>
-      {!collapsed && group.conversations.slice().reverse().map(conv => (
+      {!collapsed && group.conversations.map(conv => (
         <ConvItem
           key={conv.id}
           conv={conv}

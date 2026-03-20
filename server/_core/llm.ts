@@ -319,6 +319,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       authorization: `Bearer ${ENV.forgeApiKey}`,
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(180000), // 180秒超时，防止 Manus LLM 卡住
   });
 
   if (!response.ok) {

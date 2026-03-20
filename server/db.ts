@@ -382,20 +382,23 @@ export async function revokeUserAccess(userId: number) {
   await db.update(userAccess).set({ revokedAt: new Date() }).where(eq(userAccess.userId, userId));
 }
 
-// ─── Memory Context helpers ───────────────────────────────────────────────────
-
-export async function getRecentMemory(userId: number, limit = 10) {
+// ─── Memory Context helpers ─────────────────────────────────────────────
+/** 获取对话内的记忆（对话级隔离），如果没有conversationId则获取用户全局记忆 */
+export async function getRecentMemory(userId: number, limit = 10, conversationId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const conditions = conversationId
+    ? and(eq(memoryContext.userId, userId), eq(memoryContext.conversationId, conversationId))
+    : eq(memoryContext.userId, userId);
   return db.select().from(memoryContext)
-    .where(eq(memoryContext.userId, userId))
+    .where(conditions)
     .orderBy(desc(memoryContext.createdAt))
     .limit(limit);
 }
-
 export async function saveMemoryContext(data: {
   userId: number;
   taskId: number;
+  conversationId?: number;
   taskTitle: string;
   summary: string;
   keywords?: string;

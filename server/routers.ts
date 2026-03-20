@@ -204,24 +204,30 @@ ${DEFAULT_CORE_RULES}`;
 - "bar"（柱状图）：分类对比、季度营收对比、多公司横向比较
 - "scatter"（散点图）：相关性分析、估值散点、风险收益分布
 - "pie"（饼图）：市场份额、营收结构、资产配置
-- "candlestick"（K线图）：股价走势（需提供 open/high/low/close 字段）
+- "candlestick"【K线图】：股价走势（需提供 open/high/low/close，可选包含 volume 成交量字段）
+- "heatmap"【热力图】：板块涨跌热力图（data 中每项需 name+value，可选 size 权重）
 
 **多系列图表（多条折线/多组柱状）：**
 %%CHART%%
 {"type":"bar","title":"美团 vs 抖音营收对比","data":[{"name":"2022","meituan":1791,"douyin":800},{"name":"2023","meituan":2767,"douyin":1500}],"xKey":"name","series":[{"key":"meituan","color":"#6366f1","name":"美团"},{"key":"douyin","color":"#22c55e","name":"抖音"}],"unit":"亿元"}
 %%END_CHART%%
-
-**K线图格式：**
+**K线图格式（支持成交量 + MA5/MA20）：**
 %%CHART%%
-{"type":"candlestick","title":"股价K线","data":[{"name":"2024-01","open":100,"high":110,"low":95,"close":105}],"xKey":"name"}
+{"type":"candlestick","title":"股价K线","data":[{"name":"2024-01","open":100,"high":110,"low":95,"close":105,"volume":5000000},{"name":"2024-02","open":105,"high":115,"low":100,"close":112,"volume":6200000}],"xKey":"name"}
 %%END_CHART%%
-
-- data 数组最多 24 个数据点
+**热力图格式（板块涨跌）：**
+%%CHART%%
+{"type":"heatmap","title":"板块涨跌热力图","data":[{"name":"科技","value":3.2,"size":120},{"name":"金融","value":-1.5,"size":90},{"name":"消费","value":0.8,"size":70}]}
+%%END_CHART%%
+- data 数组最多 24 个数据点（热力图可到 30 个）
 - 图表必须紧跟相关文字分析，不能孤立出现
-- 每次回复至少包含 1 个图表（如果有任何数据可视化机会）` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
+- 每次回复至少包含 1 个图表（如果有任何数据可视化机会）
+- 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
-  const recentMemory = await getRecentMemory(userId, 8);
+  // 对话级记忆：优先获取当前对话内的记忆，如果对话无记忆则回落到用户全局记忆
+  const conversationMemory = conversationId ? await getRecentMemory(userId, 8, conversationId) : [];
+  const recentMemory = conversationMemory.length > 0 ? conversationMemory : await getRecentMemory(userId, 5);
   const memoryBlock = recentMemory.length > 0
     ? `\n\n【历史任务记忆（最近${recentMemory.length}条，用于跨任务连续跟进）】\n` +
       recentMemory.map((m, i) =>
@@ -535,6 +541,7 @@ ${manusReport}
         await saveMemoryContext({
           userId,
           taskId,
+          conversationId: conversationId ?? undefined,
           taskTitle: taskDescription.slice(0, 100),
           summary,
           keywords: taskDescription.slice(0, 50),
@@ -978,10 +985,10 @@ export const appRouter = router({
       }),
 
     getMemory: protectedProcedure
-      .input(z.object({ limit: z.number().min(1).max(50).default(20) }))
+      .input(z.object({ limit: z.number().min(1).max(50).default(20), conversationId: z.number().optional() }))
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
-        return getRecentMemory(ctx.user.id, input.limit);
+        return getRecentMemory(ctx.user.id, input.limit, input.conversationId);
       }),
   }),
 

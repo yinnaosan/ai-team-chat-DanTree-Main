@@ -55,13 +55,14 @@ interface Msg {
   createdAt: Date;
 }
 
-// ─── Attachment Types ─────────────────────────────────────────────────────────
+// ─── Attachment Types ─────────────────────────────────────────────
 interface PendingFile {
   id: string;
   file: File;
   preview?: string;
   uploading: boolean;
   uploadedUrl?: string;
+  attachmentId?: number;  // 数据库附件ID（用于AI分析）
   error?: string;
 }
 
@@ -542,7 +543,10 @@ export default function ChatRoom() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Queries ──────────────────────────────────────────────────────────────
+  // ─── Memory panel state ────────────────────────────────────────────────
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
+
+  // ─── Queries ────────────────────────────────────────────────
   const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -551,6 +555,12 @@ export default function ChatRoom() {
     enabled: isAuthenticated && !!accessData?.hasAccess,
   });
   const rpaConnected = rpaConfig?.hasApiKey === true;
+
+  // 对话记忆查询
+  const { data: memoryData, refetch: refetchMemory } = trpc.chat.getMemory.useQuery(
+    { limit: 20, conversationId: activeConvId ?? undefined },
+    { enabled: isAuthenticated && !!accessData?.hasAccess && memoryPanelOpen && activeConvId !== null }
+  );
 
   // All conversations (ungrouped + grouped)
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
@@ -605,6 +615,8 @@ export default function ChatRoom() {
       setIsTyping(false);
       setSending(false);
       setActiveTaskId(null);
+      // 任务完成后刷新记忆
+      if (memoryPanelOpen) setTimeout(() => refetchMemory(), 2000);
     }
   }, [activeTaskData]);
 
@@ -757,10 +769,12 @@ export default function ChatRoom() {
       setPendingFiles(prev => [...prev, pf]);
       const formData = new FormData();
       formData.append("file", file);
+      // 传递 conversationId 以实现对话级附件关联
+      if (activeConvId) formData.append("conversationId", String(activeConvId));
       fetch("/api/upload", { method: "POST", body: formData, credentials: "include" })
         .then(r => r.json())
         .then((data: any) => {
-          if (data.url) setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: data.url } : p));
+          if (data.url) setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, uploadedUrl: data.url, attachmentId: data.attachmentId ?? undefined } : p));
           else setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: data.error || "上传失败" } : p));
         })
         .catch(() => setPendingFiles(prev => prev.map(p => p.id === id ? { ...p, uploading: false, error: "网络错误" } : p)));
@@ -781,8 +795,14 @@ export default function ChatRoom() {
     }
     // 跟进问题不携带附件，正常发送才处理附件
     const uploadedFiles = overrideText ? [] : pendingFiles.filter(p => p.uploadedUrl && !p.error);
-    const attachmentNote = uploadedFiles.length > 0
-      ? `\n\n[附件: ${uploadedFiles.map(p => `${p.file.name}(${p.uploadedUrl})`).join(", ")}]`
+    // 收集附件ID列表（优先使用数据库ID，让AI能读取提取的文件内容）
+    const attachmentIds = uploadedFiles
+      .filter(p => p.attachmentId != null)
+      .map(p => p.attachmentId as number);
+    // 兼容旧逻辑：如果没有attachmentId，则将文件名和URL附在文本中
+    const filesWithoutId = uploadedFiles.filter(p => p.attachmentId == null);
+    const attachmentNote = filesWithoutId.length > 0
+      ? `\n\n[附件: ${filesWithoutId.map(p => `${p.file.name}(${p.uploadedUrl})`).join(", ")}]`
       : "";
     setInput("");
     setPendingFiles([]);
@@ -790,7 +810,7 @@ export default function ChatRoom() {
     setIsTyping(true);
     setTaskPhase("manus_working");
     setActiveTaskId(null);
-    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId, analysisMode });
+    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId, analysisMode, attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined });
   }, [input, sending, pendingFiles, activeConvId, submitMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1069,9 +1089,23 @@ export default function ChatRoom() {
             {activeConvTitle || "选择或新建任务"}
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
-            {/* 导出完整报告按钮 */}
+            {/* 导出完整报告按鈕 */}
             {convMessages.some(m => m.role === "assistant") && (
               <ExportReportButton title={activeConvTitle || "AI 分析报告"} />
+            )}
+            {/* 记忆面板按鈕 */}
+            {activeConvId && (
+              <button
+                onClick={() => { setMemoryPanelOpen(o => !o); }}
+                title="对话记忆"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all hover:bg-white/8"
+                style={{ background: memoryPanelOpen ? "oklch(0.72 0.18 250 / 0.15)" : "transparent", border: `1px solid ${memoryPanelOpen ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.27 0.008 270)"}`, color: memoryPanelOpen ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}>
+                <Brain className="w-3 h-3" />
+                <span>记忆</span>
+                {memoryData && memoryData.length > 0 && (
+                  <span className="ml-0.5 px-1 py-0.5 rounded text-[10px] font-bold" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>{memoryData.length}</span>
+                )}
+              </button>
             )}
             {/* 数据引擎状态标志 - 只显示固定职责名称 */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
@@ -1152,13 +1186,13 @@ export default function ChatRoom() {
           </div>
         )}
 
-        {/* Messages */}
-        <div className="relative flex-1 overflow-hidden">
+        {/* Messages + Memory Panel */}
+        <div className="relative flex-1 overflow-hidden flex">
           <div ref={scrollRef} onScroll={() => {
             const el = scrollRef.current;
             if (!el) return;
             setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 120);
-          }} className="h-full overflow-y-auto">
+          }} className="flex-1 h-full overflow-y-auto">
             <div className="max-w-3xl mx-auto px-6 py-4">
               {!activeConvId ? (
                 // No conversation selected
@@ -1272,6 +1306,55 @@ export default function ChatRoom() {
               style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.65 0.01 270)" }}>
               <ChevronDown className="w-4 h-4" />
             </button>
+          )}
+          {/* Memory Panel */}
+          {memoryPanelOpen && activeConvId && (
+            <div className="w-72 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid oklch(0.20 0.007 270)", background: "oklch(0.14 0.005 270)" }}>
+              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid oklch(0.20 0.007 270)" }}>
+                <div className="flex items-center gap-2">
+                  <Brain className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
+                  <span className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>对话记忆</span>
+                </div>
+                <button onClick={() => setMemoryPanelOpen(false)} className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/8" style={{ color: "oklch(0.50 0.01 270)" }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                {!memoryData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "oklch(0.55 0.01 270)" }} />
+                  </div>
+                ) : memoryData.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Brain className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "oklch(0.55 0.01 270)" }} />
+                    <p className="text-xs" style={{ color: "oklch(0.42 0.01 270)" }}>对话完成后会自动生成记忆</p>
+                    <p className="text-xs mt-1" style={{ color: "oklch(0.35 0.007 270)" }}>包含关注的股票、行业和分析结论</p>
+                  </div>
+                ) : (
+                  memoryData.map((m) => (
+                    <div key={m.id} className="rounded-xl p-3" style={{ background: "oklch(0.18 0.005 270)", border: "1px solid oklch(0.25 0.007 270)" }}>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className="text-xs font-medium truncate flex-1" style={{ color: "oklch(0.82 0.008 270)" }}>{m.taskTitle}</span>
+                        <span className="text-[10px] shrink-0" style={{ color: "oklch(0.40 0.007 270)" }}>
+                          {new Date(m.createdAt).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: "oklch(0.62 0.01 270)" }}>{m.summary}</p>
+                      {m.keywords && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {m.keywords.split(",").slice(0, 4).map((kw, i) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.65 0.12 250)" }}>{kw.trim()}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid oklch(0.20 0.007 270)" }}>
+                <p className="text-[10px] text-center" style={{ color: "oklch(0.38 0.007 270)" }}>每次任务完成后自动更新 · AI 下次将自动带入背景</p>
+              </div>
+            </div>
           )}
         </div>
 

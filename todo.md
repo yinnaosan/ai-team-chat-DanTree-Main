@@ -460,3 +460,33 @@
 - [ ] 前端：ChatRoom 输入框添加三档模式切换器 UI（图标+标签，紧凑设计）
 - [ ] 前端：发送任务时传入 analysisMode 参数
 - [ ] 前端：消息气泡顶部显示当前任务使用的分析模式标签
+
+## 文件上传分析（PDF/Excel AI 读取）
+- [ ] 后端安装 pdf-parse + xlsx 依赖
+- [ ] 新增 parseFileContent 函数，支持 PDF/Excel/CSV/TXT 文本提取
+- [ ] 附件上传时自动提取文本，存入 attachments.extractedText 字段
+- [ ] submitTask 时将附件文本注入 AI 上下文（Step1/Step2/Step3 都能看到）
+- [ ] 前端：附件卡片显示「已解析」标记
+
+## 对话框记忆功能（每个对话框独立记忆）
+- [ ] 数据库：conversations 表新增 contextMemory 字段（存储关注标的/行业背景）
+- [ ] 后端：每次任务完成后，AI 自动提取并更新对话框的背景记忆
+- [ ] 后端：submitTask 时将 contextMemory 注入 AI 上下文（Step1/Step2/Step3）
+- [ ] 前端：对话框侧边栏显示记忆摘要（悬停提示），支持手动编辑
+
+## 图表升级（K线图+热力图）
+- [ ] InlineChart：K 线图添加成交量柱（底部）+ MA5/MA20 均线
+- [ ] InlineChart：新增 heatmap 类型（板块涨跌热力图）
+- [ ] GPT Step3 指令：新增热力图和K线图的输出格式说明
+
+## 三大功能升级（2026-03-20）
+- [x] 文件上传分析：upload.ts 升级，上传时同时保存到 attachments 表并返回 attachmentId
+- [x] 文件上传分析：ChatRoom.tsx PendingFile 添加 attachmentId 字段，上传时传入 conversationId
+- [x] 对话记忆功能：memory_context 表添加 conversationId 字段，实现对话级记忆隔离
+- [x] 对话记忆功能：getRecentMemory 支持按 conversationId 过滤，对话内记忆优先
+- [x] 对话记忆功能：getMemory tRPC 接口支持 conversationId 参数
+- [x] 对话记忆功能：ChatRoom.tsx 添加记忆面板（右侧抽屉），显示当前对话的记忆条目
+- [x] 对话记忆功能：任务完成后自动刷新记忆面板
+- [x] 图表增强：InlineChart.tsx 添加热力图（heatmap/treemap）——板块涨跌可视化
+- [x] 图表增强：K线图升级——添加 MA5/MA20 均线、成交量副图
+- [x] 图表增强：routers.ts 提示词更新，AI 知道可生成热力图和带成交量的K线图

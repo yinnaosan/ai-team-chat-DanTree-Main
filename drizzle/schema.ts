@@ -200,6 +200,8 @@ export const memoryContext = mysqlTable("memory_context", {
   userId: int("userId").notNull(),
   // 每条记忆对应一个已完成的任务
   taskId: int("taskId").notNull(),
+  // 所属对话（用于对话级记忆隔离）
+  conversationId: int("conversationId"),
   // 任务摘要（由 LLM 自动生成，用于后续任务的上下文注入）
   summary: text("summary").notNull(),
   // 原始任务标题

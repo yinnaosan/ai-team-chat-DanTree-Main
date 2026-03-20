@@ -629,14 +629,15 @@ export default function ChatRoom() {
     if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
-  const handleSubmit = useCallback(() => {
-    const text = input.trim();
+  const handleSubmit = useCallback((overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
     if (!activeConvId) {
       toast.error("请先点击「新任务」创建一个对话");
       return;
     }
-    const uploadedFiles = pendingFiles.filter(p => p.uploadedUrl && !p.error);
+    // 跟进问题不携带附件，正常发送才处理附件
+    const uploadedFiles = overrideText ? [] : pendingFiles.filter(p => p.uploadedUrl && !p.error);
     const attachmentNote = uploadedFiles.length > 0
       ? `\n\n[附件: ${uploadedFiles.map(p => `${p.file.name}(${p.uploadedUrl})`).join(", ")}]`
       : "";
@@ -983,18 +984,7 @@ export default function ChatRoom() {
                       taskTitle={activeConvTitle || undefined}
                       onFollowup={(q) => {
                         if (sending) return;
-                        setInput(q);
-                        // 自动触发发送
-                        setTimeout(() => {
-                          const text = q.trim();
-                          if (!text || !activeConvId) return;
-                          setInput("");
-                          setSending(true);
-                          setIsTyping(true);
-                          setTaskPhase("manus_working");
-                          setActiveTaskId(null);
-                          submitMutation.mutate({ title: text, conversationId: activeConvId });
-                        }, 50);
+                        handleSubmit(q);
                       }}
                     />
                   ))}
@@ -1049,7 +1039,7 @@ export default function ChatRoom() {
                     <Paperclip className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <button onClick={handleSubmit} disabled={!input.trim() || !activeConvId || sending}
+                <button onClick={() => handleSubmit()} disabled={!input.trim() || !activeConvId || sending}
                   className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                   style={{ background: input.trim() && activeConvId && !sending ? "oklch(0.72 0.18 250)" : "oklch(0.25 0.007 270)", color: "white" }}>
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

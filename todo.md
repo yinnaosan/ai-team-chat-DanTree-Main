@@ -323,3 +323,6 @@
 - [x] 前端：删除listConversations和listGroups的后台轮询
 - [x] 前端：消息轮询从3秒改为5秒
 - [x] 前端：任务状态轮询从2秒改为3秒
+
+## 跟进问题修复
+- [x] 统一跟进问题发送路径：handleSubmit接受可选text参数，跟进问题直接调用handleSubmit(q)

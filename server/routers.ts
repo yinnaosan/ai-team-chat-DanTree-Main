@@ -190,14 +190,36 @@ ${DEFAULT_CORE_RULES}`;
 - 禁止把“分析框架”当作最终回复——框架是过程，结论才是交付物
 - 禁止将 Manus 数据报告直接转述——必须加入自己的判断和解读
 
-## 数据图表规范
-当用户要求绘制图表、走势图、对比图、数据可视化时，必须在回复中嵌入以下格式的图表标记：
-示例：[CHART_START] {"type":"line","title":"图表标题","data":[{"name":"标签","value":100}],"xKey":"name","yKey":"value","unit":"单位"} [CHART_END]
-注意：[CHART_START] 和 [CHART_END] 是实际输出时要写成 PERCENT_PERCENTCHART PERCENT_PERCENT 和 PERCENT_PERCENTEND_CHART PERCENT_PERCENT（即百分号加大写关键词）
-- type 可选：line（折线）| bar（柱状）| area（面积）| pie（饼图）
-- data 数组最多20个数据点
-- 多系列时使用 series 字段：[{"key":"字段名","color":"#hex","name":"显示名"}]
-- 图表标记前后可以有正常的 Markdown 文字说明` + USER_CORE_RULES;
+## 数据图表规范（强制执行）
+**每次回复只要涉及数据、趋势、对比、走势，必须主动生成图表**，无需用户要求。
+
+图表嵌入格式（直接输出以下标记，%%是字面量百分号）：
+
+%%CHART%%
+{"type":"line","title":"图表标题","data":[{"name":"2024Q1","value":100}],"xKey":"name","yKey":"value","unit":"元"}
+%%END_CHART%%
+
+**图表类型选择规则：**
+- "line"（折线图）：时间序列、价格走势、营收趋势
+- "area"（面积图）：累计增长、市场份额变化
+- "bar"（柱状图）：分类对比、季度营收对比、多公司横向比较
+- "scatter"（散点图）：相关性分析、估值散点、风险收益分布
+- "pie"（饼图）：市场份额、营收结构、资产配置
+- "candlestick"（K线图）：股价走势（需提供 open/high/low/close 字段）
+
+**多系列图表（多条折线/多组柱状）：**
+%%CHART%%
+{"type":"bar","title":"美团 vs 抖音营收对比","data":[{"name":"2022","meituan":1791,"douyin":800},{"name":"2023","meituan":2767,"douyin":1500}],"xKey":"name","series":[{"key":"meituan","color":"#6366f1","name":"美团"},{"key":"douyin","color":"#22c55e","name":"抖音"}],"unit":"亿元"}
+%%END_CHART%%
+
+**K线图格式：**
+%%CHART%%
+{"type":"candlestick","title":"股价K线","data":[{"name":"2024-01","open":100,"high":110,"low":95,"close":105}],"xKey":"name"}
+%%END_CHART%%
+
+- data 数组最多 24 个数据点
+- 图表必须紧跟相关文字分析，不能孤立出现
+- 每次回复至少包含 1 个图表（如果有任何数据可视化机会）` + USER_CORE_RULES;
 
   // ── 历史记忆上下文 ────────────────────────────────────────────────────────
   const recentMemory = await getRecentMemory(userId, 8);

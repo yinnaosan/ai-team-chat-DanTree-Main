@@ -1,7 +1,7 @@
 /**
  * InlineChart — 解析消息内容中的 %%CHART%%...%%END_CHART%% 标记并渲染图表
  *
- * 支持的图表类型：line | bar | pie | area | scatter
+ * 支持的图表类型：line | bar | pie | area | scatter | candlestick
  *
  * 标记格式（后端嵌入消息中）：
  * %%CHART%%
@@ -11,21 +11,41 @@
  *   "data": [{"name":"2024-01","value":185},{"name":"2024-02","value":190}],
  *   "xKey": "name",
  *   "yKey": "value",
- *   "color": "#6366f1"
+ *   "color": "#6366f1",
+ *   "unit": "USD"
+ * }
+ * %%END_CHART%%
+ *
+ * K线图格式：
+ * %%CHART%%
+ * {
+ *   "type": "candlestick",
+ *   "title": "股价K线",
+ *   "data": [{"name":"2024-01","open":100,"high":110,"low":95,"close":105}],
+ *   "xKey": "name"
  * }
  * %%END_CHART%%
  */
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
-import { Download } from "lucide-react";
+import { Download, TrendingUp, TrendingDown } from "lucide-react";
+
+interface CandleData {
+  name: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
 
 interface ChartConfig {
-  type: "line" | "bar" | "pie" | "area" | "scatter";
+  type: "line" | "bar" | "pie" | "area" | "scatter" | "candlestick";
   title?: string;
   data: Record<string, unknown>[];
   xKey?: string;
@@ -42,29 +62,156 @@ const DEFAULT_COLORS = [
   "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
 ];
 
+const CHART_BG = "oklch(0.17 0.005 270)";
+const AXIS_COLOR = "oklch(0.52 0.01 270)";
+const GRID_COLOR = "oklch(0.24 0.007 270)";
+const TOOLTIP_BG = "oklch(0.20 0.007 270)";
+const TOOLTIP_BORDER = "oklch(0.30 0.008 270)";
+
+const axisStyle = { fill: AXIS_COLOR, fontSize: 11, fontFamily: "inherit" };
+const gridStyle = { stroke: GRID_COLOR, strokeDasharray: "3 3" };
+const tooltipStyle = {
+  contentStyle: {
+    background: TOOLTIP_BG,
+    border: `1px solid ${TOOLTIP_BORDER}`,
+    borderRadius: 8,
+    fontSize: 12,
+    color: "oklch(0.82 0.005 270)",
+  },
+  labelStyle: { color: "oklch(0.82 0.005 270)", fontWeight: 600 },
+  itemStyle: { color: "oklch(0.72 0.12 250)" },
+  cursor: { fill: "oklch(0.25 0.007 270 / 0.5)" },
+};
+
+// ── K线图自定义渲染 ─────K线图使用自定义 ComposedChart 实现
+function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: string }) {
+  // 将 OHLC 数据转为 recharts 可用格式（使用 bar 模拟蜡烛体）
+  const processed = data.map((d) => {
+    const isUp = d.close >= d.open;
+    const bodyLow = Math.min(d.open, d.close);
+    const bodyHigh = Math.max(d.open, d.close);
+    return {
+      name: d.name,
+      // 用两个堆叠 bar 模拟蜡烛体：透明底部 + 彩色主体
+      bodyBase: bodyLow,
+      bodySize: bodyHigh - bodyLow || 0.5, // 防止0高度
+      high: d.high,
+      low: d.low,
+      open: d.open,
+      close: d.close,
+      isUp,
+      color: isUp ? "#22c55e" : "#ef4444",
+      // 上影线：high - bodyHigh
+      upperWick: d.high - bodyHigh,
+      // 下影线：bodyLow - low
+      lowerWick: bodyLow - d.low,
+    };
+  });
+
+  const allValues = data.flatMap((d) => [d.high, d.low]);
+  const minVal = Math.min(...allValues);
+  const maxVal = Math.max(...allValues);
+  const padding = (maxVal - minVal) * 0.05;
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: typeof processed[0] }>; label?: string }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
+        <div style={{ color: "oklch(0.82 0.005 270)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
+        <div style={{ color: "oklch(0.65 0.01 270)" }}>开盘 <span style={{ color: "oklch(0.82 0.005 270)" }}>{d.open}{unit}</span></div>
+        <div style={{ color: "oklch(0.65 0.01 270)" }}>收盘 <span style={{ color: d.isUp ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{d.close}{unit}</span></div>
+        <div style={{ color: "oklch(0.65 0.01 270)" }}>最高 <span style={{ color: "#22c55e" }}>{d.high}{unit}</span></div>
+        <div style={{ color: "oklch(0.65 0.01 270)" }}>最低 <span style={{ color: "#ef4444" }}>{d.low}{unit}</span></div>
+        <div style={{ color: d.isUp ? "#22c55e" : "#ef4444", marginTop: 4, fontWeight: 600 }}>
+          {d.isUp ? "▲" : "▼"} {Math.abs(d.close - d.open).toFixed(2)}{unit} ({((Math.abs(d.close - d.open) / d.open) * 100).toFixed(2)}%)
+        </div>
+      </div>
+    );
+  };
+
+  // 自定义蜡烛体形状
+  const CandleShape = (props: { x?: number; y?: number; width?: number; height?: number; payload?: typeof processed[0] }) => {
+    const { x = 0, y = 0, width = 0, height: barHeight = 0, payload } = props;
+    if (!payload || barHeight === 0) return null;
+    const { isUp } = payload;
+    const color = isUp ? "#22c55e" : "#ef4444";
+    const xCenter = x + width / 2;
+    // 注意：recharts 的 y 轴是反的（y=0 在顶部）
+    // 这里 y 是 bodyBase 对应的像素位置，height 是 bodySize 对应的像素高度
+    // 但由于是堆叠 bar，y 是 bodyBase 的顶部（即 bodyBase+bodySize 对应的像素）
+    // 实际上 recharts Bar 的 y 是矩形顶部，height 是矩形高度
+    const bodyTop = y;
+    const bodyBottom = y + barHeight;
+
+    return (
+      <g>
+        {/* 蜡烛体 */}
+        <rect x={x + width * 0.15} y={bodyTop} width={width * 0.7} height={Math.max(barHeight, 1)} fill={color} rx={1} />
+        {/* 上影线（从蜡烛体顶部到最高价）- 需要从像素坐标计算 */}
+        <line x1={xCenter} x2={xCenter} y1={bodyTop} y2={bodyTop} stroke={color} strokeWidth={1.5} />
+        {/* 下影线（从蜡烛体底部到最低价）*/}
+        <line x1={xCenter} x2={xCenter} y1={bodyBottom} y2={bodyBottom} stroke={color} strokeWidth={1.5} />
+      </g>
+    );
+  };
+
+  // 更简洁的实现：用 ComposedChart + 自定义 Cell
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={processed} barCategoryGap="20%">
+        <CartesianGrid {...gridStyle} />
+        <XAxis dataKey="name" tick={axisStyle} />
+        <YAxis
+          domain={[minVal - padding, maxVal + padding]}
+          tick={axisStyle}
+          tickFormatter={(v: number) => `${v.toFixed(0)}${unit}`}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        {/* 透明底部（占位到 bodyBase） */}
+        <Bar dataKey="bodyBase" stackId="candle" fill="transparent" />
+        {/* 蜡烛体（彩色主体） */}
+        <Bar dataKey="bodySize" stackId="candle" shape={<CandleShape />} minPointSize={1}>
+          {processed.map((entry, index) => (
+            <Cell key={index} fill={entry.isUp ? "#22c55e" : "#ef4444"} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── 主图表渲染器 ────────────────────────────────────────────────────────────────
 function ChartRenderer({ config }: { config: ChartConfig }) {
   const {
     type, data, xKey = "name", yKey = "value",
     series, color = "#6366f1", colors = DEFAULT_COLORS, unit = "",
   } = config;
 
-  const axisStyle = { fill: "oklch(0.55 0.01 270)", fontSize: 11 };
-  const gridStyle = { stroke: "oklch(0.25 0.007 270)", strokeDasharray: "3 3" };
-  const tooltipStyle = {
-    contentStyle: { background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.30 0.008 270)", borderRadius: 8, fontSize: 12 },
-    labelStyle: { color: "oklch(0.82 0.005 270)" },
-    itemStyle: { color: "oklch(0.72 0.12 250)" },
-  };
-
   const seriesList = series ?? [{ key: yKey, color, name: yKey }];
+
+  if (type === "candlestick") {
+    return <CandlestickChart data={data as unknown as CandleData[]} unit={unit} />;
+  }
 
   if (type === "pie") {
     return (
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
-          <Pie data={data} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}>
+          <Pie
+            data={data}
+            dataKey={yKey}
+            nameKey={xKey}
+            cx="50%"
+            cy="50%"
+            outerRadius={105}
+            innerRadius={40}
+            paddingAngle={2}
+            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+            labelLine={{ stroke: "oklch(0.40 0.01 270)", strokeWidth: 1 }}
+          >
             {data.map((_, i) => (
-              <Cell key={i} fill={colors[i % colors.length]} />
+              <Cell key={i} fill={colors[i % colors.length]} stroke="transparent" />
             ))}
           </Pie>
           <Tooltip {...tooltipStyle} formatter={(v) => [`${v}${unit}`, ""]} />
@@ -79,10 +226,23 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
       <ResponsiveContainer width="100%" height={280}>
         <ScatterChart>
           <CartesianGrid {...gridStyle} />
-          <XAxis dataKey={xKey} tick={axisStyle} />
-          <YAxis tick={axisStyle} tickFormatter={(v) => `${v}${unit}`} />
-          <Tooltip {...tooltipStyle} />
-          <Scatter data={data} fill={color} />
+          <XAxis dataKey={xKey} tick={axisStyle} name={xKey} />
+          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} name={yKey} />
+          <Tooltip
+            {...tooltipStyle}
+            cursor={{ strokeDasharray: "3 3", stroke: GRID_COLOR }}
+            formatter={(v: unknown) => [`${v}${unit}`, ""]}
+          />
+          {seriesList.map((s, i) => (
+            <Scatter
+              key={s.key}
+              name={s.name || s.key}
+              data={data}
+              fill={s.color || colors[i % colors.length]}
+              opacity={0.85}
+            />
+          ))}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
         </ScatterChart>
       </ResponsiveContainer>
     );
@@ -91,7 +251,7 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       {type === "bar" ? (
-        <BarChart data={data}>
+        <BarChart data={data} barCategoryGap="25%">
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} />
@@ -99,24 +259,42 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
           {seriesList.map((s, i) => (
             <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
-              fill={s.color || colors[i % colors.length]} />
+              fill={s.color || colors[i % colors.length]}
+              radius={[3, 3, 0, 0]}
+            />
           ))}
         </BarChart>
       ) : type === "area" ? (
         <AreaChart data={data}>
+          <defs>
+            {seriesList.map((s, i) => {
+              const c = s.color || colors[i % colors.length];
+              return (
+                <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={c} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={c} stopOpacity={0.02} />
+                </linearGradient>
+              );
+            })}
+          </defs>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
-          {seriesList.map((s, i) => (
-            <Area key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
-              stroke={s.color || colors[i % colors.length]}
-              fill={s.color || colors[i % colors.length]}
-              strokeWidth={2} dot={false} fillOpacity={0.15} />
-          ))}
+          {seriesList.map((s, i) => {
+            const c = s.color || colors[i % colors.length];
+            return (
+              <Area key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
+                stroke={c} strokeWidth={2}
+                fill={`url(#grad-${s.key})`}
+                dot={false} activeDot={{ r: 4, strokeWidth: 0 }}
+              />
+            );
+          })}
         </AreaChart>
       ) : (
+        // line
         <LineChart data={data}>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
@@ -126,7 +304,10 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           {seriesList.map((s, i) => (
             <Line key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
               stroke={s.color || colors[i % colors.length]}
-              strokeWidth={2} dot={false} />
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
           ))}
         </LineChart>
       )}
@@ -134,17 +315,18 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   );
 }
 
+// ── 图表容器组件 ────────────────────────────────────────────────────────────────
 interface InlineChartProps {
-  raw: string; // raw JSON string inside %%CHART%% markers
+  raw: string;
 }
 
 export function InlineChart({ raw }: InlineChartProps) {
-  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   let config: ChartConfig;
   try {
     config = JSON.parse(raw.trim());
-  } catch (e) {
+  } catch {
     return (
       <div className="my-3 p-3 rounded-lg text-xs" style={{ background: "oklch(0.18 0.005 270)", color: "oklch(0.55 0.01 270)" }}>
         [图表数据解析失败]
@@ -153,18 +335,18 @@ export function InlineChart({ raw }: InlineChartProps) {
   }
 
   const handleDownload = () => {
-    // 使用 SVG → canvas → PNG 方式导出
-    const svgEl = document.querySelector(".recharts-wrapper svg") as SVGElement | null;
+    const svgEl = containerRef.current?.querySelector("svg") as SVGElement | null;
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
     const canvas = document.createElement("canvas");
-    canvas.width = svgEl.clientWidth * 2;
-    canvas.height = svgEl.clientHeight * 2;
+    const scale = 2;
+    canvas.width = svgEl.clientWidth * scale;
+    canvas.height = svgEl.clientHeight * scale;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const img = new Image();
     img.onload = () => {
-      ctx.fillStyle = "#1a1a2e";
+      ctx.fillStyle = "#161620";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const a = document.createElement("a");
@@ -175,24 +357,66 @@ export function InlineChart({ raw }: InlineChartProps) {
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
+  // 计算趋势（折线/面积图）
+  const getTrend = () => {
+    if (!["line", "area"].includes(config.type) || config.data.length < 2) return null;
+    const yKey = config.yKey || "value";
+    const first = Number(config.data[0][yKey]);
+    const last = Number(config.data[config.data.length - 1][yKey]);
+    if (isNaN(first) || isNaN(last)) return null;
+    const pct = ((last - first) / Math.abs(first)) * 100;
+    return { up: pct >= 0, pct: Math.abs(pct).toFixed(1) };
+  };
+
+  const trend = getTrend();
+
+  const typeLabels: Record<string, string> = {
+    line: "折线图", area: "面积图", bar: "柱状图",
+    pie: "饼图", scatter: "散点图", candlestick: "K线图",
+  };
+
   return (
-    <div className="my-4 rounded-xl overflow-hidden" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.25 0.007 270)" }}>
-      {config.title && (
-        <div className="flex items-center justify-between px-4 pt-3 pb-1">
-          <span className="text-sm font-semibold" style={{ color: "oklch(0.85 0.01 270)" }}>{config.title}</span>
-          <button onClick={handleDownload}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs hover:bg-white/8 transition-colors"
-            style={{ color: "oklch(0.55 0.01 270)" }}>
-            <Download className="w-3 h-3" />PNG
-          </button>
+    <div
+      ref={containerRef}
+      className="my-4 rounded-xl overflow-hidden"
+      style={{ background: CHART_BG, border: "1px solid oklch(0.25 0.007 270)" }}
+    >
+      {/* 标题栏 */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
+            style={{ background: "oklch(0.22 0.015 250)", color: "oklch(0.65 0.12 250)", fontSize: 10 }}>
+            {typeLabels[config.type] || config.type}
+          </span>
+          {config.title && (
+            <span className="text-sm font-semibold truncate" style={{ color: "oklch(0.88 0.008 270)" }}>
+              {config.title}
+            </span>
+          )}
+          {trend && (
+            <span className="flex items-center gap-0.5 text-xs shrink-0"
+              style={{ color: trend.up ? "#22c55e" : "#ef4444" }}>
+              {trend.up
+                ? <TrendingUp className="w-3 h-3" />
+                : <TrendingDown className="w-3 h-3" />}
+              {trend.pct}%
+            </span>
+          )}
         </div>
-      )}
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8 shrink-0"
+          style={{ color: "oklch(0.52 0.01 270)" }}
+          title="下载图表 PNG"
+        >
+          <Download className="w-3 h-3" />
+          <span>PNG</span>
+        </button>
+      </div>
+
+      {/* 图表区域 */}
       <div className="px-2 pb-3">
-        {error ? (
-          <div className="p-3 text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>{error}</div>
-        ) : (
-          <ChartRenderer config={config} />
-        )}
+        <ChartRenderer config={config} />
       </div>
     </div>
   );
@@ -200,7 +424,7 @@ export function InlineChart({ raw }: InlineChartProps) {
 
 /**
  * 解析消息内容，将 %%CHART%%...%%END_CHART%% 替换为图表组件
- * 返回混合内容数组：string（Markdown文本）| ChartConfig（图表）
+ * 返回混合内容数组：text（Markdown文本）| chart（图表）
  */
 export function parseChartBlocks(content: string): Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> {
   const parts: Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> = [];

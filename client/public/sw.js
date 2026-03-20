@@ -1,5 +1,5 @@
-// AI Team Chat — Service Worker v2
-const CACHE_NAME = 'ai-team-chat-v2';
+// DanTree — Service Worker v3
+const CACHE_NAME = 'dantree-v3';
 const STATIC_ASSETS = [
   '/',
   '/offline.html',

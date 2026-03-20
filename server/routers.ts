@@ -91,14 +91,13 @@ async function invokeLLMWithRetry(
   throw lastError;
 }
 
-// ─── 四步协作流程（全程静默，只输出一条最终回复）─────────────────────────────
+// ─── 三步协作流程（全程静默，只输出一条最终回复）─────────────────────────────
 //
-//  Step 1 — Manus 分解任务：理解需求，拆解子步骤，识别数据需求
-//  Step 2 — Manus 执行：数据收集、分析、统计，生成结构化报告
-//  Step 3 — GPT 经理：审阅报告，给出观点、文字建议和表达框架（内部，不输出）
-//  Step 4 — Manus 整合：按 GPT 经理建议输出最终结构化 Markdown 回复
-//  Step 5 — GPT 最终审核：确认质量，如有问题直接修正后输出
+//  Step 1 — GPT 主导规划：制定分析框架，开始处理擅长的主观判断/逻辑推理部分
+//  Step 2 — Manus 执行：先完善任务描述，再按 GPT 框架收集数据、整理表格
+//  Step 3 — GPT 整合输出：接收 Manus 完整报告，深度思考，输出最终回复
 //
+//  同一对话框内，新消息默认视为上一个任务的延续（除非用户明确说新任务）。
 //  以上全部在后台静默执行，不向用户显示任何中间过程消息。
 
 async function runCollaborationFlow(
@@ -184,117 +183,138 @@ async function runCollaborationFlow(
     ? `\n\n【用户上传的文件内容】\n${attachmentContext}`
     : "";
 
+  // ── 对话历史（同对话框内最近5轮，用于任务连续性）────────────────────────────
+  let conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+  if (conversationId) {
+    try {
+      const recentMsgs = await getMessagesByConversation(conversationId);
+      // 取最近10条（5轮对话），排除当前正在处理的任务消息（只取 completed 的）
+      const historyMsgs = recentMsgs
+        .filter(m => m.role === "user" || (m.role === "assistant" && m.metadata && (m.metadata as any).phase === "final"))
+        .slice(-10)
+        .map(m => ({ role: m.role as "user" | "assistant", content: String(m.content).slice(0, 800) }));
+      conversationHistory = historyMsgs;
+    } catch (e) {
+      console.warn("[Collaboration] Failed to load conversation history:", e);
+    }
+  }
+
+  const historyBlock = conversationHistory.length > 0
+    ? `\n\n【当前对话框历史（最近${conversationHistory.length}条，默认视为同一任务的延续）】\n` +
+      conversationHistory.map(m => `${m.role === "user" ? "用户" : "顾问"}：${m.content}`).join("\n---\n")
+    : "";
+
   const fullContext = taskDescription + memoryBlock + attachmentBlock;
 
   try {
     // ════════════════════════════════════════════════════════════════════════
-    // Step 1 — 并行：Manus 完善任务描述 + GPT 制定分析框架（同时进行，节约时间）
+    // Step 1 — GPT 主导规划：制定分析框架，开始处理擅长的主观/逻辑部分
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
-    console.log(`[Collaboration] Task ${taskId} Step1: Parallel - Manus enhancing + GPT planning...`);
+    console.log(`[Collaboration] Task ${taskId} Step1: GPT planning & initial analysis...`);
 
-    const [manusEnhancedResult, gptPlanResult] = await Promise.all([
-      // Manus：完善任务描述，补充专业细节和数据收集方向
-      invokeLLMWithRetry({
-        messages: [
-          { role: "system", content: manusSystemPrompt },
-          {
-            role: "user",
-            content: `你是数据引擎，请先完善以下任务描述，使其更加专业全面，然后列出你将收集的关键数据点。
+    // GPT Step1 prompt：制定框架 + 开始主观分析
+    const gptStep1UserMsg = `【用户当前消息】
+${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${attachmentBlock}
 
-原始任务：${fullContext}
+---
+你的任务（Step 1）：
+1. **判断连续性**：结合对话历史，判断这是上一个任务的延续还是全新任务。如果是延续，主动引用上下文。
+2. **制定分析框架**：明确需要哪些数据、从什么角度分析、最终回复的结构（符合价值投资视角）。
+3. **开始处理你擅长的部分**：对主观判断、逻辑推理、市场情绪、投资策略等你能直接处理的内容，现在就开始分析，输出初步观点。
+4. **列出数据需求**：明确告诉 Manus 需要收集哪些具体数据、指标、时间范围。
 
-【投资理念约束】严格按照段永平价值投资体系，重点关注美国、香港、大陆、欧盟、英国市场，聚焦企业内在价值和安全边际相关数据。
+输出格式：
+## 任务判断
+（延续/新任务，理由）
+## 分析框架
+（结构化框架）
+## 我的初步分析
+（主观判断、逻辑推理、投资逻辑——你直接能处理的部分）
+## Manus 数据需求清单
+（具体数据指标、时间范围、对比基准）`;
 
-请输出：
-1. 完善后的任务描述（补充专业术语、明确分析维度，符合价值投资视角）
-2. 数据收集清单（具体指标、时间范围、对比基准，优先收集与企业内在价值相关的数据）`,
-          },
-        ],
-      }),
-      // GPT：制定分析框架和指令（轻量调用，仅规划不分析）
-      userConfig?.openaiApiKey
-        ? callOpenAI({
-            apiKey: userConfig.openaiApiKey,
-            model: userConfig.openaiModel || DEFAULT_MODEL,
-            messages: [
-              { role: "system", content: gptSystemPrompt },
-              {
-                role: "user",
-                content: `用户任务：${taskDescription.slice(0, 300)}
-
-【投资理念】段永平体系：企业内在价值、安全边际、长期持有。关注市场：美国>香港>大陆>欧盟>英国。
-
-请用80字以内制定数据分析框架：需要哪些数据、分析角度、最终回复结构（符合价值投资视角）。只输出框架，不要分析内容。`,
-              },
-            ],
-            maxTokens: 300, // 限制 token，保持轻量
-          })
-        : Promise.resolve("标准分析框架：数据收集→趋势分析→跨市场关联→投资建议"),
-    ]);
-
-    const manusEnhanced = String(manusEnhancedResult.choices?.[0]?.message?.content || fullContext);
-    const gptPlan = typeof gptPlanResult === "string"
-      ? gptPlanResult
-      : String((gptPlanResult as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content || "");
-    console.log(`[Collaboration] Task ${taskId} Step1 done. Enhanced=${manusEnhanced.length}, Plan=${gptPlan.length}`);
+    let gptStep1Output: string;
+    if (userConfig?.openaiApiKey) {
+      try {
+        const step1Res = await callOpenAI({
+          apiKey: userConfig.openaiApiKey,
+          model: userConfig.openaiModel || DEFAULT_MODEL,
+          messages: [
+            { role: "system", content: gptSystemPrompt },
+            { role: "user", content: gptStep1UserMsg },
+          ],
+          maxTokens: 1200,
+        });
+        gptStep1Output = step1Res;
+      } catch (e) {
+        console.warn(`[Collaboration] Task ${taskId} Step1: GPT failed, using fallback framework`);
+        gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
+      }
+    } else {
+      gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
+    }
+    console.log(`[Collaboration] Task ${taskId} Step1 done. GPT framework+analysis length=${gptStep1Output.length}`);
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — Manus 按 GPT 框架执行完整数据分析（内置 LLM，免费）
+    // Step 2 — Manus 先完善任务，再按 GPT 框架执行数据收集（内置 LLM）
     // ════════════════════════════════════════════════════════════════════════
-    console.log(`[Collaboration] Task ${taskId} Step2: Manus executing data analysis...`);
+    await updateTaskStatus(taskId, "manus_working");
+    console.log(`[Collaboration] Task ${taskId} Step2: Manus enhancing + data collection...`);
     const manusResponse = await invokeLLMWithRetry({
       messages: [
         { role: "system", content: manusSystemPrompt },
         {
           role: "user",
-          content: `请按照以下分析框架，对完善后的任务进行全面数据收集和量化分析。
+          content: `你是幕后数据引擎，请分两步完成以下工作：
 
-分析框架（GPT制定）：${gptPlan}
+【原始任务】
+${fullContext}
 
-完善后的任务描述：${manusEnhanced}
+【GPT 分析框架与数据需求】
+${gptStep1Output}
 
-【投资理念约束】严格按照段永平价值投资体系筛选数据：
-- 优先收集企业内在价值、估值（PE/PB/DCF）、护城河相关数据
-- 关注美国、香港、大陆、欧盟、英国市场的跨市场关联数据
-- 标注安全边际相关指标（历史估值区间、当前位置）
-- 每次任务执行前、执行中、输出前自我复查是否遵守价值投资原则
+---
+**第一步：完善任务描述**
+- 补充专业术语和分析维度（符合价值投资视角）
+- 明确分析范围和边界
+- 识别任务是否为历史任务的延续，如是则注明关联点
 
-要求：
-• 严格按框架收集数据，包含具体数字、指标、趋势
-• 用 Markdown 表格对比关键数据（至少3列）
-• 标注数据来源和时间节点
-• 专注客观数据，不需要主观建议`,
+**第二步：数据收集与整理**
+- 严格按照 GPT 的数据需求清单收集数据
+- 优先收集：估值（PE/PB/DCF）、护城河指标、财务健康数据、安全边际
+- 关注市场：美国>香港>大陆>欧盟>英国，标注跨市场关联
+- 用 Markdown 表格对比关键数据（至少3列），标注数据来源和时间节点
+- 根据任务复杂度自适应输出长度（简单任务500字，复杂任务不超过2000字）
+- 专注客观数据，不需要主观建议（主观分析由 GPT 负责）`,
         },
       ],
     });
-    const manusAnalysis = String(manusResponse.choices?.[0]?.message?.content || "");
-    console.log(`[Collaboration] Task ${taskId} Step2: Manus analysis done, length=${manusAnalysis.length}`);
-    await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusAnalysis });
+    const manusReport = String(manusResponse.choices?.[0]?.message?.content || "");
+    console.log(`[Collaboration] Task ${taskId} Step2: Manus report done, length=${manusReport.length}`);
+    await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 3 — GPT 整合输出（OpenAI API，主观判断 + 最终完整回复）
+    // Step 3 — GPT 整合输出（接收 Manus 报告，深度思考，输出最终回复）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "gpt_reviewing");
     const gptUserMessage = `【用户原始任务】
-${taskDescription}
+${taskDescription}${historyBlock}
 
-【Manus 完善后的任务描述】
-${manusEnhanced.slice(0, 500)}
+【你在 Step1 的初步分析】
+${gptStep1Output}
 
-【Manus 数据分析报告】
-${manusAnalysis}
+【Manus 数据报告（完善描述 + 数据收集）】
+${manusReport}
 
-请基于以上完整数据，输出最终回复。要求：
-1. 深度解读数据，补充主观判断、投资策略和情绪分析
-2. 严格遵守投资理念（段永平体系）进行判断
-3. 关注美国、香港、大陆、欧盟、英国市场的跨市场关联性
-4. 进行正推（当前→未来）和倒推（结果→原因）双向验证
-5. 回复末尾必须提出2-3个具体的后续跟进问题，每个问题必须用以下格式包裹（不要加其他文字）：
-%%FOLLOWUP%%问题内容%%END%%
-示例：
-%%FOLLOWUP%%苹果公司近期财务数据如何？%%END%%
-%%FOLLOWUP%%当前估值是否具备安全边际？%%END%%`;
+---
+现在请整合以上所有内容，输出最终回复。要求：
+1. 将你的初步分析与 Manus 的数据深度结合，形成完整的投资判断
+2. 严格遵守投资理念（段永平体系）：内在价值、安全边际、长期持有
+3. 进行正推（当前→未来）和倒推（结果→原因）双向验证
+4. 如果是历史任务的延续，主动引用上下文，保持对话连贯性
+5. 回复末尾必须提出2-3个具体的后续跟进问题，每个问题必须用以下格式包裹：
+%%FOLLOWUP%%问题内容%%END%%`;
 
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
@@ -317,7 +337,7 @@ ${manusAnalysis}
             { role: "user", content: gptUserMessage },
           ],
         });
-        finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
+        finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
       }
     } else {
       const fb = await invokeLLM({
@@ -326,7 +346,7 @@ ${manusAnalysis}
           { role: "user", content: gptUserMessage },
         ],
       });
-      finalReply = String(fb.choices?.[0]?.message?.content || manusAnalysis);
+      finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
     }
 
         // ── 只向用户输出一条最终回复 ─────────────────────────────────────────────

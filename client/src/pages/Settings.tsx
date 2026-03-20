@@ -656,21 +656,21 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"
               style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步并行协作流程</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步串行协作流程</h2>
               {[
                 {
-                  step: "Step 1 并行", label: "Manus 完善任务 + GPT 制定框架",
-                  desc: "Manus 将你的任务专业化补全（补充细节、量化指标、分析维度）；GPT 同步制定分析框架和数据需求指令——两者并行执行，节约时间",
+                  step: "Step 1 · GPT", label: "GPT 主导规划 + 初步分析",
+                  desc: "GPT 判断任务是否为上一对话的延续，制定完整分析框架，并对主观判断、逻辑推理、市场情绪等擅长领域直接开始处理，同时列出 Manus 的数据需求清单",
+                  color: "oklch(0.72 0.18 155)", icon: Brain,
+                },
+                {
+                  step: "Step 2 · Manus", label: "Manus 完善任务 + 数据收集",
+                  desc: "Manus 先将任务描述专业化补全（补充细节、量化维度），再严格按 GPT 框架收集数据、整理表格，根据任务复杂度自适应输出长度（简单任务约500字，复杂任务不超过2000字）",
                   color: "oklch(0.72 0.18 250)", icon: Bot,
                 },
                 {
-                  step: "Step 2", label: "Manus 按框架执行数据分析",
-                  desc: "Manus 严格按照 GPT 制定的框架，收集数据、量化计算、结构化整理，生成内部数据报告（用户不可见，直接传给 GPT）",
-                  color: "oklch(0.72 0.18 250)", icon: Bot,
-                },
-                {
-                  step: "Step 3", label: "GPT 整合输出，与你对话",
-                  desc: "GPT 接收 Manus 数据报告，结合历史任务记忆和投资理念，输出最终回复。回复末尾自动提出 2-3 个跟进问题，点击即可继续深入分析",
+                  step: "Step 3 · GPT", label: "GPT 深度整合，输出最终回复",
+                  desc: "GPT 将 Step1 初步分析与 Manus 数据报告深度结合，进行正推（当前→未来）和倒推（结果→原因）双向验证，输出完整投资判断。同一对话框内自动延续上下文，回复末尾提出 2-3 个跟进问题",
                   color: "oklch(0.72 0.18 155)", icon: Brain,
                 },
               ].map(({ step, label, desc, color, icon: Icon }, i) => (
@@ -692,7 +692,7 @@ export default function Settings() {
               ))}
               <div className="pt-2 mt-2 text-xs text-center"
                 style={{ borderTop: "1px solid oklch(0.22 0.007 270)", color: "oklch(0.42 0.01 270)" }}>
-                全程内部流转静默，用户只看到一条最终回复
+                全程静默内部流转，用户只看到最终回复 · 同对话框内新消息默认延续上一任务
               </div>
             </div>
           </div>

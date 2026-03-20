@@ -1,11 +1,12 @@
-// AI Team Chat — Service Worker
-const CACHE_NAME = 'ai-team-chat-v1';
+// AI Team Chat — Service Worker v2
+const CACHE_NAME = 'ai-team-chat-v2';
 const STATIC_ASSETS = [
   '/',
+  '/offline.html',
   '/manifest.json',
 ];
 
-// Install: cache static assets
+// Install: pre-cache critical assets including offline page
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -29,37 +30,58 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first strategy for API, cache-first for static
+// Fetch strategy
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Always go network for API calls
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/api/trpc')) {
-    return;
-  }
-
-  // For navigation requests, try network first, fall back to cached index
-  if (event.request.mode === 'navigate') {
+  // Always go network for API calls — never cache
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() => {
-        return caches.match('/');
+        return new Response(
+          JSON.stringify({ error: 'offline' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
       })
     );
     return;
   }
 
-  // For other requests: cache first, then network
+  // For navigation (page loads): network-first, fall back to offline.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache the fresh page
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => {
+          // Try cached version first, then offline page
+          return caches.match(event.request).then((cached) => {
+            return cached || caches.match('/offline.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // For static assets (JS, CSS, images): cache-first, network fallback
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        // Cache successful GET responses
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
         if (response.ok && event.request.method === 'GET') {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
+      }).catch(() => {
+        // For image requests, return nothing gracefully
+        if (event.request.destination === 'image') {
+          return new Response('', { status: 404 });
+        }
       });
     })
   );

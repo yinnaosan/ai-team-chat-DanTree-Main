@@ -9,6 +9,7 @@ import ChatRoom from "./pages/ChatRoom";
 import Settings from "./pages/Settings";
 import AccessGate from "./pages/AccessGate";
 import AdminPanel from "./pages/AdminPanel";
+import PWAInstallBanner from "./components/PWAInstallBanner";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <PWAInstallBanner />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

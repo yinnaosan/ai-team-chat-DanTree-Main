@@ -4,37 +4,36 @@
   "description": "AI 驱动的投资分析协作平台，Manus + GPT 双引擎协同",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e1f20",
-  "theme_color": "#1e1f20",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "zh-CN",
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_1bf4ba55.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_34fb0db0.png",
       "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-144x144_d7a0c26a.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-144x144_734eaeef.png",
       "sizes": "144x144",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-192x192_8e96188d.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-192x192_e4a35bae.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-512x512_baf85c4a.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-512x512_d4e37337.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "新建任务",
@@ -43,7 +42,7 @@
       "url": "/chat",
       "icons": [
         {
-          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_1bf4ba55.png",
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/icon-96x96_34fb0db0.png",
           "sizes": "96x96"
         }
       ]

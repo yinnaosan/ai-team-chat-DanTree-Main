@@ -496,3 +496,8 @@
 - [x] 创建 manifest.json（name/short_name/icons/theme_color/display:standalone）
 - [x] 创建 Service Worker（sw.js）：离线缓存 + 网络优先策略
 - [x] 更新 index.html：添加 manifest 链接、Apple Touch Icon、theme-color、SW 注册脚本
+
+## PWA 品牌升级（2026-03-20）
+- [x] 替换品牌图标：使用用户提供的 logo 生成各尺寸图标并上传 CDN
+- [x] 添加 PWA 安装引导横幅（底部提示条，检测 beforeinstallprompt 事件）
+- [x] 制作专属离线页面（offline.html）并更新 Service Worker

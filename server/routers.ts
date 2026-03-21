@@ -457,29 +457,37 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
 
-    const realTimeDataBlock = [
+    // 将结构化数据（Yahoo Finance + FRED）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
+    const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
-      webSearchData.value || "",
     ].filter(Boolean).join("\n\n---\n\n");
+    const webContentBlock = webSearchData.value || "";
+    // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
+    const realTimeDataBlock = [structuredDataBlock, webContentBlock].filter(Boolean).join("\n\n---\n\n");
+
     const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
 【任务】
 ${fullContext}
 
 【首席顾问的分析框架与数据需求】
-${gptStep1Output}${realTimeDataBlock ? `\n\n---\n\n【已获取的实时数据（直接使用，无需重新获取）】\n${realTimeDataBlock}` : ""}
+${gptStep1Output}${structuredDataBlock ? `\n\n---\n\n【A. 结构化实时数据（Yahoo Finance / FRED，直接使用）】\n${structuredDataBlock}` : ""}${webContentBlock ? `\n\n---\n\n【B. 网页内容数据（来自用户资料数据库，需提取整理）】\n以下是从用户指定数据源抓取的网页原始内容，请从中提取：\n- 所有数字指标（估值倍数、目标价、评级、财务数据等）\n- 分析师核心观点和评级（买入/持有/卖出 + 目标价）\n- 关键定性结论（竞争格局、催化剂、风险因素）\n- 资金流向、持仓变化等机构动向数据\n\n${webContentBlock}` : ""}
 
 ---
 **输出规则：**
 
-1. 纯数据输出：只输出数字、表格、指标名称。无需开头语、过渡语、总结语、解释性文字、来源标注
-2. 格式：优先表格（指标 | 当前值 | 行业均 | 竞争对手 | 历史均），表格不够用时再用简短列表
-3. 数据精度：保留两位小数；标注时间节点（Q/FY）；标注币种
-4. 覆盖全部需求清单中的每个指标，缺少的用 N/A 标注，不得略过
-5. 如涉及多市场，加一行传导关系说明（一句话即可）
-6. **总输出不超过 ${modeConfig.step2MaxWords} 字**，不重复数据，不填充废话
-7. 禁止：主观建议、模糊表达、重复数据、超过 ${modeConfig.step2MaxWords} 字
+1. **A区（结构化数据）**：直接输出数字和表格，无需解释
+2. **B区（网页内容）**：提取并整理以下三类信息：
+   - 数据表格：估值指标、财务数据、价格目标（保留数字精度）
+   - 分析师共识：评级分布（买入X家/持有X家/卖出X家）、平均目标价、最高/最低目标价
+   - 关键信号：最重要的3-5条定性结论（每条不超过30字，来自网页原文）
+3. 格式：优先表格（指标 | 当前值 | 行业均 | 竞争对手 | 历史均），表格不够用时再用简短列表
+4. 数据精度：保留两位小数；标注时间节点（Q/FY）；标注币种；标注来源域名
+5. 覆盖全部需求清单中的每个指标，缺少的用 N/A 标注，不得略过
+6. 如涉及多市场，加一行传导关系说明（一句话即可）
+7. **总输出不超过 ${modeConfig.step2MaxWords} 字**，不重复数据，不填充废话
+8. 禁止：主观建议、模糊表达、重复数据、超过 ${modeConfig.step2MaxWords} 字
 ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
 
     let manusReport: string;

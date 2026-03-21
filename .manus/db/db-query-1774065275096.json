@@ -1,0 +1,45 @@
+{
+  "query": "SELECT userId, SUBSTRING(dataLibrary, 1, 2000) as dataLibrary FROM rpa_configs WHERE dataLibrary IS NOT NULL AND dataLibrary != '' LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT userId, SUBSTRING(dataLibrary, 1, 2000) as dataLibrary FROM rpa_configs WHERE dataLibrary IS NOT NULL AND dataLibrary != '' LIMIT 5;",
+  "rows": [
+    {
+      "userId": "1",
+      "dataLibrary": "金融投资分析专属数据库清单及用途指南"
+    }
+  ],
+  "messages": [
+    "本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。",
+    "1. 宏观经济与央行政策 (Macro & Central Banks)",
+    "这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。",
+    "数据库\t网址链接\t核心用途与分析场景",
+    "Haver Analytics\thttps://www.haver.com/\t核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业解读，评估数据对市场预期的影响。",
+    "Trading Economics\thttps://tradingeconomics.com/\t跨国宏观数据对比与预测。提供 196 个国家的经济指标对比、经济预测模型和财经日历，用于宏观趋势的前瞻性判断。",
+    "FRED\thttps://fred.stlouisfed.org/\t权威经济周期定位。圣路易斯联储的官方数据库，用于提取长周期的宏观经济时间序列数据，进行深度的经济周期和流动性分析。",
+    "ITC Markets Hawk-Dove\thttps://www.itcmarkets.com/hawk-dove-cheat-sheet-2/\t央行政策立场量化。提供全球主要央行（美联储、欧央行等）委员的鹰鸽立场量化评级，用于前瞻性预判利率决议方向。",
+    "CME Group\thttps://www.cmegroup.com/\t利率预期与衍生品定价。通过 FedWatch 工具获取市场对美联储利率变动的精确概率定价，捕捉市场预期差。",
+    "2. 量化研究与资产估值 (Quant & Valuation)",
+    "用于从长周期的视角判断大类资产的估值高低，以及运用因子模型进行策略分析。",
+    "数据库\t网址链接\t核心用途与分析场景",
+    "AQR\thttps://www.aqr.com/\t量化因子与长期假设。提取动量、价值、质量等经典量化因子的最新表现，以及各大类资产的长期资本市场假设。",
+    "GMO\thttps://www.gmo.com/americas/\t资产估值与逆向投资。核心工具是其每月更新的“7年资产类别预期收益率”，用于判断当前哪些资产处于估值泡沫，哪些被极度低估。",
+    "3. 机构动向与另类数据 (Institutions & Alternative Data)",
+    "追踪“聪明钱”的流向以及非传统维度的事件驱动因素。",
+    "数据库\t网址链接\t核心用途与分析场景",
+    "WhaleWisdom\thttps://whalewisdom.com/\t机构持仓解析。深度解析 13F 文件，追踪顶级对冲基金和机构投资者的最新建仓、增减持动态。",
+    "Quiver Quantitative\thttps://www.quiverquant.com/\t另类事件驱动。监控美国国会议员交易、企业高管内部买卖、政府合同审批等非传统数据，寻找交易催化剂。",
+    "Polymarket\thttps://polymarket.com/\t政治风险与黑天鹅定价。基于区块链的预测市场，用于量化地缘政治事件、大选结果等宏观风险发生的概率。",
+    "4. 个股基本面与技术分析 (Fundamentals & Technicals)",
+    "深入挖掘单家公司的财务健康状况、商业模式，并结合技术面进行精准择时。",
+    "数据库\t网址链接\t核心用途与分析场景",
+    "Stock Analysis\thttps://stockanalysis.com/\t深度基本面体检。提供个股的详细财务报表、分析师盈利预测以及高级量化筛选器，用于评估公司的内在价值。",
+    "Seeking Alpha\thttps://seekingalpha.com/latest-articles\t多空观点对冲与财报解读。聚合众包的深度研究文章，在分析个股时用于收集多空双方的逻辑，进行交叉验证。",
+    "TradingView Markets\thttps://www.tradingview.com/markets/\t跨资产图表与技术择时。提供强大的实时图表工具，用于关键支撑/阻力位的判断和技术指标分析。",
+    "Finviz\thttps://finviz.com/\t市场广度与股票筛选。通过板块热力图快速把握市场资金主线，使用其筛选器定位符合特定技术和基本面形态的个股。",
+    "Yahoo Finance\thttps://finance.yahoo.com/\t综合数据与实时验证。作为基础数据的快速核对工具，获取实时报价、基础财务指标及突发新闻对股价的即时影响。",
+    "5. 垂直领域与区域市场 (Verticals & Regional Markets)",
+    "针对用户特定关注的产业（如新能源、AI）及区域市场（加拿大、中国）的深度数"
+  ],
+  "stdout": "userId\tdataLibrary\n1\t金融投资分析专属数据库清单及用途指南\n本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。\n\n1. 宏观经济与央行政策 (Macro & Central Banks)\n这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。\n\n数据库\t网址链接\t核心用途与分析场景\nHaver Analytics\thttps://www.haver.com/\t核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业解读，评估数据对市场预期的影响。\nTrading Economics\thttps://tradingeconomics.com/\t跨国宏观数据对比与预测。提供 196 个国家的经济指标对比、经济预测模型和财经日历，用于宏观趋势的前瞻性判断。\nFRED\thttps://fred.stlouisfed.org/\t权威经济周期定位。圣路易斯联储的官方数据库，用于提取长周期的宏观经济时间序列数据，进行深度的经济周期和流动性分析。\nITC Markets Hawk-Dove\thttps://www.itcmarkets.com/hawk-dove-cheat-sheet-2/\t央行政策立场量化。提供全球主要央行（美联储、欧央行等）委员的鹰鸽立场量化评级，用于前瞻性预判利率决议方向。\nCME Group\thttps://www.cmegroup.com/\t利率预期与衍生品定价。通过 FedWatch 工具获取市场对美联储利率变动的精确概率定价，捕捉市场预期差。\n2. 量化研究与资产估值 (Quant & Valuation)\n用于从长周期的视角判断大类资产的估值高低，以及运用因子模型进行策略分析。\n\n数据库\t网址链接\t核心用途与分析场景\nAQR\thttps://www.aqr.com/\t量化因子与长期假设。提取动量、价值、质量等经典量化因子的最新表现，以及各大类资产的长期资本市场假设。\nGMO\thttps://www.gmo.com/americas/\t资产估值与逆向投资。核心工具是其每月更新的“7年资产类别预期收益率”，用于判断当前哪些资产处于估值泡沫，哪些被极度低估。\n3. 机构动向与另类数据 (Institutions & Alternative Data)\n追踪“聪明钱”的流向以及非传统维度的事件驱动因素。\n\n数据库\t网址链接\t核心用途与分析场景\nWhaleWisdom\thttps://whalewisdom.com/\t机构持仓解析。深度解析 13F 文件，追踪顶级对冲基金和机构投资者的最新建仓、增减持动态。\nQuiver Quantitative\thttps://www.quiverquant.com/\t另类事件驱动。监控美国国会议员交易、企业高管内部买卖、政府合同审批等非传统数据，寻找交易催化剂。\nPolymarket\thttps://polymarket.com/\t政治风险与黑天鹅定价。基于区块链的预测市场，用于量化地缘政治事件、大选结果等宏观风险发生的概率。\n4. 个股基本面与技术分析 (Fundamentals & Technicals)\n深入挖掘单家公司的财务健康状况、商业模式，并结合技术面进行精准择时。\n\n数据库\t网址链接\t核心用途与分析场景\nStock Analysis\thttps://stockanalysis.com/\t深度基本面体检。提供个股的详细财务报表、分析师盈利预测以及高级量化筛选器，用于评估公司的内在价值。\nSeeking Alpha\thttps://seekingalpha.com/latest-articles\t多空观点对冲与财报解读。聚合众包的深度研究文章，在分析个股时用于收集多空双方的逻辑，进行交叉验证。\nTradingView Markets\thttps://www.tradingview.com/markets/\t跨资产图表与技术择时。提供强大的实时图表工具，用于关键支撑/阻力位的判断和技术指标分析。\nFinviz\thttps://finviz.com/\t市场广度与股票筛选。通过板块热力图快速把握市场资金主线，使用其筛选器定位符合特定技术和基本面形态的个股。\nYahoo Finance\thttps://finance.yahoo.com/\t综合数据与实时验证。作为基础数据的快速核对工具，获取实时报价、基础财务指标及突发新闻对股价的即时影响。\n5. 垂直领域与区域市场 (Verticals & Regional Markets)\n针对用户特定关注的产业（如新能源、AI）及区域市场（加拿大、中国）的深度数\n",
+  "stderr": "",
+  "execution_time_ms": 369
+}

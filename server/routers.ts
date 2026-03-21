@@ -1373,8 +1373,9 @@ export const appRouter = router({
         process.env.COINGECKO_API_KEY
           ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
-        // Baostock（A股）
-        pingBaostock().then(ok => ok ? "active" as const : "error" as const),
+        // Baostock（A股）：Python 子进程库，仅在本地沙筆环境可用
+        // 当探针失败时返回 "warning"（表示环境限制）而非 "error"（表示配置错误）
+        pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";

@@ -28,17 +28,20 @@ function DataSourceStatusPanel() {
     if (s === "active") return "oklch(0.72 0.18 142)";
     if (s === "exhausted") return "oklch(0.72 0.18 50)";
     if (s === "timeout") return "oklch(0.72 0.18 50)";
+    if (s === "warning") return "oklch(0.75 0.16 80)"; // 黄色：环境限制
     return "oklch(0.65 0.18 20)";
   };
   const statusBg = (s: string) => {
     if (s === "active") return "oklch(0.72 0.18 142 / 0.12)";
     if (s === "exhausted" || s === "timeout") return "oklch(0.72 0.18 50 / 0.12)";
+    if (s === "warning") return "oklch(0.75 0.16 80 / 0.10)"; // 黄色背景
     return "oklch(0.65 0.18 20 / 0.12)";
   };
   const statusLabel = (s: string) => {
     if (s === "active") return "正常";
     if (s === "exhausted") return "已耗尽";
     if (s === "timeout") return "超时";
+    if (s === "warning") return "本地运行"; // Python 库仅在本地沙筆可用
     return "未配置";
   };
 
@@ -82,18 +85,18 @@ function DataSourceStatusPanel() {
             <span className="text-xs px-1.5 py-0.5 rounded-full"
               style={{ background: "oklch(0.20 0.005 270)", color: "oklch(0.50 0.01 270)" }}>
               {[
-                status.yahoo.status === "active" ? 1 : 0,
-                status.fred.status === "active" ? 1 : 0,
-                status.worldBank.status === "active" ? 1 : 0,
-                (status as any).imf?.status === "active" ? 1 : 0,
-                (status as any).finnhub?.status === "active" ? 1 : 0,
-                (status as any).fmp?.status === "active" ? 1 : 0,
-                (status as any).polygon?.status === "active" ? 1 : 0,
-                (status as any).alphaVantage?.status === "active" ? 1 : 0,
-                (status as any).secEdgar?.status === "active" ? 1 : 0,
-                (status as any).coinGecko?.status === "active" ? 1 : 0,
-                (status as any).baostock?.status === "active" ? 1 : 0,
-                (status.tavily ?? []).filter(k => k.configured && k.status === "active").length,
+                ["active","warning"].includes(status.yahoo.status) ? 1 : 0,
+                ["active","warning"].includes(status.fred.status) ? 1 : 0,
+                ["active","warning"].includes(status.worldBank.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).imf?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).finnhub?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).fmp?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).polygon?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).alphaVantage?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).secEdgar?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).coinGecko?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).baostock?.status) ? 1 : 0,
+                (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
               {11 + (status.tavily ?? []).filter(k => k.configured).length}

@@ -700,3 +700,9 @@
 - [x] 实现数据源去重：Yahoo Finance 跳过已由 Baostock 处理的 A 股代码（fetchStockDataForTaskWithDedup）
 - [x] 新增 4 个辅助函数：yahooToBoastockCode / baostockToYahooCode / isAStockYahooCode / getAStockName
 - [x] 编写 24 个测试（名称库覆盖度/代码转换/去重逻辑），132 个测试全部通过
+
+## Bug 修复：Baostock 状态面板显示红色「未配置」
+- [x] 定位根因：部署环境 Python 子进程失败时返回 error，导致显示红色「未配置」
+- [x] 修复：Baostock 探针失败时返回 warning（黄色「本地运行」）而非 error（红色）
+- [x] 前端新增 warning 状态的黄色样式和「本地运行」标签
+- [x] 总计计数器将 warning 也纳入「正常」计数

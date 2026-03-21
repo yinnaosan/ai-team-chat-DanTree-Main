@@ -15,6 +15,7 @@
  */
 
 import { notifyOwner } from "./_core/notification";
+import { fetchMultipleWithJina } from "./jinaReader";
 
 // 四个Key按顺序排列，过滤掉未配置的
 const TAVILY_KEYS = [
@@ -187,59 +188,100 @@ async function tavilyExtractRequest(urls: string[]): Promise<TavilyResult[]> {
 
 /**
  * 【最高优先级】从用户数据库链接获取真实内容
- * Step1: 直接抓取指定URL（Tavily Extract）
- * Step2: 在这些域名范围内关键词搜索
+ * 策略：Tavily 搜索优先，内容不足时 Jina Reader 补充抓取
+ *
+ * 执行顺序：
+ * 1. Tavily Extract 直接抓取指定 URL（快速，但动态网站可能失败）
+ * 2. Tavily Search 在用户域名范围内关键词搜索
+ * 3. 对 Tavily 未能抓取或内容过少的 URL，改用 Jina Reader 补充
  */
 export async function searchFromUserLibrary(
   query: string,
   libraryUrls: string[]
 ): Promise<string> {
-  if (!isTavilyConfigured() || libraryUrls.length === 0) return "";
+  if (libraryUrls.length === 0) return "";
 
-  const results: TavilyResult[] = [];
+  const allParts: string[] = [];
+  const tavilyResults: TavilyResult[] = [];
 
-  // Step A: 直接抓取最多3个URL的完整内容
-  const topUrls = libraryUrls.slice(0, 3);
-  try {
-    const extracted = await tavilyExtractRequest(topUrls);
-    results.push(...extracted);
-  } catch (err) {
-    console.error("[Tavily] Extract failed:", err);
+  // Step A: Tavily Extract 直接抓取前3个URL
+  if (isTavilyConfigured()) {
+    const topUrls = libraryUrls.slice(0, 3);
+    try {
+      const extracted = await tavilyExtractRequest(topUrls);
+      tavilyResults.push(...extracted);
+    } catch {
+      // Tavily Extract 失败，继续用 Jina 补充
+    }
+
+    // Step B: Tavily Search 在用户域名范围内关键词搜索
+    const domains = libraryUrls
+      .map(url => {
+        try { return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, ""); }
+        catch { return null; }
+      })
+      .filter(Boolean) as string[];
+
+    const uniqueDomains = Array.from(new Set(domains)).slice(0, 10);
+
+    if (uniqueDomains.length > 0) {
+      const searchResults = await tavilySearchRequest({
+        query,
+        max_results: 5,
+        search_depth: "advanced",
+        include_domains: uniqueDomains,
+        include_answer: true,
+        topic: "finance",
+      });
+      tavilyResults.push(...searchResults);
+    }
   }
 
-  // Step B: 在用户数据库域名范围内关键词搜索
-  const domains = libraryUrls
-    .map(url => {
-      try { return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, ""); }
-      catch { return null; }
-    })
-    .filter(Boolean) as string[];
+  // Step C: 判断哪些 URL 的内容不足，交给 Jina Reader 补充
+  // 判断标准：Tavily 返回内容 < 200 字符，或该 URL 完全没有被 Tavily 抓到
+  const tavilySuccessUrls = new Set(
+    tavilyResults
+      .filter(r => r.content && r.content.length >= 200)
+      .map(r => {
+        try { return new URL(r.url).hostname.replace(/^www\./, ""); }
+        catch { return ""; }
+      })
+  );
 
-  const uniqueDomains = Array.from(new Set(domains)).slice(0, 10);
+  // 找出 Tavily 没有覆盖到的域名对应的原始 URL
+  const urlsNeedingJina = libraryUrls.filter(url => {
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, "");
+      return !tavilySuccessUrls.has(hostname);
+    } catch { return false; }
+  }).slice(0, 5); // 最多补充5个
 
-  if (uniqueDomains.length > 0) {
-    const searchResults = await tavilySearchRequest({
-      query,
-      max_results: 5,
-      search_depth: "advanced",
-      include_domains: uniqueDomains,
-      include_answer: true,
-      topic: "finance",
-    });
-    results.push(...searchResults);
+  // 用 Jina Reader 抓取 Tavily 未覆盖的 URL
+  if (urlsNeedingJina.length > 0) {
+    const jinaResults = await fetchMultipleWithJina(urlsNeedingJina, 3);
+    const jinaSuccessful = jinaResults.filter(r => r.success && r.content.trim().length > 100);
+
+    if (jinaSuccessful.length > 0) {
+      const jinaFormatted = jinaSuccessful
+        .map((r, i) => `### Jina来源${i + 1}：${r.title}\n**URL**: ${r.url}\n\n${r.content.slice(0, 1000)}`)
+        .join("\n\n---\n\n");
+      allParts.push(`## 网页内容（Jina Reader 抓取）\n\n${jinaFormatted}`);
+    }
   }
 
-  if (results.length === 0) return "";
+  // 格式化 Tavily 结果
+  if (tavilyResults.length > 0) {
+    const formatted = tavilyResults
+      .slice(0, 6)
+      .map((r, i) => {
+        const date = r.published_date ? ` (${r.published_date})` : "";
+        return `### 来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content?.slice(0, 800) ?? ""}`;
+      })
+      .join("\n\n---\n\n");
+    allParts.push(`## 用户数据库实时内容（来源：Tavily 搜索）\n\n${formatted}`);
+  }
 
-  const formatted = results
-    .slice(0, 6)
-    .map((r, i) => {
-      const date = r.published_date ? ` (${r.published_date})` : "";
-      return `### 来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content?.slice(0, 800) ?? ""}`;
-    })
-    .join("\n\n---\n\n");
-
-  return `## 用户数据库实时内容（来源：Tavily 抓取）\n\n${formatted}`;
+  return allParts.join("\n\n---\n\n");
 }
 
 /**

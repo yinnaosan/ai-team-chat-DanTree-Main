@@ -593,3 +593,9 @@
 - [x] 清理废弃变量 GLOBAL_TASK_INSTRUCTION（空字符串，每次任务无意义拼接）
 - [ ] Bug7：fileProcessor.ts 对 PDF/Word 文件使用 image_url 方式调用 LLM——非图片文件用 image_url 会导致 LLM 无法正确解析
 - [ ] Bug8：Tavily 精炼搜索结果覆盖初始搜索——当精炼结果非空时完全丢弃初始搜索结果，可能丢失有价値的早期数据
+
+## Bug修复续集（2026-03-21）
+- [x] Bug8：Tavily 精炼结果与初始结果合并（精炼结果在前，初始结果补充在后，不再丢弃早期数据）
+- [x] Bug7：fileProcessor.ts 修复——PDF 改用 file_url 类型，Word/Excel 改用 Jina Reader 文本提取
+- [x] 验证对话连续性：历史过滤条件已修复，所有非空 assistant 消息均可用于历史上下文
+- [x] 修复 chat.test.ts mock 缺少 getRelevantMemory 导致测试失败

@@ -444,8 +444,17 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）
     const earlyTavilyStr = earlyTavilyResult.status === "fulfilled" ? (earlyTavilyResult.value ?? "") : "";
     const refinedTavilyStr = refinedTavilyResult.status === "fulfilled" ? (refinedTavilyResult.value ?? "") : "";
-    // 精炼结果有内容则用精炼结果，否则用初始结果（避免重复内容）
-    const webSearchStr = refinedTavilyStr || earlyTavilyStr;
+    // Bug8 修复：合并初始搜索 + 精炼搜索结果，去重后保留更多有价值数据
+    // 旧逻辑：精炼结果非空时完全丢弃初始结果（可能丢失有价值的早期数据）
+    // 新逻辑：两次结果都保留，按来源分段拼接（精炼结果优先展示）
+    let webSearchStr: string;
+    if (refinedTavilyStr && earlyTavilyStr && refinedTavilyStr !== earlyTavilyStr) {
+      // 两次结果都有内容且不同：精炼结果在前，初始结果补充在后
+      webSearchStr = refinedTavilyStr + "\n\n---\n\n" + earlyTavilyStr;
+    } else {
+      // 只有一个有内容，或两者相同（query 未变化时）
+      webSearchStr = refinedTavilyStr || earlyTavilyStr;
+    }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
 
     const realTimeDataBlock = [

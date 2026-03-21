@@ -40,6 +40,7 @@ vi.mock("./db", () => ({
   revokeUserAccess: vi.fn().mockResolvedValue(undefined),
   // Memory mocks
   getRecentMemory: vi.fn().mockResolvedValue([]),
+  getRelevantMemory: vi.fn().mockResolvedValue([]),
   saveMemoryContext: vi.fn().mockResolvedValue(undefined),
   // Conversation mocks
   createConversation: vi.fn().mockResolvedValue(42),

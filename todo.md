@@ -804,3 +804,65 @@
 - [x] 创建 server/secEdgar.test.ts（35 个测试，全部通过）
 - [x] 修复 multiSourceApis.test.ts 旧版 SEC EDGAR 测试（与新接口兼容）
 - [x] 全量测试 198 个全部通过，TypeScript 0 错误
+
+## 死代码清理 + 新功能集成（GLEIF + SEC 8-K 摘要 + 归因 UI）
+- [ ] 扫描 server/ 目录：找出未被 routers.ts 导入的孤立函数/文件
+- [ ] 扫描 client/src/ 目录：找出未使用的组件、未引用的路由、注释掉的旧逻辑
+- [ ] 清理 routers.ts 中注释掉的旧代码块
+- [ ] 删除或合并重复的工具函数
+- [ ] 创建 server/gleifApi.ts（全球法人机构识别码/公司名称搜索/法人结构）
+- [ ] 接入 GLEIF 到 Step1 资源规划和 Step2 并行数据获取
+- [ ] 接入 GLEIF 到 getDataSourceStatus 健康检测
+- [ ] 更新 Settings.tsx 添加 GLEIF 数据源行
+- [ ] 扩展 secEdgarApi.ts：新增 get8KSummary（LLM 智能摘要 8-K 公告）
+- [ ] 接入 8-K 摘要到 Step2 引擎（当 secFilings 包含 8-K 时触发）
+- [ ] 后端：Step2 执行时收集实际调用的 API 名称列表（usedSources 字段）
+- [ ] 后端：最终 assistant 消息携带 usedSources 元数据
+- [ ] 前端：AI 回复底部显示可折叠「数据来源」卡片（列出本次实际调用的 API）
+- [ ] 编写 gleif.test.ts 测试用例
+- [ ] 全量测试通过，TypeScript 0 错误
+- [ ] 保存 Checkpoint
+
+## CourtListener API 集成（美国联邦法院判决与诉讼数据）
+- [ ] 验证 CourtListener API Key（d79de03f84c80caf0f47bb7881f6f1856611f7b1）
+- [ ] 调研 CourtListener API 端点（判决搜索/诉讼查询/公司诉讼历史）
+- [ ] 创建 server/courtListenerApi.ts 模块
+- [ ] 接入 Step1 资源规划（合规/诉讼风险触发条件）
+- [ ] 接入 Step2 并行数据获取
+- [ ] 更新 getDataSourceStatus 健康检测
+- [ ] 更新 Settings.tsx 添加 CourtListener 数据源行
+- [ ] 编写 courtListener.test.ts 单元测试
+- [ ] 全量测试通过，TypeScript 0 错误
+- [ ] 保存 Checkpoint
+
+## EUR-Lex API 集成（欧盟官方法律法规数据库）
+- [ ] 验证 EUR-Lex CELEX URL 拼接端点（无需 API Key）
+- [ ] 创建 server/eurLexApi.ts 模块（CELEX 编号查询/法规全文提取/关键词搜索）
+- [ ] 接入 Step1 资源规划（欧盟法规/合规/监管触发条件）
+- [ ] 接入 Step2 并行数据获取
+- [ ] 更新 getDataSourceStatus 健康检测
+- [ ] 更新 Settings.tsx 添加 EUR-Lex 数据源行
+- [ ] 编写 eurLex.test.ts 单元测试
+- [ ] 全量测试通过，TypeScript 0 错误
+- [ ] 保存 Checkpoint
+
+## Congress.gov API 集成（美国国会立法数据库）
+- [ ] 验证 Congress.gov API Key（SpLH43dTTokdt5NhJDAMo6Z4dSAHAYGnLsfR8LJz）
+- [ ] 调研端点：法案搜索/法案全文/投票记录/国会议员信息
+- [ ] 创建 server/congressApi.ts 模块
+- [ ] 接入 Step1 资源规划（立法/监管/政策触发条件）
+- [ ] 接入 Step2 并行数据获取
+- [ ] 更新 getDataSourceStatus 健康检测
+- [ ] 更新 Settings.tsx 添加 Congress.gov 数据源行
+- [ ] 编写 congress.test.ts 单元测试
+- [ ] 全量测试通过，TypeScript 0 错误
+- [ ] 保存 Checkpoint
+
+## 三步协作架构重构（按需调资源 + AI 内部压缩通信）
+- [x] 设计 AI 内部通信协议（TASK_SPEC 压缩格式）和资源规划新格式（具体数据源+深度+广度）
+- [x] 重写 Step1 GPT prompt：主观分析框架 + 精准资源指令生成（AI 内部语言）
+- [x] 重写 Step2 Manus prompt：资源审查调整机制 + 按需调动 API（Manus 有权补漏/去冗余）
+- [x] 重写 Step3 GPT prompt：GPT 主观分析 + Manus 客观数据深度融合，输出人类语言
+- [x] 更新 parseResourcePlan 解析逻辑（适配新格式，支持具体数据源名称而非粗粒度开关）
+- [x] 更新 Step2 并行数据获取逻辑（按新资源规划精准触发，不再用 8 个布尔开关）
+- [x] 运行全量测试并保存检查点

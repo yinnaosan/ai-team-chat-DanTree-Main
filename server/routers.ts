@@ -140,91 +140,58 @@ async function runCollaborationFlow(
   // 用户核心规则（每次任务必须严格遵守）
   // ----------------------------------------------------------------------------
   // 如果用户已自定义守则，优先使用自定义守则；否则使用默认守则
-  const DEFAULT_CORE_RULES = ` 用户核心规则（必须严格遵守）
-
-### 投资理念（段永平体系）
-- 以企业内在价值为核心，不做短线投机
-- 买入前问：如果市场关闭10年，我还愿意持有吗？
-- 只投资自己真正理解的企业
-- 安全边际优先，宁可错过也不冒险
-- 长期持有优质企业，让复利发挥作用
-- 分散风险但不过度分散（集中在最有把握的机会）
-
-### 重点关注市场（按优先级）
-1. 美国（纳斯达克、NYSE）— 最高优先级
-2. 香港（恒生、港股通）
-3. 中国大陆（A股、沪深）
-4. 欧盟（DAX、CAC40、欧元区）
-5. 英国（FTSE100）
-- 分析时必须考虑市场间关联性、异动传导和跨市场影响
-- 必须进行逻辑正推（当前→未来）和倒推（结果→原因）双向验证
-
-### 回复格式规范（GPT风格，必须执行）
-- 每个章节必须有 ## 二级标题
-- 关键数字、结论、风险点必须 **加粗**
-- 核心判断和投资建议放在 > 引用块中
-- 数据对比必须用 Markdown 表格（不少于3列）
-- 整体排版有视觉层次，禁止输出纯文本段落
-- 中文输出，专业但不晦涩
-
-### 任务执行规范
-- 每次任务执行前、执行中、输出前必须自我复查是否遵守以上规则
-- 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
-  - 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
+  // 默认投资守则（压缩格式，节省 token）
+  const DEFAULT_CORE_RULES = `[RULES|PRIORITY=MAX]
+PHILOSOPHY: value>price|hold10y?|understand_biz|margin_of_safety|compounding|concentrate_conviction
+MARKETS: US(NASDAQ/NYSE)>HK(HSI)>CN(A-share)>EU(DAX/CAC)>UK(FTSE)|cross-market_contagion_required
+ANALYSIS: forward_logic(now→future)+reverse_logic(outcome→cause) mandatory
+FORMAT: ##headers|**bold_key**|>blockquote_judgment|table≥3col|no_plain_text|zh_output
+EXEC: self-check_before/during/after|2-3_followup_Qs|context_continuity`;
 
   // ----------------------------------------------------------------------------
   // 「投资理念 & 任务守则」三部分强制注入（最高优先级，GPT & Manus 必须遵守）
   // ----------------------------------------------------------------------------
 
   // 第一部分：投资守则（用户投资喜好、理念、个人情况）
-  const PART1_INVESTMENT_RULES = userConfig?.investmentRules?.trim()
-    ? `
+  // 资料库域名提取（供 PART3 和 Step1 共用）
+  const userLibraryUrls: string[] = userConfig?.dataLibrary?.trim()
+    ? userConfig.dataLibrary
+        .split(/[\n,]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.startsWith("http"))
+    : [];
+  const _domainSet = new Set(
+    userLibraryUrls.map(url => { try { return new URL(url).hostname; } catch { return url; } })
+  );
+  const userLibraryDomains: string[] = Array.from(_domainSet);
 
-## ═══ 第一部分：投资守则（最高优先级，必须严格遵守）═══
-${userConfig.investmentRules.trim()}`
-    : `
-
-## ═══ 第一部分：投资守则（最高优先级，必须严格遵守）═══
-${DEFAULT_CORE_RULES}`;
+    const PART1_INVESTMENT_RULES = userConfig?.investmentRules?.trim()
+    ? `\n[RULES]\n${userConfig.investmentRules.trim()}`
+    : `\n[RULES]\n${DEFAULT_CORE_RULES}`;
 
   // 第二部分：全局任务指令（AI执行规范，不随任务变动）
   const PART2_TASK_INSTRUCTION = userConfig?.taskInstruction?.trim()
-    ? `
-
-## ═══ 第二部分：全局任务指令（必须严格执行）═══
-${userConfig.taskInstruction.trim()}`
+    ? `\n[TASK_INSTR]\n${userConfig.taskInstruction.trim()}`
     : (userConfig?.manusSystemPrompt?.trim()
-      ? `
-
-## ═══ 第二部分：全局任务指令（必须严格执行）═══
-${userConfig.manusSystemPrompt.trim()}`
+      ? `\n[TASK_INSTR]\n${userConfig.manusSystemPrompt.trim()}`
       : "");
 
   // 第三部分：资料数据库（优先数据来源）
-  const PART3_DATA_LIBRARY = userConfig?.dataLibrary?.trim()
-    ? `
-
-## ═══ 第三部分：资料数据库（最高优先级数据来源）═══
-【重要】以下资料数据库是用户指定的权威数据来源。执行任务时：
-1. 优先从这些来源获取数据、新闻、观点和论证
-2. 如果这些来源无法提供所需信息，再使用外部数据（必须标注来源和可靠性）
-3. 禁止编造数据，如无法获取必须说明
-
-${userConfig.dataLibrary.trim()}`
+  const PART3_DATA_LIBRARY = userLibraryDomains.length > 0
+    ? `\n[LIB_DOMAINS] ${userLibraryDomains.join('|')}`
     : "";
 
   // 合并三部分，构建完整的守则块
   const USER_CORE_RULES = PART1_INVESTMENT_RULES + PART2_TASK_INSTRUCTION + PART3_DATA_LIBRARY;
 
   // Manus 幕后数据引擎
-  const manusSystemPrompt = `[INTERNAL: You are the data engine. Recipient: GPT. Task: collect structured data for GPT analysis.]
-输出格式：纯数据结构（表格/数字/指标），无解释性语句，无开头语，无结尾语。直接输出数据。
-
-❗❗❗ 数据真实性强制规则（最高优先级，严格执行）：
-1. 【第一优先】如果上下文中已提供「已获取的实时数据」，必须直接使用这些数据，不得重新编造或修改
-2. 【第二优先】如果实时数据中没有某个指标，必须明确标注 N/A（未获取实时数据），严禁用训练记忆或历史知识填充
-3. 【绝对禁止】编造、猜测、或使用训练数据作为实时数据输出——如果没有真实来源，必须标注 N/A
-4. 【数据来源】每个数据点必须标注来源：[Yahoo Finance]、[FRED]、[Tavily: 网址]、[N/A]四种之一` + USER_CORE_RULES;
+  const manusSystemPrompt = `[SYS:MANUS|ROLE:data_engine|RECIPIENT:GPT]
+OUT:table/num/metric_only|no_intro|no_outro|direct_data
+DATA_INTEGRITY[MAX]:
+1. realtime_ctx→use_as_is|no_modify
+2. missing→N/A|no_hallucinate|no_training_fill
+3. PROHIBIT:fabricate|guess|training_data_as_realtime
+4. LABEL:[yahoo_finance]|[fred]|[tavily:domain]|[api:name]|[N/A]` + USER_CORE_RULES;
 
   // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
   const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
@@ -367,52 +334,66 @@ ${userConfig.dataLibrary.trim()}`
     await updateTaskStatus(taskId, "manus_working");
 
     // 解析用户数据库链接（支持换行和逗号分隔）
-    const userLibraryUrls = userConfig?.dataLibrary
-      ? userConfig.dataLibrary
-          .split(/[\n,]+/)
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.startsWith("http"))
-      : [];
+    // userLibraryUrls 已在函数顶部定义
 
-    // GPT Step1 prompt：制定框架 + 开始主观分析
-    const gptStep1UserMsg = `【用户当前消息】
-${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${attachmentBlock}
+    // GPT Step1 prompt：任务拆分 + 精准资源指令（TASK_SPEC）+ 并行执行 GPT 自己的分析
+    // ── 可用 API 目录（供 GPT 按需精确指定，不要全部调用）──────────────────────
+    const AVAILABLE_APIS_CATALOG = `
+[市场行情] yahoo_finance(ticker,period) | finnhub(ticker) | polygon(ticker) | tiingo(ticker,metrics)
+[深度财务] fmp(ticker,statements,years) | simfin(ticker,period) | sec_edgar(ticker,forms)
+[技术分析] alpha_vantage_tech(ticker,indicators) | polygon_options(ticker)
+[宏观数据] fred(series_ids,limit) | world_bank(countries,indicators) | imf_wb(countries,indicators) | ecb(series) | boe(series) | hkma(series) | alpha_vantage_econ(indicators)
+[地区专项] baostock(code,period) | hkex(code,doc_types)
+[加密货币] coingecko(coins,metrics)
+[新闻情绪] news_api(query,sources) | marketaux(ticker,sentiment) | gdelt(query,themes)
+[网页搜索] tavily_search(query) ← 限定在用户资源库域名内搜索
+资源库域名: ${userLibraryDomains.slice(0, 8).join(' | ')}${userLibraryDomains.length > 8 ? ' ...' : ''}`;
 
----
-【当前分析模式：${modeConfig.label}】${modeConfig.step1Hint ? "\n" + modeConfig.step1Hint : ""}
+    const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
+QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
 
-你的任务（Step 1）——作为首席投资顾问，先建立严谨的分析框架，再向数据引擎发出精确的数据需求：
+${AVAILABLE_APIS_CATALOG}
 
-1. **判断连续性**：结合对话历史，判断是延续还是新任务。如是延续，引用上一次的具体结论（不是模糊的"上次分析了"）。
-2. **建立分析框架**：明确本次分析的层次结构（如：宏观环境 → 行业地位 → 企业基本面 → 估值 → 安全边际 → 投资建议）。
-3. **初步判断（必须具体）**：对主观逻辑、市场情绪、投资逻辑给出初步判断和假设，必须包含具体的方向性结论（如"初步判断该公司护城河尚在，但待数据验证利润率走向"）。
-5. **精确数据需求清单**：向数据引擎发出精确指令，包括：
-   - 具体指标名称（如：Trailing PE、Forward PE、EV/EBITDA、自由现金流收益率）
-   - 时间范围（如：最近 5 年财务数据、近 12 个月股价走势）
-   - 对比基准（如：行业均值、主要竞争对手、历史平均估值）
-   - 关键风险指标（如：负债率、利息覆盖倍数、应收账款周转天数）
-6. **资源规划（必填）**：基于任务性质和重要程度，决定调用哪些数据源。在「资源规划」部分输出如下 JSON（用三个反引号包裹）：
-{ "dataSources": { "technicalIndicators": true/false, "optionsChain": true/false, "macroData": true/false, "newsAndSentiment": true/false, "cryptoData": true/false, "deepFinancials": true/false, "secFilings": true/false, "webSearch": true/false }, "priority": "quick/standard/deep", "reasoning": "一句话说明为什么这样规划" }
+[INSTRUCTIONS]
+你是首席投资顾问（GPT），Step1 同步执行两部分：
 
-**资源规划原则**：
-- 纯宏观问题（如美联储政策、GDP走势）：macroData=true，其他资产类=false
-- 股票基本面分析：webSearch=true，技术面可选
-- 股票技术面分析：technicalIndicators=true，深度财务可略
-- 加密货币任务：cryptoData=true，其他资产类=false
-- 期权分析或高风险评估：optionsChain=true
-- 快速问答/闲聊：全部 false，不调用任何 API
+■ PART-A：任务拆分与资源规划（传给 Manus 执行）
+① 判断任务类型（新任务/延续，如延续引用上次具体结论）
+② 建立分析框架（3-5层层次结构，明确核心问题）
+③ 精确资源指令：从目录中按需选取 API，每个指定 name/params/purpose
+   ⚠ 资源选取原则：
+   • 只选任务真正需要的 API，不堆砌，不重复
+   • params 精确指定字段和时间范围（如 fields:["revenue","netIncome"] 而非取全量）
+   • 快速问答/闲聊：apis 为空数组，不调用任何 API
+   • tavily_query：只在需要市场观点/新闻/行业报告时才填，否则为 null
 
-输出格式：
-## 任务判断
-（延续/新任务 + 具体引用点）
-## 分析框架
-（分析层次结构）
-## 初步判断
-（必须包含方向性结论，不允许纯框架描述）
-## 数据引擎精确需求清单
-（具体指标名称 + 时间范围 + 对比基准 + 关键风险指标）
-## 资源规划
-（输出上面格式的 JSON）`;
+■ PART-B：GPT 自己的分析（同步执行，不等 Manus 数据）
+基于专业知识立即执行你擅长的维度：
+• 投资逻辑推演（护城河/竞争优势/行业格局/商业模式）
+• 宏观叙事判断（政策方向/市场情绪/周期位置/利率环境）
+• 风险识别（尾部风险/结构性风险/黑天鹅/监管风险）
+• 历史类比（与历史相似情形对比，给出方向性判断）
+⚠ PART-B 必须有实质性判断，禁止用「待数据验证」替代内容
+
+[OUTPUT - Manus 将解析此格式，严格遵守]
+## TASK_ANALYSIS
+（任务类型|连续性|核心问题，3句以内）
+## ANALYSIS_FRAMEWORK
+（分析层次，每层一行，格式：层级→核心问题）
+## RESOURCE_SPEC
+\`\`\`json
+{
+  "apis": [
+    {"name": "API名称", "params": {"ticker": "AAPL", "period": "3y", "fields": ["revenue","netIncome","eps"]}, "purpose": "验证营收增长趋势和盈利质量"},
+    {"name": "fred", "params": {"series_ids": ["FEDFUNDS","CPIAUCSL"], "limit": 24}, "purpose": "判断利率环境对估值的压制程度"}
+  ],
+  "tavily_query": "苹果AI战略分析师观点 2024 或 null",
+  "priority": "quick|standard|deep",
+  "reasoning": "资源选取理由（一句话，说明为何选这些不选其他）"
+}
+\`\`\`
+## GPT_ANALYSIS
+（PART-B 实质性分析，必须包含方向性判断，禁止纯框架描述）`;
 
     // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 + 多源金融数据 ──────────────
     // 提取 ticker 供多源数据使用
@@ -472,36 +453,72 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       priority: "quick" | "standard" | "deep";
       reasoning: string;
     }
-    const parseResourcePlan = (step1Text: string): ResourcePlan => {
-      // 默认规划：全部启用（向后兼容，不降级已有功能）
-      const defaultPlan: ResourcePlan = {
+    // taskSpec 扩展字段（新版 TASK_SPEC 格式，含精确 API 参数）
+    type ResourcePlanWithSpec = ResourcePlan & { taskSpec: { apis: Array<{ name: string; params: Record<string, unknown>; purpose: string }>; tavily_query: string | null; priority: string; reasoning: string } | null };
+    // ── 新版 TASK_SPEC 解析：将精确 API 名称映射到布尔开关 ──────────────────
+    interface TaskSpec {
+      apis: Array<{ name: string; params: Record<string, unknown>; purpose: string }>;
+      tavily_query: string | null;
+      priority: "quick" | "standard" | "deep";
+      reasoning: string;
+    }
+    const parseResourcePlan = (step1Text: string): ResourcePlan & { taskSpec: TaskSpec | null } => {
+      // 默认规划（兜底，当 GPT 未输出 TASK_SPEC 时使用）
+      const defaultPlan: ResourcePlan & { taskSpec: TaskSpec | null } = {
         dataSources: {
           technicalIndicators: false,
           optionsChain: false,
-          macroData: true,
+          macroData: false,
           newsAndSentiment: true,
           cryptoData: false,
-          deepFinancials: true,
-          secFilings: true,
+          deepFinancials: false,
+          secFilings: false,
           webSearch: true,
         },
         priority: "standard",
         reasoning: "fallback default",
+        taskSpec: null,
       };
       try {
-        // 提取「资源规划」部分的 JSON（匹配 { ... } 结构）
-        const sectionMatch = step1Text.match(/##\s*资源规划[\s\S]*?({[\s\S]*?})/m);
-        if (!sectionMatch) return defaultPlan;
-        const jsonStr = sectionMatch[1]
-          .replace(/true\/false/g, "false") // 清理模板占位符
-          .replace(/"quick\/standard\/deep"/g, '"standard"');
-        const parsed = JSON.parse(jsonStr) as ResourcePlan;
-        // 合并，确保所有字段存在
-        return {
-          dataSources: { ...defaultPlan.dataSources, ...(parsed.dataSources ?? {}) },
-          priority: parsed.priority ?? "standard",
-          reasoning: parsed.reasoning ?? "",
-        };
+        // 优先解析新格式 RESOURCE_SPEC JSON
+        const specMatch = step1Text.match(/##\s*RESOURCE_SPEC[\s\S]*?```json([\s\S]*?)```/m)
+          || step1Text.match(/```json([\s\S]*?{[\s\S]*?"apis"[\s\S]*?})```/m);
+        if (specMatch) {
+          const spec = JSON.parse(specMatch[1].trim()) as TaskSpec;
+          const apiNames = (spec.apis || []).map((a) => a.name.toLowerCase());
+          // API 名称 → 布尔开关映射（精确控制，不堆砌）
+          const has = (names: string[]) => names.some((n) => apiNames.includes(n));
+          return {
+            dataSources: {
+              technicalIndicators: has(["alpha_vantage_tech"]),
+              optionsChain: has(["polygon_options"]),
+              macroData: has(["fred", "world_bank", "imf_wb", "ecb", "boe", "hkma", "alpha_vantage_econ"]),
+              newsAndSentiment: has(["news_api", "marketaux", "gdelt"]) || spec.tavily_query != null,
+              cryptoData: has(["coingecko"]),
+              deepFinancials: has(["fmp", "simfin", "tiingo", "finnhub", "polygon", "sec_edgar"]),
+              secFilings: has(["sec_edgar"]),
+              webSearch: spec.tavily_query != null,
+            },
+            priority: spec.priority ?? "standard",
+            reasoning: spec.reasoning ?? "",
+            taskSpec: spec,
+          };
+        }
+        // 兼容旧格式（布尔开关 JSON）
+        const legacyMatch = step1Text.match(/##\s*资源规划[\s\S]*?({[\s\S]*?})/m);
+        if (legacyMatch) {
+          const jsonStr = legacyMatch[1]
+            .replace(/true\/false/g, "false")
+            .replace(/"quick\/standard\/deep"/g, '"standard"');
+          const parsed = JSON.parse(jsonStr) as ResourcePlan;
+          return {
+            dataSources: { ...defaultPlan.dataSources, ...(parsed.dataSources ?? {}) },
+            priority: parsed.priority ?? "standard",
+            reasoning: parsed.reasoning ?? "",
+            taskSpec: null,
+          };
+        }
+        return defaultPlan;
       } catch {
         return defaultPlan;
       }
@@ -518,7 +535,9 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       }
       return fallback;
     };
-    const refinedTavilyQuery = extractDataNeedsQuery(gptStep1Output, taskDescription);
+    // 优先使用 TASK_SPEC 中的精确 tavily_query，其次提取数据需求清单，最后用原始任务描述
+    const refinedTavilyQuery = resourcePlan.taskSpec?.tavily_query
+      || extractDataNeedsQuery(gptStep1Output, taskDescription);
 
     // ── Step1 完成后：FRED + World Bank + IMF + 多源金融数据 + Tavily 精炼补充搜索 ────────────────────
     // 检测 A 股代码（用于触发 Baostock）
@@ -723,28 +742,39 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
     const realTimeDataBlock = [structuredDataBlock, webContentBlock].filter(Boolean).join("\n\n---\n\n");
-    const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
+    // Step2 Manus prompt（压缩 AI 内部语言）
+    const step2UserContent = `[MANUS←GPT|STEP2|INTERNAL]
+TASK:${taskDescription.slice(0, 200)}
+GPT_SPEC:
+${gptStep1Output}
+${structuredDataBlock ? `[PRE_DATA:structured]\n${structuredDataBlock}` : ""}
+${webContentBlock ? `[PRE_DATA:web_raw]\n${webContentBlock}` : ""}
 
-【任务】
-${fullContext}
+[MANUS_INSTRUCTIONS]
+ROLE: data_specialist — review GPT's RESOURCE_SPEC, adjust if needed, execute data collection
+AUTHORITY: ADD missing critical sources | REMOVE redundant/irrelevant | NARROW params if over-broad
+PRINCIPLE: professional+precise+efficient — neither under-collect nor over-collect
 
-【首席顾问的分析框架与数据需求】
-${gptStep1Output}${structuredDataBlock ? `\n\n---\n\n【A. 结构化实时数据（Yahoo Finance / FRED / World Bank / IMF WEO，直接使用）】\n${structuredDataBlock}` : ""}${webContentBlock ? `\n\n---\n\n【B. 网页内容数据（来自用户资料数据库，需提取整理）】\n以下是从用户指定数据源抓取的网页原始内容，请从中提取：\n- 所有数字指标（估値倍数、目标价、评级、财务数据等）\n- 分析师核心观点和评级（买入/持有/卖出 + 目标价）\n- 关键定性结论（竞争格局、催化剂、风险因素）\n- 资金流向、持仓变化等机构动向数据\n\n${webContentBlock}` : ""}
+REVIEW_CHECKLIST:
+□ Each api in RESOURCE_SPEC: is it truly needed for this task?
+□ params: are fields specific enough? (e.g. fields:["revenue","netIncome"] not full-dump)
+□ time_range: appropriate depth? (3y for trend, 1y for recent, 1q for latest)
+□ Missing critical source? Add with justification
+□ Redundant overlap? Remove with justification
 
----
-**输出规则：**
+EXECUTION:
+1. Output RESOURCE_REVIEW (one line per api: KEEP|ADD|REMOVE|NARROW → reason)
+2. Execute approved apis — use ONLY pre_data if already provided, mark [CACHED]
+3. For tavily: search ONLY within lib_domains from [LIB_DOMAINS], extract structured data only
 
-1. **A区（结构化数据）**：直接输出数字和表格，无需解释
-2. **B区（网页内容）**：提取并整理以下三类信息：
-   - 数据表格：估值指标、财务数据、价格目标（保留数字精度）
-   - 分析师共识：评级分布（买入X家/持有X家/卖出X家）、平均目标价、最高/最低目标价
-   - 关键信号：最重要的3-5条定性结论（每条不超过30字，来自网页原文）
-3. 格式：优先表格（指标 | 当前值 | 行业均 | 竞争对手 | 历史均），表格不够用时再用简短列表
-4. 数据精度：保留两位小数；标注时间节点（Q/FY）；标注币种；标注来源域名
-5. 覆盖全部需求清单中的每个指标，缺少的用 N/A 标注，不得略过
-6. 如涉及多市场，加一行传导关系说明（一句话即可）
-7. **总输出不超过 ${modeConfig.step2MaxWords} 字**，不重复数据，不填充废话
-8. 禁止：主观建议、模糊表达、重复数据、超过 ${modeConfig.step2MaxWords} 字
+OUTPUT_FORMAT (strict):
+[RESOURCE_REVIEW]
+api_name: KEEP|ADD|REMOVE|NARROW → reason (max 10 words)
+
+[DATA_REPORT]
+table/metric/number only | label source | N/A if missing | no prose
+priority: complete all GPT-requested metrics first, then add if space allows
+limit: ${modeConfig.step2MaxWords} tokens total — control at INPUT not truncation
 ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
 
     let manusReport: string;
@@ -788,48 +818,37 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     await updateTaskStatus(taskId, "gpt_reviewing");
 
     // 注：不截断 Manus 报告，完整传递。通过 Step2 指令已要求 Manus 严格控制输出在 6000 字以内。
-    const gptUserMessage = `【用户原始任务】
-${taskDescription}${historyBlock}
+    // Step3 GPT prompt（内部接收压缩格式，输出人类语言）
+    const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]
+Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
 
-【你在 Step1 的初步分析】
+[GPT_ANALYSIS_S1]
 ${gptStep1Output}
 
-【Manus 数据报告（完善描述 + 数据收集）】
+[MANUS_DATA_REPORT]
 ${manusReport}
 
----
-【当前分析模式：${modeConfig.label}】${modeConfig.step3Hint ? "\n" + modeConfig.step3Hint : ""}
+[MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 
-你现在是这次任务的最终决策者。请基于以上所有信息，输出一份**完整、深度、有明确判断**的分析回复。
+━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━
+You are the lead analyst. Merge your S1 analysis with Manus data. Deliver the final report to user.
 
-**核心要求（不可省略）：**
-1. **整合推理**：将 Manus 的数据与你的框架深度融合，逐步展开推理过程，不要只给结论——要让用户看到你是如何从数据推导出判断的
-2. **明确立场**：对用户的核心问题给出清晰的判断（买/卖/持有、高估/低估、机会/风险等），不要模糊回避
-3. **量化支撑**：用 Manus 提供的具体数据（估值倍数、财务指标、价格等）支撑每一个论点，数据要精确引用
-4. **估值倍数分析**：如果 Manus 数据中包含 Tiingo 实时估值倍数（P/E、P/B、EV、PEG），必须：
-   - 与行业均值/历史均值对比，判断当前估值是否合理
-   - 结合 SimFin 净利润/EBITDA 数据验证倍数的可靠性（避免异常值误导）
-   - 若有 EV/EBITDA 数据，计算并解读 EV/EBITDA 倍数（= EV ÷ EBITDA）
-   - 给出明确的估值判断：高估/合理/低估，并附上支撑逻辑
-5. **季度趋势分析**：如果 Manus 数据中包含 SimFin 季度损益表（Q1-Q4），必须：
-   - 分析营收/利润的季度环比和同比变化趋势（加速/减速/反转）
-   - 识别盈利质量信号（毛利率扩张/收窄、营业杠杆效应）
-   - 结合季度 EPS 趋势判断盈利可持续性
-6. **双向验证**：正推（当前基本面→未来预期）+ 倒推（如果判断正确，哪些数据应该出现），增强结论可信度
-7. **风险与边界**：明确指出判断成立的前提条件和主要风险，不回避不确定性
-8. **上下文连贯**：如果是历史任务的延续，主动引用之前的分析结论，保持对话连贯性
-9. **格式要求**：使用 Markdown 标题、加粗、表格等结构化输出，重点数据和判断要突出显示
+MANDATORY (non-negotiable):
+① INTEGRATE: fuse S1 framework + Manus data — show reasoning chain (data→logic→judgment), not just conclusions
+② POSITION: explicit stance on core question (buy/hold/sell | overvalued/fair/undervalued | opportunity/risk)
+③ QUANTIFY: cite exact numbers from Manus (PE=23.4x not "~20x"), label time (Q3 2024)
+④ VALUATION: if Manus has P/E|P/B|EV|PEG → compare vs sector avg + historical avg → verdict
+⑤ TREND: if Manus has quarterly IS → QoQ + YoY revenue/profit trend → sustainability judgment
+⑥ DUAL_VERIFY: forward(now→future) + reverse(if correct→what data appears in 12m)
+⑦ RISK: quantify main risks with magnitude (e.g. "100bp rate rise → 8-12% valuation compression")
+⑧ CONTINUITY: if follow-up task → cite previous conclusions explicitly
+⑨ CHARTS: embed %%CHART%%...%%END_CHART%% for every data/trend/comparison opportunity (min 1)
+⑩ FOLLOWUP: end with exactly 3 questions: %%FOLLOWUP%%question%%END%%
 
-**输出要求：**
-- 报告必须详细完整，不得因篇幅原因省略任何重要分析维度
-- 每个论点都要有完整的推理链，不能只给结论
-- 涉及数字的地方必须精确引用 Manus 数据，不能用"约"、"大概"等模糊表述
-- 最终判断要明确、可操作（如：目标价位区间、建仓时机条件、止损线设置）
+PROHIBIT: vague("~","maybe","TBD") as core conclusion | framework-only reply | Manus data verbatim copy | skipping reasoning chain
 
-**回复末尾必须提出2-3个具体的后续跟进问题。格式要求：**
-- 每个问题必须完整包裹在标记内：%%FOLLOWUP%%问题内容%%END%%
-- 不要在标记外再写数字列表（1. 2. 3.），直接连续写三个标记即可
-- 示例：%%FOLLOWUP%%苹果Q2营收预期是多少？%%END%%
+FORMAT: ##headers | **bold** key data | >blockquote for judgments | tables≥3col | zh_output
+%%FOLLOWUP%%苹果Q2营收预期是多少？%%END%%
 %%FOLLOWUP%%客户端升级周期对利润率影响如何？%%END%%
 %%FOLLOWUP%%与上季度相比库存去化进展怎样？%%END%%`;
 

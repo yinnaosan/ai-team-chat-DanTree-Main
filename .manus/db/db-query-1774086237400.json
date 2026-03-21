@@ -1,0 +1,152 @@
+{
+  "query": "SELECT id, userId, dataLibrary FROM rpa_configs WHERE dataLibrary IS NOT NULL AND dataLibrary != '' ORDER BY id LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT id, userId, dataLibrary FROM rpa_configs WHERE dataLibrary IS NOT NULL AND dataLibrary != '' ORDER BY id LIMIT 1;",
+  "rows": [
+    {
+      "id": "1",
+      "userId": "1",
+      "dataLibrary": "金融投资分析专属数据库清单及用途指南"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "Haver Analytics",
+      "userId": "https://www.haver.com/",
+      "dataLibrary": "核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业解读，评估数据对市场预期的影响。"
+    },
+    {
+      "id": "Trading Economics",
+      "userId": "https://tradingeconomics.com/",
+      "dataLibrary": "跨国宏观数据对比与预测。提供 196 个国家的经济指标对比、经济预测模型和财经日历，用于宏观趋势的前瞻性判断。"
+    },
+    {
+      "id": "ITC Markets Hawk-Dove",
+      "userId": "https://www.itcmarkets.com/hawk-dove-cheat-sheet-2/",
+      "dataLibrary": "央行政策立场量化。提供全球主要央行（美联储、欧央行等）委员的鹰鸽立场量化评级，用于前瞻性预判利率决议方向。"
+    },
+    {
+      "id": "CME Group",
+      "userId": "https://www.cmegroup.com/",
+      "dataLibrary": "利率预期与衍生品定价。通过 FedWatch 工具获取市场对美联储利率变动的精确概率定价，捕捉市场预期差。"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "AQR",
+      "userId": "https://www.aqr.com/",
+      "dataLibrary": "量化因子与长期假设。提取动量、价值、质量等经典量化因子的最新表现，以及各大类资产的长期资本市场假设。"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "WhaleWisdom",
+      "userId": "https://whalewisdom.com/",
+      "dataLibrary": "机构持仓解析。深度解析 13F 文件，追踪顶级对冲基金和机构投资者的最新建仓、增减持动态。"
+    },
+    {
+      "id": "Quiver Quantitative",
+      "userId": "https://www.quiverquant.com/",
+      "dataLibrary": "另类事件驱动。监控美国国会议员交易、企业高管内部买卖、政府合同审批等非传统数据，寻找交易催化剂。"
+    },
+    {
+      "id": "Polymarket",
+      "userId": "https://polymarket.com/",
+      "dataLibrary": "政治风险与黑天鹅定价。基于区块链的预测市场，用于量化地缘政治事件、大选结果等宏观风险发生的概率。"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "Stock Analysis",
+      "userId": "https://stockanalysis.com/",
+      "dataLibrary": "深度基本面体检。提供个股的详细财务报表、分析师盈利预测以及高级量化筛选器，用于评估公司的内在价值。"
+    },
+    {
+      "id": "Seeking Alpha",
+      "userId": "https://seekingalpha.com/latest-articles",
+      "dataLibrary": "多空观点对冲与财报解读。聚合众包的深度研究文章，在分析个股时用于收集多空双方的逻辑，进行交叉验证。"
+    },
+    {
+      "id": "TradingView Markets",
+      "userId": "https://www.tradingview.com/markets/",
+      "dataLibrary": "跨资产图表与技术择时。提供强大的实时图表工具，用于关键支撑/阻力位的判断和技术指标分析。"
+    },
+    {
+      "id": "Finviz",
+      "userId": "https://finviz.com/",
+      "dataLibrary": "市场广度与股票筛选。通过板块热力图快速把握市场资金主线，使用其筛选器定位符合特定技术和基本面形态的个股。"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "上海有色网 (SMM)",
+      "userId": "https://www.smm.cn/",
+      "dataLibrary": "中国大宗与新能源产业链。唯一专注于中国现货基本面的平台，用于追踪铜、锂等新能源关键材料的真实供需信号（库存、开工率）。"
+    },
+    {
+      "id": "Bloomberg Canada",
+      "userId": "https://www.bloomberg.com/canada",
+      "dataLibrary": "加拿大市场深度跟踪。专注 TSX 市场、加拿大央行政策以及能源/大宗商品领域的宏观深度报道。"
+    },
+    {
+      "id": "ETF.com",
+      "userId": "https://www.etf.com/",
+      "dataLibrary": "被动投资与资金流向。提供全面的 ETF 数据库，用于分析特定行业（如 AI、半导体）的资金净流入/流出情况。"
+    },
+    {
+      "id": "数据库",
+      "userId": "网址链接",
+      "dataLibrary": "核心用途与分析场景"
+    },
+    {
+      "id": "Citadel Securities",
+      "userId": "https://www.citadelsecurities.com/news-and-insights/",
+      "dataLibrary": "做市商宏观策略。提供关于全球利率、信贷动态以及市场微观结构的高频机构观点。"
+    },
+    {
+      "id": "Apollo Academy",
+      "userId": "https://www.apolloacademy.com/",
+      "dataLibrary": "另类资产与高频宏观。聚焦私募股权、私人信贷领域的投资洞察，其“每日宏观火花”提供高频的经济数据点评。"
+    },
+    {
+      "id": "Visual Capitalist",
+      "userId": "https://www.visualcapitalist.com/",
+      "dataLibrary": "宏观趋势可视化。将复杂的全球经济、科技（如 AI 算力演进）、能源趋势转化为高质量的信息图，直观呈现产业变迁。"
+    }
+  ],
+  "messages": [
+    "本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。",
+    "1. 宏观经济与央行政策 (Macro & Central Banks)",
+    "这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。",
+    "2. 量化研究与资产估值 (Quant & Valuation)",
+    "用于从长周期的视角判断大类资产的估值高低，以及运用因子模型进行策略分析。",
+    "GMO\thttps://www.gmo.com/americas/research-library/",
+    "\t资产估值与逆向投资。核心工具是其每月更新的“7年资产类别预期收益率”，用于判断当前哪些资产处于估值泡沫，哪些被极度低估。",
+    "3. 机构动向与另类数据 (Institutions & Alternative Data)",
+    "追踪“聪明钱”的流向以及非传统维度的事件驱动因素。",
+    "4. 个股基本面与技术分析 (Fundamentals & Technicals)",
+    "深入挖掘单家公司的财务健康状况、商业模式，并结合技术面进行精准择时。",
+    "5. 垂直领域与区域市场 (Verticals & Regional Markets)",
+    "针对用户特定关注的产业（如新能源、AI）及区域市场（加拿大、中国）的深度数据源。",
+    "6. 宏观洞察与财经快讯 (Insights & News)",
+    "获取机构视角的宏观策略分析以及驱动市场的即时新闻。",
+    "cls.cn\t全球宏观快讯驱动。7x24 小时追踪全球央行动态、地缘政治突发事件及关键经济数据发布，用于捕捉短线交易情绪。"
+  ],
+  "stdout": "id\tuserId\tdataLibrary\n1\t1\t金融投资分析专属数据库清单及用途指南\n本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。\n\n1. 宏观经济与央行政策 (Macro & Central Banks)\n这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。\n\n数据库\t网址链接\t核心用途与分析场景\nHaver Analytics\thttps://www.haver.com/\t核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业解读，评估数据对市场预期的影响。\nTrading Economics\thttps://tradingeconomics.com/\t跨国宏观数据对比与预测。提供 196 个国家的经济指标对比、经济预测模型和财经日历，用于宏观趋势的前瞻性判断。\n\nITC Markets Hawk-Dove\thttps://www.itcmarkets.com/hawk-dove-cheat-sheet-2/\t央行政策立场量化。提供全球主要央行（美联储、欧央行等）委员的鹰鸽立场量化评级，用于前瞻性预判利率决议方向。\nCME Group\thttps://www.cmegroup.com/\t利率预期与衍生品定价。通过 FedWatch 工具获取市场对美联储利率变动的精确概率定价，捕捉市场预期差。\n2. 量化研究与资产估值 (Quant & Valuation)\n用于从长周期的视角判断大类资产的估值高低，以及运用因子模型进行策略分析。\n\n数据库\t网址链接\t核心用途与分析场景\nAQR\thttps://www.aqr.com/\t量化因子与长期假设。提取动量、价值、质量等经典量化因子的最新表现，以及各大类资产的长期资本市场假设。\nGMO\thttps://www.gmo.com/americas/research-library/\n\t资产估值与逆向投资。核心工具是其每月更新的“7年资产类别预期收益率”，用于判断当前哪些资产处于估值泡沫，哪些被极度低估。\n3. 机构动向与另类数据 (Institutions & Alternative Data)\n追踪“聪明钱”的流向以及非传统维度的事件驱动因素。\n\n数据库\t网址链接\t核心用途与分析场景\nWhaleWisdom\thttps://whalewisdom.com/\t机构持仓解析。深度解析 13F 文件，追踪顶级对冲基金和机构投资者的最新建仓、增减持动态。\nQuiver Quantitative\thttps://www.quiverquant.com/\t另类事件驱动。监控美国国会议员交易、企业高管内部买卖、政府合同审批等非传统数据，寻找交易催化剂。\nPolymarket\thttps://polymarket.com/\t政治风险与黑天鹅定价。基于区块链的预测市场，用于量化地缘政治事件、大选结果等宏观风险发生的概率。\n4. 个股基本面与技术分析 (Fundamentals & Technicals)\n深入挖掘单家公司的财务健康状况、商业模式，并结合技术面进行精准择时。\n\n数据库\t网址链接\t核心用途与分析场景\nStock Analysis\thttps://stockanalysis.com/\t深度基本面体检。提供个股的详细财务报表、分析师盈利预测以及高级量化筛选器，用于评估公司的内在价值。\nSeeking Alpha\thttps://seekingalpha.com/latest-articles\t多空观点对冲与财报解读。聚合众包的深度研究文章，在分析个股时用于收集多空双方的逻辑，进行交叉验证。\nTradingView Markets\thttps://www.tradingview.com/markets/\t跨资产图表与技术择时。提供强大的实时图表工具，用于关键支撑/阻力位的判断和技术指标分析。\nFinviz\thttps://finviz.com/\t市场广度与股票筛选。通过板块热力图快速把握市场资金主线，使用其筛选器定位符合特定技术和基本面形态的个股。\n\n5. 垂直领域与区域市场 (Verticals & Regional Markets)\n针对用户特定关注的产业（如新能源、AI）及区域市场（加拿大、中国）的深度数据源。\n\n数据库\t网址链接\t核心用途与分析场景\n上海有色网 (SMM)\thttps://www.smm.cn/\t中国大宗与新能源产业链。唯一专注于中国现货基本面的平台，用于追踪铜、锂等新能源关键材料的真实供需信号（库存、开工率）。\nBloomberg Canada\thttps://www.bloomberg.com/canada\t加拿大市场深度跟踪。专注 TSX 市场、加拿大央行政策以及能源/大宗商品领域的宏观深度报道。\nETF.com\thttps://www.etf.com/\t被动投资与资金流向。提供全面的 ETF 数据库，用于分析特定行业（如 AI、半导体）的资金净流入/流出情况。\n6. 宏观洞察与财经快讯 (Insights & News)\n获取机构视角的宏观策略分析以及驱动市场的即时新闻。\n\n数据库\t网址链接\t核心用途与分析场景\nCitadel Securities\thttps://www.citadelsecurities.com/news-and-insights/\t做市商宏观策略。提供关于全球利率、信贷动态以及市场微观结构的高频机构观点。\nApollo Academy\thttps://www.apolloacademy.com/\t另类资产与高频宏观。聚焦私募股权、私人信贷领域的投资洞察，其“每日宏观火花”提供高频的经济数据点评。\nVisual Capitalist\thttps://www.visualcapitalist.com/\t宏观趋势可视化。将复杂的全球经济、科技（如 AI 算力演进）、能源趋势转化为高质量的信息图，直观呈现产业变迁。\ncls.cn\t全球宏观快讯驱动。7x24 小时追踪全球央行动态、地缘政治突发事件及关键经济数据发布，用于捕捉短线交易情绪。\n",
+  "stderr": "",
+  "execution_time_ms": 392
+}

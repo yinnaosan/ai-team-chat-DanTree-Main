@@ -925,3 +925,16 @@
 - [x] 前端：归因 UI 每个 API 标签旁显示耗时（折叠前 ms，展开后颜色编码：<500ms 绿/500-2000ms 黄/>2000ms 红）
 - [x] Congress.gov 关键词扩展：补充 SEC/CFTC/FINRA/OCC/FDIC/美国财政部/反洗錢/制裁/加密货币监管等 30+ 触发词
 - [x] 保存 Checkpoint
+
+## 本地运行配置方案
+- [ ] 创建 .env.example 文件（含所有环境变量说明和获取方式）
+- [ ] 编写 LOCAL_SETUP.md 本地安装运行指南
+- [ ] 保存 Checkpoint
+
+## 双端兼容运行（网页版 + 本地下载版）
+- [x] 澄清：「下载」本质是 PWA 图标，访问同一服务器，无需本地运行方案
+- [x] 创建 server/local.config.ts — 将所有 API Key 写入配置文件，ENV 优先读取环境变量，回退到 local.config.ts
+- [x] 更新 server/_core/env.ts：统一通过 getConfig() 读取，支持双端
+- [x] 更新 congressApi.ts 和 courtListenerApi.ts 使用 ENV 读取 Key
+- [x] 验证：12 个 API Key 全部正确配置，211 个测试通过，TypeScript 0 错误
+- [x] 保存 Checkpoint

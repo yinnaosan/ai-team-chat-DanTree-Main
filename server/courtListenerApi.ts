@@ -12,8 +12,10 @@
  * - /search/     — 全文搜索（判决 + 诉讼）
  */
 
+import { ENV } from "./_core/env";
+
 const BASE_URL = "https://www.courtlistener.com/api/rest/v4";
-const API_KEY = process.env.COURTLISTENER_API_KEY || "";
+const API_KEY = ENV.COURTLISTENER_API_KEY || process.env.COURTLISTENER_API_KEY || "";
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 

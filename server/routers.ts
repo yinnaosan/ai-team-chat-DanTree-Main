@@ -63,6 +63,7 @@ import { TRPCError } from "@trpc/server";
 import { fetchStockDataForTask } from "./yahooFinance";
 import { getMacroDataByKeywords } from "./fredApi";
 import { fetchWorldBankData } from "./worldBankApi";
+import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
 import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
@@ -429,24 +430,30 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     };
     const refinedTavilyQuery = extractDataNeedsQuery(gptStep1Output, taskDescription);
 
-    // ── Step1 完成后：FRED + World Bank（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
-    const [macroDataResult, worldBankResult, refinedTavilyResult] = await Promise.allSettled([
+    // ── Step1 完成后：FRED + World Bank + IMF（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
+    const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
       fetchWorldBankData(taskDescription + " " + gptStep1Output),
+      // IMF WEO：IMF 世界经测展望数据（含预测年），覆盖 GDP/通胀/失业率/财政债务/经常账户等
+      fetchImfData(taskDescription + " " + gptStep1Output),
       // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
       isTavilyConfigured() && refinedTavilyQuery !== taskDescription
         ? searchForTask(refinedTavilyQuery, userLibraryUrls)
         : Promise.resolve(""),
     ]);
 
-    // ── 合并所有数据源结果 ────────────────────────────────────────────────────
+        // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
     const macroData = macroDataResult;
     const worldBankData = worldBankResult;
-    // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）
-    // 适配新的 TaskSearchResult 类型
+    // IMF 数据：将 ImfDataResult 转为 Markdown 字符串
+    const imfMarkdown =
+      imfDataResult.status === "fulfilled" && imfDataResult.value
+        ? formatImfDataAsMarkdown(imfDataResult.value)
+        : "";
+    // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）    // 适配新的 TaskSearchResult 类型
     const earlyTavilyResult2 = earlyTavilyResult.status === "fulfilled" ? earlyTavilyResult.value : null;
     const refinedTavilyResult2 = refinedTavilyResult.status === "fulfilled" ? refinedTavilyResult.value : null;
     const earlyTavilyStr = typeof earlyTavilyResult2 === "string" ? earlyTavilyResult2 : (earlyTavilyResult2?.content ?? "");
@@ -465,23 +472,23 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
 
-    // 将结构化数据（Yahoo Finance + FRED + World Bank）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
+    // 将结构化数据（Yahoo Finance + FRED + World Bank + IMF）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
       worldBankData.status === "fulfilled" && worldBankData.value ? worldBankData.value : "",
+      imfMarkdown,
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
     const realTimeDataBlock = [structuredDataBlock, webContentBlock].filter(Boolean).join("\n\n---\n\n");
-
     const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
 【任务】
 ${fullContext}
 
 【首席顾问的分析框架与数据需求】
-${gptStep1Output}${structuredDataBlock ? `\n\n---\n\n【A. 结构化实时数据（Yahoo Finance / FRED，直接使用）】\n${structuredDataBlock}` : ""}${webContentBlock ? `\n\n---\n\n【B. 网页内容数据（来自用户资料数据库，需提取整理）】\n以下是从用户指定数据源抓取的网页原始内容，请从中提取：\n- 所有数字指标（估值倍数、目标价、评级、财务数据等）\n- 分析师核心观点和评级（买入/持有/卖出 + 目标价）\n- 关键定性结论（竞争格局、催化剂、风险因素）\n- 资金流向、持仓变化等机构动向数据\n\n${webContentBlock}` : ""}
+${gptStep1Output}${structuredDataBlock ? `\n\n---\n\n【A. 结构化实时数据（Yahoo Finance / FRED / World Bank / IMF WEO，直接使用）】\n${structuredDataBlock}` : ""}${webContentBlock ? `\n\n---\n\n【B. 网页内容数据（来自用户资料数据库，需提取整理）】\n以下是从用户指定数据源抓取的网页原始内容，请从中提取：\n- 所有数字指标（估値倍数、目标价、评级、财务数据等）\n- 分析师核心观点和评级（买入/持有/卖出 + 目标价）\n- 关键定性结论（竞争格局、催化剂、风险因素）\n- 资金流向、持仓变化等机构动向数据\n\n${webContentBlock}` : ""}
 
 ---
 **输出规则：**
@@ -1256,21 +1263,33 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // World Bank 健康检测：轻量探针一个公开接口（无需 Key）
-      let worldBankStatus: "active" | "error" | "timeout" = "active";
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
-        const wbRes = await fetch(
-          "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1",
-          { signal: controller.signal }
-        );
-        clearTimeout(timer);
-        worldBankStatus = wbRes.ok ? "active" : "error";
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        worldBankStatus = msg.includes("abort") || msg.includes("timeout") ? "timeout" : "error";
-      }
+      // World Bank + IMF 并行健康检测（无需 Key）
+      const [wbHealth, imfHealth] = await Promise.allSettled([
+        // World Bank
+        (async () => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          try {
+            const res = await fetch(
+              "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1",
+              { signal: controller.signal }
+            );
+            clearTimeout(timer);
+            return res.ok ? "active" : "error";
+          } catch (e: unknown) {
+            clearTimeout(timer);
+            const msg = e instanceof Error ? e.message : String(e);
+            return msg.includes("abort") || msg.includes("timeout") ? "timeout" : "error";
+          }
+        })(),
+        // IMF DataMapper
+        checkImfApiHealth().then((r) => r.status),
+      ]);
+
+      const worldBankStatus =
+        wbHealth.status === "fulfilled" ? wbHealth.value : "error";
+      const imfStatus =
+        imfHealth.status === "fulfilled" ? imfHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1278,6 +1297,7 @@ export const appRouter = router({
         fred: { configured: fredConfigured, status: fredConfigured ? "active" as const : "error" as const },
         yahoo: { configured: true, status: "active" as const },
         worldBank: { configured: true, status: worldBankStatus },
+        imf: { configured: true, status: imfStatus },
       };
     }),
   }),

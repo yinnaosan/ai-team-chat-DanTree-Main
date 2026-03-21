@@ -85,10 +85,11 @@ function DataSourceStatusPanel() {
                 status.yahoo.status === "active" ? 1 : 0,
                 status.fred.status === "active" ? 1 : 0,
                 status.worldBank.status === "active" ? 1 : 0,
+                (status as any).imf?.status === "active" ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && k.status === "active").length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {3 + (status.tavily ?? []).filter(k => k.configured).length}
+              {4 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -144,6 +145,19 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
                 免费公开
+              </span>
+            }
+          />
+
+          {/* IMF */}
+          <SourceRow
+            label="IMF WEO"
+            desc="展望 / 财政债务 / 经常账户"
+            statusStr={status?.imf?.status ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                含预测
               </span>
             }
           />

@@ -1153,6 +1153,82 @@ export const appRouter = router({
         const result = await testOpenAIConnection(input.apiKey, input.model);
         return result;
       }),
+    // 检测资料数据库 URL 可访问性
+    checkLibraryUrls: protectedProcedure
+      .input(z.object({
+        urls: z.array(z.string()).max(50),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+
+        // 并发检测所有 URL（最多同时 10 个，避免超时堆积）
+        const CONCURRENCY = 10;
+        const TIMEOUT_MS = 8000;
+
+        async function checkUrl(url: string): Promise<{
+          url: string;
+          status: "ok" | "error" | "timeout" | "invalid";
+          statusCode?: number;
+          latencyMs?: number;
+          error?: string;
+        }> {
+          // 校验 URL 格式
+          let normalized: string;
+          try {
+            normalized = url.startsWith("http") ? url : `https://${url}`;
+            new URL(normalized); // 验证格式
+          } catch {
+            return { url, status: "invalid", error: "URL 格式无效" };
+          }
+
+          const start = Date.now();
+          try {
+            const res = await fetch(normalized, {
+              method: "HEAD", // HEAD 请求只获取响应头，不下载内容，速度快
+              signal: AbortSignal.timeout(TIMEOUT_MS),
+              headers: {
+                "User-Agent": "Mozilla/5.0 (compatible; DanTree-HealthCheck/1.0)",
+              },
+              redirect: "follow",
+            });
+            const latencyMs = Date.now() - start;
+
+            if (res.ok || res.status === 405) {
+              // 405 Method Not Allowed 表示服务器在线但不支持 HEAD，视为可访问
+              return { url, status: "ok", statusCode: res.status, latencyMs };
+            }
+
+            // 4xx/5xx 错误
+            return {
+              url,
+              status: "error",
+              statusCode: res.status,
+              latencyMs,
+              error: `HTTP ${res.status}`,
+            };
+          } catch (err) {
+            const latencyMs = Date.now() - start;
+            const isTimeout = err instanceof Error && err.name === "TimeoutError";
+            return {
+              url,
+              status: isTimeout ? "timeout" : "error",
+              latencyMs,
+              error: isTimeout ? `超时（>${TIMEOUT_MS / 1000}s）` : (err instanceof Error ? err.message : String(err)),
+            };
+          }
+        }
+
+        // 分批并发执行
+        const results: Awaited<ReturnType<typeof checkUrl>>[] = [];
+        for (let i = 0; i < input.urls.length; i += CONCURRENCY) {
+          const batch = input.urls.slice(i, i + CONCURRENCY);
+          const batchResults = await Promise.all(batch.map(checkUrl));
+          results.push(...batchResults);
+        }
+
+        return results;
+      }),
+
     // 获取实时数据源状态
     getDataSourceStatus: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);

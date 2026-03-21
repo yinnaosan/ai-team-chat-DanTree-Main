@@ -121,6 +121,23 @@ export default function Settings() {
   const [activeRulesTab, setActiveRulesTab] = useState<RulesTab>("investment");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
+  // URL 健康检测
+  type UrlCheckResult = { url: string; status: "ok" | "error" | "timeout" | "invalid"; statusCode?: number; latencyMs?: number; error?: string };
+  const [urlCheckResults, setUrlCheckResults] = useState<UrlCheckResult[] | null>(null);
+  const checkUrlsMutation = trpc.rpa.checkLibraryUrls.useMutation({
+    onSuccess: (data) => {
+      setUrlCheckResults(data);
+      const okCount = data.filter(r => r.status === "ok").length;
+      const failCount = data.length - okCount;
+      if (failCount === 0) {
+        toast.success(`全部 ${okCount} 个链接均可访问`);
+      } else {
+        toast.warning(`${okCount} 个正常，${failCount} 个无法访问`);
+      }
+    },
+    onError: () => toast.error("检测失败，请稍后重试"),
+  });
+
   // 数据库连接表单
   const [dbForm, setDbForm] = useState({
     name: "",
@@ -573,19 +590,80 @@ export default function Settings() {
                     className="min-h-[280px] text-sm font-mono resize-y"
                     style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 270)" }}
                   />
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                      {investmentRules.trim() ? `已自定义（${investmentRules.length} 字符）` : "空白时自动使用内置默认守则"}
-                    </p>
-                    <Button size="sm"
-                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, investmentRules: investmentRules.trim() || null } as any)}
-                      disabled={saveConfigMutation.isPending}
-                      className="gap-1.5 h-7 text-xs"
-                      style={{ background: "oklch(0.72 0.18 155)", color: "oklch(0.13 0.005 270)" }}>
-                      {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                      保存投资守则
-                    </Button>
-                  </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                        {dataLibrary.trim() ? `已配置 ${dataLibrary.split('\n').filter(l => l.includes('http')).length} 个数据源` : "未配置数据源，将使用通用搜索"}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {/* 健康检测按鈕 */}
+                        {dataLibrary.trim() && dataLibrary.split('\n').filter(l => l.includes('http')).length > 0 && (
+                          <Button size="sm" variant="outline"
+                            onClick={() => {
+                              const urls = dataLibrary.split('\n').map(l => l.trim()).filter(l => l.includes('http') && !l.startsWith('#') && !l.startsWith('-'));
+                              // 也提取带前缀的行（如 "- https://...")
+                              const allUrls = dataLibrary.split('\n')
+                                .map(l => { const m = l.match(/https?:\/\/[^\s]+/); return m ? m[0] : null; })
+                                .filter((u): u is string => u !== null);
+                              const uniqueUrls = Array.from(new Set(allUrls));
+                              setUrlCheckResults(null);
+                              checkUrlsMutation.mutate({ urls: uniqueUrls.slice(0, 50) });
+                            }}
+                            disabled={checkUrlsMutation.isPending}
+                            className="gap-1.5 h-7 text-xs"
+                            style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
+                            {checkUrlsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+                            {checkUrlsMutation.isPending ? "检测中..." : "检测链接"}
+                          </Button>
+                        )}
+                        <Button size="sm"
+                          onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
+                          disabled={saveConfigMutation.isPending}
+                          className="gap-1.5 h-7 text-xs"
+                          style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                          {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          保存资料库
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 检测结果列表 */}
+                    {urlCheckResults && urlCheckResults.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        <p className="text-xs font-medium" style={{ color: "oklch(0.70 0.005 270)" }}>
+                          链接健康检测结果
+                          <span className="ml-2 font-normal" style={{ color: "oklch(0.50 0.01 270)" }}>
+                            ({urlCheckResults.filter(r => r.status === "ok").length}/{urlCheckResults.length} 可访问)
+                          </span>
+                        </p>
+                        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                          {urlCheckResults.map((r, i) => (
+                            <div key={i} className="flex items-start gap-2 p-2 rounded-lg text-xs"
+                              style={{
+                                background: r.status === "ok" ? "oklch(0.72 0.18 142 / 0.08)" : "oklch(0.65 0.18 20 / 0.08)",
+                                border: `1px solid ${r.status === "ok" ? "oklch(0.72 0.18 142 / 0.2)" : "oklch(0.65 0.18 20 / 0.2)"}`
+                              }}>
+                              {/* 状态图标 */}
+                              {r.status === "ok" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 142)" }} />
+                              ) : r.status === "timeout" ? (
+                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 50)" }} />
+                              ) : (
+                                <WifiOff className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.65 0.18 20)" }} />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate font-mono" style={{ color: "oklch(0.75 0.005 270)" }}>{r.url}</p>
+                                <p style={{ color: r.status === "ok" ? "oklch(0.65 0.18 142)" : r.status === "timeout" ? "oklch(0.65 0.18 50)" : "oklch(0.60 0.18 20)" }}>
+                                  {r.status === "ok" ? `可访问${r.latencyMs ? ` · ${r.latencyMs}ms` : ""}` :
+                                   r.status === "timeout" ? `超时${r.error ? ` · ${r.error}` : ""}` :
+                                   r.status === "invalid" ? `URL 格式无效` :
+                                   `无法访问${r.error ? ` · ${r.error}` : ""}`}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               )}
 

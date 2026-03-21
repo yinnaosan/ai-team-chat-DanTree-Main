@@ -599,3 +599,6 @@
 - [x] Bug7：fileProcessor.ts 修复——PDF 改用 file_url 类型，Word/Excel 改用 Jina Reader 文本提取
 - [x] 验证对话连续性：历史过滤条件已修复，所有非空 assistant 消息均可用于历史上下文
 - [x] 修复 chat.test.ts mock 缺少 getRelevantMemory 导致测试失败
+## 资料数据库 URL 健康检测（2026-03-21）
+- [x] 后端：添加 rpa.checkLibraryUrls tRPC 接口，并发检测（最多 10 个并发，8s 超时）
+- [x] 前端：设置页「资料数据库」 Tab 添加「检测链接」按鈕 + 结果列表（绿色可访问/黄色超时/红色无法访问）

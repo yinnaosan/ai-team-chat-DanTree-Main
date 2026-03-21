@@ -44,8 +44,14 @@ class MarkdownErrorBoundary extends React.Component<
   }
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────────────────
 type MsgRole = "user" | "manus" | "chatgpt" | "system" | "assistant";
+interface DataSource {
+  domain: string;
+  url: string;
+  title: string;
+  success: boolean;
+}
 interface Msg {
   id: number;
   role: MsgRole;
@@ -53,6 +59,7 @@ interface Msg {
   taskId?: number | null;
   conversationId?: number | null;
   createdAt: Date;
+  metadata?: { dataSources?: DataSource[] } | null;
 }
 
 // ─── Attachment Types ─────────────────────────────────────────────
@@ -239,6 +246,54 @@ function parseFollowups(content: string): { cleanContent: string; followups: str
   return { cleanContent, followups };
 }
 
+// ─── DataSourcesFooter ───────────────────────────────────────────────────────────────────────────────
+function DataSourcesFooter({ sources }: { sources: DataSource[] }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const successCount = sources.filter(s => s.success).length;
+  const totalCount = sources.length;
+  return (
+    <div className="mt-3" style={{ borderTop: "1px solid oklch(0.22 0.01 270)", paddingTop: "8px" }}>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
+        style={{ color: "oklch(0.48 0.01 270)" }}
+      >
+        <Database className="w-3 h-3" />
+        <span>数据来源：{successCount}/{totalCount} 个网页成功提取</span>
+        <ChevronDown
+          className="w-3 h-3 transition-transform"
+          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+      {expanded && (
+        <div className="mt-2 flex flex-col gap-1">
+          {sources.map((src, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: src.success ? "oklch(0.72 0.18 155)" : "oklch(0.65 0.18 25)" }}
+              />
+              <a
+                href={src.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs truncate hover:underline"
+                style={{ color: src.success ? "oklch(0.62 0.08 250)" : "oklch(0.50 0.05 25)", maxWidth: "360px" }}
+                title={src.title || src.url}
+              >
+                {src.title || src.domain}
+              </a>
+              <span className="text-xs shrink-0" style={{ color: "oklch(0.38 0.01 270)" }}>
+                {src.domain}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
@@ -332,6 +387,10 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
               </button>
             ))}
           </div>
+        )}
+        {/* 数据来源溯源展示 */}
+        {msg.metadata?.dataSources && msg.metadata.dataSources.length > 0 && (
+          <DataSourcesFooter sources={msg.metadata.dataSources} />
         )}
       </div>
     </div>

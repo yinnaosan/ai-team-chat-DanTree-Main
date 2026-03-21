@@ -116,11 +116,13 @@ export async function insertMessage(msg: InsertMessage) {
   return (result as any)[0]?.insertId as number;
 }
 
-/** 更新消息内容（用于流式输出逐步更新） */
-export async function updateMessageContent(messageId: number, content: string) {
+/** 更新消息内容（用于流式输出逐步更新），可选同时更新 metadata */
+export async function updateMessageContent(messageId: number, content: string, metadata?: Record<string, unknown>) {
   const db = await getDb();
   if (!db) return;
-  await db.update(messages).set({ content }).where(eq(messages.id, messageId));
+  const updateData: Record<string, unknown> = { content };
+  if (metadata !== undefined) updateData.metadata = metadata;
+  await db.update(messages).set(updateData as any).where(eq(messages.id, messageId));
 }
 
 export async function getMessages(limit = 100) {

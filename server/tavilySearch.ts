@@ -156,12 +156,19 @@ async function tavilySearchRequest(
  * 不再直接 Extract 首页 URL（首页内容与任务无关）
  * 不再由 LLM 生成 URL（LLM 可能生成不存在的链接）
  */
+/** searchFromUserLibrary 的返回类型，包含文本内容和来源域名列表 */
+export interface SearchResult {
+  content: string;
+  sources: Array<{ domain: string; url: string; title: string; success: boolean }>;
+}
+
 export async function searchFromUserLibrary(
   query: string,
   libraryUrls: string[]
-): Promise<string> {
-  if (libraryUrls.length === 0) return "";
-  if (!isTavilyConfigured()) return "";
+): Promise<SearchResult> {
+  const emptyResult: SearchResult = { content: "", sources: [] };
+  if (libraryUrls.length === 0) return emptyResult;
+  if (!isTavilyConfigured()) return emptyResult;
 
   // Step 1: 从用户数据库 URL 提取域名列表
   const domains = libraryUrls
@@ -175,45 +182,50 @@ export async function searchFromUserLibrary(
     })
     .filter((d): d is string => d !== null && d.length > 0);
 
-  const uniqueDomains = Array.from(new Set(domains)).slice(0, 15); // 最多15个域名
+  const uniqueDomains = Array.from(new Set(domains)).slice(0, 15);
 
-  if (uniqueDomains.length === 0) return "";
+  if (uniqueDomains.length === 0) return emptyResult;
 
-  // Step 2: Tavily 限定域名搜索，获取真实存在的相关页面 URL
-  // include_domains 确保所有结果都来自用户指定的网站
+  // Step 2: Tavily 限定域名搜索
   const tavilyResults = await tavilySearchRequest({
     query,
     max_results: 8,
     search_depth: "advanced",
     include_domains: uniqueDomains,
-    include_answer: false, // 不需要 Tavily 的摘要答案，我们要原始页面内容
+    include_answer: false,
     topic: "finance",
   });
 
-  if (tavilyResults.length === 0) {
-    // Tavily 在这些域名内没找到相关内容，返回空
-    return "";
-  }
+  if (tavilyResults.length === 0) return emptyResult;
 
-  // Step 3: 提取 Tavily 返回的真实 URL（这些 URL 100% 存在）
-  // 优先选择 score 高的结果，最多取 5 个
-  const realUrls = tavilyResults
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .slice(0, 5)
-    .map(r => r.url);
+  // Step 3: 提取高分 URL，最多 5 个
+  const sortedResults = tavilyResults.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const topResults = sortedResults.slice(0, 5);
+  const realUrls = topResults.map(r => r.url);
 
-  // Step 4: 用 Jina Reader 抓取这些真实页面的完整内容
-  // Jina 支持 JavaScript 渲染，能处理动态网站（雪球、东方财富等）
+  // Step 4: Jina 抓取完整内容
   const jinaResults = await fetchMultipleWithJina(realUrls, 3);
   const jinaSuccessful = jinaResults.filter(r => r.success && r.content.trim().length > 100);
 
   const allParts: string[] = [];
+  const sources: SearchResult["sources"] = [];
+
+  // 收集来源信息
+  for (const r of topResults) {
+    const jinaResult = jinaResults.find(j => j.url === r.url);
+    const domain = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return r.url; } })();
+    sources.push({
+      domain,
+      url: r.url,
+      title: r.title || domain,
+      success: !!(jinaResult?.success && jinaResult.content.trim().length > 100),
+    });
+  }
 
   // 优先展示 Jina 抓取的完整内容
   if (jinaSuccessful.length > 0) {
     const jinaFormatted = jinaSuccessful
       .map((r, i) => {
-        // 找到对应的 Tavily 元数据（标题、发布日期）
         const tavilyMeta = tavilyResults.find(t => t.url === r.url);
         const date = tavilyMeta?.published_date ? ` (${tavilyMeta.published_date})` : "";
         const title = r.title || tavilyMeta?.title || r.url;
@@ -223,7 +235,7 @@ export async function searchFromUserLibrary(
     allParts.push(`## 用户数据库实时内容（Tavily搜索定位 → Jina深度抓取）\n\n${jinaFormatted}`);
   }
 
-  // 对于 Jina 抓取失败的 URL，回退使用 Tavily 自带的摘要内容
+  // Jina 失败的回退用 Tavily 摘要
   const jinaSuccessUrls = new Set(jinaSuccessful.map(r => r.url));
   const tavilyFallback = tavilyResults.filter(
     r => !jinaSuccessUrls.has(r.url) && r.content && r.content.length > 100
@@ -240,7 +252,7 @@ export async function searchFromUserLibrary(
     allParts.push(`## 补充数据（Tavily摘要）\n\n${fallbackFormatted}`);
   }
 
-  return allParts.join("\n\n---\n\n");
+  return { content: allParts.join("\n\n---\n\n"), sources };
 }
 
 /**
@@ -287,28 +299,38 @@ export async function searchMacroNews(topic: string): Promise<string> {
   return searchFinancialNews(query, 4);
 }
 
+/** searchForTask 的返回类型，包含内容和来源列表 */
+export interface TaskSearchResult {
+  content: string;
+  sources: SearchResult["sources"];
+}
+
 /**
- * 综合搜索：优先用户数据库 → 通用搜索兜底
+ * 综合搜索：优先用户数据库 → 通用搜索底底
  */
 export async function searchForTask(
   taskDescription: string,
   userDataSources?: string[]
-): Promise<string> {
-  if (!isTavilyConfigured()) return "";
+): Promise<TaskSearchResult> {
+  if (!isTavilyConfigured()) return { content: "", sources: [] };
 
   const parts: string[] = [];
+  let sources: SearchResult["sources"] = [];
 
   // 优先：用户数据库链接
   if (userDataSources && userDataSources.length > 0) {
     const userSourceData = await searchFromUserLibrary(taskDescription, userDataSources);
-    if (userSourceData) parts.push(userSourceData);
+    if (userSourceData.content) {
+      parts.push(userSourceData.content);
+      sources = userSourceData.sources;
+    }
   }
 
-  // 兜底：通用金融新闻（仅当用户数据库没有结果时）
+  // 底底：通用金融新闻（仅当用户数据库没有结果时）
   if (parts.length === 0) {
     const generalNews = await searchFinancialNews(taskDescription, 3);
     if (generalNews) parts.push(generalNews);
   }
 
-  return parts.join("\n\n---\n\n");
+  return { content: parts.join("\n\n---\n\n"), sources };
 }

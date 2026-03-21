@@ -607,3 +607,8 @@
 - [x] 将结构化数据（Yahoo Finance/FRED）与网页内容（Tavily+Jina）分开，分别传入 Manus
 - [x] Manus 对网页内容做三类提取：数据表格、分析师共识、关键定性信号
 - [x] 放宽 Step2 输出规则，允许 Manus 保留网页中的定性结论和评级信息
+
+## Step2 字数上限 + 数据来源溯源展示（2026-03-21）
+- [x] 提高各分析模式的 step2MaxWords 上限（快速 4000 / 标准 10000 / 深度 16000）
+- [x] 后端：任务完成时把 Tavily 来源列表写入消息 metadata
+- [x] 前端：AI 回复底部添加 DataSourcesFooter 组件（可折叠，绿色/红色状态标识 + 可点击链接）

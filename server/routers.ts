@@ -309,16 +309,16 @@ ${userConfig.dataLibrary.trim()}`
     quick: {
       label: "快速模式",
       step1MaxTokens: 600,
-      step2MaxWords: 2000,
+      step2MaxWords: 4000,  // 提高：容纳网页内容提取（原 2000）
       step3MaxTokens: 1200,
       step1Hint: "快速模式：输出简洁。框架不超过 3 层，数据需求不超过 5 条。",
-      step2Hint: "快速模式：总输出不超过 2000 字。只输出核心指标。",
+      step2Hint: "快速模式：总输出不超过 4000 字。A区只输出核心指标，B区只提取最关键的 3 条信息。",
       step3Hint: "快速模式：输出简洁报告，不超过 800 字。直接给出结论和关键数据，省略详细推理过程。",
     },
     standard: {
       label: "标准模式",
       step1MaxTokens: 1200,
-      step2MaxWords: 6000,
+      step2MaxWords: 10000,  // 提高：容纳网页内容提取（原 6000）
       step3MaxTokens: 2400,
       step1Hint: "",
       step2Hint: "",
@@ -327,10 +327,10 @@ ${userConfig.dataLibrary.trim()}`
     deep: {
       label: "深度模式",
       step1MaxTokens: 2000,
-      step2MaxWords: 10000,
+      step2MaxWords: 16000,  // 提高：容纳大量网页内容提取（原 10000）
       step3MaxTokens: 4000,
       step1Hint: "深度模式：尽可能全面。框架要包含宏观环境、行业地位、企业基本面、估值、安全边际全部层次。数据需求尽可能详细。",
-      step2Hint: "深度模式：尽可能全面收集数据，总输出不超过 10000 字。包含历史数据对比、竞争对标全面对比。",
+      step2Hint: "深度模式：尽可能全面收集数据，总输出不超过 16000 字。包含历史数据对比、竞争对标全面对比，B区网页内容尽可能全面提取。",
       step3Hint: "深度模式：输出最全面、最详细的投资分析报告。每个论点展开完整推理链，不得因篇幅省略任何分析维度。",
     },
   }[analysisMode];
@@ -442,17 +442,21 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const stockData = stockDataResult;
     const macroData = macroDataResult;
     // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）
-    const earlyTavilyStr = earlyTavilyResult.status === "fulfilled" ? (earlyTavilyResult.value ?? "") : "";
-    const refinedTavilyStr = refinedTavilyResult.status === "fulfilled" ? (refinedTavilyResult.value ?? "") : "";
-    // Bug8 修复：合并初始搜索 + 精炼搜索结果，去重后保留更多有价值数据
-    // 旧逻辑：精炼结果非空时完全丢弃初始结果（可能丢失有价值的早期数据）
-    // 新逻辑：两次结果都保留，按来源分段拼接（精炼结果优先展示）
+    // 适配新的 TaskSearchResult 类型
+    const earlyTavilyResult2 = earlyTavilyResult.status === "fulfilled" ? earlyTavilyResult.value : null;
+    const refinedTavilyResult2 = refinedTavilyResult.status === "fulfilled" ? refinedTavilyResult.value : null;
+    const earlyTavilyStr = typeof earlyTavilyResult2 === "string" ? earlyTavilyResult2 : (earlyTavilyResult2?.content ?? "");
+    const refinedTavilyStr = typeof refinedTavilyResult2 === "string" ? refinedTavilyResult2 : (refinedTavilyResult2?.content ?? "");
+    // 收集来源列表（优先精炼结果的来源，其次初始结果）
+    const tavilySources = [
+      ...(typeof refinedTavilyResult2 === "object" && refinedTavilyResult2?.sources ? refinedTavilyResult2.sources : []),
+      ...(typeof earlyTavilyResult2 === "object" && earlyTavilyResult2?.sources ? earlyTavilyResult2.sources : []),
+    ];
+    // Bug8 修复：合并初始搜索 + 精炼搜索结果
     let webSearchStr: string;
     if (refinedTavilyStr && earlyTavilyStr && refinedTavilyStr !== earlyTavilyStr) {
-      // 两次结果都有内容且不同：精炼结果在前，初始结果补充在后
       webSearchStr = refinedTavilyStr + "\n\n---\n\n" + earlyTavilyStr;
     } else {
-      // 只有一个有内容，或两者相同（query 未变化时）
       webSearchStr = refinedTavilyStr || earlyTavilyStr;
     }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
@@ -629,6 +633,10 @@ ${manusReport}
 
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
     const msgId = streamMsgId;
+    // 将数据来源列表写入消息 metadata，供前端溃源展示
+    if (tavilySources.length > 0) {
+      await updateMessageContent(streamMsgId, finalReply, { dataSources: tavilySources });
+    }
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
     emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
 

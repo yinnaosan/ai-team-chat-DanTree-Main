@@ -354,16 +354,33 @@ function parseBill(b: Record<string, unknown>): CongressBill {
  */
 export function shouldFetchCongress(taskDescription: string): boolean {
   const keywords = [
-    // 英文
+    // 英文 — 立法机构
     "congress", "legislation", "bill", "senate", "house of representatives",
     "law", "regulation", "policy", "act", "amendment", "vote", "bipartisan",
     "dodd-frank", "sarbanes-oxley", "inflation reduction act", "chips act",
-    "SEC rule", "FTC", "antitrust bill", "tax bill", "tariff", "trade policy",
+    "antitrust bill", "tax bill", "tariff", "trade policy",
     "federal reserve act", "banking regulation", "financial regulation",
-    // 中文
+    // 英文 — 金融监管机构
+    "SEC", "CFTC", "FINRA", "OCC", "FDIC", "CFPB", "FTC", "DOJ antitrust",
+    "SEC rule", "SEC enforcement", "SEC investigation", "SEC filing requirement",
+    "CFTC rule", "CFTC enforcement", "derivatives regulation", "swap regulation",
+    "Treasury", "U.S. Treasury", "Treasury Department", "Treasury regulation",
+    "IRS", "tax regulation", "capital gains tax", "corporate tax",
+    "Basel", "stress test", "Volcker rule", "Glass-Steagall",
+    "AML", "anti-money laundering", "KYC regulation", "BSA",
+    "crypto regulation", "stablecoin bill", "digital asset regulation",
+    "sanctions", "OFAC", "export control", "ITAR",
+    // 中文 — 立法机构
     "美国国会", "立法", "法案", "参议院", "众议院", "监管法规",
     "政策法规", "美国法律", "联邦法规", "国会投票", "贸易政策",
     "关税法案", "金融监管法", "税收法案", "反垄断法",
+    // 中文 — 金融监管机构
+    "证券交易委员会", "SEC监管", "SEC调查", "SEC执法",
+    "商品期货交易委员会", "CFTC监管", "衍生品监管",
+    "美国财政部", "财政部法规", "财政部监管",
+    "反洗錢监管", "客户尽调监管", "制裁法规", "OFAC制裁",
+    "加密货币监管", "稳定币法案", "数字资产监管",
+    "巴塞尔协议", "压力测试", "沃尔克规则",
   ];
   const lower = taskDescription.toLowerCase();
   return keywords.some((kw) => lower.includes(kw.toLowerCase()));

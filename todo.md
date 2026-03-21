@@ -919,3 +919,9 @@
 - [x] 前端：AI 回复底部显示可折叠「数据来源」卡片（图标+名称+简短说明）
 - [x] 编写 gleif.test.ts 测试用例
 - [x] 保存 Checkpoint
+## GLEIF 精度优化 + 耗时归因 + Congress 关键词扩展
+- [x] GLEIF 搜索精度优化：Step1 JSON 新增 company_names 字段，GPT 提取公司名称实体再查询 GLEIF
+- [x] 后端：ApiSource 类型新增 latencyMs 字段，timed() 辅助函数包装所有 API 调用计时
+- [x] 前端：归因 UI 每个 API 标签旁显示耗时（折叠前 ms，展开后颜色编码：<500ms 绿/500-2000ms 黄/>2000ms 红）
+- [x] Congress.gov 关键词扩展：补充 SEC/CFTC/FINRA/OCC/FDIC/美国财政部/反洗錢/制裁/加密货币监管等 30+ 触发词
+- [x] 保存 Checkpoint

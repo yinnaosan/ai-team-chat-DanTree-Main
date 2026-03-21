@@ -57,6 +57,7 @@ interface ApiSource {
   category: string;   // 分类，如 "市场数据" | "宏观指标" | "新闻情绪" | "加密货币" | "A股数据"
   icon?: string;      // 可选 emoji 图标
   description?: string; // 可选简短说明，如 "财务报表"
+  latencyMs?: number; // 实际调用耗时（毫秒）
 }
 interface Msg {
   id: number;
@@ -276,6 +277,9 @@ function ApiSourceBadge({ src }: { src: ApiSource }) {
     >
       {src.icon && <span>{src.icon}</span>}
       <span>{src.name}</span>
+      {src.latencyMs !== undefined && (
+        <span style={{ color: colors.text, opacity: 0.6, fontSize: "0.65rem" }}>{src.latencyMs}ms</span>
+      )}
     </span>
   );
 }
@@ -356,6 +360,18 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
                           <span>{src.name}</span>
                           {src.description && (
                             <span style={{ color: "oklch(0.50 0.01 270)" }}>— {src.description}</span>
+                          )}
+                          {src.latencyMs !== undefined && (
+                            <span
+                              className="ml-0.5 font-mono"
+                              style={{
+                                color: src.latencyMs < 500 ? "oklch(0.65 0.15 155)" : src.latencyMs < 2000 ? "oklch(0.65 0.15 80)" : "oklch(0.65 0.15 25)",
+                                fontSize: "0.6rem",
+                                opacity: 0.85
+                              }}
+                            >
+                              {src.latencyMs < 1000 ? `${src.latencyMs}ms` : `${(src.latencyMs / 1000).toFixed(1)}s`}
+                            </span>
                           )}
                         </span>
                       ))}

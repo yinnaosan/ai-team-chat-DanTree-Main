@@ -103,10 +103,12 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes((status as any).tiingo?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).ecb?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).hkex?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).boe?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).hkma?.status) ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {18 + (status.tavily ?? []).filter(k => k.configured).length}
+              {20 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -245,12 +247,12 @@ function DataSourceStatusPanel() {
           {/* SEC EDGAR */}
           <SourceRow
             label="SEC EDGAR"
-            desc="XBRL 财务 / 年报 / 季报"
+            desc="XBRL 财务事实 / 10-K 年报 / 10-Q 季报 / 8-K 公告 / 公司基本信息"
             statusStr={(status as any)?.secEdgar?.status ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                免费公开
+                免费公开 | 美股专用
               </span>
             }
           />
@@ -406,6 +408,36 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
                 免费公开 | 港股公告
+              </span>
+            }
+          />
+
+          {/* 分组标题：英国宏观 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 英国宏观</p>
+
+          <SourceRow
+            label="Bank of England"
+            desc="英国基准利率 / 国债收益率 / GBP 汇率 / M4 货币供应量"
+            statusStr={(status as any)?.boe?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 240 / 0.1)", color: "oklch(0.55 0.15 240)", border: "1px solid oklch(0.72 0.18 240 / 0.2)" }}>
+                免费公开 | 英国宏观
+              </span>
+            }
+          />
+
+          {/* 分组标题：香港宏观 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 香港宏观</p>
+
+          <SourceRow
+            label="HKMA"
+            desc="港元利率 / 货币供应量 / 银行间流动性 / 外汇储备（香港金融管理局）"
+            statusStr={(status as any)?.hkma?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 30 / 0.1)", color: "oklch(0.55 0.15 30)", border: "1px solid oklch(0.72 0.18 30 / 0.2)" }}>
+                免费公开 | 港元宏观
               </span>
             }
           />

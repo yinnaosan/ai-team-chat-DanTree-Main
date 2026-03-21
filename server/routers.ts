@@ -79,6 +79,8 @@ import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "
 import { fetchTiingoData, formatTiingoDataAsMarkdown, checkTiingoHealth } from "./tiingoApi";
 import { fetchECBData, formatECBDataAsMarkdown, checkECBHealth, isECBRelevantTask } from "./ecbApi";
 import { fetchHKEXData, formatHKEXDataAsMarkdown, checkHKEXHealth, isHKStockTask, extractHKStockCode } from "./hkexApi";
+import { fetchBoeData, formatBoeDataAsMarkdown, checkBoeHealth, isBoeRelevantTask } from "./boeApi";
+import { fetchHkmaData, formatHkmaDataAsMarkdown, checkHkmaHealth, isHkmaRelevantTask } from "./hkmaApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -531,7 +533,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
       cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult,
       simfinResult, tiingoResult, techIndicatorsResult, optionsChainResult,
-      ecbResult, hkexResult] = await Promise.allSettled([
+      ecbResult, hkexResult, boeResult, hkmaResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       resourcePlan.dataSources.macroData
         ? getMacroDataByKeywords(taskDescription + " " + gptStep1Output)
@@ -630,6 +632,18 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
             .then(d => d ? formatHKEXDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
+      // BoE：英国基准利率/国债收益率/汇率/货币供应量（宏观数据任务且涉及英国/英镑时触发）
+      resourcePlan.dataSources.macroData && isBoeRelevantTask(taskDescription + " " + gptStep1Output)
+        ? fetchBoeData()
+            .then(d => d ? formatBoeDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // HKMA：港元利率/货币供应量/银行间流动性/外汇储备（宏观数据任务且涉及香港/港元时触发）
+      resourcePlan.dataSources.macroData && isHkmaRelevantTask(taskDescription + " " + gptStep1Output)
+        ? fetchHkmaData()
+            .then(d => d ? formatHkmaDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
     ]);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
@@ -680,6 +694,8 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const optionsChainMarkdown = optionsChainResult.status === "fulfilled" && optionsChainResult.value ? optionsChainResult.value : "";
     const ecbMarkdown = ecbResult.status === "fulfilled" && ecbResult.value ? ecbResult.value : "";
     const hkexMarkdown = hkexResult.status === "fulfilled" && hkexResult.value ? hkexResult.value : "";
+    const boeMarkdown = boeResult.status === "fulfilled" && boeResult.value ? boeResult.value : "";
+    const hkmaMarkdown = hkmaResult.status === "fulfilled" && hkmaResult.value ? hkmaResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -701,6 +717,8 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       optionsChainMarkdown,   // Polygon.io 期权链（Put-Call Ratio/行权价分布/到期日分布）
       ecbMarkdown,            // ECB 欧元区利率/通胀/汇率/货币供应量
       hkexMarkdown,           // HKEXnews 港股公告/年报/监管文件
+      boeMarkdown,             // BoE 英国基准利率/国债收益率/汇率/货币供应量
+      hkmaMarkdown,            // HKMA 港元利率/货币供应量/银行间流动性/外汇储备
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -911,6 +929,10 @@ ${manusReport}
     if (hkexMarkdown) apiSources.push({ name: "HKEXnews", category: "港股公告", icon: "🇭🇰", description: "港股公告/年报" });
     // 欧元区宏观类
     if (ecbMarkdown) apiSources.push({ name: "ECB", category: "宏观指标", icon: "🇪🇺", description: "欧元区利率/通胀/汇率" });
+    // 英国宏观类
+    if (boeMarkdown) apiSources.push({ name: "Bank of England", category: "宏观指标", icon: "🇬🇧", description: "英国利率/国债收益率/货币供应量" });
+    // 香港宏观类
+    if (hkmaMarkdown) apiSources.push({ name: "HKMA", category: "宏观指标", icon: "🇭🇰", description: "港元利率/货币供应量/外汇储备" });
 
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
     const msgId = streamMsgId;
@@ -1536,7 +1558,7 @@ export const appRouter = router({
       const fredConfigured = !!process.env.FRED_API_KEY;
 
       // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo + ECB + HKEXnews
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth] = await Promise.allSettled([
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1604,6 +1626,10 @@ export const appRouter = router({
         checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
         // HKEXnews：免费公开 API，无需 Key
         checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
+        // BoE：免费公开 API，无需 Key
+        checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        // HKMA：免费公开 API，无需 Key
+        checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1622,6 +1648,8 @@ export const appRouter = router({
       const tiingoStatus = tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error";
       const ecbStatus = ecbHealth.status === "fulfilled" ? ecbHealth.value : "error";
       const hkexStatus = hkexHealth.status === "fulfilled" ? hkexHealth.value : "error";
+      const boeStatus = boeHealth.status === "fulfilled" ? boeHealth.value : "error";
+      const hkmaStatus = hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1644,6 +1672,8 @@ export const appRouter = router({
         tiingo: { configured: !!process.env.TIINGO_API_KEY, status: tiingoStatus },
         ecb: { configured: true, status: ecbStatus },
         hkex: { configured: true, status: hkexStatus },
+        boe: { configured: true, status: boeStatus },
+        hkma: { configured: true, status: hkmaStatus },
       };
     }),
   }),

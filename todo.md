@@ -13,11 +13,14 @@
 - [x] 接入 ECB + HKEXnews 到 Step2 引擎、健康检测、Settings UI（总计 18+N）
 - [x] 编写 ecb.test.ts + hkex.test.ts，163 个测试全部通过
 
-## 英格兰銀行（Bank of England）数据库 API 集成
-- [ ] 研究 BoE 统计数据库 API 端点结构
-- [ ] 创建 server/boeApi.ts（英国利率/通胀/汇率/货币供应量）
-- [ ] 接入 BoE 到 Step2 引擎、健康检测、Settings UI
-- [ ] 编写 boe.test.ts 测试用例
+## BoE + HKMA + GLEIF API 集成
+- [x] 创建 server/boeApi.ts（英国基准利率/国债收益率/汇率/M4 货币供应量）
+- [x] 创建 server/hkmaApi.ts（港元利率/货币供应量/银行间流动性/外汇储备）
+- [x] 接入 BoE + HKMA 到 Step2 引擎、健康检测、Settings UI
+- [x] 更新 Settings.tsx 添加 BoE + HKMA 数据源行
+- [ ] 创建 server/gleifApi.ts（全球法人机构识别码/公司名称搜索/法人结构）
+- [ ] 接入 GLEIF 到 Step2 引擎、健康检测、Settings UI
+- [ ] 编写 boe.test.ts + hkma.test.ts + gleif.test.ts 测试用例
 - [ ] 保存 Checkpoint
 
 ## Tiingo + SimFin 增强 + 归因 UI 优化
@@ -788,3 +791,16 @@
 - [ ] Marketaux API Key 存入环境变量
 - [ ] 集成到 Step2 数据引擎（股票分析任务自动触发）
 - [ ] 设置页状态面板加入 Marketaux 指示器
+
+## SEC EDGAR API 集成增强（data.sec.gov + efts.sec.gov）
+- [x] 重写 server/secEdgarApi.ts：修复 EPS 单位 bug（USD/shares 而非 USD）
+- [x] 新增 company_tickers.json 快速 CIK 查找（10,442 家公司，24h 缓存）
+- [x] 新增 getCompanyFacts（XBRL 财务事实）、getRecentFilings（10-K/10-Q/8-K）
+- [x] 新增 getStockFullData（一次调用获取公司信息 + 财务数据 + 近期文件）
+- [x] 新增 shouldFetchSecEdgar（智能触发判断，检测财务关键词）
+- [x] 新增 checkHealth（健康检测，验证 data.sec.gov 可用性）
+- [x] 新增 formatSecData（Markdown 格式化，含净利率、净资产计算、文件链接）
+- [x] 更新 Settings.tsx SEC EDGAR 描述（XBRL 财务事实/10-K/10-Q/8-K/公司基本信息）
+- [x] 创建 server/secEdgar.test.ts（35 个测试，全部通过）
+- [x] 修复 multiSourceApis.test.ts 旧版 SEC EDGAR 测试（与新接口兼容）
+- [x] 全量测试 198 个全部通过，TypeScript 0 错误

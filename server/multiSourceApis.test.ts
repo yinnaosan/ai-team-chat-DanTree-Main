@@ -231,6 +231,17 @@ describe("fmpApi", () => {
 
 // ─── SEC EDGAR ────────────────────────────────────────────────────────────────
 describe("secEdgarApi", () => {
+  // 新版接口包含更多字段，需要提供完整的 keyFinancials 对象
+  const emptyKeyFinancials = {
+    revenue: [],
+    netIncome: [],
+    eps: [],
+    totalAssets: [],
+    totalLiabilities: [],
+    operatingCashFlow: [],
+    researchAndDevelopment: [],
+  };
+
   it("formatSecData handles empty data", async () => {
     const { formatSecData } = await import("./secEdgarApi");
     const result = formatSecData({
@@ -238,7 +249,7 @@ describe("secEdgarApi", () => {
       cik: null,
       companyName: null,
       recentFilings: [],
-      keyFinancials: { revenue: [], netIncome: [], eps: [], totalAssets: [] },
+      keyFinancials: emptyKeyFinancials,
       source: "SEC EDGAR",
       fetchedAt: new Date().toISOString(),
     });
@@ -258,8 +269,11 @@ describe("secEdgarApi", () => {
         filingDate: "2024-07-30",
         reportDate: "2024-06-30",
         primaryDocument: "msft-20240630.htm",
+        primaryDocDescription: "10-K",
+        size: 10000000,
+        url: "https://www.sec.gov/Archives/edgar/data/789019/000078901924000001/msft-20240630.htm",
       }],
-      keyFinancials: { revenue: [], netIncome: [], eps: [], totalAssets: [] },
+      keyFinancials: emptyKeyFinancials,
       source: "SEC EDGAR",
       fetchedAt: new Date().toISOString(),
     });
@@ -275,6 +289,7 @@ describe("secEdgarApi", () => {
       companyName: "Apple Inc.",
       recentFilings: [],
       keyFinancials: {
+        ...emptyKeyFinancials,
         revenue: [
           { period: "2023-09-30", value: 383285000000, form: "10-K" },
           { period: "2022-09-24", value: 394328000000, form: "10-K" },
@@ -282,8 +297,6 @@ describe("secEdgarApi", () => {
         netIncome: [
           { period: "2023-09-30", value: 96995000000, form: "10-K" },
         ],
-        eps: [],
-        totalAssets: [],
       },
       source: "SEC EDGAR",
       fetchedAt: new Date().toISOString(),

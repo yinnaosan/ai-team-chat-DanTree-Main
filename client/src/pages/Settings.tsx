@@ -99,10 +99,11 @@ function DataSourceStatusPanel() {
                 1, // GDELT 免费公开，始终计入
                 ["active","warning"].includes((status as any).newsApi?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).marketaux?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).simfin?.status) ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {14 + (status.tavily ?? []).filter(k => k.configured).length}
+              {15 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -335,6 +336,26 @@ function DataSourceStatusPanel() {
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
                   需 API Key | 情绪评分
+                </span>
+              )
+            }
+          />
+
+          {/* SimFin */}
+          <SourceRow
+            label="SimFin"
+            desc="财务报表 / 衡生指标 / 股价历史"
+            statusStr={(status as any)?.simfin?.status ?? "error"}
+            badge={
+              !(status as any)?.simfin?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
+                  未配置
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                  需 API Key | 财务数据
                 </span>
               )
             }

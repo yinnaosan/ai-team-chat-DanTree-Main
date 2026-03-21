@@ -52,6 +52,11 @@ interface DataSource {
   title: string;
   success: boolean;
 }
+interface ApiSource {
+  name: string;        // API 显示名称，如 "Yahoo Finance"
+  category: string;   // 分类，如 "市场数据" | "宏观指标" | "新闻情绪" | "加密货币" | "A股数据"
+  icon?: string;      // 可选 emoji 图标
+}
 interface Msg {
   id: number;
   role: MsgRole;
@@ -59,7 +64,7 @@ interface Msg {
   taskId?: number | null;
   conversationId?: number | null;
   createdAt: Date;
-  metadata?: { dataSources?: DataSource[] } | null;
+  metadata?: { dataSources?: DataSource[]; apiSources?: ApiSource[] } | null;
 }
 
 // ─── Attachment Types ─────────────────────────────────────────────
@@ -247,48 +252,91 @@ function parseFollowups(content: string): { cleanContent: string; followups: str
 }
 
 // ─── DataSourcesFooter ───────────────────────────────────────────────────────────────────────────────
-function DataSourcesFooter({ sources }: { sources: DataSource[] }) {
+// 分类颜色映射
+const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "市场数据": { bg: "oklch(0.72 0.18 250 / 0.1)", text: "oklch(0.60 0.12 250)", border: "oklch(0.72 0.18 250 / 0.25)" },
+  "宏观指标": { bg: "oklch(0.72 0.18 155 / 0.1)", text: "oklch(0.55 0.15 155)", border: "oklch(0.72 0.18 155 / 0.25)" },
+  "新闻情绪": { bg: "oklch(0.72 0.18 50 / 0.1)", text: "oklch(0.60 0.15 50)", border: "oklch(0.72 0.18 50 / 0.25)" },
+  "加密货币": { bg: "oklch(0.72 0.18 310 / 0.1)", text: "oklch(0.60 0.12 310)", border: "oklch(0.72 0.18 310 / 0.25)" },
+  "A股数据": { bg: "oklch(0.72 0.18 25 / 0.1)", text: "oklch(0.60 0.15 25)", border: "oklch(0.72 0.18 25 / 0.25)" },
+  "网页搜索": { bg: "oklch(0.55 0.01 270 / 0.1)", text: "oklch(0.50 0.01 270)", border: "oklch(0.55 0.01 270 / 0.25)" },
+};
+
+function ApiSourceBadge({ src }: { src: ApiSource }) {
+  const colors = CATEGORY_COLORS[src.category] ?? CATEGORY_COLORS["网页搜索"];
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+      style={{ background: colors.bg, color: colors.text, border: `1px solid ${colors.border}` }}
+    >
+      {src.icon && <span>{src.icon}</span>}
+      <span>{src.name}</span>
+    </span>
+  );
+}
+
+function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; apiSources?: ApiSource[] }) {
   const [expanded, setExpanded] = React.useState(false);
-  const successCount = sources.filter(s => s.success).length;
-  const totalCount = sources.length;
+  const hasWebSources = sources && sources.length > 0;
+  const hasApiSources = apiSources && apiSources.length > 0;
+  if (!hasWebSources && !hasApiSources) return null;
+
+  const successCount = sources ? sources.filter(s => s.success).length : 0;
+  const totalCount = sources ? sources.length : 0;
+
   return (
     <div className="mt-3" style={{ borderTop: "1px solid oklch(0.22 0.01 270)", paddingTop: "8px" }}>
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
-        style={{ color: "oklch(0.48 0.01 270)" }}
-      >
-        <Database className="w-3 h-3" />
-        <span>数据来源：{successCount}/{totalCount} 个网页成功提取</span>
-        <ChevronDown
-          className="w-3 h-3 transition-transform"
-          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
-        />
-      </button>
-      {expanded && (
-        <div className="mt-2 flex flex-col gap-1">
-          {sources.map((src, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div
-                className="w-1.5 h-1.5 rounded-full shrink-0"
-                style={{ background: src.success ? "oklch(0.72 0.18 155)" : "oklch(0.65 0.18 25)" }}
-              />
-              <a
-                href={src.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs truncate hover:underline"
-                style={{ color: src.success ? "oklch(0.62 0.08 250)" : "oklch(0.50 0.05 25)", maxWidth: "360px" }}
-                title={src.title || src.url}
-              >
-                {src.title || src.domain}
-              </a>
-              <span className="text-xs shrink-0" style={{ color: "oklch(0.38 0.01 270)" }}>
-                {src.domain}
-              </span>
-            </div>
+      {/* API 数据源快速标签行 */}
+      {hasApiSources && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          <span className="text-xs shrink-0" style={{ color: "oklch(0.42 0.01 270)" }}>
+            <Database className="w-3 h-3 inline mr-1" />数据来源：
+          </span>
+          {apiSources!.map((src, i) => (
+            <ApiSourceBadge key={i} src={src} />
           ))}
         </div>
+      )}
+      {/* 网页搜索来源可折叠列表 */}
+      {hasWebSources && (
+        <>
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
+            style={{ color: "oklch(0.42 0.01 270)" }}
+          >
+            <span>网页搜索：{successCount}/{totalCount} 个来源</span>
+            <ChevronDown
+              className="w-3 h-3 transition-transform"
+              style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+            />
+          </button>
+          {expanded && (
+            <div className="mt-2 flex flex-col gap-1">
+              {sources!.map((src, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: src.success ? "oklch(0.72 0.18 155)" : "oklch(0.65 0.18 25)" }}
+                  />
+                  <a
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs truncate hover:underline"
+                    style={{ color: src.success ? "oklch(0.62 0.08 250)" : "oklch(0.50 0.05 25)", maxWidth: "360px" }}
+                    title={src.title || src.url}
+                  >
+                    {src.title || src.domain}
+                  </a>
+                  <span className="text-xs shrink-0" style={{ color: "oklch(0.38 0.01 270)" }}>
+                    {src.domain}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -388,10 +436,13 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             ))}
           </div>
         )}
-        {/* 数据来源溯源展示 */}
-        {msg.metadata?.dataSources && msg.metadata.dataSources.length > 0 && (
-          <DataSourcesFooter sources={msg.metadata.dataSources} />
-        )}
+        {/* 数据来源归因展示 */}
+        {(msg.metadata?.dataSources?.length || msg.metadata?.apiSources?.length) ? (
+          <DataSourcesFooter
+            sources={msg.metadata?.dataSources}
+            apiSources={msg.metadata?.apiSources}
+          />
+        ) : null}
       </div>
     </div>
   );

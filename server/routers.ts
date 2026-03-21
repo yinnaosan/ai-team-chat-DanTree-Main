@@ -73,8 +73,9 @@ import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecH
 import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
 import { getAStockData, formatAStockData, isAStockTask, extractAStockCodes, pingBaostock } from "./baoStockApi";
 import { fetchGdeltData, formatGdeltDataAsMarkdown, checkGdeltHealth } from "./gdeltApi";
-import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth } from "./newsApi";
+import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth, extractNewsQuery } from "./newsApi";
 import { fetchMarketauxData, formatMarketauxDataAsMarkdown, checkMarketauxHealth } from "./marketauxApi";
+import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "./simfinApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -458,7 +459,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 
     const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
-      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult] = await Promise.allSettled([
+      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult, simfinResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
@@ -501,8 +502,8 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       fetchGdeltData(taskDescription + " " + gptStep1Output)
         .then(d => d ? formatGdeltDataAsMarkdown(d) : "")
         .catch(() => ""),
-      // NewsAPI：全球新闻搜索/头条（检测到股票代码或新闻相关任务时触发）
-      ENV.NEWS_API_KEY
+      // NewsAPI：全球新闻搜索/头条（仅当检测到股票代码/公司名/宏观事件关键词时触发）
+      ENV.NEWS_API_KEY && extractNewsQuery(taskDescription + " " + gptStep1Output) !== null
         ? fetchNewsData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatNewsDataAsMarkdown(d) : "")
             .catch(() => "")
@@ -511,6 +512,12 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       ENV.MARKETAUX_API_KEY && primaryTicker
         ? fetchMarketauxData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatMarketauxDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // SimFin：财务报表/衡生指标/股价历史（仅对美股代码触发）
+      ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
+        ? fetchSimFinData(primaryTicker)
+            .then(d => d ? formatSimFinDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
     ]);
@@ -555,6 +562,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const gdeltMarkdown = gdeltResult.status === "fulfilled" && gdeltResult.value ? gdeltResult.value : "";
     const newsApiMarkdown = newsApiResult.status === "fulfilled" && newsApiResult.value ? newsApiResult.value : "";
     const marketauxMarkdown = marketauxResult.status === "fulfilled" && marketauxResult.value ? marketauxResult.value : "";
+    const simfinMarkdown = simfinResult.status === "fulfilled" && simfinResult.value ? simfinResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -570,6 +578,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       gdeltMarkdown,       // GDELT 全球事件/地缘风险/新闻情绪
       newsApiMarkdown,     // NewsAPI 全球新闻搜索/头条
       marketauxMarkdown,   // Marketaux 金融新闻情绪评分/实体识别
+      simfinMarkdown,       // SimFin 财务报表/衡生指标/股价历史
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -735,11 +744,45 @@ ${manusReport}
       await updateMessageContent(streamMsgId, finalReply);
     }
 
+    // -- 收集实际使用的 API 数据源（用于前端归因展示） ----------------------------------
+    type ApiSourceEntry = { name: string; category: string; icon?: string };
+    const apiSources: ApiSourceEntry[] = [];
+    // 市场数据类
+    if (stockData.status === "fulfilled" && stockData.value) {
+      apiSources.push({ name: "Yahoo Finance", category: "市场数据", icon: "📊" });
+    }
+    if (finnhubMarkdown) apiSources.push({ name: "Finnhub", category: "市场数据", icon: "📈" });
+    if (fmpMarkdown) apiSources.push({ name: "FMP", category: "市场数据", icon: "💹" });
+    if (polygonMarkdown) apiSources.push({ name: "Polygon.io", category: "市场数据", icon: "🔸" });
+    if (secMarkdown) apiSources.push({ name: "SEC EDGAR", category: "市场数据", icon: "🏦" });
+    // 宏观指标类
+    if (macroData.status === "fulfilled" && macroData.value) {
+      apiSources.push({ name: "FRED", category: "宏观指标", icon: "🏦" });
+    }
+    if (worldBankData.status === "fulfilled" && worldBankData.value) {
+      apiSources.push({ name: "World Bank", category: "宏观指标", icon: "🌍" });
+    }
+    if (imfMarkdown) apiSources.push({ name: "IMF WEO", category: "宏观指标", icon: "🌐" });
+    if (avEconomicMarkdown) apiSources.push({ name: "Alpha Vantage", category: "宏观指标", icon: "📊" });
+    // 新闻情绪类
+    if (gdeltMarkdown) apiSources.push({ name: "GDELT", category: "新闻情绪", icon: "🌏" });
+    if (newsApiMarkdown) apiSources.push({ name: "NewsAPI", category: "新闻情绪", icon: "📰" });
+    if (marketauxMarkdown) apiSources.push({ name: "Marketaux", category: "新闻情绪", icon: "💯" });
+    // 加密货币类
+    if (cryptoMarkdown) apiSources.push({ name: "CoinGecko", category: "加密货币", icon: "🪙" });
+    // A股数据类
+    if (aStockMarkdown) apiSources.push({ name: "Baostock", category: "A股数据", icon: "🇳" });
+    // 财务数据类（归入市场数据分组）
+    if (simfinMarkdown) apiSources.push({ name: "SimFin", category: "市场数据", icon: "💼" });
+
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
     const msgId = streamMsgId;
-    // 将数据来源列表写入消息 metadata，供前端溃源展示
-    if (tavilySources.length > 0) {
-      await updateMessageContent(streamMsgId, finalReply, { dataSources: tavilySources });
+    // 将数据来源列表写入消息 metadata，供前端归因展示
+    const metadataToSave: Record<string, unknown> = {};
+    if (tavilySources.length > 0) metadataToSave.dataSources = tavilySources;
+    if (apiSources.length > 0) metadataToSave.apiSources = apiSources;
+    if (Object.keys(metadataToSave).length > 0) {
+      await updateMessageContent(streamMsgId, finalReply, metadataToSave);
     }
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
     emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
@@ -1355,8 +1398,8 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth] = await Promise.allSettled([
+      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1412,6 +1455,10 @@ export const appRouter = router({
         process.env.MARKETAUX_API_KEY
           ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
+        // SimFin
+        process.env.SIMFIN_API_KEY
+          ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+          : Promise.resolve("error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1426,6 +1473,7 @@ export const appRouter = router({
       const gdeltStatus = gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active"; // GDELT 免费公开，默认 active
       const newsApiStatus = newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error";
       const marketauxStatus = marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error";
+      const simfinStatus = simfinHealth.status === "fulfilled" ? simfinHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1444,6 +1492,7 @@ export const appRouter = router({
         gdelt: { configured: true, status: gdeltStatus },
         newsApi: { configured: !!process.env.NEWS_API_KEY, status: newsApiStatus },
         marketaux: { configured: !!process.env.MARKETAUX_API_KEY, status: marketauxStatus },
+        simfin: { configured: !!process.env.SIMFIN_API_KEY, status: simfinStatus },
       };
     }),
   }),

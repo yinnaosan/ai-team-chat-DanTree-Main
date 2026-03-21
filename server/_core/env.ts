@@ -20,4 +20,5 @@ export const ENV = {
   TAVILY_API_KEY_2: process.env.TAVILY_API_KEY_2 ?? "",
   TAVILY_API_KEY_3: process.env.TAVILY_API_KEY_3 ?? "",
   TAVILY_API_KEY_4: process.env.TAVILY_API_KEY_4 ?? "",
+  SIMFIN_API_KEY: process.env.SIMFIN_API_KEY ?? "",
 };

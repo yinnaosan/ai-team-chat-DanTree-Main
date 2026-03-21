@@ -1,5 +1,18 @@
 # AI Team Chat — Project TODO
 
+## SimFin 财务数据 API 集成
+- [x] 保存 SIMFIN_API_KEY 为环境变量
+- [x] 创建 server/simfinApi.ts（财务报表/估值指标/股价历史）
+- [x] 接入 Step2 数据引擎并行获取（仅美股代码触发）
+- [x] 更新 getDataSourceStatus 健康检测
+- [x] 更新 Settings.tsx 数据源面板（总计 15+N）
+- [x] 编写 simfin.test.ts 测试用例，142 个测试全部通过
+
+## 数据来源归因 & 新闻 API 触发精细化
+- [ ] 后端：新闻 API 触发条件精细化（仅检测到股票代码/公司名/宏观事件时才调用 NewsAPI/Marketaux）
+- [ ] 后端：收集实际使用的数据源列表，随任务结果一起返回给前端
+- [ ] 前端：AI 回复底部显示可折叠的「数据来源」卡片（列出本次任务实际调用了哪些 API）
+
 ## 新闻与情绪 API 集成（GDELT + NewsAPI + Marketaux）
 - [x] 创建 server/gdeltApi.ts 模块（GDELT 全球事件数据库，5秒限频队列）
 - [x] 创建 server/newsApi.ts 模块（NewsAPI 全球新闻搜索）

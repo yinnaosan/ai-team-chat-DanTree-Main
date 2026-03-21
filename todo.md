@@ -21,7 +21,7 @@
 - [ ] 创建 server/gleifApi.ts（全球法人机构识别码/公司名称搜索/法人结构）
 - [ ] 接入 GLEIF 到 Step2 引擎、健康检测、Settings UI
 - [ ] 编写 boe.test.ts + hkma.test.ts + gleif.test.ts 测试用例
-- [ ] 保存 Checkpoint
+- [x] 保存 Checkpoint
 
 ## Tiingo + SimFin 增强 + 归因 UI 优化
 - [x] 保存 TIINGO_API_KEY 为环境变量
@@ -866,3 +866,46 @@
 - [x] 更新 parseResourcePlan 解析逻辑（适配新格式，支持具体数据源名称而非粗粒度开关）
 - [x] 更新 Step2 并行数据获取逻辑（按新资源规划精准触发，不再用 8 个布尔开关）
 - [x] 运行全量测试并保存检查点
+
+## 死代码清理 + 法律模块集成 + SEC 8-K 摘要（2026-03-21）
+- [ ] 扫描 server/ 孤立模块（未被 routers.ts 导入的函数/文件）
+- [ ] 扫描 client/src/ 未注册组件（ComponentShowcase 等）
+- [ ] 清理 routers.ts 注释残留代码块
+- [ ] 将 CourtListener 集成到 Step1 资源规划（合规/诉讼触发条件）
+- [ ] 将 CourtListener 集成到 Step2 并行数据获取
+- [ ] 将 Congress.gov 集成到 Step1 资源规划（立法/政策触发条件）
+- [ ] 将 Congress.gov 集成到 Step2 并行数据获取
+- [ ] 将 EUR-Lex 集成到 Step1 资源规划（欧盟法规/监管触发条件）
+- [ ] 将 EUR-Lex 集成到 Step2 并行数据获取
+- [ ] 扩展 secEdgarApi.ts：新增 get8KSummary（LLM 智能摘要 8-K 公告）
+- [ ] 将 8-K 摘要集成到 Step2 数据报告
+- [ ] 更新 getDataSourceStatus 健康检测（CourtListener/Congress/EUR-Lex）
+- [ ] 更新 Settings.tsx 添加三个新数据源行
+- [ ] 编写单元测试（courtListener.test.ts, congress.test.ts, eurLex.test.ts）
+- [ ] 全量测试通过，TypeScript 0 错误
+- [ ] 保存 Checkpoint
+
+## 设置页「关于」改名为「逻辑」并更新流程说明（2026-03-21）
+- [ ] 设置页 Tab「关于」改名为「逻辑」
+- [ ] 更新「逻辑」Tab 内容：展示新三步协作流程（GPT 精准规划 → Manus 审查执行 → GPT 融合输出）
+- [ ] 说明 AI 内部压缩通信协议、资源按需调动原则、精准获取不截断机制
+
+## 并行协作架构修正（GPT 和 Manus 各自独立调动资源）
+- [ ] 重写 Step1 GPT prompt：拆分任务为 GPT 自己部分 + Manus 部分，GPT 立即执行自己的部分
+- [ ] 重写 Step2 Manus prompt：Manus 专注自己的任务，独立调动资源，完成后交给 GPT
+- [ ] 重写 Step3 GPT prompt：接收 Manus 报告，与自己的分析深度融合输出
+- [ ] 更新设置页「关于→逻辑」Tab，展示新的并行协作流程说明
+- [ ] 运行全量测试并保存检查点
+
+## Owner 默认值机制 + 法律数据模块集成
+- [x] 后端：db.ts 新增 getOwnerRpaConfig 函数，读取 Owner 的投资守则/任务指令/资料库
+- [x] 后端：rpa.getConfig 接口回退逻辑——用户字段为空时自动继承 Owner 默认值
+- [x] 前端：Settings.tsx 在「投资理念 & 任务守则」区域添加「使用 Owner 默认值」提示横幅
+- [x] 前端：Settings.tsx「关于」Tab 更名为「逻辑」，内容更新为新三步协作流程说明
+- [x] 后端：集成 CourtListener（美国法院诉讼/判决历史）到 Step2 引擎
+- [x] 后端：集成 Congress.gov（美国立法动态/法案）到 Step2 引擎
+- [x] 后端：集成 EUR-Lex（欧盟法规/MiCA/GDPR/DORA）到 Step2 引擎
+- [x] 后端：三个法律模块接入 getDataSourceStatus 健康检测
+- [x] 前端：Settings.tsx 数据源面板新增「法律与监管」分组（CourtListener/Congress.gov/EUR-Lex）
+- [x] 测试：修复 chat.test.ts 中 getOwnerRpaConfig mock 缺失问题
+- [x] 测试：198 个测试全部通过，TypeScript 0 错误

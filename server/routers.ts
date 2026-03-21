@@ -31,6 +31,7 @@ import {
   setActiveDbConnection,
   deleteDbConnection,
   getRpaConfig,
+  getOwnerRpaConfig,
   upsertRpaConfig,
   createAccessCode,
   listAccessCodes,
@@ -81,6 +82,9 @@ import { fetchECBData, formatECBDataAsMarkdown, checkECBHealth, isECBRelevantTas
 import { fetchHKEXData, formatHKEXDataAsMarkdown, checkHKEXHealth, isHKStockTask, extractHKStockCode } from "./hkexApi";
 import { fetchBoeData, formatBoeDataAsMarkdown, checkBoeHealth, isBoeRelevantTask } from "./boeApi";
 import { fetchHkmaData, formatHkmaDataAsMarkdown, checkHkmaHealth, isHkmaRelevantTask } from "./hkmaApi";
+import { getCompanyLitigationHistory, formatLitigationAsMarkdown, shouldFetchCourtListener, checkHealth as checkCourtListenerHealth } from "./courtListenerApi";
+import { getRelatedLegislation, formatLegislationAsMarkdown, shouldFetchCongress, checkHealth as checkCongressHealth } from "./congressApi";
+import { searchEuRegulations, formatEuRegulationsAsMarkdown, shouldFetchEurLex, checkHealth as checkEurLexHealth } from "./eurLexApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -351,49 +355,52 @@ DATA_INTEGRITY[MAX]:
 
     const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
-
 ${AVAILABLE_APIS_CATALOG}
-
 [INSTRUCTIONS]
-你是首席投资顾问（GPT），Step1 同步执行两部分：
+你是首席投资顾问（GPT）。Step1 同步完成两件事：
 
-■ PART-A：任务拆分与资源规划（传给 Manus 执行）
+■ PART-A：任务规划与资源分配（目的：让 Manus 拿到后直接上手，无需重新思考框架）
 ① 判断任务类型（新任务/延续，如延续引用上次具体结论）
-② 建立分析框架（3-5层层次结构，明确核心问题）
-③ 精确资源指令：从目录中按需选取 API，每个指定 name/params/purpose
+② 建立分析框架（3-5层，明确核心问题和分析角度）
+③ 资源分配（分两组）：
+   [GPT_RESOURCES] — GPT 自己分析时需要参考的数据（由系统同步获取后在 Step3 提供给你）
+   [MANUS_RESOURCES] — Manus 负责收集整理的数据（Manus 独立执行）
    ⚠ 资源选取原则：
    • 只选任务真正需要的 API，不堆砌，不重复
    • params 精确指定字段和时间范围（如 fields:["revenue","netIncome"] 而非取全量）
-   • 快速问答/闲聊：apis 为空数组，不调用任何 API
+   • 快速问答/闲聊：两组均为空数组，不调用任何 API
    • tavily_query：只在需要市场观点/新闻/行业报告时才填，否则为 null
 
-■ PART-B：GPT 自己的分析（同步执行，不等 Manus 数据）
-基于专业知识立即执行你擅长的维度：
+■ PART-B：GPT 主观分析（同步执行，不等数据，基于专业知识立即输出）
 • 投资逻辑推演（护城河/竞争优势/行业格局/商业模式）
 • 宏观叙事判断（政策方向/市场情绪/周期位置/利率环境）
 • 风险识别（尾部风险/结构性风险/黑天鹅/监管风险）
 • 历史类比（与历史相似情形对比，给出方向性判断）
 ⚠ PART-B 必须有实质性判断，禁止用「待数据验证」替代内容
 
-[OUTPUT - Manus 将解析此格式，严格遵守]
+[OUTPUT - 严格遵守此格式，Manus 将直接解析执行]
 ## TASK_ANALYSIS
 （任务类型|连续性|核心问题，3句以内）
 ## ANALYSIS_FRAMEWORK
 （分析层次，每层一行，格式：层级→核心问题）
 ## RESOURCE_SPEC
-\`\`\`json
+${"```"}json
 {
-  "apis": [
-    {"name": "API名称", "params": {"ticker": "AAPL", "period": "3y", "fields": ["revenue","netIncome","eps"]}, "purpose": "验证营收增长趋势和盈利质量"},
-    {"name": "fred", "params": {"series_ids": ["FEDFUNDS","CPIAUCSL"], "limit": 24}, "purpose": "判断利率环境对估值的压制程度"}
+  "gpt_resources": [
+    {"name": "API名称", "params": {"ticker": "AAPL", "period": "1y"}, "purpose": "验证我的估值判断"}
+  ],
+  "manus_resources": [
+    {"name": "API名称", "params": {"ticker": "AAPL", "statements": ["IS","BS"], "years": 3}, "purpose": "完整财务报表供深度分析"},
+    {"name": "fred", "params": {"series_ids": ["FEDFUNDS","CPIAUCSL"], "limit": 24}, "purpose": "宏观利率环境数据"}
   ],
   "tavily_query": "苹果AI战略分析师观点 2024 或 null",
   "priority": "quick|standard|deep",
-  "reasoning": "资源选取理由（一句话，说明为何选这些不选其他）"
+  "reasoning": "资源选取理由（一句话）"
 }
-\`\`\`
+${"```"}
 ## GPT_ANALYSIS
 （PART-B 实质性分析，必须包含方向性判断，禁止纯框架描述）`;
+    
 
     // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 + 多源金融数据 ──────────────
     // 提取 ticker 供多源数据使用
@@ -552,7 +559,8 @@ ${AVAILABLE_APIS_CATALOG}
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
       cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult,
       simfinResult, tiingoResult, techIndicatorsResult, optionsChainResult,
-      ecbResult, hkexResult, boeResult, hkmaResult] = await Promise.allSettled([
+      ecbResult, hkexResult, boeResult, hkmaResult,
+      courtListenerResult, congressResult, eurLexResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       resourcePlan.dataSources.macroData
         ? getMacroDataByKeywords(taskDescription + " " + gptStep1Output)
@@ -663,6 +671,24 @@ ${AVAILABLE_APIS_CATALOG}
             .then(d => d ? formatHkmaDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
+      // CourtListener：美国法院诉讼/判决历史（检测到公司诉讼/法律风险相关任务时触发）
+      shouldFetchCourtListener(taskDescription + " " + gptStep1Output)
+        ? getCompanyLitigationHistory(taskDescription.slice(0, 100))
+            .then(d => d ? formatLitigationAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // Congress.gov：美国立法动态/法案（检测到监管/立法/法案相关任务时触发）
+      shouldFetchCongress(taskDescription + " " + gptStep1Output)
+        ? getRelatedLegislation(taskDescription.slice(0, 100))
+            .then(d => d ? formatLegislationAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // EUR-Lex：欧盟法规/监管文件（检测到欧盟监管/MiCA/GDPR 等相关任务时触发）
+      shouldFetchEurLex(taskDescription + " " + gptStep1Output)
+        ? Promise.resolve(searchEuRegulations(taskDescription.slice(0, 100)))
+            .then(d => d ? formatEuRegulationsAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
     ]);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
@@ -715,6 +741,9 @@ ${AVAILABLE_APIS_CATALOG}
     const hkexMarkdown = hkexResult.status === "fulfilled" && hkexResult.value ? hkexResult.value : "";
     const boeMarkdown = boeResult.status === "fulfilled" && boeResult.value ? boeResult.value : "";
     const hkmaMarkdown = hkmaResult.status === "fulfilled" && hkmaResult.value ? hkmaResult.value : "";
+    const courtListenerMarkdown = courtListenerResult.status === "fulfilled" && courtListenerResult.value ? courtListenerResult.value : "";
+    const congressMarkdown = congressResult.status === "fulfilled" && congressResult.value ? congressResult.value : "";
+    const eurLexMarkdown = eurLexResult.status === "fulfilled" && eurLexResult.value ? eurLexResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -736,8 +765,11 @@ ${AVAILABLE_APIS_CATALOG}
       optionsChainMarkdown,   // Polygon.io 期权链（Put-Call Ratio/行权价分布/到期日分布）
       ecbMarkdown,            // ECB 欧元区利率/通胀/汇率/货币供应量
       hkexMarkdown,           // HKEXnews 港股公告/年报/监管文件
-      boeMarkdown,             // BoE 英国基准利率/国债收益率/汇率/货币供应量
+      boeMarkdown,             // BoE 英国基准利率/国巫t收益率/汇率/货币供应量
       hkmaMarkdown,            // HKMA 港元利率/货币供应量/银行间流动性/外汇储备
+      courtListenerMarkdown,   // CourtListener 美国法院诉讼/判决历史
+      congressMarkdown,        // Congress.gov 美国立法动态/法案
+      eurLexMarkdown,          // EUR-Lex 欧盟法规/监管文件
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -745,36 +777,31 @@ ${AVAILABLE_APIS_CATALOG}
     // Step2 Manus prompt（压缩 AI 内部语言）
     const step2UserContent = `[MANUS←GPT|STEP2|INTERNAL]
 TASK:${taskDescription.slice(0, 200)}
-GPT_SPEC:
+GPT_FRAMEWORK:
 ${gptStep1Output}
 ${structuredDataBlock ? `[PRE_DATA:structured]\n${structuredDataBlock}` : ""}
 ${webContentBlock ? `[PRE_DATA:web_raw]\n${webContentBlock}` : ""}
-
 [MANUS_INSTRUCTIONS]
-ROLE: data_specialist — review GPT's RESOURCE_SPEC, adjust if needed, execute data collection
-AUTHORITY: ADD missing critical sources | REMOVE redundant/irrelevant | NARROW params if over-broad
-PRINCIPLE: professional+precise+efficient — neither under-collect nor over-collect
+ROLE: data_executor — GPT 是决策大脑，你是专业数据执行者
+MISSION: 执行 GPT 在 RESOURCE_SPEC.manus_resources 中指定的数据任务，确保数据完整准确
 
-REVIEW_CHECKLIST:
-□ Each api in RESOURCE_SPEC: is it truly needed for this task?
-□ params: are fields specific enough? (e.g. fields:["revenue","netIncome"] not full-dump)
-□ time_range: appropriate depth? (3y for trend, 1y for recent, 1q for latest)
-□ Missing critical source? Add with justification
-□ Redundant overlap? Remove with justification
+STEP1_REVIEW（执行前快速核查，不推翻 GPT 规划，仅做执行层专业判断）:
+□ 每个 manus_resource：params 是否足够精确？时间范围是否合适？
+□ GPT 框架中提到但 manus_resources 未列入的关键数据 → 补充，标注[MANUS_ADD]
+□ 明显冗余重叠的资源 → 合并或去除，标注[MANUS_REMOVE]
+□ PRE_DATA 已有的数据 → 直接使用，标注[CACHED]，不重复调用
 
 EXECUTION:
-1. Output RESOURCE_REVIEW (one line per api: KEEP|ADD|REMOVE|NARROW → reason)
-2. Execute approved apis — use ONLY pre_data if already provided, mark [CACHED]
-3. For tavily: search ONLY within lib_domains from [LIB_DOMAINS], extract structured data only
+1. 输出 RESOURCE_REVIEW（每个 api 一行：EXECUTE|ADD|REMOVE|ADJUST → 理由，最多8字）
+2. 按审查后的清单精准调用 API，收集数据
+3. tavily：仅在 GPT 指定的资源库域名内搜索，提取结构化数据
 
 OUTPUT_FORMAT (strict):
 [RESOURCE_REVIEW]
-api_name: KEEP|ADD|REMOVE|NARROW → reason (max 10 words)
-
+api_name: EXECUTE|ADD|REMOVE|ADJUST → reason
 [DATA_REPORT]
-table/metric/number only | label source | N/A if missing | no prose
-priority: complete all GPT-requested metrics first, then add if space allows
-limit: ${modeConfig.step2MaxWords} tokens total — control at INPUT not truncation
+数字/表格/指标为主 | 标注来源和时间 | 缺失标 N/A | 不写分析评论（那是 GPT 的工作）
+limit: ${modeConfig.step2MaxWords} tokens — 在输入端控制精度，不靠截断
 ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
 
     let manusReport: string;
@@ -821,36 +848,32 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     // Step3 GPT prompt（内部接收压缩格式，输出人类语言）
     const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
-
 [GPT_ANALYSIS_S1]
 ${gptStep1Output}
-
 [MANUS_DATA_REPORT]
 ${manusReport}
-
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
-
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━
-You are the lead analyst. Merge your S1 analysis with Manus data. Deliver the final report to user.
+你是首席分析师（GPT）。你在 S1 已完成主观分析框架，Manus 已完成数据收集。
+现在将两者深度融合，输出最终专业报告给用户。
 
-MANDATORY (non-negotiable):
-① INTEGRATE: fuse S1 framework + Manus data — show reasoning chain (data→logic→judgment), not just conclusions
-② POSITION: explicit stance on core question (buy/hold/sell | overvalued/fair/undervalued | opportunity/risk)
-③ QUANTIFY: cite exact numbers from Manus (PE=23.4x not "~20x"), label time (Q3 2024)
-④ VALUATION: if Manus has P/E|P/B|EV|PEG → compare vs sector avg + historical avg → verdict
-⑤ TREND: if Manus has quarterly IS → QoQ + YoY revenue/profit trend → sustainability judgment
-⑥ DUAL_VERIFY: forward(now→future) + reverse(if correct→what data appears in 12m)
-⑦ RISK: quantify main risks with magnitude (e.g. "100bp rate rise → 8-12% valuation compression")
-⑧ CONTINUITY: if follow-up task → cite previous conclusions explicitly
-⑨ CHARTS: embed %%CHART%%...%%END_CHART%% for every data/trend/comparison opportunity (min 1)
-⑩ FOLLOWUP: end with exactly 3 questions: %%FOLLOWUP%%question%%END%%
+MANDATORY（不可省略）:
+① INTEGRATE: 将 S1 框架与 Manus 数据融合 — 展示推理链（数据→逻辑→判断），不只是结论
+② POSITION: 对核心问题给出明确立场（买入/持有/卖出 | 高估/合理/低估 | 机会/风险）
+③ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（2024Q3）
+④ VALUATION: 若有 P/E|P/B|EV|PEG → 与行业均值+历史均值对比 → 给出估值结论
+⑤ TREND: 若有季度财报 → QoQ+YoY 营收/利润趋势 → 可持续性判断
+⑥ DUAL_VERIFY: 正向（现在→未来）+ 反向（若判断正确→12个月内会出现什么数据）
+⑦ RISK: 量化主要风险（如"利率上升100bp → 估值压缩8-12%"）
+⑧ CONTINUITY: 若为延续任务 → 明确引用上次结论
+⑨ CHARTS: 每个数据/趋势/对比机会嵌入 %%CHART%%...%%END_CHART%%（至少1个）
+⑩ FOLLOWUP: 结尾给出3个追问 %%FOLLOWUP%%问题%%END%%
 
-PROHIBIT: vague("~","maybe","TBD") as core conclusion | framework-only reply | Manus data verbatim copy | skipping reasoning chain
-
-FORMAT: ##headers | **bold** key data | >blockquote for judgments | tables≥3col | zh_output
-%%FOLLOWUP%%苹果Q2营收预期是多少？%%END%%
-%%FOLLOWUP%%客户端升级周期对利润率影响如何？%%END%%
-%%FOLLOWUP%%与上季度相比库存去化进展怎样？%%END%%`;
+PROHIBIT: 模糊结论("~","也许","待验证") | 纯框架无数据 | 照搬 Manus 报告 | 跳过推理链
+FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3列 | 中文输出
+%%FOLLOWUP%%请问下一个追问问题？%%END%%
+%%FOLLOWUP%%请问下一个追问问题？%%END%%
+%%FOLLOWUP%%请问下一个追问问题？%%END%%`;
 
     // -- 先写入占位消息（streaming 状态），前端立即开始接收流 -------------------
     const streamMsgId = await insertMessage({
@@ -1445,16 +1468,40 @@ export const appRouter = router({
     getConfig: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       const config = await getRpaConfig(ctx.user.id);
+      const isOwner = ctx.user.openId === ENV.ownerOpenId;
+      // 非 Owner 用户：若三个守则字段为空，自动回退读取 Owner 的默认值
+      let ownerConfig: Awaited<ReturnType<typeof getOwnerRpaConfig>> = null;
+      if (!isOwner) {
+        const needsDefault =
+          !config?.investmentRules?.trim() ||
+          !config?.taskInstruction?.trim() ||
+          !config?.dataLibrary?.trim();
+        if (needsDefault) {
+          ownerConfig = await getOwnerRpaConfig();
+        }
+      }
       return {
         openaiApiKey: config?.openaiApiKey ? "•".repeat(8) + config.openaiApiKey.slice(-4) : "",
         openaiModel: config?.openaiModel ?? DEFAULT_MODEL,
         hasApiKey: !!config?.openaiApiKey,
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
         userCoreRules: config?.userCoreRules ?? "",
-        // 三部分守则
-        investmentRules: config?.investmentRules ?? "",
-        taskInstruction: config?.taskInstruction ?? "",
-        dataLibrary: config?.dataLibrary ?? "",
+        // 三部分守则：优先用户自定义，否则回退 Owner 默认值
+        investmentRules: config?.investmentRules?.trim()
+          ? config.investmentRules
+          : (ownerConfig?.investmentRules ?? ""),
+        taskInstruction: config?.taskInstruction?.trim()
+          ? config.taskInstruction
+          : (ownerConfig?.taskInstruction ?? ""),
+        dataLibrary: config?.dataLibrary?.trim()
+          ? config.dataLibrary
+          : (ownerConfig?.dataLibrary ?? ""),
+        // 标记是否使用了 Owner 默认值（前端可据此显示提示）
+        isUsingOwnerDefaults: !isOwner && !!ownerConfig && (
+          !config?.investmentRules?.trim() ||
+          !config?.taskInstruction?.trim() ||
+          !config?.dataLibrary?.trim()
+        ),
       };
     }),
     // 保存 API Key 和模型选择
@@ -1577,7 +1624,7 @@ export const appRouter = router({
       const fredConfigured = !!process.env.FRED_API_KEY;
 
       // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo + ECB + HKEXnews
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth] = await Promise.allSettled([
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth, courtListenerHealth, congressHealth, eurLexHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1649,6 +1696,14 @@ export const appRouter = router({
         checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
         // HKMA：免费公开 API，无需 Key
         checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        // CourtListener：免费使用，有 Key 时请求限制更高
+        checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        // Congress.gov：需要 API Key
+        process.env.CONGRESS_API_KEY
+          ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const)
+          : Promise.resolve("error" as const),
+        // EUR-Lex：本地静态数据，无需网络
+        Promise.resolve(checkEurLexHealth().status === "ok" ? "active" as const : "error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1669,6 +1724,9 @@ export const appRouter = router({
       const hkexStatus = hkexHealth.status === "fulfilled" ? hkexHealth.value : "error";
       const boeStatus = boeHealth.status === "fulfilled" ? boeHealth.value : "error";
       const hkmaStatus = hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error";
+      const courtListenerStatus = courtListenerHealth.status === "fulfilled" ? courtListenerHealth.value : "error";
+      const congressStatus = congressHealth.status === "fulfilled" ? congressHealth.value : "error";
+      const eurLexStatus = eurLexHealth.status === "fulfilled" ? eurLexHealth.value : "active"; // EUR-Lex 本地数据，默认 active
 
       return {
         tavily: tavilyKeys,
@@ -1693,6 +1751,9 @@ export const appRouter = router({
         hkex: { configured: true, status: hkexStatus },
         boe: { configured: true, status: boeStatus },
         hkma: { configured: true, status: hkmaStatus },
+        courtListener: { configured: true, status: courtListenerStatus },
+        congress: { configured: !!process.env.CONGRESS_API_KEY, status: congressStatus },
+        eurLex: { configured: true, status: eurLexStatus },
       };
     }),
   }),

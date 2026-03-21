@@ -299,6 +299,21 @@ export async function getRpaConfig(userId: number) {
   return result[0] ?? null;
 }
 
+/**
+ * 获取 Owner 的 RPA 配置（作为全站默认值）
+ * Owner 由 OWNER_OPEN_ID 环境变量标识
+ */
+export async function getOwnerRpaConfig() {
+  const db = await getDb();
+  if (!db) return null;
+  if (!ENV.ownerOpenId) return null;
+  // 先找 Owner 的 userId
+  const ownerUser = await db.select().from(users).where(eq(users.openId, ENV.ownerOpenId)).limit(1);
+  if (!ownerUser[0]) return null;
+  const result = await db.select().from(rpaConfigs).where(eq(rpaConfigs.userId, ownerUser[0].id)).limit(1);
+  return result[0] ?? null;
+}
+
 export async function upsertRpaConfig(
   userId: number,
   config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null }

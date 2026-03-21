@@ -1,0 +1,24 @@
+{
+  "query": "SELECT userId, LENGTH(investmentRules) as rules_len, LEFT(investmentRules, 200) as rules_preview, LENGTH(taskInstruction) as task_len, LEFT(taskInstruction, 200) as task_preview, LENGTH(dataLibrary) as lib_len, LEFT(dataLibrary, 300) as lib_preview FROM rpa_configs ORDER BY updatedAt DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT userId, LENGTH(investmentRules) as rules_len, LEFT(investmentRules, 200) as rules_preview, LENGTH(taskInstruction) as task_len, LEFT(taskInstruction, 200) as task_preview, LENGTH(dataLibrary) as lib_len, LEFT(dataLibrary, 300) as lib_preview FROM rpa_configs ORDER BY updatedAt DESC LIMIT 3;",
+  "rows": [],
+  "messages": [
+    "1\t2992\t我的核心投资理念",
+    "我是以基本面为核心的投资者。对我而言，投资的本质绝不是交易屏幕上跳动的价格，而是买入一家公司的所有权。真正的安全边际，永远且只能来源于我是否真正懂这家公司。",
+    "我不做认知之外的投资。看不懂的生意、不清晰的盈利模式，我宁可错过，也绝不强行拼凑逻辑。在不确定性面前，我允许自己空仓或延迟决策，因为我不接受被动参与市场。",
+    "一、寻找结构性机会与差异化壁垒",
+    "我的分析永远自上而下。但在看对方向后\t3373\t为了确保投资分析的严谨性和客观性，在每次执行任务的生命周期中，必须严格遵守以下 12 条底",
+    "层运行逻辑，并强制执行“三次复查机制”（任务开始前、任务执行中、递交结果前）。",
+    "1. 绝对理解：仔细阅读每次给出的指令，确保完全理解用户意图。如遇表述不清或错别字，必",
+    "须向用户多次确认，绝不允许主观臆断、随意补充或修改指令内容。",
+    "2. 闭环资料库：执行任务时，必须且仅能使用指定的 21 个专属数据库作为数据\t6156\t金融投资分析专属数据库清单及用途指南",
+    "本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。",
+    "1. 宏观经济与央行政策 (Macro & Central Banks)",
+    "这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。",
+    "数据库\t网址链接\t核心用途与分析场景",
+    "Haver Analytics\thttps://www.haver.com/\t核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业"
+  ],
+  "stdout": "userId\trules_len\trules_preview\ttask_len\ttask_preview\tlib_len\tlib_preview\n1\t2992\t我的核心投资理念\n我是以基本面为核心的投资者。对我而言，投资的本质绝不是交易屏幕上跳动的价格，而是买入一家公司的所有权。真正的安全边际，永远且只能来源于我是否真正懂这家公司。\n我不做认知之外的投资。看不懂的生意、不清晰的盈利模式，我宁可错过，也绝不强行拼凑逻辑。在不确定性面前，我允许自己空仓或延迟决策，因为我不接受被动参与市场。\n一、寻找结构性机会与差异化壁垒\n我的分析永远自上而下。但在看对方向后\t3373\t为了确保投资分析的严谨性和客观性，在每次执行任务的生命周期中，必须严格遵守以下 12 条底\n层运行逻辑，并强制执行“三次复查机制”（任务开始前、任务执行中、递交结果前）。\n1. 绝对理解：仔细阅读每次给出的指令，确保完全理解用户意图。如遇表述不清或错别字，必\n须向用户多次确认，绝不允许主观臆断、随意补充或修改指令内容。\n2. 闭环资料库：执行任务时，必须且仅能使用指定的 21 个专属数据库作为数据\t6156\t金融投资分析专属数据库清单及用途指南\n本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。\n\n1. 宏观经济与央行政策 (Macro & Central Banks)\n这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。\n\n数据库\t网址链接\t核心用途与分析场景\nHaver Analytics\thttps://www.haver.com/\t核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业\n",
+  "stderr": "",
+  "execution_time_ms": 362
+}

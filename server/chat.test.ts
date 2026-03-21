@@ -20,6 +20,7 @@ vi.mock("./db", () => ({
   getActiveDbConnection: vi.fn().mockResolvedValue(undefined),
   setActiveDbConnection: vi.fn().mockResolvedValue(undefined),
   deleteDbConnection: vi.fn().mockResolvedValue(undefined),
+  getOwnerRpaConfig: vi.fn().mockResolvedValue(null),
   getRpaConfig: vi.fn().mockResolvedValue({
     id: 1, userId: 1,
     openaiApiKey: "sk-test-key",

@@ -15,7 +15,7 @@ import {
   Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "access" | "about";
+type SettingsTab = "api" | "database" | "access" | "logic";
 type RulesTab = "investment" | "task" | "data";
 
 // ---- 实时数据源状态面板 ----
@@ -442,6 +442,55 @@ function DataSourceStatusPanel() {
             }
           />
 
+          {/* 分组标题：法律数据 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 法律与监管</p>
+
+          {/* CourtListener */}
+          <SourceRow
+            label="CourtListener"
+            desc="美国法院诉讼 / 判决历史 / 公司诉讼风险"
+            statusStr={(status as any)?.courtListener?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开 | 美国诉讼
+              </span>
+            }
+          />
+
+          {/* Congress.gov */}
+          <SourceRow
+            label="Congress.gov"
+            desc="美国立法动态 / 法案进展 / 监管政策"
+            statusStr={(status as any)?.congress?.status ?? "error"}
+            badge={
+              !(status as any)?.congress?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  美国立法
+                </span>
+              )
+            }
+          />
+
+          {/* EUR-Lex */}
+          <SourceRow
+            label="EUR-Lex"
+            desc="欧盟法规 / MiCA / GDPR / DORA / MiFID II / AI Act"
+            statusStr={(status as any)?.eurLex?.status ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                本地静态数据
+              </span>
+            }
+          />
+
           {/* 分组标题：网页搜索 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
 
@@ -534,6 +583,7 @@ export default function Settings() {
 
   // ─── 数据查询 ───────────────────────────────────────────────────────────────
   const { data: savedConfig } = trpc.rpa.getConfig.useQuery(undefined, { enabled: isAuthenticated });
+  const isUsingOwnerDefaults = (savedConfig as any)?.isUsingOwnerDefaults ?? false;
 
   useEffect(() => {
     if (savedConfig) {
@@ -657,7 +707,7 @@ export default function Settings() {
     { id: "api", label: "ChatGPT API", icon: Key, badge: hasApiKey ? "已配置" : undefined },
     { id: "database", label: "数据库", icon: Database },
     ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield, ownerOnly: true }] : []),
-    { id: "about", label: "关于", icon: Bot },
+    { id: "logic", label: "逻辑", icon: Brain },
   ];
 
   const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
@@ -928,6 +978,18 @@ export default function Settings() {
                   GPT & Manus 最高优先级，强制遵守
                 </span>
               </div>
+
+              {/* Owner 默认值提示横幅 */}
+              {isUsingOwnerDefaults && (
+                <div className="flex items-start gap-2 p-3 rounded-lg text-xs"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
+                  <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }} />
+                  <div>
+                    <span className="font-medium" style={{ color: "oklch(0.80 0.01 270)" }}>当前显示的是平台默认配置</span>
+                    <span style={{ color: "oklch(0.55 0.01 270)" }}>，可直接使用。如需自定义，修改后点「保存」即可覆盖为个人配置。</span>
+                  </div>
+                </div>
+              )}
 
               {/* 三部分内部 Tab 导航 */}
               <div className="flex gap-1 p-1 rounded-lg"
@@ -1359,25 +1421,25 @@ export default function Settings() {
           </div>
         )}
 
-        {activeTab === "about" && (
+        {activeTab === "logic" && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"
               style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步串行协作流程</h2>
+              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步并行协作架构</h2>
               {[
                 {
                   step: "Step 1 · GPT", label: "GPT 主导规划 + 初步分析",
-                  desc: "GPT 判断任务是否为上一对话的延续，制定完整分析框架，并对主观判断、逻辑推理、市场情绪等擅长领域直接开始处理，同时列出 Manus 的数据需求清单",
+                  desc: "GPT 制定分析框架 + 精准资源规划（指定具体 API + 深度 + 广度），同步开始主观分析（护城河/宏观叙事/风险识别/历史类比），输出 TASK_SPEC 格式给 Manus",
                   color: "oklch(0.72 0.18 155)", icon: Brain,
                 },
                 {
                   step: "Step 2 · Manus", label: "Manus 完善任务 + 数据收集",
-                  desc: "Manus 先将任务描述专业化补全（补充细节、量化维度），再严格按 GPT 框架收集数据、整理表格，根据任务复杂度自适应输出长度（简单任务约500字，复杂任务不超过2000字）",
+                  desc: "Manus 接收 GPT 的 TASK_SPEC 后，先做资源审查（可补漏/去冗余），再并行调动 21+ 个 API 模块收集数据，整理为结构化报告交回 GPT",
                   color: "oklch(0.72 0.18 250)", icon: Bot,
                 },
                 {
                   step: "Step 3 · GPT", label: "GPT 深度整合，输出最终回复",
-                  desc: "GPT 将 Step1 初步分析与 Manus 数据报告深度结合，进行正推（当前→未来）和倒推（结果→原因）双向验证，输出完整投资判断。同一对话框内自动延续上下文，回复末尾提出 2-3 个跟进问题",
+                  desc: "GPT 深度融合自身 S1 分析与 Manus 数据，展示完整推理链（数据→逻辑→判断），给出明确立场（买入/持有/卖出 | 高估/合理/低估），量化风险，输出最终专业报告",
                   color: "oklch(0.72 0.18 155)", icon: Brain,
                 },
               ].map(({ step, label, desc, color, icon: Icon }, i) => (

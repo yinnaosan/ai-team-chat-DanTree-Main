@@ -62,6 +62,7 @@ import { getFileCategory, extractFileContent, formatFileSize } from "./fileProce
 import { TRPCError } from "@trpc/server";
 import { fetchStockDataForTask } from "./yahooFinance";
 import { getMacroDataByKeywords } from "./fredApi";
+import { fetchWorldBankData } from "./worldBankApi";
 import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
@@ -428,10 +429,12 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     };
     const refinedTavilyQuery = extractDataNeedsQuery(gptStep1Output, taskDescription);
 
-    // ── Step1 完成后：FRED（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
-    const [macroDataResult, refinedTavilyResult] = await Promise.allSettled([
+    // ── Step1 完成后：FRED + World Bank（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
+    const [macroDataResult, worldBankResult, refinedTavilyResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
+      // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
+      fetchWorldBankData(taskDescription + " " + gptStep1Output),
       // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
       isTavilyConfigured() && refinedTavilyQuery !== taskDescription
         ? searchForTask(refinedTavilyQuery, userLibraryUrls)
@@ -441,6 +444,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     // ── 合并所有数据源结果 ────────────────────────────────────────────────────
     const stockData = stockDataResult;
     const macroData = macroDataResult;
+    const worldBankData = worldBankResult;
     // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）
     // 适配新的 TaskSearchResult 类型
     const earlyTavilyResult2 = earlyTavilyResult.status === "fulfilled" ? earlyTavilyResult.value : null;
@@ -461,10 +465,11 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
 
-    // 将结构化数据（Yahoo Finance + FRED）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
+    // 将结构化数据（Yahoo Finance + FRED + World Bank）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
+      worldBankData.status === "fulfilled" && worldBankData.value ? worldBankData.value : "",
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）

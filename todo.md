@@ -1,5 +1,15 @@
 # AI Team Chat — Project TODO
 
+## World Bank API 全球宏观数据集成
+- [x] 调研 World Bank REST API 接口结构（免费公开，无需 API Key）
+- [x] 创建 server/worldBankApi.ts 数据获取模块（支持 25+ 国家，9 个核心指标）
+- [x] 集成到 Step2 数据引擎并行获取流程（与 FRED 同步启动）
+- [x] 自动从任务描述中识别国家名称（中英文双语，支持缩写）
+- [x] 根据任务关键词智能选择相关指标（GDP/通胀/贸易/失业率等）
+- [x] 格式化输出 Markdown 表格（含5年趋势和全球对比）
+- [x] 编写 13 个单元测试（全部通过，总测试数 53）
+- [x] TypeScript 0 错误，所有测试通过
+
 ## 数据库 & 后端
 - [x] 设计并迁移 messages 表（任务、消息历史）
 - [x] 设计并迁移 tasks 表（任务状态、分工记录）
@@ -612,3 +622,10 @@
 - [x] 提高各分析模式的 step2MaxWords 上限（快速 4000 / 标准 10000 / 深度 16000）
 - [x] 后端：任务完成时把 Tavily 来源列表写入消息 metadata
 - [x] 前端：AI 回复底部添加 DataSourcesFooter 组件（可折叠，绿色/红色状态标识 + 可点击链接）
+
+## World Bank API 接入（2026-03-21）
+- [ ] 调研 World Bank API 接口结构（GDP、通胀、贸易、人口等关键指标）
+- [ ] 创建 server/worldBankApi.ts 数据获取模块（支持国家代码识别、指标自动选择）
+- [ ] 集成到 Step2 数据引擎（与 FRED 并行，补充全球视角宏观数据）
+- [ ] 更新 Step2 prompt，让 Manus 处理 World Bank 数据
+- [ ] 编写 worldBankApi.test.ts 测试

@@ -30,6 +30,7 @@ export async function callDataApi(
 
   const response = await fetch(fullUrl, {
     method: "POST",
+    signal: AbortSignal.timeout(15000), // 15秒超时，防止 Yahoo Finance 上游 hang 住 Step2
     headers: {
       accept: "application/json",
       "content-type": "application/json",

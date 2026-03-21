@@ -584,3 +584,12 @@
 - [x] 优化2：Step1 完成后用「数据需求清单」精炼 Tavily 搜索关键词并补充搜索
 - [x] 优化3：流式轮询改为 SSE 服务端推送（server/taskStream.ts），前端用 EventSource 订阅
 - [x] 优化4：记忆召回添加语义相关性排序（getRelevantMemory），关键词匹配+时间衰减双维度评分
+
+## Bug审查与修复（2026-03-21）
+- [x] 超时保护：callDataApi 添加 15s AbortSignal.timeout
+- [x] Bug5：对话历史过滤条件修复（移除 phase===final 限制，改为包含所有非空 assistant 消息）
+- [x] Bug6：SSE 流式完成后推送最终 chunk，防止最后 300ms 内容丢失
+- [x] Bug4：记忆关键词提取股票代码 + 任务描述前 80 字，提升语义召回精度
+- [x] 清理废弃变量 GLOBAL_TASK_INSTRUCTION（空字符串，每次任务无意义拼接）
+- [ ] Bug7：fileProcessor.ts 对 PDF/Word 文件使用 image_url 方式调用 LLM——非图片文件用 image_url 会导致 LLM 无法正确解析
+- [ ] Bug8：Tavily 精炼搜索结果覆盖初始搜索——当精炼结果非空时完全丢弃初始搜索结果，可能丢失有价値的早期数据

@@ -66,7 +66,9 @@ async function fetchFred(endpoint: string, params: Record<string, string> = {}):
     url.searchParams.set(k, v);
   }
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    signal: AbortSignal.timeout(10000), // 10秒超时，防止 hang 住 Step2
+  });
   if (!res.ok) throw new Error(`FRED API error: ${res.status} ${res.statusText}`);
   return res.json();
 }

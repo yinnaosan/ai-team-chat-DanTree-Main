@@ -197,8 +197,6 @@ ${userConfig.dataLibrary.trim()}`
 
   // 合并三部分，构建完整的守则块
   const USER_CORE_RULES = PART1_INVESTMENT_RULES + PART2_TASK_INSTRUCTION + PART3_DATA_LIBRARY;
-  // 兼容旧变量（废弃，保留不删）
-  const GLOBAL_TASK_INSTRUCTION = "";
 
   // Manus 幕后数据引擎
   const manusSystemPrompt = `[INTERNAL: You are the data engine. Recipient: GPT. Task: collect structured data for GPT analysis.]
@@ -208,7 +206,7 @@ ${userConfig.dataLibrary.trim()}`
 1. 【第一优先】如果上下文中已提供「已获取的实时数据」，必须直接使用这些数据，不得重新编造或修改
 2. 【第二优先】如果实时数据中没有某个指标，必须明确标注 N/A（未获取实时数据），严禁用训练记忆或历史知识填充
 3. 【绝对禁止】编造、猜测、或使用训练数据作为实时数据输出——如果没有真实来源，必须标注 N/A
-4. 【数据来源】每个数据点必须标注来源：[Yahoo Finance]、[FRED]、[Tavily: 网址]、[N/A]四种之一` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
+4. 【数据来源】每个数据点必须标注来源：[Yahoo Finance]、[FRED]、[Tavily: 网址]、[N/A]四种之一` + USER_CORE_RULES;
 
   // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
   const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
@@ -261,7 +259,7 @@ ${userConfig.dataLibrary.trim()}`
 - data 数组最多 24 个数据点（热力图可到 30 个）
 - 图表必须紧跟相关文字分析，不能孤立出现
 - 每次回复至少包含 1 个图表（如果有任何数据可视化机会）
-- 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
+- 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES;
 
   // -- 历史记忆上下文 --------------------------------------------------------
   // 语义相关性召回：对话级优先，全局兑底，关键词匹配 + 时间衰减双维度评分
@@ -289,7 +287,8 @@ ${userConfig.dataLibrary.trim()}`
       const recentMsgs = await getMessagesByConversation(conversationId);
       // 取最近10条（5轮对话），排除当前正在处理的任务消息（只取 completed 的）
       const historyMsgs = recentMsgs
-        .filter(m => m.role === "user" || (m.role === "assistant" && m.metadata && (m.metadata as any).phase === "final"))
+        // 包含所有 user 消息 + 非空的 assistant 消息（streaming/completed 状态均可用）
+        .filter(m => m.role === "user" || (m.role === "assistant" && String(m.content || "").trim().length > 0))
         .slice(-10)
         .map(m => ({ role: m.role as "user" | "assistant", content: String(m.content).slice(0, 800) }));
       conversationHistory = historyMsgs;
@@ -585,8 +584,9 @@ ${manusReport}
             lastDbUpdate = Date.now();
           }
         }
-        // 最终完整写入
+        // 最终完整写入，并推送最后一个 chunk（防止最后 300ms 内的内容丢失）
         await updateMessageContent(streamMsgId, accumulated);
+        emitTaskChunk(taskId, streamMsgId, accumulated); // 确保前端收到完整内容
         finalReply = accumulated;
       } catch (gptErr) {
         const errMsg = (gptErr as Error)?.message || "";
@@ -637,7 +637,12 @@ ${manusReport}
           conversationId: conversationId ?? undefined,
           taskTitle: taskDescription.slice(0, 100),
           summary,
-          keywords: taskDescription.slice(0, 50),
+          // 提取股票代码 + 任务描述前 80 字作为关键词（提升语义召回精度）
+          keywords: (() => {
+            const tickers = taskDescription.match(/\b[A-Z]{1,5}(?:\.[A-Z]{1,2})?\b/g) || [];
+            const tickerStr = Array.from(new Set(tickers)).join(" ");
+            return (tickerStr + " " + taskDescription.slice(0, 80)).trim().slice(0, 150);
+          })(),
         });
       }
     } catch {

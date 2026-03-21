@@ -1,5 +1,15 @@
 # AI Team Chat — Project TODO
 
+## 新闻与情绪 API 集成（GDELT + NewsAPI + Marketaux）
+- [x] 创建 server/gdeltApi.ts 模块（GDELT 全球事件数据库，5秒限频队列）
+- [x] 创建 server/newsApi.ts 模块（NewsAPI 全球新闻搜索）
+- [x] 创建 server/marketauxApi.ts 模块（Marketaux 金融新闻情绪评分/实体识别）
+- [x] 集成到 Step2 数据引擎并行获取流程（routers.ts）
+- [x] 集成到 getDataSourceStatus 健康检测接口
+- [x] 更新 Settings.tsx 数据源状态面板（新增「新闻与情绪」分组，总计计数器更新为 14+N）
+- [x] 修复 imf.test.ts 中 3 个失败测试（匹配新的 formatImfDataAsMarkdown 输出格式）
+- [x] TypeScript 0 错误，132 个测试全部通过
+
 ## World Bank API 全球宏观数据集成
 - [x] 调研 World Bank REST API 接口结构（免费公开，无需 API Key）
 - [x] 创建 server/worldBankApi.ts 数据获取模块（支持 25+ 国家，9 个核心指标）
@@ -706,3 +716,32 @@
 - [x] 修复：Baostock 探针失败时返回 warning（黄色「本地运行」）而非 error（红色）
 - [x] 前端新增 warning 状态的黄色样式和「本地运行」标签
 - [x] 总计计数器将 warning 也纳入「正常」计数
+
+## Bug 修复：IMF WEO 状态面板显示红色「未配置」
+- [x] 定位根因：IMF DataMapper API 被 Akamai CDN IP 封锁（403 Forbidden）
+- [x] 修复：重写 imfApi.ts，改用 World Bank API 获取同类宏观数据（完全可访问）
+- [x] 保留所有对外接口不变（fetchImfData/formatImfDataAsMarkdown）
+- [x] 设置页标签待更新为「IMF/WB 宏观数据」
+
+## GDELT API 集成（全球事件/地缘风险/新闻情绪）
+- [ ] 调研 GDELT API 接口（DOC 2.0、GKG、事件查询）
+- [ ] 创建 server/gdeltApi.ts 模块（含 5s 请求限速队列）
+- [ ] 集成 GDELT 到 Step2 数据引擎（地缘/新闻/情绪任务自动触发）
+- [ ] 更新 getDataSourceStatus 加入 GDELT 健康检测
+- [ ] 设置页状态面板加入 GDELT 指示器
+- [ ] 编写单元测试
+
+## NewsAPI 集成（全球新闻搜索/头条）
+- [ ] 验证 NewsAPI Key 可用性
+- [ ] 创建 server/newsApi.ts 模块（关键词搜索/头条/来源过滤）
+- [ ] NewsAPI Key 存入环境变量 NEWS_API_KEY
+- [ ] 集成到 Step2 数据引擎（新闻/事件任务自动触发）
+- [ ] 设置页状态面板加入 NewsAPI 指示器
+- [ ] 编写单元测试
+
+## Marketaux 金融新闻 API 集成
+- [ ] 验证 Marketaux API Key 可用性
+- [ ] 创建 server/marketauxApi.ts 模块（股票新闻/情绪评分/实体识别）
+- [ ] Marketaux API Key 存入环境变量
+- [ ] 集成到 Step2 数据引擎（股票分析任务自动触发）
+- [ ] 设置页状态面板加入 Marketaux 指示器

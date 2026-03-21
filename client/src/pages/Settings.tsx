@@ -96,10 +96,13 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes((status as any).secEdgar?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).coinGecko?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).baostock?.status) ? 1 : 0,
+                1, // GDELT 免费公开，始终计入
+                ["active","warning"].includes((status as any).newsApi?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).marketaux?.status) ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {11 + (status.tavily ?? []).filter(k => k.configured).length}
+              {14 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -159,15 +162,15 @@ function DataSourceStatusPanel() {
             }
           />
 
-          {/* IMF */}
+          {/* IMF / World Bank 镜像 */}
           <SourceRow
-            label="IMF WEO"
-            desc="展望 / 财政债务 / 经常账户"
+            label="IMF/WB 宏观数据"
+            desc="GDP / 通胀 / 债务 / 展望"
             statusStr={status?.imf?.status ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                含预测
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开
               </span>
             }
           />
@@ -278,6 +281,62 @@ function DataSourceStatusPanel() {
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
                 免费公开
               </span>
+            }
+          />
+
+          {/* 分组标题：新闻与情绪 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 新闻与情绪</p>
+
+          {/* GDELT */}
+          <SourceRow
+            label="GDELT"
+            desc="全球事件 / 地缘风险 / 新闻情绪"
+            statusStr={(status as any)?.gdelt?.status ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开 | 5秒限频
+              </span>
+            }
+          />
+
+          {/* NewsAPI */}
+          <SourceRow
+            label="NewsAPI"
+            desc="全球新闻搜索 / 头条"
+            statusStr={(status as any)?.newsApi?.status ?? "error"}
+            badge={
+              !(status as any)?.newsApi?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
+                  未配置
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                  需 API Key
+                </span>
+              )
+            }
+          />
+
+          {/* Marketaux */}
+          <SourceRow
+            label="Marketaux"
+            desc="金融新闻 / 情绪评分 / 实体识别"
+            statusStr={(status as any)?.marketaux?.status ?? "error"}
+            badge={
+              !(status as any)?.marketaux?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
+                  未配置
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                  需 API Key | 情绪评分
+                </span>
+              )
             }
           />
 

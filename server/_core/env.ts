@@ -7,4 +7,17 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // 金融数据 API Keys
+  FINNHUB_API_KEY: process.env.FINNHUB_API_KEY ?? "",
+  ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY ?? "",
+  POLYGON_API_KEY: process.env.POLYGON_API_KEY ?? "",
+  FMP_API_KEY: process.env.FMP_API_KEY ?? "",
+  COINGECKO_API_KEY: process.env.COINGECKO_API_KEY ?? "",
+  NEWS_API_KEY: process.env.NEWS_API_KEY ?? "",
+  MARKETAUX_API_KEY: process.env.MARKETAUX_API_KEY ?? "",
+  FRED_API_KEY: process.env.FRED_API_KEY ?? "",
+  TAVILY_API_KEY: process.env.TAVILY_API_KEY ?? "",
+  TAVILY_API_KEY_2: process.env.TAVILY_API_KEY_2 ?? "",
+  TAVILY_API_KEY_3: process.env.TAVILY_API_KEY_3 ?? "",
+  TAVILY_API_KEY_4: process.env.TAVILY_API_KEY_4 ?? "",
 };

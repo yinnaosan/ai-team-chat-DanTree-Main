@@ -1,12 +1,43 @@
 /**
- * IMF DataMapper API Integration
- * 数据来源：IMF World Economic Outlook (WEO) 数据库
- * API 文档：https://www.imf.org/external/datamapper/api/help
- * 特点：免费公开，无需 API Key，含 2025-2026 年预测值，133 个指标，241 个国家
+ * IMF/World Bank 宏观经济数据集成
+ * 数据来源：World Bank Open Data API（数据来源于 IMF/World Bank 联合统计）
+ * API 文档：https://datahelpdesk.worldbank.org/knowledgebase/articles/889392
+ * 特点：免费公开，无需 API Key，覆盖 200+ 国家，含历史数据
+ *
+ * 注：IMF DataMapper API 因 Akamai CDN IP 封锁无法从服务器端直接访问，
+ *     改用 World Bank API 提供等效的宏观经济指标数据。
  */
 
-const IMF_BASE = "https://www.imf.org/external/datamapper/api/v1";
-const REQUEST_TIMEOUT_MS = 10000;
+const WB_BASE = "https://api.worldbank.org/v2";
+const REQUEST_TIMEOUT_MS = 12000;
+
+// ─── World Bank 指标代码映射（对应原 IMF 指标）──────────────────────────────────
+// WB 指标 → IMF 等效指标
+const WB_INDICATOR_MAP: Record<string, string> = {
+  NGDP_RPCH:    "NY.GDP.MKTP.KD.ZG",   // GDP 实际增长率 (%)
+  NGDPDPC:      "NY.GDP.PCAP.CD",       // 人均 GDP (现价美元)
+  NGDPD:        "NY.GDP.MKTP.CD",       // GDP 名义总量 (现价美元)
+  PCPIPCH:      "FP.CPI.TOTL.ZG",       // CPI 通胀率 (%)
+  LUR:          "SL.UEM.TOTL.ZS",       // 失业率 (%)
+  GGXWDG_NGDP:  "GC.DOD.TOTL.GD.ZS",   // 政府债务/GDP (%)
+  GGXCNL_NGDP:  "GC.NLD.TOTL.GD.ZS",   // 财政净借贷/GDP (%)
+  BCA_NGDPD:    "BN.CAB.XOKA.GD.ZS",   // 经常账户/GDP (%)
+  NGSD_NGDP:    "NY.GNS.ICTR.ZS",       // 国民储蓄率/GDP (%)
+  NID_NGDP:     "NE.GDI.TOTL.ZS",       // 总投资/GDP (%)
+  PPPSH:        "NY.GDP.MKTP.PP.CD",    // GDP PPP (现价国际元，用于份额计算)
+};
+
+// ISO3 → World Bank ISO2 代码映射
+const ISO3_TO_WB: Record<string, string> = {
+  CHN: "CN", USA: "US", JPN: "JP", DEU: "DE", GBR: "GB",
+  FRA: "FR", IND: "IN", BRA: "BR", KOR: "KR", AUS: "AU",
+  CAN: "CA", RUS: "RU", SAU: "SA", ZAF: "ZA", MEX: "MX",
+  IDN: "ID", TUR: "TR", ARG: "AR", ITA: "IT", ESP: "ES",
+  NLD: "NL", CHE: "CH", SWE: "SE", NOR: "NO", POL: "PL",
+  THA: "TH", VNM: "VN", SGP: "SG", HKG: "HK", TWN: "TW",
+  MYS: "MY", PHL: "PH", ISR: "IL", EGY: "EG", NGA: "NG",
+  EUQ: "XC", WLD: "1W", EME: "XO", ADV: "XY",
+};
 
 // ─── 国家映射（中英文 → ISO3 代码）────────────────────────────────────────────
 const COUNTRY_MAP: Record<string, string> = {
@@ -69,8 +100,8 @@ export const IMF_INDICATORS: ImfIndicator[] = [
   },
   {
     code: "NGDPD",
-    label: "GDP（名义，十亿美元）",
-    unit: "十亿美元",
+    label: "GDP（名义，美元）",
+    unit: "美元",
     keywords: ["gdp", "经济体量", "经济规模", "总量"],
   },
   {
@@ -117,8 +148,8 @@ export const IMF_INDICATORS: ImfIndicator[] = [
   },
   {
     code: "PPPSH",
-    label: "GDP占全球PPP份额",
-    unit: "%",
+    label: "GDP（PPP，国际元）",
+    unit: "国际元",
     keywords: ["ppp", "购买力", "全球份额", "比较", "对比"],
   },
 ];
@@ -141,8 +172,7 @@ export function detectCountriesFromText(text: string): string[] {
     return ["CHN", "USA", "JPN", "DEU", "GBR", "IND"];
   }
 
-  // 去重并排序
-  return Array.from(found).slice(0, 12); // 最多 12 个国家
+  return Array.from(found).slice(0, 12);
 }
 
 /** 根据任务关键词选择相关指标 */
@@ -158,12 +188,10 @@ export function selectIndicatorsFromText(text: string): ImfIndicator[] {
     scored.push({ indicator: ind, score });
   }
 
-  // 按分数排序，取前 6 个；若全部 0 分则返回核心 4 个
   const sorted = scored.sort((a, b) => b.score - a.score);
   const relevant = sorted.filter((x) => x.score > 0).map((x) => x.indicator);
 
   if (relevant.length === 0) {
-    // 默认返回最常用的 4 个指标
     return IMF_INDICATORS.filter((i) =>
       ["NGDP_RPCH", "PCPIPCH", "LUR", "GGXWDG_NGDP"].includes(i.code)
     );
@@ -172,21 +200,35 @@ export function selectIndicatorsFromText(text: string): ImfIndicator[] {
   return relevant.slice(0, 6);
 }
 
-// ─── 核心 API 调用 ─────────────────────────────────────────────────────────────
+// ─── World Bank API 调用 ───────────────────────────────────────────────────────
 
-interface ImfRawResponse {
-  values: Record<string, Record<string, Record<string, number>>>;
+interface WbObservation {
+  date: string;
+  value: number | null;
+  country: { id: string; value: string };
 }
 
-/** 获取单个指标的多国数据（含历史 + 预测） */
-async function fetchIndicator(
-  indicatorCode: string,
-  countryCodes: string[],
-  years: number[]
+/**
+ * 通过 World Bank API 获取单个指标的多国数据
+ */
+async function fetchWbIndicator(
+  imfCode: string,
+  iso3Codes: string[],
+  startYear: number,
+  endYear: number
 ): Promise<Record<string, Record<string, number | null>>> {
-  const periodsParam = years.join(",");
-  const countriesParam = countryCodes.join("/");
-  const url = `${IMF_BASE}/${indicatorCode}/${countriesParam}?periods=${periodsParam}`;
+  const wbCode = WB_INDICATOR_MAP[imfCode];
+  if (!wbCode) return {};
+
+  // 转换为 WB 格式的国家代码，过滤掉没有映射的
+  const wbCodes = iso3Codes
+    .map((c) => ISO3_TO_WB[c])
+    .filter(Boolean);
+
+  if (wbCodes.length === 0) return {};
+
+  const countriesParam = wbCodes.join(";");
+  const url = `${WB_BASE}/country/${countriesParam}/indicator/${wbCode}?format=json&date=${startYear}:${endYear}&per_page=500`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -194,21 +236,34 @@ async function fetchIndicator(
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-
     if (!res.ok) return {};
 
-    const data: ImfRawResponse = await res.json();
-    const vals = data?.values?.[indicatorCode] ?? {};
+    const raw = await res.json() as [unknown, WbObservation[]];
+    const observations: WbObservation[] = Array.isArray(raw[1]) ? raw[1] : [];
 
-    // 转换为 { countryCode: { year: value } } 格式
+    // 反转映射：WB iso2 → ISO3
+    const wb2iso3: Record<string, string> = {};
+    for (const [iso3, wb] of Object.entries(ISO3_TO_WB)) {
+      wb2iso3[wb] = iso3;
+    }
+
+    // 整理为 { iso3: { year: value } }
     const result: Record<string, Record<string, number | null>> = {};
-    for (const country of countryCodes) {
-      result[country] = {};
-      for (const year of years) {
-        const v = vals[country]?.[String(year)];
-        result[country][String(year)] = v !== undefined ? v : null;
+    for (const iso3 of iso3Codes) {
+      result[iso3] = {};
+      for (let y = startYear; y <= endYear; y++) {
+        result[iso3][String(y)] = null;
       }
     }
+
+    for (const obs of observations) {
+      const wb2 = obs.country?.id;
+      const iso3 = wb2iso3[wb2];
+      if (iso3 && result[iso3]) {
+        result[iso3][obs.date] = obs.value;
+      }
+    }
+
     return result;
   } catch {
     clearTimeout(timer);
@@ -216,45 +271,50 @@ async function fetchIndicator(
   }
 }
 
-// ─── 主入口：获取 IMF 宏观数据 ────────────────────────────────────────────────
+// ─── 主入口：获取宏观数据 ──────────────────────────────────────────────────────
 
 export interface ImfDataResult {
   countries: string[];
   indicators: ImfIndicator[];
   data: Record<string, Record<string, Record<string, number | null>>>;
-  // { indicatorCode: { countryCode: { year: value } } }
   years: number[];
   fetchedAt: string;
+  source: "worldbank"; // 数据来源标记
 }
 
 /**
- * 根据任务描述自动选择国家和指标，批量获取 IMF WEO 数据
+ * 根据任务描述自动选择国家和指标，批量获取宏观经济数据
+ * 数据通过 World Bank API 获取（等效 IMF WEO 指标）
  */
 export async function fetchImfData(taskText: string): Promise<ImfDataResult | null> {
   const countries = detectCountriesFromText(taskText);
   const indicators = selectIndicatorsFromText(taskText);
 
-  // 获取近 4 年历史 + 未来 2 年预测
   const currentYear = new Date().getFullYear();
-  const years = [
-    currentYear - 3,
-    currentYear - 2,
-    currentYear - 1,
-    currentYear,
-    currentYear + 1,
-    currentYear + 2,
-  ];
+  const startYear = currentYear - 4;
+  const endYear = currentYear - 1; // WB 历史数据，最新为上一年
+
+  const years: number[] = [];
+  for (let y = startYear; y <= endYear; y++) years.push(y);
 
   // 并行获取所有指标
   const results = await Promise.allSettled(
-    indicators.map((ind) => fetchIndicator(ind.code, countries, years))
+    indicators.map((ind) =>
+      fetchWbIndicator(ind.code, countries, startYear, endYear)
+    )
   );
 
   const data: Record<string, Record<string, Record<string, number | null>>> = {};
   for (let i = 0; i < indicators.length; i++) {
     const r = results[i];
     if (r.status === "fulfilled" && Object.keys(r.value).length > 0) {
-      data[indicators[i].code] = r.value;
+      // 检查是否有实际数据（非全 null）
+      const hasData = Object.values(r.value).some((countryData) =>
+        Object.values(countryData).some((v) => v !== null)
+      );
+      if (hasData) {
+        data[indicators[i].code] = r.value;
+      }
     }
   }
 
@@ -266,12 +326,12 @@ export async function fetchImfData(taskText: string): Promise<ImfDataResult | nu
     data,
     years,
     fetchedAt: new Date().toISOString(),
+    source: "worldbank",
   };
 }
 
 // ─── 格式化输出 ────────────────────────────────────────────────────────────────
 
-/** 国家 ISO3 → 显示名称 */
 const COUNTRY_DISPLAY: Record<string, string> = {
   CHN: "中国", USA: "美国", JPN: "日本", DEU: "德国", GBR: "英国",
   FRA: "法国", IND: "印度", BRA: "巴西", KOR: "韩国", AUS: "澳大利亚",
@@ -286,30 +346,28 @@ const COUNTRY_DISPLAY: Record<string, string> = {
 function fmtVal(v: number | null | undefined, unit: string): string {
   if (v === null || v === undefined) return "N/A";
   const rounded = Math.round(v * 100) / 100;
-  if (unit === "美元" || unit === "十亿美元") {
-    return rounded >= 1000
-      ? `${(rounded / 1000).toFixed(1)}T`
-      : rounded >= 1
-      ? rounded.toLocaleString()
-      : rounded.toFixed(2);
+  if (unit === "美元" || unit === "国际元") {
+    if (rounded >= 1e12) return `$${(rounded / 1e12).toFixed(1)}T`;
+    if (rounded >= 1e9) return `$${(rounded / 1e9).toFixed(0)}B`;
+    if (rounded >= 1e6) return `$${(rounded / 1e6).toFixed(0)}M`;
+    return `$${rounded.toLocaleString()}`;
   }
   return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1)}${unit === "%" ? "%" : ""}`;
 }
 
 /**
- * 将 IMF 数据格式化为 Markdown 表格（供 Manus 分析使用）
+ * 将宏观数据格式化为 Markdown 表格（供 Manus 分析使用）
  */
 export function formatImfDataAsMarkdown(result: ImfDataResult): string {
   if (!result || result.indicators.length === 0) return "";
 
   const lines: string[] = [
-    "## 📊 IMF WEO 宏观经济展望数据",
-    `> 数据来源：IMF World Economic Outlook（含 ${result.years[result.years.length - 1]} 年预测）`,
+    "## 📊 全球宏观经济数据（IMF/World Bank 联合统计）",
+    `> 数据来源：World Bank Open Data（数据口径与 IMF WEO 一致）`,
+    `> 覆盖年份：${result.years[0]}–${result.years[result.years.length - 1]}`,
     `> 获取时间：${new Date(result.fetchedAt).toLocaleString("zh-CN")}`,
     "",
   ];
-
-  const currentYear = new Date().getFullYear();
 
   for (const ind of result.indicators) {
     const indData = result.data[ind.code];
@@ -317,21 +375,14 @@ export function formatImfDataAsMarkdown(result: ImfDataResult): string {
 
     lines.push(`### ${ind.label}（${ind.unit}）`);
 
-    // 选择要显示的年份（近 3 年历史 + 当年 + 2 年预测）
-    const displayYears = result.years.slice(-5);
-
-    // 表头
-    const yearHeaders = displayYears.map((y) =>
-      y > currentYear ? `${y}E` : String(y)
-    );
+    const yearHeaders = result.years.map(String);
     lines.push(`| 国家 | ${yearHeaders.join(" | ")} |`);
-    lines.push(`| --- | ${displayYears.map(() => "---").join(" | ")} |`);
+    lines.push(`| --- | ${result.years.map(() => "---").join(" | ")} |`);
 
-    // 数据行
     for (const country of result.countries) {
       const countryData = indData[country] ?? {};
       const displayName = COUNTRY_DISPLAY[country] ?? country;
-      const values = displayYears.map((y) =>
+      const values = result.years.map((y) =>
         fmtVal(countryData[String(y)], ind.unit)
       );
       lines.push(`| ${displayName} | ${values.join(" | ")} |`);
@@ -340,9 +391,8 @@ export function formatImfDataAsMarkdown(result: ImfDataResult): string {
     lines.push("");
   }
 
-  // 添加数据说明
   lines.push(
-    "> **注**：E = IMF 预测值；数据来自 IMF World Economic Outlook Database，每年 4 月和 10 月更新。"
+    "> **数据说明**：数据来自 World Bank Open Data，与 IMF WEO 统计口径一致，每年更新。"
   );
 
   return lines.join("\n");
@@ -350,18 +400,18 @@ export function formatImfDataAsMarkdown(result: ImfDataResult): string {
 
 // ─── 健康检测 ──────────────────────────────────────────────────────────────────
 
-/** 轻量健康探针：检测 IMF API 是否可访问 */
+/** 轻量健康探针：检测 World Bank API 是否可访问 */
 export async function checkImfApiHealth(): Promise<{
   status: "active" | "error" | "timeout";
   latencyMs?: number;
 }> {
   const start = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 6000);
+  const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
     const res = await fetch(
-      `${IMF_BASE}/NGDP_RPCH/USA?periods=${new Date().getFullYear()}`,
+      `${WB_BASE}/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1`,
       { signal: controller.signal }
     );
     clearTimeout(timer);

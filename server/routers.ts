@@ -72,6 +72,9 @@ import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpH
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
 import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
 import { getAStockData, formatAStockData, isAStockTask, extractAStockCodes, pingBaostock } from "./baoStockApi";
+import { fetchGdeltData, formatGdeltDataAsMarkdown, checkGdeltHealth } from "./gdeltApi";
+import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth } from "./newsApi";
+import { fetchMarketauxData, formatMarketauxDataAsMarkdown, checkMarketauxHealth } from "./marketauxApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -455,7 +458,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 
     const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
-      cryptoResult, aStockResult] = await Promise.allSettled([
+      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
@@ -493,6 +496,22 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       // Baostock：A股历史行情/财务指标（检测到 A 股代码时触发）
       primaryAStockCode
         ? getAStockData(primaryAStockCode).then(d => formatAStockData(d))
+        : Promise.resolve(""),
+      // GDELT：全球事件/地缘风险/新闻情绪（检测到地缘政治/宏观事件任务时触发）
+      fetchGdeltData(taskDescription + " " + gptStep1Output)
+        .then(d => d ? formatGdeltDataAsMarkdown(d) : "")
+        .catch(() => ""),
+      // NewsAPI：全球新闻搜索/头条（检测到股票代码或新闻相关任务时触发）
+      ENV.NEWS_API_KEY
+        ? fetchNewsData(taskDescription + " " + gptStep1Output)
+            .then(d => d ? formatNewsDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // Marketaux：金融新闻情绪评分/实体识别（检测到股票代码时触发）
+      ENV.MARKETAUX_API_KEY && primaryTicker
+        ? fetchMarketauxData(taskDescription + " " + gptStep1Output)
+            .then(d => d ? formatMarketauxDataAsMarkdown(d) : "")
+            .catch(() => "")
         : Promise.resolve(""),
     ]);
 
@@ -533,6 +552,9 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const avEconomicMarkdown = avEconomicResult.status === "fulfilled" && avEconomicResult.value ? avEconomicResult.value : "";
     const cryptoMarkdown = cryptoResult.status === "fulfilled" && cryptoResult.value ? cryptoResult.value : "";
     const aStockMarkdown = aStockResult.status === "fulfilled" && aStockResult.value ? aStockResult.value : "";
+    const gdeltMarkdown = gdeltResult.status === "fulfilled" && gdeltResult.value ? gdeltResult.value : "";
+    const newsApiMarkdown = newsApiResult.status === "fulfilled" && newsApiResult.value ? newsApiResult.value : "";
+    const marketauxMarkdown = marketauxResult.status === "fulfilled" && marketauxResult.value ? marketauxResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -545,6 +567,9 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       secMarkdown,         // SEC EDGAR XBRL 财务数据/年报/季报
       cryptoMarkdown,      // CoinGecko 加密货币实时价格/市值/趋势
       aStockMarkdown,      // Baostock A股历史行情/财务指标
+      gdeltMarkdown,       // GDELT 全球事件/地缘风险/新闻情绪
+      newsApiMarkdown,     // NewsAPI 全球新闻搜索/头条
+      marketauxMarkdown,   // Marketaux 金融新闻情绪评分/实体识别
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -1330,8 +1355,8 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth] = await Promise.allSettled([
+      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1376,6 +1401,17 @@ export const appRouter = router({
         // Baostock（A股）：Python 子进程库，仅在本地沙筆环境可用
         // 当探针失败时返回 "warning"（表示环境限制）而非 "error"（表示配置错误）
         pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const),
+        // GDELT：免费公开，无需 Key，但受频率限制（5s 间隔）
+        // 健康检测时不实际请求（避免触发限速），直接返回 active
+        Promise.resolve("active" as const),
+        // NewsAPI
+        process.env.NEWS_API_KEY
+          ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+          : Promise.resolve("error" as const),
+        // Marketaux
+        process.env.MARKETAUX_API_KEY
+          ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+          : Promise.resolve("error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1387,6 +1423,9 @@ export const appRouter = router({
       const avStatus = avHealth.status === "fulfilled" ? avHealth.value : "error";
       const cgStatus = cgHealth.status === "fulfilled" ? cgHealth.value : "error";
       const bsStatus = bsHealth.status === "fulfilled" ? bsHealth.value : "error";
+      const gdeltStatus = gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active"; // GDELT 免费公开，默认 active
+      const newsApiStatus = newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error";
+      const marketauxStatus = marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1402,6 +1441,9 @@ export const appRouter = router({
         alphaVantage: { configured: !!process.env.ALPHA_VANTAGE_API_KEY, status: avStatus },
         coinGecko: { configured: !!process.env.COINGECKO_API_KEY, status: cgStatus },
         baostock: { configured: true, status: bsStatus },
+        gdelt: { configured: true, status: gdeltStatus },
+        newsApi: { configured: !!process.env.NEWS_API_KEY, status: newsApiStatus },
+        marketaux: { configured: !!process.env.MARKETAUX_API_KEY, status: marketauxStatus },
       };
     }),
   }),

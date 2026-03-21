@@ -237,3 +237,154 @@ export function formatPolygonData(data: PolygonStockData): string {
 
   return lines.join("\n");
 }
+
+// ─── 期权链数据（Options Chain） ──────────────────────────────────────────────
+
+export interface PolyOptionContract {
+  ticker: string;
+  contract_type: "call" | "put";
+  expiration_date: string;
+  strike_price: number;
+  exercise_style: string;
+  shares_per_contract: number;
+}
+
+export interface PolyOptionsChainData {
+  underlying: string;
+  /** 近期到期日（最近 3 个到期日） */
+  nearTermExpiries: string[];
+  /** 各到期日的 Call/Put 合约数量 */
+  expiryBreakdown: Array<{ expiry: string; calls: number; puts: number; pcRatio: number }>;
+  /** 整体 Put/Call 比率（合约数量维度） */
+  putCallRatio: number;
+  /** 总 Call 合约数 */
+  totalCalls: number;
+  /** 总 Put 合约数 */
+  totalPuts: number;
+  /** 市场关注的 Call 行权价（合约密集区） */
+  topCallStrikes: number[];
+  /** 市场关注的 Put 行权价（合约密集区） */
+  topPutStrikes: number[];
+  source: string;
+  fetchedAt: string;
+}
+
+/** 获取期权链摘要数据（免费层：合约参考数据，计算 Put/Call Ratio 和行权价分布） */
+export async function getOptionsChain(symbol: string, daysAhead = 60): Promise<PolyOptionsChainData | null> {
+  const sym = symbol.toUpperCase();
+  const today = new Date().toISOString().split("T")[0];
+  const expMax = new Date(Date.now() + daysAhead * 86400000).toISOString().split("T")[0];
+
+  try {
+    const [callsRes, putsRes] = await Promise.allSettled([
+      fetchPolygon<{ results: PolyOptionContract[] }>(
+        "/v3/reference/options/contracts",
+        { underlying_ticker: sym, expiration_date_gte: today, expiration_date_lte: expMax, contract_type: "call", limit: "250" }
+      ),
+      fetchPolygon<{ results: PolyOptionContract[] }>(
+        "/v3/reference/options/contracts",
+        { underlying_ticker: sym, expiration_date_gte: today, expiration_date_lte: expMax, contract_type: "put", limit: "250" }
+      ),
+    ]);
+
+    const calls = callsRes.status === "fulfilled" ? (callsRes.value.results ?? []) : [];
+    const puts = putsRes.status === "fulfilled" ? (putsRes.value.results ?? []) : [];
+
+    if (calls.length === 0 && puts.length === 0) return null;
+
+    // 按到期日分组
+    const expiryMap = new Map<string, { calls: number; puts: number }>();
+    for (const c of calls) {
+      const e = expiryMap.get(c.expiration_date) ?? { calls: 0, puts: 0 };
+      e.calls++;
+      expiryMap.set(c.expiration_date, e);
+    }
+    for (const p of puts) {
+      const e = expiryMap.get(p.expiration_date) ?? { calls: 0, puts: 0 };
+      e.puts++;
+      expiryMap.set(p.expiration_date, e);
+    }
+
+    const expiryBreakdown = Array.from(expiryMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([expiry, { calls: c, puts: p }]) => ({
+        expiry,
+        calls: c,
+        puts: p,
+        pcRatio: c > 0 ? parseFloat((p / c).toFixed(2)) : 0,
+      }));
+
+    const nearTermExpiries = expiryBreakdown.slice(0, 3).map(e => e.expiry);
+
+    // 行权价分布（出现频次最高的视为市场关注焦点）
+    const callStrikeCount = new Map<number, number>();
+    const putStrikeCount = new Map<number, number>();
+    for (const c of calls) callStrikeCount.set(c.strike_price, (callStrikeCount.get(c.strike_price) ?? 0) + 1);
+    for (const p of puts) putStrikeCount.set(p.strike_price, (putStrikeCount.get(p.strike_price) ?? 0) + 1);
+
+    const topCallStrikes = Array.from(callStrikeCount.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([strike]) => strike)
+      .sort((a, b) => a - b);
+
+    const topPutStrikes = Array.from(putStrikeCount.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([strike]) => strike)
+      .sort((a, b) => a - b);
+
+    return {
+      underlying: sym,
+      nearTermExpiries,
+      expiryBreakdown: expiryBreakdown.slice(0, 8),
+      putCallRatio: calls.length > 0 ? parseFloat((puts.length / calls.length).toFixed(2)) : 0,
+      totalCalls: calls.length,
+      totalPuts: puts.length,
+      topCallStrikes,
+      topPutStrikes,
+      source: "Polygon.io Options Chain",
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 格式化期权链数据为 Markdown */
+export function formatOptionsChain(data: PolyOptionsChainData): string {
+  const lines: string[] = [];
+  lines.push(`## Polygon.io 期权链摘要 — ${data.underlying}`);
+  lines.push(`*数据来源：Polygon.io Options Reference | 获取时间：${new Date(data.fetchedAt).toLocaleString("zh-CN")}*\n`);
+
+  // 整体 Put/Call 比率
+  const pcSignal = data.putCallRatio > 1.2 ? "⚠️ 偏空（市场对冲需求强）" :
+    data.putCallRatio < 0.7 ? "📈 偏多（看涨情绪主导）" : "⚖️ 中性";
+  lines.push(`### 整体 Put/Call 比率`);
+  lines.push(`> **${data.putCallRatio.toFixed(2)}** ${pcSignal}`);
+  lines.push(`> 总 Call 合约：${data.totalCalls} 个 | 总 Put 合约：${data.totalPuts} 个（统计范围：未来 60 天）\n`);
+
+  // 近期到期日分布
+  if (data.expiryBreakdown.length > 0) {
+    lines.push(`### 近期到期日 Put/Call 分布`);
+    lines.push(`| 到期日 | Call | Put | P/C 比率 | 情绪 |`);
+    lines.push(`|--------|------|-----|----------|------|`);
+    for (const e of data.expiryBreakdown) {
+      const sentiment = e.pcRatio > 1.2 ? "偏空" : e.pcRatio < 0.7 ? "偏多" : "中性";
+      lines.push(`| ${e.expiry} | ${e.calls} | ${e.puts} | ${e.pcRatio.toFixed(2)} | ${sentiment} |`);
+    }
+  }
+
+  // 市场关注行权价
+  if (data.topCallStrikes.length > 0 || data.topPutStrikes.length > 0) {
+    lines.push(`\n### 市场关注行权价（合约密集区）`);
+    if (data.topCallStrikes.length > 0) {
+      lines.push(`- **Call 密集区（阻力位参考）**：$${data.topCallStrikes.join(" / $")}`);
+    }
+    if (data.topPutStrikes.length > 0) {
+      lines.push(`- **Put 密集区（支撑位参考）**：$${data.topPutStrikes.join(" / $")}`);
+    }
+  }
+
+  return lines.join("\n");
+}

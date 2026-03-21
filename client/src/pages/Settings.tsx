@@ -101,10 +101,12 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes((status as any).marketaux?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).simfin?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).tiingo?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).ecb?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).hkex?.status) ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {16 + (status.tavily ?? []).filter(k => k.configured).length}
+              {18 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -379,6 +381,32 @@ function DataSourceStatusPanel() {
                   需 API Key | 估值数据
                 </span>
               )
+            }
+          />
+
+          {/* ECB */}
+          <SourceRow
+            label="ECB"
+            desc="欧元区利率 / 通胀 / 汇率 / 货币供应量"
+            statusStr={(status as any)?.ecb?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                免费公开 | 欧元区宏观
+              </span>
+            }
+          />
+
+          {/* HKEXnews */}
+          <SourceRow
+            label="HKEXnews"
+            desc="港股公告 / 年报 / 监管文件（香港交易所官方披露易）"
+            statusStr={(status as any)?.hkex?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                免费公开 | 港股公告
+              </span>
             }
           />
 

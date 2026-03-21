@@ -66,8 +66,8 @@ import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
 import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
 import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
-import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth } from "./alphaVantageApi";
-import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth } from "./polygonApi";
+import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth, getTechnicalIndicators, formatTechnicalIndicators } from "./alphaVantageApi";
+import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth, getOptionsChain, formatOptionsChain } from "./polygonApi";
 import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
 import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
@@ -77,6 +77,8 @@ import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth, extractNew
 import { fetchMarketauxData, formatMarketauxDataAsMarkdown, checkMarketauxHealth } from "./marketauxApi";
 import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "./simfinApi";
 import { fetchTiingoData, formatTiingoDataAsMarkdown, checkTiingoHealth } from "./tiingoApi";
+import { fetchECBData, formatECBDataAsMarkdown, checkECBHealth, isECBRelevantTask } from "./ecbApi";
+import { fetchHKEXData, formatHKEXDataAsMarkdown, checkHKEXHealth, isHKStockTask, extractHKStockCode } from "./hkexApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -382,11 +384,21 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 1. **判断连续性**：结合对话历史，判断是延续还是新任务。如是延续，引用上一次的具体结论（不是模糊的"上次分析了"）。
 2. **建立分析框架**：明确本次分析的层次结构（如：宏观环境 → 行业地位 → 企业基本面 → 估值 → 安全边际 → 投资建议）。
 3. **初步判断（必须具体）**：对主观逻辑、市场情绪、投资逻辑给出初步判断和假设，必须包含具体的方向性结论（如"初步判断该公司护城河尚在，但待数据验证利润率走向"）。
-4. **精确数据需求清单**：向数据引擎发出精确指令，包括：
+5. **精确数据需求清单**：向数据引擎发出精确指令，包括：
    - 具体指标名称（如：Trailing PE、Forward PE、EV/EBITDA、自由现金流收益率）
    - 时间范围（如：最近 5 年财务数据、近 12 个月股价走势）
    - 对比基准（如：行业均值、主要竞争对手、历史平均估值）
    - 关键风险指标（如：负债率、利息覆盖倍数、应收账款周转天数）
+6. **资源规划（必填）**：基于任务性质和重要程度，决定调用哪些数据源。在「资源规划」部分输出如下 JSON（用三个反引号包裹）：
+{ "dataSources": { "technicalIndicators": true/false, "optionsChain": true/false, "macroData": true/false, "newsAndSentiment": true/false, "cryptoData": true/false, "deepFinancials": true/false, "secFilings": true/false, "webSearch": true/false }, "priority": "quick/standard/deep", "reasoning": "一句话说明为什么这样规划" }
+
+**资源规划原则**：
+- 纯宏观问题（如美联储政策、GDP走势）：macroData=true，其他资产类=false
+- 股票基本面分析：webSearch=true，技术面可选
+- 股票技术面分析：technicalIndicators=true，深度财务可略
+- 加密货币任务：cryptoData=true，其他资产类=false
+- 期权分析或高风险评估：optionsChain=true
+- 快速问答/闲聊：全部 false，不调用任何 API
 
 输出格式：
 ## 任务判断
@@ -396,7 +408,9 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 ## 初步判断
 （必须包含方向性结论，不允许纯框架描述）
 ## 数据引擎精确需求清单
-（具体指标名称 + 时间范围 + 对比基准 + 关键风险指标）`;
+（具体指标名称 + 时间范围 + 对比基准 + 关键风险指标）
+## 资源规划
+（输出上面格式的 JSON）`;
 
     // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 + 多源金融数据 ──────────────
     // 提取 ticker 供多源数据使用
@@ -441,6 +455,57 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     }
     await updateTaskStatus(taskId, "manus_working");
 
+    // ── 解析 Step1 资源规划 JSON ─────────────────────────────────────────────
+    interface ResourcePlan {
+      dataSources: {
+        technicalIndicators: boolean;
+        optionsChain: boolean;
+        macroData: boolean;
+        newsAndSentiment: boolean;
+        cryptoData: boolean;
+        deepFinancials: boolean;
+        secFilings: boolean;
+        webSearch: boolean;
+      };
+      priority: "quick" | "standard" | "deep";
+      reasoning: string;
+    }
+    const parseResourcePlan = (step1Text: string): ResourcePlan => {
+      // 默认规划：全部启用（向后兼容，不降级已有功能）
+      const defaultPlan: ResourcePlan = {
+        dataSources: {
+          technicalIndicators: false,
+          optionsChain: false,
+          macroData: true,
+          newsAndSentiment: true,
+          cryptoData: false,
+          deepFinancials: true,
+          secFilings: true,
+          webSearch: true,
+        },
+        priority: "standard",
+        reasoning: "fallback default",
+      };
+      try {
+        // 提取「资源规划」部分的 JSON（匹配 { ... } 结构）
+        const sectionMatch = step1Text.match(/##\s*资源规划[\s\S]*?({[\s\S]*?})/m);
+        if (!sectionMatch) return defaultPlan;
+        const jsonStr = sectionMatch[1]
+          .replace(/true\/false/g, "false") // 清理模板占位符
+          .replace(/"quick\/standard\/deep"/g, '"standard"');
+        const parsed = JSON.parse(jsonStr) as ResourcePlan;
+        // 合并，确保所有字段存在
+        return {
+          dataSources: { ...defaultPlan.dataSources, ...(parsed.dataSources ?? {}) },
+          priority: parsed.priority ?? "standard",
+          reasoning: parsed.reasoning ?? "",
+        };
+      } catch {
+        return defaultPlan;
+      }
+    };
+    const resourcePlan = parseResourcePlan(gptStep1Output);
+
     // ── 从 Step1 输出提取精炼搜索关键词（优化2）────────────────────────────
     // 提取「数据引擎精确需求清单」部分作为 Tavily 精炼 query
     const extractDataNeedsQuery = (step1Text: string, fallback: string): string => {
@@ -458,25 +523,37 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const aStockCodes = extractAStockCodes(taskDescription + " " + gptStep1Output);
     const primaryAStockCode = aStockCodes[0] || null;
 
+    // 检测港股代码（用于触发 HKEXnews）
+    const hkStockCode = extractHKStockCode(taskDescription + " " + gptStep1Output);
+    const isHKTask = isHKStockTask(taskDescription + " " + gptStep1Output);
+
     const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
-      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult, simfinResult, tiingoResult] = await Promise.allSettled([
+      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult,
+      simfinResult, tiingoResult, techIndicatorsResult, optionsChainResult,
+      ecbResult, hkexResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
-      getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
-      // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
-      fetchWorldBankData(taskDescription + " " + gptStep1Output),
-      // IMF WEO：IMF 世界经测展望数据（含预测年），覆盖 GDP/通胀/失业率/财政债务/经常账户等
-      fetchImfData(taskDescription + " " + gptStep1Output),
+      resourcePlan.dataSources.macroData
+        ? getMacroDataByKeywords(taskDescription + " " + gptStep1Output)
+        : Promise.resolve(""),
+      // World Bank：全球宏观数据（GDP/通谀/贸易/失业率等），根据任务自动识别国家
+      resourcePlan.dataSources.macroData
+        ? fetchWorldBankData(taskDescription + " " + gptStep1Output)
+        : Promise.resolve(""),
+      // IMF WEO：IMF 世界经测展望数据（含预测年），覆盖 GDP/通谀/失业率/财政债务/经常账户等
+      resourcePlan.dataSources.macroData
+        ? fetchImfData(taskDescription + " " + gptStep1Output)
+        : Promise.resolve(""),
       // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
-      isTavilyConfigured() && refinedTavilyQuery !== taskDescription
+      resourcePlan.dataSources.webSearch && isTavilyConfigured() && refinedTavilyQuery !== taskDescription
         ? searchForTask(refinedTavilyQuery, userLibraryUrls)
         : Promise.resolve(""),
       // Finnhub：实时报价/分析师评级/内部交易/公司新闻（仅当检测到股票代码时）
-      primaryTicker && process.env.FINNHUB_API_KEY
+      resourcePlan.dataSources.deepFinancials && primaryTicker && process.env.FINNHUB_API_KEY
         ? getFinnhubData(primaryTicker).then(d => formatFinnhubData(d))
         : Promise.resolve(""),
       // FMP：财务报表/DCF估值/分析师目标价/关键指标（仅当检测到股票代码时）
-      primaryTicker && process.env.FMP_API_KEY
+      resourcePlan.dataSources.deepFinancials && primaryTicker && process.env.FMP_API_KEY
         ? getFmpData(primaryTicker).then(d => formatFmpData(d))
         : Promise.resolve(""),
       // Polygon.io：市场快照/公司详情/近期走势/新闻情绪（仅当检测到股票代码时）
@@ -484,15 +561,15 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
         ? getPolygonData(primaryTicker).then(d => formatPolygonData(d))
         : Promise.resolve(""),
       // SEC EDGAR：XBRL 财务数据/年报/季报（仅当检测到美股代码时）
-      primaryTicker && !primaryTicker.includes(".") // 只对美股进行 SEC 查询
+      resourcePlan.dataSources.secFilings && primaryTicker && !primaryTicker.includes(".")
         ? getSecData(primaryTicker).then(d => formatSecData(d))
         : Promise.resolve(""),
       // Alpha Vantage：宏观经测指标（利率/CPI/失业率/汇率）
-      process.env.ALPHA_VANTAGE_API_KEY
+      resourcePlan.dataSources.macroData && process.env.ALPHA_VANTAGE_API_KEY
         ? getAlphaVantageEconomicData().then(d => formatAVEconomicData(d))
         : Promise.resolve(""),
-      // CoinGecko：加密货币实时价格/市值/趋势（检测到加密货币相关任务时触发）
-      isCryptoTask(taskDescription + " " + gptStep1Output) && process.env.COINGECKO_API_KEY
+      // CoinGecko：加密货币实时价格/市値/趋势（检测到加密货币相关任务时触发）
+      resourcePlan.dataSources.cryptoData && isCryptoTask(taskDescription + " " + gptStep1Output) && process.env.COINGECKO_API_KEY
         ? getCryptoData(taskDescription + " " + gptStep1Output).then(d => formatCryptoData(d))
         : Promise.resolve(""),
       // Baostock：A股历史行情/财务指标（检测到 A 股代码时触发）
@@ -500,31 +577,57 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
         ? getAStockData(primaryAStockCode).then(d => formatAStockData(d))
         : Promise.resolve(""),
       // GDELT：全球事件/地缘风险/新闻情绪（检测到地缘政治/宏观事件任务时触发）
-      fetchGdeltData(taskDescription + " " + gptStep1Output)
-        .then(d => d ? formatGdeltDataAsMarkdown(d) : "")
-        .catch(() => ""),
+      resourcePlan.dataSources.newsAndSentiment
+        ? fetchGdeltData(taskDescription + " " + gptStep1Output)
+            .then(d => d ? formatGdeltDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
       // NewsAPI：全球新闻搜索/头条（仅当检测到股票代码/公司名/宏观事件关键词时触发）
-      ENV.NEWS_API_KEY && extractNewsQuery(taskDescription + " " + gptStep1Output) !== null
+      resourcePlan.dataSources.newsAndSentiment && ENV.NEWS_API_KEY && extractNewsQuery(taskDescription + " " + gptStep1Output) !== null
         ? fetchNewsData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatNewsDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
       // Marketaux：金融新闻情绪评分/实体识别（检测到股票代码时触发）
-      ENV.MARKETAUX_API_KEY && primaryTicker
+      resourcePlan.dataSources.newsAndSentiment && ENV.MARKETAUX_API_KEY && primaryTicker
         ? fetchMarketauxData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatMarketauxDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
       // SimFin：财务报表/衍生指标/股价历史（仅对美股代码触发）
-      ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
+      resourcePlan.dataSources.deepFinancials && ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
         ? fetchSimFinData(primaryTicker)
             .then(d => d ? formatSimFinDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
       // Tiingo：实时估值倍数（P/E、P/B、EV、PEG）+ 历史 OHLCV + 季度财务报表（仅对美股代码触发）
-      ENV.TIINGO_API_KEY && primaryTicker && !primaryTicker.includes(".")
+      resourcePlan.dataSources.deepFinancials && ENV.TIINGO_API_KEY && primaryTicker && !primaryTicker.includes(".")
         ? fetchTiingoData(primaryTicker)
             .then(d => d ? formatTiingoDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // Alpha Vantage 技术指标：RSI/布林带/EMA/SMA/随机指标（仅当资源规划要求技术面且检测到股票代码时）
+      resourcePlan.dataSources.technicalIndicators && primaryTicker && process.env.ALPHA_VANTAGE_API_KEY
+        ? getTechnicalIndicators(primaryTicker)
+            .then((d: Awaited<ReturnType<typeof getTechnicalIndicators>>) => d ? formatTechnicalIndicators(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // Polygon.io 期权链：Put-Call Ratio/行权价分布/到期日分布（仅当资源规划要求期权且检测到美股代码时）
+      resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && process.env.POLYGON_API_KEY
+        ? getOptionsChain(primaryTicker)
+            .then((d: Awaited<ReturnType<typeof getOptionsChain>>) => d ? formatOptionsChain(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // ECB：欧元区利率/通胀/汇率/货币供应量（宏观数据任务且涉及欧元区时触发）
+      resourcePlan.dataSources.macroData && isECBRelevantTask(taskDescription + " " + gptStep1Output)
+        ? fetchECBData()
+            .then(d => d ? formatECBDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // HKEXnews：港股公告/年报/监管文件（检测到港股代码或港股相关任务时触发）
+      isHKTask
+        ? fetchHKEXData(hkStockCode ?? (taskDescription + " " + gptStep1Output).slice(0, 50))
+            .then(d => d ? formatHKEXDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
     ]);
@@ -534,10 +637,12 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const macroData = macroDataResult;
     const worldBankData = worldBankResult;
     // IMF 数据：将 ImfDataResult 转为 Markdown 字符串
-    const imfMarkdown =
-      imfDataResult.status === "fulfilled" && imfDataResult.value
-        ? formatImfDataAsMarkdown(imfDataResult.value)
-        : "";
+    const imfMarkdown = (() => {
+      if (imfDataResult.status !== "fulfilled" || !imfDataResult.value) return "";
+      const v = imfDataResult.value;
+      if (typeof v === "string") return v; // 资源规划跳过时返回的空字符串
+      return formatImfDataAsMarkdown(v);
+    })();
     // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）    // 适配新的 TaskSearchResult 类型
     const earlyTavilyResult2 = earlyTavilyResult.status === "fulfilled" ? earlyTavilyResult.value : null;
     const refinedTavilyResult2 = refinedTavilyResult.status === "fulfilled" ? refinedTavilyResult.value : null;
@@ -571,6 +676,10 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const marketauxMarkdown = marketauxResult.status === "fulfilled" && marketauxResult.value ? marketauxResult.value : "";
     const simfinMarkdown = simfinResult.status === "fulfilled" && simfinResult.value ? simfinResult.value : "";
     const tiingoMarkdown = tiingoResult.status === "fulfilled" && tiingoResult.value ? tiingoResult.value : "";
+    const techIndicatorsMarkdown = techIndicatorsResult.status === "fulfilled" && techIndicatorsResult.value ? techIndicatorsResult.value : "";
+    const optionsChainMarkdown = optionsChainResult.status === "fulfilled" && optionsChainResult.value ? optionsChainResult.value : "";
+    const ecbMarkdown = ecbResult.status === "fulfilled" && ecbResult.value ? ecbResult.value : "";
+    const hkexMarkdown = hkexResult.status === "fulfilled" && hkexResult.value ? hkexResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -588,6 +697,10 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       marketauxMarkdown,   // Marketaux 金融新闻情绪评分/实体识别
       simfinMarkdown,       // SimFin 财务报表/衍生指标/股价历史
       tiingoMarkdown,        // Tiingo 实时估值倍数（P/E、P/B、EV、PEG）+ 历史 OHLCV + 季度财务报表
+      techIndicatorsMarkdown, // Alpha Vantage 技术指标（RSI/布林带/EMA/SMA/随机指标）
+      optionsChainMarkdown,   // Polygon.io 期权链（Put-Call Ratio/行权价分布/到期日分布）
+      ecbMarkdown,            // ECB 欧元区利率/通胀/汇率/货币供应量
+      hkexMarkdown,           // HKEXnews 港股公告/年报/监管文件
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -775,6 +888,8 @@ ${manusReport}
     if (secMarkdown) apiSources.push({ name: "SEC EDGAR", category: "市场数据", icon: "🏦", description: "XBRL年报/季报" });
     if (simfinMarkdown) apiSources.push({ name: "SimFin", category: "市场数据", icon: "💼", description: "财务报表/季度趋势" });
     if (tiingoMarkdown) apiSources.push({ name: "Tiingo", category: "市场数据", icon: "📈", description: "实时估值倍数" });
+    if (techIndicatorsMarkdown) apiSources.push({ name: "Alpha Vantage 技术指标", category: "技术分析", icon: "📉", description: "RSI/布林带/EMA/SMA" });
+    if (optionsChainMarkdown) apiSources.push({ name: "Polygon 期权链", category: "期权数据", icon: "📀", description: "Put-Call Ratio/隐含波动率" });
     // 宏观指标类
     if (macroData.status === "fulfilled" && macroData.value) {
       apiSources.push({ name: "FRED", category: "宏观指标", icon: "🏦", description: "美联储宏观数据" });
@@ -792,6 +907,10 @@ ${manusReport}
     if (cryptoMarkdown) apiSources.push({ name: "CoinGecko", category: "加密货币", icon: "🪙", description: "实时价格/市値" });
     // A股数据类
     if (aStockMarkdown) apiSources.push({ name: "Baostock", category: "A股数据", icon: "🇳", description: "A股历史行情" });
+    // 港股数据类
+    if (hkexMarkdown) apiSources.push({ name: "HKEXnews", category: "港股公告", icon: "🇭🇰", description: "港股公告/年报" });
+    // 欧元区宏观类
+    if (ecbMarkdown) apiSources.push({ name: "ECB", category: "宏观指标", icon: "🇪🇺", description: "欧元区利率/通胀/汇率" });
 
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
     const msgId = streamMsgId;
@@ -1416,8 +1535,8 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth] = await Promise.allSettled([
+      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo + ECB + HKEXnews
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1481,6 +1600,10 @@ export const appRouter = router({
         process.env.TIINGO_API_KEY
           ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
+        // ECB：免费公开 API，无需 Key
+        checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
+        // HKEXnews：免费公开 API，无需 Key
+        checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1497,6 +1620,8 @@ export const appRouter = router({
       const marketauxStatus = marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error";
       const simfinStatus = simfinHealth.status === "fulfilled" ? simfinHealth.value : "error";
       const tiingoStatus = tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error";
+      const ecbStatus = ecbHealth.status === "fulfilled" ? ecbHealth.value : "error";
+      const hkexStatus = hkexHealth.status === "fulfilled" ? hkexHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1517,6 +1642,8 @@ export const appRouter = router({
         marketaux: { configured: !!process.env.MARKETAUX_API_KEY, status: marketauxStatus },
         simfin: { configured: !!process.env.SIMFIN_API_KEY, status: simfinStatus },
         tiingo: { configured: !!process.env.TIINGO_API_KEY, status: tiingoStatus },
+        ecb: { configured: true, status: ecbStatus },
+        hkex: { configured: true, status: hkexStatus },
       };
     }),
   }),

@@ -317,3 +317,177 @@ export function formatStockData(data: AlphaVantageStockData): string {
 
   return lines.join("\n");
 }
+
+// ─── 技术指标（Technical Indicators） ────────────────────────────────────────
+
+export interface AVTechDataPoint {
+  date: string;
+  value: string;
+}
+
+export interface AVBBandsPoint {
+  date: string;
+  upper: string;
+  middle: string;
+  lower: string;
+}
+
+export interface AVStochPoint {
+  date: string;
+  slowK: string;
+  slowD: string;
+}
+
+export interface AVTechnicalIndicators {
+  symbol: string;
+  /** RSI(14) 周线，最近 8 期 */
+  rsi14: AVTechDataPoint[];
+  /** 布林带(20, 2) 周线，最近 4 期 */
+  bbands: AVBBandsPoint[];
+  /** EMA(20) 周线，最近 4 期 */
+  ema20: AVTechDataPoint[];
+  /** EMA(50) 周线，最近 4 期 */
+  ema50: AVTechDataPoint[];
+  /** SMA(50) 周线，最近 4 期 */
+  sma50: AVTechDataPoint[];
+  /** SMA(200) 周线，最近 4 期 */
+  sma200: AVTechDataPoint[];
+  /** Stochastic(5,3,3) 周线，最近 4 期 */
+  stoch: AVStochPoint[];
+  source: string;
+  fetchedAt: string;
+}
+
+/** 获取单个技术指标序列（内部辅助） */
+async function fetchIndicator(
+  fn: string,
+  symbol: string,
+  extraParams: Record<string, string> = {}
+): Promise<Record<string, Record<string, string>>> {
+  const data = await fetchAV<Record<string, unknown>>({
+    function: fn,
+    symbol: symbol.toUpperCase(),
+    interval: "weekly",
+    series_type: "close",
+    ...extraParams,
+  });
+  const key = Object.keys(data).find(k => k.startsWith("Technical Analysis:"));
+  if (!key) return {};
+  return data[key] as Record<string, Record<string, string>>;
+}
+
+/** 获取股票技术指标（并行，限流保护） */
+export async function getTechnicalIndicators(symbol: string): Promise<AVTechnicalIndicators> {
+  const sym = symbol.toUpperCase();
+
+  // Alpha Vantage 免费版限速 25 req/day（标准）或 5 req/min
+  // 使用 allSettled 避免整体失败，最多并行 5 个
+  const [rsiRes, bbandsRes, ema20Res, ema50Res, sma50Res, sma200Res, stochRes] = await Promise.allSettled([
+    fetchIndicator("RSI", sym, { time_period: "14" }),
+    fetchIndicator("BBANDS", sym, { time_period: "20", nbdevup: "2", nbdevdn: "2" }),
+    fetchIndicator("EMA", sym, { time_period: "20" }),
+    fetchIndicator("EMA", sym, { time_period: "50" }),
+    fetchIndicator("SMA", sym, { time_period: "50" }),
+    fetchIndicator("SMA", sym, { time_period: "200" }),
+    fetchAV<Record<string, unknown>>({ function: "STOCH", symbol: sym, interval: "weekly" })
+      .then(d => d["Technical Analysis: STOCH"] as Record<string, Record<string, string>> ?? {}),
+  ]);
+
+  const toPoints = (res: PromiseSettledResult<Record<string, Record<string, string>>>, valueKey: string, n = 8): AVTechDataPoint[] => {
+    if (res.status !== "fulfilled") return [];
+    return Object.entries(res.value).slice(0, n).map(([date, v]) => ({ date, value: v[valueKey] ?? "" }));
+  };
+
+  const toBBands = (res: PromiseSettledResult<Record<string, Record<string, string>>>, n = 4): AVBBandsPoint[] => {
+    if (res.status !== "fulfilled") return [];
+    return Object.entries(res.value).slice(0, n).map(([date, v]) => ({
+      date,
+      upper: v["Real Upper Band"] ?? "",
+      middle: v["Real Middle Band"] ?? "",
+      lower: v["Real Lower Band"] ?? "",
+    }));
+  };
+
+  const toStoch = (res: PromiseSettledResult<Record<string, Record<string, string>>>, n = 4): AVStochPoint[] => {
+    if (res.status !== "fulfilled") return [];
+    return Object.entries(res.value).slice(0, n).map(([date, v]) => ({
+      date,
+      slowK: v["SlowK"] ?? "",
+      slowD: v["SlowD"] ?? "",
+    }));
+  };
+
+  return {
+    symbol: sym,
+    rsi14: toPoints(rsiRes, "RSI", 8),
+    bbands: toBBands(bbandsRes, 4),
+    ema20: toPoints(ema20Res, "EMA", 4),
+    ema50: toPoints(ema50Res, "EMA", 4),
+    sma50: toPoints(sma50Res, "SMA", 4),
+    sma200: toPoints(sma200Res, "SMA", 4),
+    stoch: toStoch(stochRes, 4),
+    source: "Alpha Vantage Technical Indicators",
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+/** 格式化技术指标为 Markdown */
+export function formatTechnicalIndicators(data: AVTechnicalIndicators): string {
+  const lines: string[] = [];
+  lines.push(`## Alpha Vantage 技术指标 — ${data.symbol}`);
+  lines.push(`*数据来源：Alpha Vantage Technical Indicators（周线）| 获取时间：${new Date(data.fetchedAt).toLocaleString("zh-CN")}*\n`);
+
+  // RSI(14)
+  if (data.rsi14.length > 0) {
+    const latest = parseFloat(data.rsi14[0].value);
+    const signal = latest > 70 ? "⚠️ 超买区间" : latest < 30 ? "⚠️ 超卖区间" : "✅ 中性区间";
+    lines.push(`### RSI(14) — 相对强弱指数`);
+    lines.push(`> 最新值：**${latest.toFixed(2)}** ${signal}（>70 超买，<30 超卖）\n`);
+    lines.push(`| 日期 | RSI(14) |`);
+    lines.push(`|------|---------|`);
+    for (const p of data.rsi14.slice(0, 6)) {
+      lines.push(`| ${p.date} | ${parseFloat(p.value).toFixed(2)} |`);
+    }
+  }
+
+  // 布林带
+  if (data.bbands.length > 0) {
+    lines.push(`\n### 布林带(20, 2) — Bollinger Bands`);
+    lines.push(`| 日期 | 上轨 | 中轨(SMA20) | 下轨 | 带宽 |`);
+    lines.push(`|------|------|------------|------|------|`);
+    for (const p of data.bbands) {
+      const upper = parseFloat(p.upper);
+      const middle = parseFloat(p.middle);
+      const lower = parseFloat(p.lower);
+      const width = ((upper - lower) / middle * 100).toFixed(1);
+      lines.push(`| ${p.date} | $${upper.toFixed(2)} | $${middle.toFixed(2)} | $${lower.toFixed(2)} | ${width}% |`);
+    }
+  }
+
+  // EMA & SMA
+  if (data.ema20.length > 0 || data.ema50.length > 0 || data.sma50.length > 0 || data.sma200.length > 0) {
+    lines.push(`\n### 移动平均线（最新值）`);
+    lines.push(`| 指标 | 最新值 |`);
+    lines.push(`|------|--------|`);
+    if (data.ema20.length > 0) lines.push(`| EMA(20) | $${parseFloat(data.ema20[0].value).toFixed(2)} |`);
+    if (data.ema50.length > 0) lines.push(`| EMA(50) | $${parseFloat(data.ema50[0].value).toFixed(2)} |`);
+    if (data.sma50.length > 0) lines.push(`| SMA(50) | $${parseFloat(data.sma50[0].value).toFixed(2)} |`);
+    if (data.sma200.length > 0) lines.push(`| SMA(200) | $${parseFloat(data.sma200[0].value).toFixed(2)} |`);
+  }
+
+  // Stochastic
+  if (data.stoch.length > 0) {
+    const k = parseFloat(data.stoch[0].slowK);
+    const d = parseFloat(data.stoch[0].slowD);
+    const signal = k > 80 ? "超买" : k < 20 ? "超卖" : "中性";
+    lines.push(`\n### 随机指标 Stochastic(5,3,3)`);
+    lines.push(`> 最新 %K：**${k.toFixed(2)}** / %D：**${d.toFixed(2)}** — ${signal}\n`);
+    lines.push(`| 日期 | %K | %D |`);
+    lines.push(`|------|-----|-----|`);
+    for (const p of data.stoch) {
+      lines.push(`| ${p.date} | ${parseFloat(p.slowK).toFixed(2)} | ${parseFloat(p.slowD).toFixed(2)} |`);
+    }
+  }
+
+  return lines.join("\n");
+}

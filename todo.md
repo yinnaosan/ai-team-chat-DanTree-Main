@@ -1,5 +1,25 @@
 # AI Team Chat — Project TODO
 
+## Alpha Vantage 技术指标 + Polygon 期权链 + Step1 智能资源规划 + HKEXnews
+- [x] 扩展 alphaVantageApi.ts 技术指标模块（RSI/布林带/EMA/SMA/随机指标）
+- [x] 扩展 polygonApi.ts 期权链数据（Put-Call Ratio/行权价分布/到期日分布）
+- [x] Step1 智能资源规划：GPT 输出结构化 JSON 决定调用哪些 API
+- [x] Step2 解析 Step1 资源规划 JSON，按规划有选择地调用 API
+- [x] 接入技术指标（RSI/布林带/EMA/SMA/随机指标）和期权链（Put-Call Ratio）到 Step2 并行调用
+- [x] 修复 TypeScript 错误，完成技术指标和期权链接入 Step2
+- [x] 创建 server/ecbApi.ts（ECB 欧元区利率/通胀/汇率/货币供应量）
+- [x] OECD API 因 Cloudflare IP 封锁放弃，改用 FRED 覆盖 OECD 指标
+- [x] 创建 server/hkexApi.ts（HKEXnews 港股公告/年报/监管文件）
+- [x] 接入 ECB + HKEXnews 到 Step2 引擎、健康检测、Settings UI（总计 18+N）
+- [x] 编写 ecb.test.ts + hkex.test.ts，163 个测试全部通过
+
+## 英格兰銀行（Bank of England）数据库 API 集成
+- [ ] 研究 BoE 统计数据库 API 端点结构
+- [ ] 创建 server/boeApi.ts（英国利率/通胀/汇率/货币供应量）
+- [ ] 接入 BoE 到 Step2 引擎、健康检测、Settings UI
+- [ ] 编写 boe.test.ts 测试用例
+- [ ] 保存 Checkpoint
+
 ## Tiingo + SimFin 增强 + 归因 UI 优化
 - [x] 保存 TIINGO_API_KEY 为环境变量
 - [x] 创建 server/tiingoApi.ts（实时价格、历史 OHLCV、季度财务报表、实时估值倍数）

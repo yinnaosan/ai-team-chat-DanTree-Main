@@ -56,6 +56,7 @@ interface ApiSource {
   name: string;        // API 显示名称，如 "Yahoo Finance"
   category: string;   // 分类，如 "市场数据" | "宏观指标" | "新闻情绪" | "加密货币" | "A股数据"
   icon?: string;      // 可选 emoji 图标
+  description?: string; // 可选简短说明，如 "财务报表"
 }
 interface Msg {
   id: number;
@@ -277,6 +278,7 @@ function ApiSourceBadge({ src }: { src: ApiSource }) {
 
 function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; apiSources?: ApiSource[] }) {
   const [expanded, setExpanded] = React.useState(false);
+  const [apiExpanded, setApiExpanded] = React.useState(false);
   const hasWebSources = sources && sources.length > 0;
   const hasApiSources = apiSources && apiSources.length > 0;
   if (!hasWebSources && !hasApiSources) return null;
@@ -284,17 +286,81 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
   const successCount = sources ? sources.filter(s => s.success).length : 0;
   const totalCount = sources ? sources.length : 0;
 
+  // 将 API 数据源按分组分类
+  const apiByCategory = React.useMemo(() => {
+    if (!apiSources) return {};
+    const map: Record<string, ApiSource[]> = {};
+    for (const src of apiSources) {
+      const cat = src.category || "其他";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(src);
+    }
+    return map;
+  }, [apiSources]);
+
+  const categoryOrder = ["市场数据", "宏观指标", "新闻情绪", "加密货币", "A股数据", "其他"];
+  const sortedCategories = Object.keys(apiByCategory).sort(
+    (a, b) => (categoryOrder.indexOf(a) === -1 ? 99 : categoryOrder.indexOf(a)) - (categoryOrder.indexOf(b) === -1 ? 99 : categoryOrder.indexOf(b))
+  );
+
   return (
     <div className="mt-3" style={{ borderTop: "1px solid oklch(0.22 0.01 270)", paddingTop: "8px" }}>
-      {/* API 数据源快速标签行 */}
+      {/* API 数据源分组折叠卡片 */}
       {hasApiSources && (
-        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          <span className="text-xs shrink-0" style={{ color: "oklch(0.42 0.01 270)" }}>
-            <Database className="w-3 h-3 inline mr-1" />数据来源：
-          </span>
-          {apiSources!.map((src, i) => (
-            <ApiSourceBadge key={i} src={src} />
-          ))}
+        <div className="mb-2">
+          <button
+            onClick={() => setApiExpanded(e => !e)}
+            className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80 mb-1.5"
+            style={{ color: "oklch(0.42 0.01 270)" }}
+          >
+            <Database className="w-3 h-3" />
+            <span>数据来源：{apiSources!.length} 个 API</span>
+            <ChevronDown
+              className="w-3 h-3 transition-transform"
+              style={{ transform: apiExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+            />
+          </button>
+          {/* 折叠前展示简洁标签行 */}
+          {!apiExpanded && (
+            <div className="flex flex-wrap gap-1">
+              {apiSources!.map((src, i) => (
+                <ApiSourceBadge key={i} src={src} />
+              ))}
+            </div>
+          )}
+          {/* 展开后显示分组卡片 */}
+          {apiExpanded && (
+            <div className="flex flex-col gap-2 mt-1">
+              {sortedCategories.map(cat => {
+                const colors = CATEGORY_COLORS[cat] ?? CATEGORY_COLORS["网页搜索"];
+                const catSources = apiByCategory[cat];
+                return (
+                  <div key={cat}
+                    className="rounded-lg p-2"
+                    style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
+                  >
+                    <div className="text-xs font-medium mb-1" style={{ color: colors.text }}>
+                      {cat}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {catSources.map((src, i) => (
+                        <span key={i}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: "oklch(0.14 0.005 270 / 0.6)", color: "oklch(0.82 0.005 270)", border: `1px solid ${colors.border}` }}
+                        >
+                          {src.icon && <span>{src.icon}</span>}
+                          <span>{src.name}</span>
+                          {src.description && (
+                            <span style={{ color: "oklch(0.50 0.01 270)" }}>— {src.description}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {/* 网页搜索来源可折叠列表 */}

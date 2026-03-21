@@ -64,6 +64,18 @@ export interface SimFinPricePoint {
   sharesOutstanding: number | null;
 }
 
+export interface SimFinQuarterlyIncome {
+  fiscalPeriod: string; // Q1/Q2/Q3/Q4
+  fiscalYear: number;
+  reportDate: string;
+  revenue: number | null;
+  grossProfit: number | null;
+  operatingIncome: number | null;
+  netIncome: number | null;
+  eps: number | null;
+  epsDiluted: number | null;
+}
+
 export interface SimFinData {
   ticker: string;
   companyName: string;
@@ -72,6 +84,7 @@ export interface SimFinData {
   balanceSheet: SimFinBalanceSheet | null;
   derivedMetrics: SimFinDerivedMetrics | null;
   recentPrices: SimFinPricePoint[];
+  quarterlyIncome: SimFinQuarterlyIncome[]; // 最近 4 季度
   source: string;
   fetchedAt: number;
 }
@@ -262,28 +275,71 @@ async function fetchRecentPrices(ticker: string): Promise<SimFinPricePoint[]> {
 // ─── 主入口 ──────────────────────────────────────────────────────────────────
 
 /**
- * 综合获取 SimFin 数据（财务报表 + 衍生指标 + 股价历史）
+ * 获取季度损益表（最近 4 个季度）
+ */
+async function fetchQuarterlyIncome(ticker: string): Promise<SimFinQuarterlyIncome[]> {
+  try {
+    const raw = await simfinFetch("/companies/statements/compact", {
+      ticker,
+      statements: "pl",
+      period: "quarters",
+    }) as Array<{ statements: Array<{ columns: string[]; data: unknown[][] }> }>;
+
+    const stmt = raw?.[0]?.statements?.[0];
+    if (!stmt?.data?.length) return [];
+
+    const rows = compactToObjects(stmt.columns, stmt.data);
+    // 按年份+季度降序排列，取最近 4 个
+    const sorted = rows.sort((a, b) => {
+      const yearDiff = (b["Fiscal Year"] as number) - (a["Fiscal Year"] as number);
+      if (yearDiff !== 0) return yearDiff;
+      const pA = String(a["Fiscal Period"] ?? "").replace("Q", "");
+      const pB = String(b["Fiscal Period"] ?? "").replace("Q", "");
+      return Number(pB) - Number(pA);
+    }).slice(0, 4);
+
+    return sorted.map(row => ({
+      fiscalPeriod: String(row["Fiscal Period"] ?? ""),
+      fiscalYear: Number(row["Fiscal Year"] ?? 0),
+      reportDate: String(row["Report Date"] ?? ""),
+      revenue: (row["Revenue"] as number | null) ?? null,
+      grossProfit: (row["Gross Profit"] as number | null) ?? null,
+      operatingIncome: (row["Operating Income (Loss)"] as number | null) ?? null,
+      netIncome: (row["Net Income"] as number | null) ?? null,
+      eps: (row["Earnings Per Share, Basic"] as number | null) ?? null,
+      epsDiluted: (row["Earnings Per Share, Diluted"] as number | null) ?? null,
+    }));
+  } catch (err) {
+    console.warn("[SimFin] Quarterly income fetch failed:", (err as Error).message);
+    return [];
+  }
+}
+
+/**
+ * 综合获取 SimFin 数据（财务报表 + 衍生指标 + 股价历史 + 季报）
  * 仅当检测到股票代码时触发
  */
 export async function fetchSimFinData(ticker: string): Promise<SimFinData | null> {
   if (!ENV.SIMFIN_API_KEY) return null;
   if (!ticker) return null;
 
-  // 并行获取三类数据
-  const [incomeStmt, balanceSheet, derivedMetrics, recentPrices] = await Promise.allSettled([
+  // 并行获取四类数据
+  const [incomeStmt, balanceSheet, derivedMetrics, recentPrices, quarterlyIncome] = await Promise.allSettled([
     fetchIncomeStatement(ticker),
     fetchBalanceSheet(ticker),
     fetchDerivedMetrics(ticker),
     fetchRecentPrices(ticker),
+    fetchQuarterlyIncome(ticker),
   ]);
 
   const income = incomeStmt.status === "fulfilled" ? incomeStmt.value : null;
   const balance = balanceSheet.status === "fulfilled" ? balanceSheet.value : null;
   const derived = derivedMetrics.status === "fulfilled" ? derivedMetrics.value : null;
   const prices = recentPrices.status === "fulfilled" ? recentPrices.value : [];
+  const quarterly = quarterlyIncome.status === "fulfilled" ? quarterlyIncome.value : [];
 
-  // 如果三类数据都为空，返回 null（避免写入空数据块）
-  if (!income && !balance && !derived && prices.length === 0) return null;
+  // 如果所有数据都为空，返回 null（避免写入空数据块）
+  if (!income && !balance && !derived && prices.length === 0 && quarterly.length === 0) return null;
 
   return {
     ticker,
@@ -293,6 +349,7 @@ export async function fetchSimFinData(ticker: string): Promise<SimFinData | null
     balanceSheet: balance,
     derivedMetrics: derived,
     recentPrices: prices,
+    quarterlyIncome: quarterly,
     source: "SimFin",
     fetchedAt: Date.now(),
   };
@@ -373,6 +430,18 @@ export function formatSimFinDataAsMarkdown(data: SimFinData): string {
     lines.push(`|------|------|------|------|------|----------|`);
     for (const p of recent) {
       lines.push(`| ${p.date} | $${p.open.toFixed(2)} | $${p.high.toFixed(2)} | $${p.low.toFixed(2)} | $${p.close.toFixed(2)} | $${p.adjustedClose.toFixed(2)} |`);
+    }
+    lines.push("");
+  }
+
+  // ── 季度损益表趋势（最近 4 季度） ──
+  if (data.quarterlyIncome && data.quarterlyIncome.length > 0) {
+    lines.push("### 季度损益表趋势（最近 4 季度）");
+    lines.push("| 季度 | 营业收入 | 毛利润 | 营业利润 | 净利润 | EPS |");
+    lines.push("|------|--------|--------|--------|--------|-----|");
+    for (const q of data.quarterlyIncome) {
+      const label = `FY${q.fiscalYear} ${q.fiscalPeriod}`;
+      lines.push(`| ${label} | ${fmt(q.revenue)} | ${fmt(q.grossProfit)} | ${fmt(q.operatingIncome)} | ${fmt(q.netIncome)} | ${q.eps !== null ? `$${q.eps.toFixed(3)}` : "N/A"} |`);
     }
     lines.push("");
   }

@@ -76,6 +76,7 @@ import { fetchGdeltData, formatGdeltDataAsMarkdown, checkGdeltHealth } from "./g
 import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth, extractNewsQuery } from "./newsApi";
 import { fetchMarketauxData, formatMarketauxDataAsMarkdown, checkMarketauxHealth } from "./marketauxApi";
 import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "./simfinApi";
+import { fetchTiingoData, formatTiingoDataAsMarkdown, checkTiingoHealth } from "./tiingoApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -459,7 +460,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 
     const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
       finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
-      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult, simfinResult] = await Promise.allSettled([
+      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult, simfinResult, tiingoResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
@@ -514,10 +515,16 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
             .then(d => d ? formatMarketauxDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
-      // SimFin：财务报表/衡生指标/股价历史（仅对美股代码触发）
+      // SimFin：财务报表/衍生指标/股价历史（仅对美股代码触发）
       ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
         ? fetchSimFinData(primaryTicker)
             .then(d => d ? formatSimFinDataAsMarkdown(d) : "")
+            .catch(() => "")
+        : Promise.resolve(""),
+      // Tiingo：实时估值倍数（P/E、P/B、EV、PEG）+ 历史 OHLCV + 季度财务报表（仅对美股代码触发）
+      ENV.TIINGO_API_KEY && primaryTicker && !primaryTicker.includes(".")
+        ? fetchTiingoData(primaryTicker)
+            .then(d => d ? formatTiingoDataAsMarkdown(d) : "")
             .catch(() => "")
         : Promise.resolve(""),
     ]);
@@ -563,6 +570,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const newsApiMarkdown = newsApiResult.status === "fulfilled" && newsApiResult.value ? newsApiResult.value : "";
     const marketauxMarkdown = marketauxResult.status === "fulfilled" && marketauxResult.value ? marketauxResult.value : "";
     const simfinMarkdown = simfinResult.status === "fulfilled" && simfinResult.value ? simfinResult.value : "";
+    const tiingoMarkdown = tiingoResult.status === "fulfilled" && tiingoResult.value ? tiingoResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
@@ -578,7 +586,8 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       gdeltMarkdown,       // GDELT 全球事件/地缘风险/新闻情绪
       newsApiMarkdown,     // NewsAPI 全球新闻搜索/头条
       marketauxMarkdown,   // Marketaux 金融新闻情绪评分/实体识别
-      simfinMarkdown,       // SimFin 财务报表/衡生指标/股价历史
+      simfinMarkdown,       // SimFin 财务报表/衍生指标/股价历史
+      tiingoMarkdown,        // Tiingo 实时估值倍数（P/E、P/B、EV、PEG）+ 历史 OHLCV + 季度财务报表
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -666,10 +675,19 @@ ${manusReport}
 1. **整合推理**：将 Manus 的数据与你的框架深度融合，逐步展开推理过程，不要只给结论——要让用户看到你是如何从数据推导出判断的
 2. **明确立场**：对用户的核心问题给出清晰的判断（买/卖/持有、高估/低估、机会/风险等），不要模糊回避
 3. **量化支撑**：用 Manus 提供的具体数据（估值倍数、财务指标、价格等）支撑每一个论点，数据要精确引用
-4. **双向验证**：正推（当前基本面→未来预期）+ 倒推（如果判断正确，哪些数据应该出现），增强结论可信度
-5. **风险与边界**：明确指出判断成立的前提条件和主要风险，不回避不确定性
-6. **上下文连贯**：如果是历史任务的延续，主动引用之前的分析结论，保持对话连贯性
-7. **格式要求**：使用 Markdown 标题、加粗、表格等结构化输出，重点数据和判断要突出显示
+4. **估值倍数分析**：如果 Manus 数据中包含 Tiingo 实时估值倍数（P/E、P/B、EV、PEG），必须：
+   - 与行业均值/历史均值对比，判断当前估值是否合理
+   - 结合 SimFin 净利润/EBITDA 数据验证倍数的可靠性（避免异常值误导）
+   - 若有 EV/EBITDA 数据，计算并解读 EV/EBITDA 倍数（= EV ÷ EBITDA）
+   - 给出明确的估值判断：高估/合理/低估，并附上支撑逻辑
+5. **季度趋势分析**：如果 Manus 数据中包含 SimFin 季度损益表（Q1-Q4），必须：
+   - 分析营收/利润的季度环比和同比变化趋势（加速/减速/反转）
+   - 识别盈利质量信号（毛利率扩张/收窄、营业杠杆效应）
+   - 结合季度 EPS 趋势判断盈利可持续性
+6. **双向验证**：正推（当前基本面→未来预期）+ 倒推（如果判断正确，哪些数据应该出现），增强结论可信度
+7. **风险与边界**：明确指出判断成立的前提条件和主要风险，不回避不确定性
+8. **上下文连贯**：如果是历史任务的延续，主动引用之前的分析结论，保持对话连贯性
+9. **格式要求**：使用 Markdown 标题、加粗、表格等结构化输出，重点数据和判断要突出显示
 
 **输出要求：**
 - 报告必须详细完整，不得因篇幅原因省略任何重要分析维度
@@ -745,35 +763,35 @@ ${manusReport}
     }
 
     // -- 收集实际使用的 API 数据源（用于前端归因展示） ----------------------------------
-    type ApiSourceEntry = { name: string; category: string; icon?: string };
+    type ApiSourceEntry = { name: string; category: string; icon?: string; description?: string };
     const apiSources: ApiSourceEntry[] = [];
     // 市场数据类
     if (stockData.status === "fulfilled" && stockData.value) {
-      apiSources.push({ name: "Yahoo Finance", category: "市场数据", icon: "📊" });
+      apiSources.push({ name: "Yahoo Finance", category: "市场数据", icon: "📊", description: "实时报价/历史行情" });
     }
-    if (finnhubMarkdown) apiSources.push({ name: "Finnhub", category: "市场数据", icon: "📈" });
-    if (fmpMarkdown) apiSources.push({ name: "FMP", category: "市场数据", icon: "💹" });
-    if (polygonMarkdown) apiSources.push({ name: "Polygon.io", category: "市场数据", icon: "🔸" });
-    if (secMarkdown) apiSources.push({ name: "SEC EDGAR", category: "市场数据", icon: "🏦" });
+    if (finnhubMarkdown) apiSources.push({ name: "Finnhub", category: "市场数据", icon: "📈", description: "分析师评级/内部交易" });
+    if (fmpMarkdown) apiSources.push({ name: "FMP", category: "市场数据", icon: "💹", description: "DCF估值/财务报表" });
+    if (polygonMarkdown) apiSources.push({ name: "Polygon.io", category: "市场数据", icon: "🔸", description: "市场快照/新闻情绪" });
+    if (secMarkdown) apiSources.push({ name: "SEC EDGAR", category: "市场数据", icon: "🏦", description: "XBRL年报/季报" });
+    if (simfinMarkdown) apiSources.push({ name: "SimFin", category: "市场数据", icon: "💼", description: "财务报表/季度趋势" });
+    if (tiingoMarkdown) apiSources.push({ name: "Tiingo", category: "市场数据", icon: "📈", description: "实时估值倍数" });
     // 宏观指标类
     if (macroData.status === "fulfilled" && macroData.value) {
-      apiSources.push({ name: "FRED", category: "宏观指标", icon: "🏦" });
+      apiSources.push({ name: "FRED", category: "宏观指标", icon: "🏦", description: "美联储宏观数据" });
     }
     if (worldBankData.status === "fulfilled" && worldBankData.value) {
-      apiSources.push({ name: "World Bank", category: "宏观指标", icon: "🌍" });
+      apiSources.push({ name: "World Bank", category: "宏观指标", icon: "🌍", description: "GDP/贸易/发展" });
     }
-    if (imfMarkdown) apiSources.push({ name: "IMF WEO", category: "宏观指标", icon: "🌐" });
-    if (avEconomicMarkdown) apiSources.push({ name: "Alpha Vantage", category: "宏观指标", icon: "📊" });
+    if (imfMarkdown) apiSources.push({ name: "IMF WEO", category: "宏观指标", icon: "🌐", description: "全球经测展望" });
+    if (avEconomicMarkdown) apiSources.push({ name: "Alpha Vantage", category: "宏观指标", icon: "📊", description: "CPI/利率/汇率" });
     // 新闻情绪类
-    if (gdeltMarkdown) apiSources.push({ name: "GDELT", category: "新闻情绪", icon: "🌏" });
-    if (newsApiMarkdown) apiSources.push({ name: "NewsAPI", category: "新闻情绪", icon: "📰" });
-    if (marketauxMarkdown) apiSources.push({ name: "Marketaux", category: "新闻情绪", icon: "💯" });
+    if (gdeltMarkdown) apiSources.push({ name: "GDELT", category: "新闻情绪", icon: "🌏", description: "地缘风险/全球事件" });
+    if (newsApiMarkdown) apiSources.push({ name: "NewsAPI", category: "新闻情绪", icon: "📰", description: "全球新闻搜索" });
+    if (marketauxMarkdown) apiSources.push({ name: "Marketaux", category: "新闻情绪", icon: "💯", description: "情绪评分/实体识别" });
     // 加密货币类
-    if (cryptoMarkdown) apiSources.push({ name: "CoinGecko", category: "加密货币", icon: "🪙" });
+    if (cryptoMarkdown) apiSources.push({ name: "CoinGecko", category: "加密货币", icon: "🪙", description: "实时价格/市値" });
     // A股数据类
-    if (aStockMarkdown) apiSources.push({ name: "Baostock", category: "A股数据", icon: "🇳" });
-    // 财务数据类（归入市场数据分组）
-    if (simfinMarkdown) apiSources.push({ name: "SimFin", category: "市场数据", icon: "💼" });
+    if (aStockMarkdown) apiSources.push({ name: "Baostock", category: "A股数据", icon: "🇳", description: "A股历史行情" });
 
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
     const msgId = streamMsgId;
@@ -1398,8 +1416,8 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin
-      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth] = await Promise.allSettled([
+      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1459,6 +1477,10 @@ export const appRouter = router({
         process.env.SIMFIN_API_KEY
           ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
+        // Tiingo
+        process.env.TIINGO_API_KEY
+          ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+          : Promise.resolve("error" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
@@ -1474,6 +1496,7 @@ export const appRouter = router({
       const newsApiStatus = newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error";
       const marketauxStatus = marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error";
       const simfinStatus = simfinHealth.status === "fulfilled" ? simfinHealth.value : "error";
+      const tiingoStatus = tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1493,6 +1516,7 @@ export const appRouter = router({
         newsApi: { configured: !!process.env.NEWS_API_KEY, status: newsApiStatus },
         marketaux: { configured: !!process.env.MARKETAUX_API_KEY, status: marketauxStatus },
         simfin: { configured: !!process.env.SIMFIN_API_KEY, status: simfinStatus },
+        tiingo: { configured: !!process.env.TIINGO_API_KEY, status: tiingoStatus },
       };
     }),
   }),

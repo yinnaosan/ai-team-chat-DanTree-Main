@@ -1,5 +1,15 @@
 # AI Team Chat — Project TODO
 
+## Tiingo + SimFin 增强 + 归因 UI 优化
+- [x] 保存 TIINGO_API_KEY 为环境变量
+- [x] 创建 server/tiingoApi.ts（实时价格、历史 OHLCV、季度财务报表、实时估值倍数）
+- [x] Messari 数据 API 因 Cloudflare IP 封锁放弃（已记录）
+- [x] SimFin 季报支持：扩展 simfinApi.ts 获取最近 4 个季度数据（Q1-Q4 趋势表格）
+- [x] SimFin 估值倍数补充：更新 Step3 系统提示，指导 GPT 利用 Tiingo P/E/P/B/EV 和 SimFin 季度数据推算估值
+- [x] 数据来源归因 UI 优化：分组折叠卡片（市场数据/宏观指标/新闻情绪/加密货币）+ 每个 API 简短说明
+- [x] 接入 Tiingo 到 Step2 引擎、健康检测、Settings UI（总计 16+N）
+- [x] 编写 tiingo.test.ts，10 个测试全部通过，总计 152 个测试全部通过
+
 ## SimFin 财务数据 API 集成
 - [x] 保存 SIMFIN_API_KEY 为环境变量
 - [x] 创建 server/simfinApi.ts（财务报表/估值指标/股价历史）

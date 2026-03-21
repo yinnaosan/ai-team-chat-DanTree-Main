@@ -100,10 +100,11 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes((status as any).newsApi?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).marketaux?.status) ? 1 : 0,
                 ["active","warning"].includes((status as any).simfin?.status) ? 1 : 0,
+                ["active","warning"].includes((status as any).tiingo?.status) ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {15 + (status.tavily ?? []).filter(k => k.configured).length}
+              {16 + (status.tavily ?? []).filter(k => k.configured).length}
                正常
             </span>
           )}
@@ -356,6 +357,26 @@ function DataSourceStatusPanel() {
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
                   需 API Key | 财务数据
+                </span>
+              )
+            }
+          />
+
+          {/* Tiingo */}
+          <SourceRow
+            label="Tiingo"
+            desc="实时估值倍数（P/E、P/B、EV、PEG）/ 历史 OHLCV / 季度财务报表"
+            statusStr={(status as any)?.tiingo?.status ?? "error"}
+            badge={
+              !(status as any)?.tiingo?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
+                  未配置
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                  需 API Key | 估值数据
                 </span>
               )
             }

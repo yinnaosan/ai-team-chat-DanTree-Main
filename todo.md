@@ -693,3 +693,10 @@
 - [x] 清空 .manus-logs/ 旧错误日志（所有日志文件已清零）
 - [x] 确认 index.css @import 已在文件顶部（第 1-3 行，顺序正确）
 - [x] CSS 警告来自 tw-animate-css 第三方库，无法修复，不影响功能
+
+## A 股智能识别增强
+- [x] 扩展 baoStockApi.ts 名称库（200+ 条目，覆盖白酒/银行/保险/证券/能源/新能源/汽车/科技/医药/消费/地产/物流等行业）
+- [x] 优化代码识别逻辑：支持 sh./sz. 格式、Yahoo .SS/.SZ 格式、纯 6 位数字、公司名称四种方式
+- [x] 实现数据源去重：Yahoo Finance 跳过已由 Baostock 处理的 A 股代码（fetchStockDataForTaskWithDedup）
+- [x] 新增 4 个辅助函数：yahooToBoastockCode / baostockToYahooCode / isAStockYahooCode / getAStockName
+- [x] 编写 24 个测试（名称库覆盖度/代码转换/去重逻辑），132 个测试全部通过

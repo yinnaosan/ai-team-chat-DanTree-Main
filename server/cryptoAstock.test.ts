@@ -263,3 +263,124 @@ describe("formatAStockData", () => {
     expect(output).toContain("112.80");
   });
 });
+
+// ─── 扩展名称库测试 ────────────────────────────────────────────
+
+import {
+  A_STOCK_NAME_MAP,
+  yahooToBoastockCode,
+  baostockToYahooCode,
+  isAStockYahooCode,
+  getAStockName,
+} from "./baoStockApi";
+
+describe("名称库覆盖度", () => {
+  it("包含白酒行业主要公司", () => {
+    expect(A_STOCK_NAME_MAP["贵州茅台"]).toBe("sh.600519");
+    expect(A_STOCK_NAME_MAP["五粮液"]).toBe("sz.000858");
+    expect(A_STOCK_NAME_MAP["泸州老窖"]).toBe("sz.000568");
+    expect(A_STOCK_NAME_MAP["山西汾酒"]).toBe("sh.600809");
+  });
+
+  it("包含主要银行", () => {
+    expect(A_STOCK_NAME_MAP["招商银行"]).toBe("sh.600036");
+    expect(A_STOCK_NAME_MAP["工行"]).toBe("sh.601398");
+    expect(A_STOCK_NAME_MAP["建行"]).toBe("sh.601939");
+    expect(A_STOCK_NAME_MAP["平安银行"]).toBe("sz.000001");
+  });
+
+  it("包含新能源主要公司", () => {
+    expect(A_STOCK_NAME_MAP["宁德时代"]).toBe("sh.300750");
+    expect(A_STOCK_NAME_MAP["隆基绿能"]).toBe("sh.601012");
+    expect(A_STOCK_NAME_MAP["通威股份"]).toBe("sh.600438");
+  });
+
+  it("名称库条目超过 150 条", () => {
+    expect(Object.keys(A_STOCK_NAME_MAP).length).toBeGreaterThan(150);
+  });
+
+  it("所有代码格式合法（sh./sz. 开头或空字符串）", () => {
+    for (const [name, code] of Object.entries(A_STOCK_NAME_MAP)) {
+      if (code) {
+        expect(code).toMatch(/^(sh|sz)\.\d{6}$/);
+      }
+    }
+  });
+});
+
+describe("代码格式转换函数", () => {
+  it("yahooToBoastockCode: .SS 转换为 sh.", () => {
+    expect(yahooToBoastockCode("600519.SS")).toBe("sh.600519");
+    expect(yahooToBoastockCode("600036.SS")).toBe("sh.600036");
+  });
+
+  it("yahooToBoastockCode: .SZ 转换为 sz.", () => {
+    expect(yahooToBoastockCode("000001.SZ")).toBe("sz.000001");
+    expect(yahooToBoastockCode("300750.SZ")).toBe("sz.300750");
+  });
+
+  it("yahooToBoastockCode: 非 A 股代码返回 null", () => {
+    expect(yahooToBoastockCode("0700.HK")).toBeNull();
+    expect(yahooToBoastockCode("AAPL")).toBeNull();
+    expect(yahooToBoastockCode("BABA")).toBeNull();
+  });
+
+  it("baostockToYahooCode: sh. 转换为 .SS", () => {
+    expect(baostockToYahooCode("sh.600519")).toBe("600519.SS");
+    expect(baostockToYahooCode("sh.600036")).toBe("600036.SS");
+  });
+
+  it("baostockToYahooCode: sz. 转换为 .SZ", () => {
+    expect(baostockToYahooCode("sz.000001")).toBe("000001.SZ");
+    expect(baostockToYahooCode("sz.300750")).toBe("300750.SZ");
+  });
+
+  it("isAStockYahooCode: 正确识别 A 股代码", () => {
+    expect(isAStockYahooCode("600519.SS")).toBe(true);
+    expect(isAStockYahooCode("000001.SZ")).toBe(true);
+    expect(isAStockYahooCode("0700.HK")).toBe(false);
+    expect(isAStockYahooCode("AAPL")).toBe(false);
+    expect(isAStockYahooCode("BABA")).toBe(false);
+  });
+});
+
+describe("公司名称反查函数 getAStockName", () => {
+  it("返回最完整的名称", () => {
+    // 贵州茅台 和 茅台 都映射到 sh.600519，应返回贵州茅台
+    expect(getAStockName("sh.600519")).toBe("贵州茅台");
+    expect(getAStockName("sh.600036")).toBe("招商银行");
+    expect(getAStockName("sh.601398")).toBe("工商银行");
+  });
+
+  it("未知代码返回代码本身", () => {
+    expect(getAStockName("sh.999999")).toBe("sh.999999");
+  });
+});
+
+describe("去重逻辑：extractAStockCodes 识别 Yahoo 格式 A 股代码", () => {
+  it("识别 600519.SS 并转换为 sh. 格式", () => {
+    const codes = extractAStockCodes("分析 600519.SS 贵州茅台");
+    expect(codes).toContain("sh.600519");
+    // 不应有重复的 sh.600519
+    const count = codes.filter(c => c === "sh.600519").length;
+    expect(count).toBe(1);
+  });
+
+  it("识别 000001.SZ 并转换为 sz. 格式", () => {
+    const codes = extractAStockCodes("分析 000001.SZ 平安银行");
+    expect(codes).toContain("sz.000001");
+  });
+
+  it("混合格式输入不重复", () => {
+    // 同时包含 sh.600519 和 600519.SS，应只返回一个 sh.600519
+    const codes = extractAStockCodes("sh.600519 和 600519.SS 分析茅台");
+    const count = codes.filter(c => c === "sh.600519").length;
+    expect(count).toBe(1);
+  });
+
+  it("港股代码不被识别为 A 股", () => {
+    const codes = extractAStockCodes("分析腾讯 0700.HK");
+    // 腾讯是港股，不应被 Baostock 处理
+    expect(codes).toHaveLength(0);
+  });
+});

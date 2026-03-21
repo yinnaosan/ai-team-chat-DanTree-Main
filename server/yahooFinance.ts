@@ -173,3 +173,42 @@ export async function fetchStockDataForTask(taskDescription: string): Promise<st
   if (tickers.length === 0) return "";
   return getMultipleStocksData(tickers);
 }
+
+/**
+ * 去重版：从任务描述中提取 ticker，但跳过已由 Baostock 处理的 A 股代码
+ * 规则：
+ *   - A 股代码（600519.SS / 000001.SZ）→ 由 Baostock 处理，Yahoo Finance 跳过
+ *   - 港股（0700.HK）、美股（AAPL）→ 由 Yahoo Finance 处理，Baostock 不触发
+ * @param taskDescription 任务描述文本
+ * @param aStockCodesHandledByBaostock 已由 Baostock 处理的 A 股代码列表（Baostock 格式：sh.600519）
+ */
+export async function fetchStockDataForTaskWithDedup(
+  taskDescription: string,
+  aStockCodesHandledByBaostock: string[]
+): Promise<string> {
+  const tickers = extractTickers(taskDescription);
+  if (tickers.length === 0) return "";
+
+  // 将 Baostock 代码转换为 Yahoo 格式用于比对
+  const baostockAsYahoo = new Set(
+    aStockCodesHandledByBaostock.map(bsCode => {
+      const shMatch = bsCode.match(/^sh\.(\d{6})$/i);
+      if (shMatch) return `${shMatch[1]}.SS`;
+      const szMatch = bsCode.match(/^sz\.(\d{6})$/i);
+      if (szMatch) return `${szMatch[1]}.SZ`;
+      return null;
+    }).filter(Boolean) as string[]
+  );
+
+  // 过滤掉已由 Baostock 处理的 A 股代码
+  const filteredTickers = tickers.filter(ticker => {
+    const isAShare = /^\d{6}\.(SS|SZ)$/i.test(ticker);
+    if (isAShare && baostockAsYahoo.has(ticker.toUpperCase())) {
+      return false; // 跳过：Baostock 已处理
+    }
+    return true;
+  });
+
+  if (filteredTickers.length === 0) return "";
+  return getMultipleStocksData(filteredTickers);
+}

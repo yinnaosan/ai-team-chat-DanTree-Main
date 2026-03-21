@@ -60,7 +60,7 @@ import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } fro
 import { emitTaskStatus, emitTaskChunk, emitTaskDone, emitTaskError } from "./taskStream";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
-import { fetchStockDataForTask } from "./yahooFinance";
+import { fetchStockDataForTask, fetchStockDataForTaskWithDedup } from "./yahooFinance";
 import { getMacroDataByKeywords } from "./fredApi";
 import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
@@ -399,6 +399,10 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     const detectedTickers = extractTickers(taskDescription);
     const primaryTicker = detectedTickers[0] ?? null; // 主要股票代码（用于深度分析）
 
+    // 预先提取 A 股代码（用于后续去重）
+    const { extractAStockCodes: extractAStockCodesEarly } = await import("./baoStockApi");
+    const earlyAStockCodes = extractAStockCodesEarly(taskDescription);
+
     const [step1Result, stockDataResult, earlyTavilyResult] = await Promise.allSettled([
       // A. Step1：GPT 规划框架
       userConfig?.openaiApiKey
@@ -412,8 +416,10 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
             maxTokens: modeConfig.step1MaxTokens,
           })
         : Promise.resolve(null),
-      // B. Yahoo Finance：不依赖 Step1，直接用原始任务描述
-      fetchStockDataForTask(taskDescription),
+      // B. Yahoo Finance：去重版，跳过已由 Baostock 处理的 A 股代码
+      earlyAStockCodes.length > 0
+        ? fetchStockDataForTaskWithDedup(taskDescription, earlyAStockCodes)
+        : fetchStockDataForTask(taskDescription),
       // C. Tavily 初始搜索：用原始消息作初始 query（粗粒度，先跑起来）
       isTavilyConfigured()
         ? searchForTask(taskDescription, userLibraryUrls)

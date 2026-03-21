@@ -491,6 +491,19 @@ function DataSourceStatusPanel() {
             }
           />
 
+          {/* GLEIF */}
+          <SourceRow
+            label="GLEIF"
+            desc="全球 LEI 法人识别码 / 法人结构 / 母子公司关系"
+            statusStr={(status as any)?.gleif?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开 | 跨国法人
+              </span>
+            }
+          />
+
           {/* 分组标题：网页搜索 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
 

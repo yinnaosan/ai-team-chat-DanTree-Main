@@ -18,10 +18,9 @@
 - [x] 创建 server/hkmaApi.ts（港元利率/货币供应量/银行间流动性/外汇储备）
 - [x] 接入 BoE + HKMA 到 Step2 引擎、健康检测、Settings UI
 - [x] 更新 Settings.tsx 添加 BoE + HKMA 数据源行
-- [ ] 创建 server/gleifApi.ts（全球法人机构识别码/公司名称搜索/法人结构）
-- [ ] 接入 GLEIF 到 Step2 引擎、健康检测、Settings UI
-- [ ] 编写 boe.test.ts + hkma.test.ts + gleif.test.ts 测试用例
-- [x] 保存 Checkpoint
+- [x] 创建 server/gleifApi.ts（全球 LEI 编码/公司名称搜索/法人结构/母子公司关系）
+- [x] 接入 GLEIF 到 Step2 引擎、健康检测、Settings UI
+- [x] 编写 boe.test.ts + hkma.test.ts + gleif.test.ts 测试用例保存 Checkpoint
 
 ## Tiingo + SimFin 增强 + 归因 UI 优化
 - [x] 保存 TIINGO_API_KEY 为环境变量
@@ -909,3 +908,14 @@
 - [x] 前端：Settings.tsx 数据源面板新增「法律与监管」分组（CourtListener/Congress.gov/EUR-Lex）
 - [x] 测试：修复 chat.test.ts 中 getOwnerRpaConfig mock 缺失问题
 - [x] 测试：198 个测试全部通过，TypeScript 0 错误
+
+## GLEIF + Congress Key + 数据来源归因 UI
+- [x] 创建 server/gleifApi.ts（全球 LEI 编码/公司名称搜索/法人结构/母子公司关系）
+- [x] 接入 GLEIF 到 Step2 引擎、健康检测、Settings UI
+- [x] 设置页「密鑰」面板添加 CONGRESS_API_KEY 配置入口（已自动注入环境变量）
+- [x] 后端：Step2 引擎收集实际调用的 API 名称列表，随任务结果一起返回
+- [x] 后端：submitTask 返回値新增 dataSources 字段（string[]）
+- [x] 前端：消息 metadata 存储 dataSources 列表
+- [x] 前端：AI 回复底部显示可折叠「数据来源」卡片（图标+名称+简短说明）
+- [x] 编写 gleif.test.ts 测试用例
+- [x] 保存 Checkpoint

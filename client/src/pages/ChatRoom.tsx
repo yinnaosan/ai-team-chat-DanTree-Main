@@ -260,7 +260,11 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   "新闻情绪": { bg: "oklch(0.72 0.18 50 / 0.1)", text: "oklch(0.60 0.15 50)", border: "oklch(0.72 0.18 50 / 0.25)" },
   "加密货币": { bg: "oklch(0.72 0.18 310 / 0.1)", text: "oklch(0.60 0.12 310)", border: "oklch(0.72 0.18 310 / 0.25)" },
   "A股数据": { bg: "oklch(0.72 0.18 25 / 0.1)", text: "oklch(0.60 0.15 25)", border: "oklch(0.72 0.18 25 / 0.25)" },
-  "网页搜索": { bg: "oklch(0.55 0.01 270 / 0.1)", text: "oklch(0.50 0.01 270)", border: "oklch(0.55 0.01 270 / 0.25)" },
+  "模型数据": { bg: "oklch(0.55 0.01 270 / 0.1)", text: "oklch(0.50 0.01 270)", border: "oklch(0.55 0.01 270 / 0.25)" },
+  "法律监管": { bg: "oklch(0.72 0.18 200 / 0.1)", text: "oklch(0.55 0.12 200)", border: "oklch(0.72 0.18 200 / 0.25)" },
+  "港股公告": { bg: "oklch(0.72 0.18 25 / 0.08)", text: "oklch(0.60 0.15 25)", border: "oklch(0.72 0.18 25 / 0.2)" },
+  "期权数据": { bg: "oklch(0.72 0.18 280 / 0.1)", text: "oklch(0.60 0.12 280)", border: "oklch(0.72 0.18 280 / 0.25)" },
+  "技术分析": { bg: "oklch(0.72 0.18 170 / 0.1)", text: "oklch(0.55 0.12 170)", border: "oklch(0.72 0.18 170 / 0.25)" },
 };
 
 function ApiSourceBadge({ src }: { src: ApiSource }) {
@@ -298,7 +302,7 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
     return map;
   }, [apiSources]);
 
-  const categoryOrder = ["市场数据", "宏观指标", "新闻情绪", "加密货币", "A股数据", "其他"];
+  const categoryOrder = ["市场数据", "技术分析", "期权数据", "宏观指标", "新闻情绪", "加密货币", "A股数据", "港股公告", "法律监管", "网页搜索", "其他"];
   const sortedCategories = Object.keys(apiByCategory).sort(
     (a, b) => (categoryOrder.indexOf(a) === -1 ? 99 : categoryOrder.indexOf(a)) - (categoryOrder.indexOf(b) === -1 ? 99 : categoryOrder.indexOf(b))
   );

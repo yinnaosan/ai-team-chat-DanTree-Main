@@ -572,3 +572,9 @@
 - [x] 兜底策略：仅当用户数据库域名内无结果时，才回退到通用金融新闻搜索
 - [x] URL 100% 来自 Tavily 搜索结果，绝不由 LLM 生成，确保链接真实有效
 - [x] TypeScript 0 错误，40 个测试全部通过
+
+## Bug修复：React多实例冲突 + Vite HMR（2026-03-21）
+- [x] 修复 Invalid hook call：vite.config.ts 添加 resolve.dedupe + optimizeDeps.include 确保 React 单实例
+- [x] 清除 Vite deps 缓存（node_modules/.vite），强制重新生成一致的 chunk 哈希
+- [x] 修复 Service Worker cache-first 缓存旧 JS 问题：升级到 v5，Vite 资源改为 network-first
+- [x] index.html 添加 SW 强制更新逻辑，新 SW 安装后自动刷新页面

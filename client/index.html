@@ -43,6 +43,20 @@
         window.addEventListener('load', function() {
           navigator.serviceWorker.register('/sw.js').then(function(registration) {
             console.log('[PWA] Service Worker registered:', registration.scope);
+            // Force update check on every page load
+            registration.update();
+            // When a new SW is found, activate it immediately
+            registration.addEventListener('updatefound', function() {
+              var newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', function() {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New SW installed, reload to use it
+                    window.location.reload();
+                  }
+                });
+              }
+            });
           }).catch(function(err) {
             console.log('[PWA] Service Worker registration failed:', err);
           });

@@ -629,3 +629,9 @@
 - [ ] 集成到 Step2 数据引擎（与 FRED 并行，补充全球视角宏观数据）
 - [ ] 更新 Step2 prompt，让 Manus 处理 World Bank 数据
 - [ ] 编写 worldBankApi.test.ts 测试
+
+## 设置页数据源状态面板完善（加入 World Bank）
+- [x] 后端：在 getDataSourceStatus 中加入 World Bank 健康检测（轻量探针，6s 超时）
+- [x] 前端：设置页「资料数据库」 Tab 数据源状态面板加入 World Bank 指示器
+- [x] 前端：重构面板布局：分组显示（结构化数据源 / 网页搜索），加入光晕动效果和总计计数器
+- [x] 测试：53 个测试全部通过，TypeScript 0 错误

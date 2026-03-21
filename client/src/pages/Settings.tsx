@@ -20,83 +20,171 @@ type RulesTab = "investment" | "task" | "data";
 
 // ---- 实时数据源状态面板 ----
 function DataSourceStatusPanel() {
-  const { data: status, isLoading, refetch } = trpc.rpa.getDataSourceStatus.useQuery(undefined, {
-    refetchInterval: 30000,
+  const { data: status, isLoading, refetch, isFetching } = trpc.rpa.getDataSourceStatus.useQuery(undefined, {
+    refetchInterval: 60000,
   });
 
   const statusColor = (s: string) => {
     if (s === "active") return "oklch(0.72 0.18 142)";
     if (s === "exhausted") return "oklch(0.72 0.18 50)";
+    if (s === "timeout") return "oklch(0.72 0.18 50)";
     return "oklch(0.65 0.18 20)";
   };
-  const statusLabel = (s: string) => {
-    if (s === "active") return "\u6b63\u5e38";
-    if (s === "exhausted") return "\u5df2\u8017\u5c3d";
-    return "\u672a\u914d\u7f6e";
+  const statusBg = (s: string) => {
+    if (s === "active") return "oklch(0.72 0.18 142 / 0.12)";
+    if (s === "exhausted" || s === "timeout") return "oklch(0.72 0.18 50 / 0.12)";
+    return "oklch(0.65 0.18 20 / 0.12)";
   };
+  const statusLabel = (s: string) => {
+    if (s === "active") return "正常";
+    if (s === "exhausted") return "已耗尽";
+    if (s === "timeout") return "超时";
+    return "未配置";
+  };
+
+  // 单个数据源行组件
+  const SourceRow = ({
+    dot, label, desc, statusStr, badge,
+  }: {
+    dot?: boolean;
+    label: string;
+    desc: string;
+    statusStr: string;
+    badge?: React.ReactNode;
+  }) => (
+    <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
+      style={{ background: statusBg(statusStr) }}>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ background: statusColor(statusStr), boxShadow: statusStr === "active" ? `0 0 5px ${statusColor(statusStr)}` : "none" }} />
+        <div className="min-w-0">
+          <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>{label}</span>
+          <span className="text-xs ml-1.5" style={{ color: "oklch(0.50 0.01 270)" }}>{desc}</span>
+        </div>
+        {badge}
+      </div>
+      <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
+        style={{ color: statusColor(statusStr), background: statusBg(statusStr), border: `1px solid ${statusColor(statusStr)}33` }}>
+        {statusLabel(statusStr)}
+      </span>
+    </div>
+  );
 
   return (
     <div className="p-4 rounded-xl space-y-3"
       style={{ background: "oklch(0.15 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+      {/* 标题行 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
-          <span className="text-xs font-medium" style={{ color: "oklch(0.80 0.005 270)" }}>实时数据源状态</span>
+          <span className="text-xs font-semibold" style={{ color: "oklch(0.80 0.005 270)" }}>实时数据源状态</span>
+          {status && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full"
+              style={{ background: "oklch(0.20 0.005 270)", color: "oklch(0.50 0.01 270)" }}>
+              {[
+                status.yahoo.status === "active" ? 1 : 0,
+                status.fred.status === "active" ? 1 : 0,
+                status.worldBank.status === "active" ? 1 : 0,
+                (status.tavily ?? []).filter(k => k.configured && k.status === "active").length,
+              ].reduce((a, b) => a + b, 0)}
+              /
+              {3 + (status.tavily ?? []).filter(k => k.configured).length}
+               正常
+            </span>
+          )}
         </div>
-        <button onClick={() => refetch()} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-80"
           style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.20 0.005 270)" }}>
-          <RefreshCw className="w-3 h-3" />刷新
+          <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
+          {isFetching ? "检测中" : "刷新"}
         </button>
       </div>
+
       {isLoading ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 py-2">
           <Loader2 className="w-3 h-3 animate-spin" style={{ color: "oklch(0.55 0.01 270)" }} />
           <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>检测中...</span>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
+          {/* 分组标题：结构化数据源 */}
+          <p className="text-xs px-1 pt-1" style={{ color: "oklch(0.45 0.01 270)" }}>—— 结构化数据源</p>
+
           {/* Yahoo Finance */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor(status?.yahoo.status ?? "active") }} />
-              <span className="text-xs" style={{ color: "oklch(0.70 0.005 270)" }}>Yahoo Finance（股价/财务）</span>
-            </div>
-            <span className="text-xs" style={{ color: statusColor(status?.yahoo.status ?? "active") }}>
-              {statusLabel(status?.yahoo.status ?? "active")}
-            </span>
-          </div>
+          <SourceRow
+            label="Yahoo Finance"
+            desc="股价 / 财务 / 估値"
+            statusStr={status?.yahoo.status ?? "active"}
+          />
+
           {/* FRED */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor(status?.fred.status ?? "error") }} />
-              <span className="text-xs" style={{ color: "oklch(0.70 0.005 270)" }}>FRED（宏观经测指标）</span>
-            </div>
-            <span className="text-xs" style={{ color: statusColor(status?.fred.status ?? "error") }}>
-              {statusLabel(status?.fred.status ?? "error")}
-            </span>
-          </div>
+          <SourceRow
+            label="FRED"
+            desc="美联储宏观指标"
+            statusStr={status?.fred.status ?? "error"}
+            badge={
+              !status?.fred.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : undefined
+            }
+          />
+
+          {/* World Bank */}
+          <SourceRow
+            label="World Bank"
+            desc="全球 GDP / 通胀 / 贸易"
+            statusStr={status?.worldBank?.status ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开
+              </span>
+            }
+          />
+
+          {/* 分组标题：网页搜索 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
+
           {/* Tavily Keys */}
-          <div className="pt-1 space-y-1.5">
-            <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>Tavily 搜索（网页内容）</p>
-            {(status?.tavily ?? []).map((k) => (
-              <div key={k.index} className="flex items-center justify-between pl-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: k.configured ? statusColor(k.status) : "oklch(0.35 0.01 270)" }} />
-                  <span className="text-xs font-mono" style={{ color: "oklch(0.55 0.008 270)" }}>
-                    {k.configured ? k.masked : `Key ${k.index} 未配置`}
-                  </span>
-                </div>
-                <span className="text-xs" style={{ color: k.configured ? statusColor(k.status) : "oklch(0.40 0.01 270)" }}>
-                  {k.configured ? statusLabel(k.status) : "未配置"}
+          {(status?.tavily ?? []).map((k) => (
+            <div key={k.index} className="flex items-center justify-between py-1.5 px-2 rounded-lg"
+              style={{ background: k.configured ? statusBg(k.status) : "oklch(0.18 0.005 270)" }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{
+                    background: k.configured ? statusColor(k.status) : "oklch(0.30 0.01 270)",
+                    boxShadow: k.configured && k.status === "active" ? `0 0 5px ${statusColor(k.status)}` : "none",
+                  }} />
+                <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>
+                  Tavily Key {k.index}
+                </span>
+                <span className="text-xs font-mono" style={{ color: "oklch(0.48 0.008 270)" }}>
+                  {k.configured ? k.masked : "未配置"}
                 </span>
               </div>
-            ))}
-            {status && !status.tavilyConfigured && (
-              <p className="text-xs pl-2" style={{ color: "oklch(0.65 0.18 50)" }}>
-                ⚠️ 未配置 Tavily Key，网页搜索功能将不可用
-              </p>
-            )}
-          </div>
+              <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
+                style={{
+                  color: k.configured ? statusColor(k.status) : "oklch(0.40 0.01 270)",
+                  background: k.configured ? statusBg(k.status) : "oklch(0.22 0.005 270)",
+                  border: `1px solid ${k.configured ? statusColor(k.status) + "33" : "oklch(0.28 0.007 270)"}`,
+                }}>
+                {k.configured ? statusLabel(k.status) : "未配置"}
+              </span>
+            </div>
+          ))}
+
+          {status && !status.tavilyConfigured && (
+            <p className="text-xs px-2 py-1.5 rounded-lg"
+              style={{ color: "oklch(0.65 0.18 50)", background: "oklch(0.65 0.18 50 / 0.08)", border: "1px solid oklch(0.65 0.18 50 / 0.2)" }}>
+              ⚠️ 未配置 Tavily Key，网页搜索功能将不可用
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -1255,11 +1255,29 @@ export const appRouter = router({
       await requireAccess(ctx.user.id, ctx.user.openId);
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
+
+      // World Bank 健康检测：轻量探针一个公开接口（无需 Key）
+      let worldBankStatus: "active" | "error" | "timeout" = "active";
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        const wbRes = await fetch(
+          "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1",
+          { signal: controller.signal }
+        );
+        clearTimeout(timer);
+        worldBankStatus = wbRes.ok ? "active" : "error";
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        worldBankStatus = msg.includes("abort") || msg.includes("timeout") ? "timeout" : "error";
+      }
+
       return {
         tavily: tavilyKeys,
         tavilyConfigured: isTavilyConfigured(),
         fred: { configured: fredConfigured, status: fredConfigured ? "active" as const : "error" as const },
         yahoo: { configured: true, status: "active" as const },
+        worldBank: { configured: true, status: worldBankStatus },
       };
     }),
   }),

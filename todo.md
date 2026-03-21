@@ -643,3 +643,53 @@
 - [x] 设置页数据源状态面板加入 IMF WEO 指示器（含预测标签）
 - [x] 编写 21 个单元测试（imf.test.ts），总测试数 74 全部通过
 - [x] TypeScript 0 错误，所有测试通过
+
+## OECD + BIS API 集成 & 数据来源标注优化
+- [ ] 调研 OECD SDMX REST API 接口结构和关键数据集
+- [ ] 调研 BIS Statistics API 接口结构（汇率、信贷、债务等）
+- [ ] 创建 server/oecdApi.ts 模块（利率/就业/贸易/PMI 等）
+- [ ] 创建 server/bisApi.ts 模块（汇率/信贷/跨境资本流动等）
+- [ ] 集成到 Step2 数据引擎并行获取流程
+- [ ] 优化所有数据源来源标注（IMF/World Bank/FRED/OECD/BIS 均附注版本/时间）
+- [ ] 设置页数据源状态面板加入 OECD 和 BIS 指示器
+- [ ] 编写单元测试（oecd.test.ts, bis.test.ts）
+- [ ] TypeScript 0 错误，所有测试通过
+- [ ] 创建 server/secEdgarApi.ts 模块（10-K/10-Q/8-K 财报、机构持仓 13F 等）
+- [ ] SEC EDGAR 集成到 Step2 数据引擎（股票分析任务自动触发）
+- [ ] 设置页状态面板加入 SEC EDGAR 指示器
+- [ ] 创建 server/finnhubApi.ts 模块（实时报价/新闻/财报/分析师评级/内部交易等）
+- [ ] Finnhub API Key 存入环境变量 FINNHUB_API_KEY
+- [ ] Finnhub 集成到 Step2 数据引擎（与 Yahoo Finance 互补）
+- [ ] 设置页状态面板加入 Finnhub 指示器
+- [ ] 创建 server/alphaVantageApi.ts 模块（技术指标/基本面/外汇/加密货币/经济数据）
+- [ ] Alpha Vantage API Key 存入环境变量 ALPHA_VANTAGE_API_KEY
+- [ ] Alpha Vantage 集成到 Step2 数据引擎（技术分析 + 经济指标补充）
+- [ ] 设置页状态面板加入 Alpha Vantage 指示器
+- [ ] 创建 server/polygonApi.ts 模块（股票/期权/外汇/加密/新闻/技术指标）
+- [ ] Polygon.io API Key 存入环境变量 POLYGON_API_KEY
+- [ ] Polygon.io 集成到 Step2 数据引擎（与 Finnhub 互补，提供更丰富的市场数据）
+- [ ] 设置页状态面板加入 Polygon.io 指示器
+- [ ] 测试 FMP Stable API 接口（财务报表/DCF估值/同行比较/ETF/宏观等）
+- [ ] 创建 server/fmpApi.ts 模块
+- [ ] FMP API Key 存入环境变量 FMP_API_KEY
+- [ ] FMP 集成到 Step2 数据引擎（财务报表深度分析）
+- [ ] 设置页状态面板加入 FMP 指示器
+
+## CoinGecko API 集成（加密货币数据）
+- [x] 测试 CoinGecko API Key 可用性（BTC $70,705 / ETH $2,152 验证通过）
+- [x] 创建 server/coinGeckoApi.ts 模块（实时价格/市值/趋势/Top 15/全球概览）
+- [x] CoinGecko API Key 存入环境变量 COINGECKO_API_KEY
+- [x] CoinGecko 集成到 Step2 数据引擎（加密货币任务自动触发）
+- [x] 设置页状态面板加入 CoinGecko 指示器示器
+
+## Baostock A股历史数据集成
+- [x] 测试 Baostock Python 库可用（sh.600000 平安锦江测试通过）
+- [x] 创建 server/baoStockApi.ts 模块（Python 子进程调用，支持 50+ A 股名称识别）
+- [x] 支持 A 股日线历史数据、盈利能力、成长能力指标
+- [x] Baostock 集成到 Step2 数据引擎（检测到 A 股代码时自动触发）
+- [x] 设置页状态面板加入 Baostock 指示器
+
+## 日志清理 & CSS 修复
+- [x] 清空 .manus-logs/ 旧错误日志（所有日志文件已清零）
+- [x] 确认 index.css @import 已在文件顶部（第 1-3 行，顺序正确）
+- [x] CSS 警告来自 tw-animate-css 第三方库，无法修复，不影响功能

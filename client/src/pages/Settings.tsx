@@ -86,11 +86,18 @@ function DataSourceStatusPanel() {
                 status.fred.status === "active" ? 1 : 0,
                 status.worldBank.status === "active" ? 1 : 0,
                 (status as any).imf?.status === "active" ? 1 : 0,
+                (status as any).finnhub?.status === "active" ? 1 : 0,
+                (status as any).fmp?.status === "active" ? 1 : 0,
+                (status as any).polygon?.status === "active" ? 1 : 0,
+                (status as any).alphaVantage?.status === "active" ? 1 : 0,
+                (status as any).secEdgar?.status === "active" ? 1 : 0,
+                (status as any).coinGecko?.status === "active" ? 1 : 0,
+                (status as any).baostock?.status === "active" ? 1 : 0,
                 (status.tavily ?? []).filter(k => k.configured && k.status === "active").length,
               ].reduce((a, b) => a + b, 0)}
               /
-              {4 + (status.tavily ?? []).filter(k => k.configured).length}
-               正常
+              {11 + (status.tavily ?? []).filter(k => k.configured).length}
+               正常
             </span>
           )}
         </div>
@@ -158,6 +165,115 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
                 含预测
+              </span>
+            }
+          />
+
+          {/* 分组标题：股票金融数据源 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 股票金融数据源</p>
+
+          {/* Finnhub */}
+          <SourceRow
+            label="Finnhub"
+            desc="实时报价 / 分析师评级 / 内部交易"
+            statusStr={(status as any)?.finnhub?.status ?? "error"}
+            badge={
+              !(status as any)?.finnhub?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : undefined
+            }
+          />
+
+          {/* FMP */}
+          <SourceRow
+            label="Financial Modeling Prep"
+            desc="财务报表 / DCF估值 / 分析师目标价"
+            statusStr={(status as any)?.fmp?.status ?? "error"}
+            badge={
+              !(status as any)?.fmp?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : undefined
+            }
+          />
+
+          {/* Polygon.io */}
+          <SourceRow
+            label="Polygon.io"
+            desc="市场快照 / 近期走势 / 新闻情绪"
+            statusStr={(status as any)?.polygon?.status ?? "error"}
+            badge={
+              !(status as any)?.polygon?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : undefined
+            }
+          />
+
+          {/* Alpha Vantage */}
+          <SourceRow
+            label="Alpha Vantage"
+            desc="宏观指标 / 汇率 / CPI / 利率"
+            statusStr={(status as any)?.alphaVantage?.status ?? "error"}
+            badge={
+              !(status as any)?.alphaVantage?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : undefined
+            }
+          />
+
+          {/* SEC EDGAR */}
+          <SourceRow
+            label="SEC EDGAR"
+            desc="XBRL 财务 / 年报 / 季报"
+            statusStr={(status as any)?.secEdgar?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开
+              </span>
+            }
+          />
+
+          {/* CoinGecko */}
+          <SourceRow
+            label="CoinGecko"
+            desc="加密货币 / 市值 / 趋势"
+            statusStr={(status as any)?.coinGecko?.status ?? "error"}
+            badge={
+              !(status as any)?.coinGecko?.configured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
+                  需 API Key
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  Demo Key
+                </span>
+              )
+            }
+          />
+
+          {/* Baostock */}
+          <SourceRow
+            label="Baostock"
+            desc="A股历史行情 / 财务指标"
+            statusStr={(status as any)?.baostock?.status ?? "error"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                免费公开
               </span>
             }
           />

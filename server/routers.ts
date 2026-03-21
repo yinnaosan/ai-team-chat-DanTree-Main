@@ -65,6 +65,13 @@ import { getMacroDataByKeywords } from "./fredApi";
 import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
 import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
+import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
+import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth } from "./alphaVantageApi";
+import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth } from "./polygonApi";
+import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
+import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
+import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
+import { getAStockData, formatAStockData, isAStockTask, extractAStockCodes, pingBaostock } from "./baoStockApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -386,7 +393,12 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 ## 数据引擎精确需求清单
 （具体指标名称 + 时间范围 + 对比基准 + 关键风险指标）`;
 
-    // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 ──────────────
+    // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 + 多源金融数据 ──────────────
+    // 提取 ticker 供多源数据使用
+    const { extractTickers } = await import("./yahooFinance");
+    const detectedTickers = extractTickers(taskDescription);
+    const primaryTicker = detectedTickers[0] ?? null; // 主要股票代码（用于深度分析）
+
     const [step1Result, stockDataResult, earlyTavilyResult] = await Promise.allSettled([
       // A. Step1：GPT 规划框架
       userConfig?.openaiApiKey
@@ -430,8 +442,14 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     };
     const refinedTavilyQuery = extractDataNeedsQuery(gptStep1Output, taskDescription);
 
-    // ── Step1 完成后：FRED + World Bank + IMF（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
-    const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult] = await Promise.allSettled([
+    // ── Step1 完成后：FRED + World Bank + IMF + 多源金融数据 + Tavily 精炼补充搜索 ────────────────────
+    // 检测 A 股代码（用于触发 Baostock）
+    const aStockCodes = extractAStockCodes(taskDescription + " " + gptStep1Output);
+    const primaryAStockCode = aStockCodes[0] || null;
+
+    const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
+      finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
+      cryptoResult, aStockResult] = await Promise.allSettled([
       // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       // World Bank：全球宏观数据（GDP/通胀/贸易/失业率等），根据任务自动识别国家
@@ -441,6 +459,34 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
       isTavilyConfigured() && refinedTavilyQuery !== taskDescription
         ? searchForTask(refinedTavilyQuery, userLibraryUrls)
+        : Promise.resolve(""),
+      // Finnhub：实时报价/分析师评级/内部交易/公司新闻（仅当检测到股票代码时）
+      primaryTicker && process.env.FINNHUB_API_KEY
+        ? getFinnhubData(primaryTicker).then(d => formatFinnhubData(d))
+        : Promise.resolve(""),
+      // FMP：财务报表/DCF估值/分析师目标价/关键指标（仅当检测到股票代码时）
+      primaryTicker && process.env.FMP_API_KEY
+        ? getFmpData(primaryTicker).then(d => formatFmpData(d))
+        : Promise.resolve(""),
+      // Polygon.io：市场快照/公司详情/近期走势/新闻情绪（仅当检测到股票代码时）
+      primaryTicker && process.env.POLYGON_API_KEY
+        ? getPolygonData(primaryTicker).then(d => formatPolygonData(d))
+        : Promise.resolve(""),
+      // SEC EDGAR：XBRL 财务数据/年报/季报（仅当检测到美股代码时）
+      primaryTicker && !primaryTicker.includes(".") // 只对美股进行 SEC 查询
+        ? getSecData(primaryTicker).then(d => formatSecData(d))
+        : Promise.resolve(""),
+      // Alpha Vantage：宏观经测指标（利率/CPI/失业率/汇率）
+      process.env.ALPHA_VANTAGE_API_KEY
+        ? getAlphaVantageEconomicData().then(d => formatAVEconomicData(d))
+        : Promise.resolve(""),
+      // CoinGecko：加密货币实时价格/市值/趋势（检测到加密货币相关任务时触发）
+      isCryptoTask(taskDescription + " " + gptStep1Output) && process.env.COINGECKO_API_KEY
+        ? getCryptoData(taskDescription + " " + gptStep1Output).then(d => formatCryptoData(d))
+        : Promise.resolve(""),
+      // Baostock：A股历史行情/财务指标（检测到 A 股代码时触发）
+      primaryAStockCode
+        ? getAStockData(primaryAStockCode).then(d => formatAStockData(d))
         : Promise.resolve(""),
     ]);
 
@@ -472,12 +518,27 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     }
     const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
 
-    // 将结构化数据（Yahoo Finance + FRED + World Bank + IMF）与网页内容（Tavily+Jina）分开，让 Manus 分别处理
+    // 将结构化数据与网页内容分开，让 Manus 分别处理
+    // 结构化数据来源：Yahoo Finance / FRED / World Bank / IMF / Finnhub / FMP / Polygon / SEC EDGAR / Alpha Vantage
+    const finnhubMarkdown = finnhubResult.status === "fulfilled" && finnhubResult.value ? finnhubResult.value : "";
+    const fmpMarkdown = fmpResult.status === "fulfilled" && fmpResult.value ? fmpResult.value : "";
+    const polygonMarkdown = polygonResult.status === "fulfilled" && polygonResult.value ? polygonResult.value : "";
+    const secMarkdown = secResult.status === "fulfilled" && secResult.value ? secResult.value : "";
+    const avEconomicMarkdown = avEconomicResult.status === "fulfilled" && avEconomicResult.value ? avEconomicResult.value : "";
+    const cryptoMarkdown = cryptoResult.status === "fulfilled" && cryptoResult.value ? cryptoResult.value : "";
+    const aStockMarkdown = aStockResult.status === "fulfilled" && aStockResult.value ? aStockResult.value : "";
     const structuredDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
       worldBankData.status === "fulfilled" && worldBankData.value ? worldBankData.value : "",
       imfMarkdown,
+      avEconomicMarkdown,  // Alpha Vantage 宏观指标（利率/CPI/失业率/汇率）
+      finnhubMarkdown,     // Finnhub 实时报价/分析师评级/内部交易
+      fmpMarkdown,         // FMP 财务报表/DCF估值/分析师目标价
+      polygonMarkdown,     // Polygon.io 市场快照/近期走势/新闻情绪
+      secMarkdown,         // SEC EDGAR XBRL 财务数据/年报/季报
+      cryptoMarkdown,      // CoinGecko 加密货币实时价格/市值/趋势
+      aStockMarkdown,      // Baostock A股历史行情/财务指标
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -1263,8 +1324,8 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!process.env.FRED_API_KEY;
 
-      // World Bank + IMF 并行健康检测（无需 Key）
-      const [wbHealth, imfHealth] = await Promise.allSettled([
+      // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock
+      const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth] = await Promise.allSettled([
         // World Bank
         (async () => {
           const controller = new AbortController();
@@ -1284,12 +1345,41 @@ export const appRouter = router({
         })(),
         // IMF DataMapper
         checkImfApiHealth().then((r) => r.status),
+        // Finnhub
+        process.env.FINNHUB_API_KEY
+          ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const)
+          : Promise.resolve("error" as const),
+        // FMP
+        process.env.FMP_API_KEY
+          ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const)
+          : Promise.resolve("error" as const),
+        // Polygon.io
+        process.env.POLYGON_API_KEY
+          ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const)
+          : Promise.resolve("error" as const),
+        // SEC EDGAR
+        checkSecHealth().then(r => r.ok ? "active" as const : "error" as const),
+        // Alpha Vantage
+        process.env.ALPHA_VANTAGE_API_KEY
+          ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const)
+          : Promise.resolve("error" as const),
+        // CoinGecko
+        process.env.COINGECKO_API_KEY
+          ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const)
+          : Promise.resolve("error" as const),
+        // Baostock（A股）
+        pingBaostock().then(ok => ok ? "active" as const : "error" as const),
       ]);
 
-      const worldBankStatus =
-        wbHealth.status === "fulfilled" ? wbHealth.value : "error";
-      const imfStatus =
-        imfHealth.status === "fulfilled" ? imfHealth.value : "error";
+      const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";
+      const imfStatus = imfHealth.status === "fulfilled" ? imfHealth.value : "error";
+      const finnhubStatus = finnhubHealth.status === "fulfilled" ? finnhubHealth.value : "error";
+      const fmpStatus = fmpHealth.status === "fulfilled" ? fmpHealth.value : "error";
+      const polygonStatus = polygonHealth.status === "fulfilled" ? polygonHealth.value : "error";
+      const secStatus = secHealth.status === "fulfilled" ? secHealth.value : "error";
+      const avStatus = avHealth.status === "fulfilled" ? avHealth.value : "error";
+      const cgStatus = cgHealth.status === "fulfilled" ? cgHealth.value : "error";
+      const bsStatus = bsHealth.status === "fulfilled" ? bsHealth.value : "error";
 
       return {
         tavily: tavilyKeys,
@@ -1298,6 +1388,13 @@ export const appRouter = router({
         yahoo: { configured: true, status: "active" as const },
         worldBank: { configured: true, status: worldBankStatus },
         imf: { configured: true, status: imfStatus },
+        finnhub: { configured: !!process.env.FINNHUB_API_KEY, status: finnhubStatus },
+        fmp: { configured: !!process.env.FMP_API_KEY, status: fmpStatus },
+        polygon: { configured: !!process.env.POLYGON_API_KEY, status: polygonStatus },
+        secEdgar: { configured: true, status: secStatus },
+        alphaVantage: { configured: !!process.env.ALPHA_VANTAGE_API_KEY, status: avStatus },
+        coinGecko: { configured: !!process.env.COINGECKO_API_KEY, status: cgStatus },
+        baostock: { configured: true, status: bsStatus },
       };
     }),
   }),

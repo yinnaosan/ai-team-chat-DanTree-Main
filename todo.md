@@ -558,3 +558,17 @@
 - [ ] 创建 server/jinaReader.ts：用 r.jina.ai 抓取公开网页内容（无需API Key）
 - [ ] 集成到数据流：用 Jina 替换 Tavily Extract 抓取用户数据库链接
 - [ ] 测试验证：确认能抓取雪球、东方财富等动态网站内容
+
+## 智能URL生成器 + 深度抓取（2026-03-21）
+- [ ] 创建 server/smartUrlGenerator.ts：用LLM根据任务内容+用户数据库域名生成精确URL列表（如分析苹果→xueqiu.com/S/AAPL）
+- [ ] 集成到Step2数据流：先生成精确URL，再用Jina深入抓取具体内容页（非首页）
+- [ ] 严格禁止AI用训练记忆填充数据，无真实来源必须标注"数据未获取"
+- [ ] 测试：验证分析苹果时能自动生成并抓取精确URL的真实内容
+
+## Tavily 限定域名搜索策略（2026-03-20）
+- [x] 重写 searchFromUserLibrary：改为 Tavily include_domains 限定域名搜索，返回真实存在的相关页面URL
+- [x] 移除旧的 Tavily Extract 直接抓取首页方式（首页内容与任务无关）
+- [x] 新流程：Tavily 限定域名搜索 → 获取真实URL → Jina 深度抓取完整页面内容
+- [x] 兜底策略：仅当用户数据库域名内无结果时，才回退到通用金融新闻搜索
+- [x] URL 100% 来自 Tavily 搜索结果，绝不由 LLM 生成，确保链接真实有效
+- [x] TypeScript 0 错误，40 个测试全部通过

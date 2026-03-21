@@ -5,13 +5,15 @@
  * 单个Key返回 429/403/401 时自动切换下一个
  * 全部Key失败时调用 notifyOwner 发站内通知
  *
- * 数据获取优先级（Step2数据引擎）：
- * 1. 用户数据库链接（Tavily Extract直接抓取 + 域名范围搜索）
- * 2. Yahoo Finance（股价/财务数据）
- * 3. FRED（宏观经济数据）
- * 4. 通用金融新闻搜索（兜底）
+ * 数据获取策略（Step2数据引擎）：
+ * 1. Tavily 限定域名搜索（include_domains）→ 返回真实存在的相关页面URL
+ * 2. Jina Reader 抓取 Tavily 返回的真实URL，获取完整页面内容
+ * 3. Yahoo Finance（股价/财务数据）
+ * 4. FRED（宏观经济数据）
+ * 5. 通用金融新闻搜索（兜底）
  *
  * ⚠️ 严禁AI编造数据：无真实来源时必须明确说明"未能获取实时数据"
+ * ⚠️ 所有URL均来自Tavily搜索结果，100%真实有效，绝不由LLM生成
  */
 
 import { notifyOwner } from "./_core/notification";
@@ -98,14 +100,10 @@ async function tavilySearchRequest(
 ): Promise<TavilyResult[]> {
   if (TAVILY_KEYS.length === 0) return [];
 
-  let anyActive = false;
-
   for (let i = 0; i < TAVILY_KEYS.length; i++) {
     const key = TAVILY_KEYS[i];
     const currentStatus = keyStatusMap.get(key) ?? "active";
     if (currentStatus === "exhausted") continue;
-
-    anyActive = true;
 
     try {
       const res = await fetch("https://api.tavily.com/search", {
@@ -143,142 +141,103 @@ async function tavilySearchRequest(
   return [];
 }
 
-/** 核心Extract请求（直接抓取URL内容），带四Key轮换 */
-async function tavilyExtractRequest(urls: string[]): Promise<TavilyResult[]> {
-  if (TAVILY_KEYS.length === 0 || urls.length === 0) return [];
-
-  for (let i = 0; i < TAVILY_KEYS.length; i++) {
-    const key = TAVILY_KEYS[i];
-    if ((keyStatusMap.get(key) ?? "active") === "exhausted") continue;
-
-    try {
-      const res = await fetch("https://api.tavily.com/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls, api_key: key }),
-        signal: AbortSignal.timeout(20000),
-      });
-
-      if (res.ok) {
-        keyStatusMap.set(key, "active");
-        const data = await res.json() as { results: TavilyResult[] };
-        return data.results ?? [];
-      }
-
-      if (isExhaustedError(res.status)) {
-        keyStatusMap.set(key, "exhausted");
-        continue;
-      }
-
-      keyStatusMap.set(key, "error");
-      continue;
-    } catch {
-      keyStatusMap.set(key, "error");
-      continue;
-    }
-  }
-
-  await notifyAllKeysExhausted();
-  return [];
-}
-
 // ─────────────────────────────────────────────
 // 对外暴露的高层函数
 // ─────────────────────────────────────────────
 
 /**
- * 【最高优先级】从用户数据库链接获取真实内容
- * 策略：Tavily 搜索优先，内容不足时 Jina Reader 补充抓取
+ * 从用户数据库域名中搜索任务相关内容
  *
- * 执行顺序：
- * 1. Tavily Extract 直接抓取指定 URL（快速，但动态网站可能失败）
- * 2. Tavily Search 在用户域名范围内关键词搜索
- * 3. 对 Tavily 未能抓取或内容过少的 URL，改用 Jina Reader 补充
+ * 核心策略（安全可靠，URL 100% 真实）：
+ * 1. 从用户数据库 URL 提取域名列表
+ * 2. Tavily include_domains 限定搜索 → 返回真实存在的相关页面 URL
+ * 3. Jina Reader 抓取 Tavily 返回的真实页面，获取完整内容
+ *
+ * 不再直接 Extract 首页 URL（首页内容与任务无关）
+ * 不再由 LLM 生成 URL（LLM 可能生成不存在的链接）
  */
 export async function searchFromUserLibrary(
   query: string,
   libraryUrls: string[]
 ): Promise<string> {
   if (libraryUrls.length === 0) return "";
+  if (!isTavilyConfigured()) return "";
+
+  // Step 1: 从用户数据库 URL 提取域名列表
+  const domains = libraryUrls
+    .map(url => {
+      try {
+        const normalized = url.startsWith("http") ? url : `https://${url}`;
+        return new URL(normalized).hostname.replace(/^www\./, "");
+      } catch {
+        return null;
+      }
+    })
+    .filter((d): d is string => d !== null && d.length > 0);
+
+  const uniqueDomains = Array.from(new Set(domains)).slice(0, 15); // 最多15个域名
+
+  if (uniqueDomains.length === 0) return "";
+
+  // Step 2: Tavily 限定域名搜索，获取真实存在的相关页面 URL
+  // include_domains 确保所有结果都来自用户指定的网站
+  const tavilyResults = await tavilySearchRequest({
+    query,
+    max_results: 8,
+    search_depth: "advanced",
+    include_domains: uniqueDomains,
+    include_answer: false, // 不需要 Tavily 的摘要答案，我们要原始页面内容
+    topic: "finance",
+  });
+
+  if (tavilyResults.length === 0) {
+    // Tavily 在这些域名内没找到相关内容，返回空
+    return "";
+  }
+
+  // Step 3: 提取 Tavily 返回的真实 URL（这些 URL 100% 存在）
+  // 优先选择 score 高的结果，最多取 5 个
+  const realUrls = tavilyResults
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, 5)
+    .map(r => r.url);
+
+  // Step 4: 用 Jina Reader 抓取这些真实页面的完整内容
+  // Jina 支持 JavaScript 渲染，能处理动态网站（雪球、东方财富等）
+  const jinaResults = await fetchMultipleWithJina(realUrls, 3);
+  const jinaSuccessful = jinaResults.filter(r => r.success && r.content.trim().length > 100);
 
   const allParts: string[] = [];
-  const tavilyResults: TavilyResult[] = [];
 
-  // Step A: Tavily Extract 直接抓取前3个URL
-  if (isTavilyConfigured()) {
-    const topUrls = libraryUrls.slice(0, 3);
-    try {
-      const extracted = await tavilyExtractRequest(topUrls);
-      tavilyResults.push(...extracted);
-    } catch {
-      // Tavily Extract 失败，继续用 Jina 补充
-    }
-
-    // Step B: Tavily Search 在用户域名范围内关键词搜索
-    const domains = libraryUrls
-      .map(url => {
-        try { return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, ""); }
-        catch { return null; }
-      })
-      .filter(Boolean) as string[];
-
-    const uniqueDomains = Array.from(new Set(domains)).slice(0, 10);
-
-    if (uniqueDomains.length > 0) {
-      const searchResults = await tavilySearchRequest({
-        query,
-        max_results: 5,
-        search_depth: "advanced",
-        include_domains: uniqueDomains,
-        include_answer: true,
-        topic: "finance",
-      });
-      tavilyResults.push(...searchResults);
-    }
-  }
-
-  // Step C: 判断哪些 URL 的内容不足，交给 Jina Reader 补充
-  // 判断标准：Tavily 返回内容 < 200 字符，或该 URL 完全没有被 Tavily 抓到
-  const tavilySuccessUrls = new Set(
-    tavilyResults
-      .filter(r => r.content && r.content.length >= 200)
-      .map(r => {
-        try { return new URL(r.url).hostname.replace(/^www\./, ""); }
-        catch { return ""; }
-      })
-  );
-
-  // 找出 Tavily 没有覆盖到的域名对应的原始 URL
-  const urlsNeedingJina = libraryUrls.filter(url => {
-    try {
-      const hostname = new URL(url).hostname.replace(/^www\./, "");
-      return !tavilySuccessUrls.has(hostname);
-    } catch { return false; }
-  }).slice(0, 5); // 最多补充5个
-
-  // 用 Jina Reader 抓取 Tavily 未覆盖的 URL
-  if (urlsNeedingJina.length > 0) {
-    const jinaResults = await fetchMultipleWithJina(urlsNeedingJina, 3);
-    const jinaSuccessful = jinaResults.filter(r => r.success && r.content.trim().length > 100);
-
-    if (jinaSuccessful.length > 0) {
-      const jinaFormatted = jinaSuccessful
-        .map((r, i) => `### Jina来源${i + 1}：${r.title}\n**URL**: ${r.url}\n\n${r.content.slice(0, 1000)}`)
-        .join("\n\n---\n\n");
-      allParts.push(`## 网页内容（Jina Reader 抓取）\n\n${jinaFormatted}`);
-    }
-  }
-
-  // 格式化 Tavily 结果
-  if (tavilyResults.length > 0) {
-    const formatted = tavilyResults
-      .slice(0, 6)
+  // 优先展示 Jina 抓取的完整内容
+  if (jinaSuccessful.length > 0) {
+    const jinaFormatted = jinaSuccessful
       .map((r, i) => {
-        const date = r.published_date ? ` (${r.published_date})` : "";
-        return `### 来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content?.slice(0, 800) ?? ""}`;
+        // 找到对应的 Tavily 元数据（标题、发布日期）
+        const tavilyMeta = tavilyResults.find(t => t.url === r.url);
+        const date = tavilyMeta?.published_date ? ` (${tavilyMeta.published_date})` : "";
+        const title = r.title || tavilyMeta?.title || r.url;
+        return `### 来源${i + 1}：${title}${date}\n**URL**: ${r.url}\n\n${r.content.slice(0, 2000)}`;
       })
       .join("\n\n---\n\n");
-    allParts.push(`## 用户数据库实时内容（来源：Tavily 搜索）\n\n${formatted}`);
+    allParts.push(`## 用户数据库实时内容（Tavily搜索定位 → Jina深度抓取）\n\n${jinaFormatted}`);
+  }
+
+  // 对于 Jina 抓取失败的 URL，回退使用 Tavily 自带的摘要内容
+  const jinaSuccessUrls = new Set(jinaSuccessful.map(r => r.url));
+  const tavilyFallback = tavilyResults.filter(
+    r => !jinaSuccessUrls.has(r.url) && r.content && r.content.length > 100
+  );
+
+  if (tavilyFallback.length > 0) {
+    const fallbackFormatted = tavilyFallback
+      .slice(0, 3)
+      .map((r, i) => {
+        const date = r.published_date ? ` (${r.published_date})` : "";
+        return `### 补充来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content.slice(0, 800)}`;
+      })
+      .join("\n\n---\n\n");
+    allParts.push(`## 补充数据（Tavily摘要）\n\n${fallbackFormatted}`);
   }
 
   return allParts.join("\n\n---\n\n");
@@ -345,9 +304,11 @@ export async function searchForTask(
     if (userSourceData) parts.push(userSourceData);
   }
 
-  // 兜底：通用金融新闻
-  const generalNews = await searchFinancialNews(taskDescription, 3);
-  if (generalNews) parts.push(generalNews);
+  // 兜底：通用金融新闻（仅当用户数据库没有结果时）
+  if (parts.length === 0) {
+    const generalNews = await searchFinancialNews(taskDescription, 3);
+    if (generalNews) parts.push(generalNews);
+  }
 
   return parts.join("\n\n---\n\n");
 }

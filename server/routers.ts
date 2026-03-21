@@ -58,6 +58,9 @@ import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
+import { fetchStockDataForTask } from "./yahooFinance";
+import { getMacroDataByKeywords } from "./fredApi";
+import { searchForTask, isTavilyConfigured } from "./tavilySearch";
 
 // ─── 访问权限检查（Owner 或已授权用户）────────────────────────────────────────
 
@@ -380,9 +383,40 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
     console.log(`[Collaboration] Task ${taskId} Step1 done. GPT framework+analysis length=${gptStep1Output.length}`);
 
     // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — Manus 先完善任务，再按 GPT 框架执行数据收集（内置 LLM）
+    // Step 2 — 实时数据预取（Yahoo Finance + FRED + Tavily）
     // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
+    console.log(`[Collaboration] Task ${taskId} Step2: Fetching real-time data...`);
+
+    // 并行获取三个数据源（失败不阻断主流程）
+    const [stockData, macroData, webSearchData] = await Promise.allSettled([
+      fetchStockDataForTask(taskDescription),
+      getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
+      isTavilyConfigured()
+        ? searchForTask(
+            taskDescription,
+            userConfig?.dataLibrary
+              ? userConfig.dataLibrary.split("\n").map((s: string) => s.trim()).filter((s: string) => s.startsWith("http"))
+              : []
+          )
+        : Promise.resolve(""),
+    ]);
+
+    const realTimeDataBlock = [
+      stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
+      macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
+      webSearchData.status === "fulfilled" && webSearchData.value ? webSearchData.value : "",
+    ].filter(Boolean).join("\n\n---\n\n");
+
+    if (realTimeDataBlock) {
+      console.log(`[Collaboration] Task ${taskId} Step2: Real-time data fetched, length=${realTimeDataBlock.length}`);
+    } else {
+      console.log(`[Collaboration] Task ${taskId} Step2: No real-time data fetched (no tickers/macros detected or APIs not configured)`);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Step 2 — Manus 先完善任务，再按 GPT 框架执行数据收集（内置 LLM）
+    // ════════════════════════════════════════════════════════════════════════
     console.log(`[Collaboration] Task ${taskId} Step2: Manus enhancing + data collection...`);
     const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
@@ -390,7 +424,7 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 ${fullContext}
 
 【首席顾问的分析框架与数据需求】
-${gptStep1Output}
+${gptStep1Output}${realTimeDataBlock ? `\n\n---\n\n【已获取的实时数据（直接使用，无需重新获取）】\n${realTimeDataBlock}` : ""}
 
 ---
 **输出规则：**

@@ -1,0 +1,9 @@
+{
+  "query": "SELECT dataLibrary, investmentRules, taskInstruction FROM rpa_configs WHERE dataLibrary IS NOT NULL LIMIT 20 OFFSET 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT dataLibrary, investmentRules, taskInstruction FROM rpa_configs WHERE dataLibrary IS NOT NULL LIMIT 20 OFFSET 20;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 54
+}

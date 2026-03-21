@@ -529,3 +529,10 @@
 - [x] 更新offline.html图标引用为v7版本
 - [x] Service Worker升级为dantree-v4，强制清除旧缓存
 - [x] 侧边栏底部添加「安装桌面App」按钮（蓝色高亮，触发PWA安装提示；已安装时自动隐藏）
+
+## 实时数据源三合一接入（2026-03-20）
+- [x] 接入 Yahoo Finance API（内置callDataApi，股价/财务/技术指标，支持美股/港股/A股）
+- [x] 接入 FRED 宏观数据 API（CPI、利率、GDP、非农等，需FRED_API_KEY）
+- [x] 接入 Tavily 搜索 API（网页内容实时搜索，需TAVILY_API_KEY，未配置时静默跳过）
+- [x] 重构 Step2 数据引擎：三源并行预取（Yahoo Finance + FRED + Tavily），真实数据注入Manus LLM上下文
+- [ ] 在设置页面「资料数据库」Tab 展示三个数据源的连接状态（待实现）

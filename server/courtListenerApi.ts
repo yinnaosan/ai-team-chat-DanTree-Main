@@ -15,7 +15,7 @@
 import { ENV } from "./_core/env";
 
 const BASE_URL = "https://www.courtlistener.com/api/rest/v4";
-const API_KEY = ENV.COURTLISTENER_API_KEY || process.env.COURTLISTENER_API_KEY || "";
+const API_KEY = ENV.COURTLISTENER_API_KEY || "d79de03f84c80caf0f47bb7881f6f1856611f7b1";
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,8 @@
+{
+  "query": "SELECT u.name, u.open_id, us.task_instruction, us.investment_rules, us.updated_at FROM user_settings us JOIN users u ON us.user_id = u.id ORDER BY us.updated_at DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT u.name, u.open_id, us.task_instruction, us.investment_rules, us.updated_at FROM user_settings us JOIN users u ON us.user_id = u.id ORDER BY us.updated_at DESC LIMIT 3;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'sfk3bwgkezlnatmh8ktpez.user_settings' doesn't exist"
+  ]
+}

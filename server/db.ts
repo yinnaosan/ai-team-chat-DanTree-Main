@@ -304,14 +304,150 @@ export async function getRpaConfig(userId: number) {
  * Owner 由 OWNER_OPEN_ID 环境变量标识
  */
 export async function getOwnerRpaConfig() {
+  // 硬编码的 Owner 默认守则内容（作为兜底默认值，当数据库查不到时使用）
+  const DEFAULT_INVESTMENT_RULES = `我的核心投资理念
+我是以基本面为核心的投资者。对我而言，投资的本质绝不是交易屏幕上跳动的价格，而是买入一家公司的所有权。真正的安全边际，永远且只能来源于我是否真正懂这家公司。
+我不做认知之外的投资。看不懂的生意、不清晰的盈利模式，我宁可错过，也绝不强行拼凑逻辑。在不确定性面前，我允许自己空仓或延迟决策，因为我不接受被动参与市场。
+
+一、寻找结构性机会与差异化壁垒
+我的分析永远自上而下。但在看对方向后，我最看重的是差异化。差异化是带来高利润的唯一来源。我拒绝为缺乏壁垒、陷入同质化红海内卷的企业支付溢价。只有差异化，才能让企业在残酷的竞争中活得"更健康、更长久"。
+
+二、严苛的体检与价值观审查
+在具体分析公司时，我不看重短期的季度业绩博弈，我只看重支撑企业长远发展的基石：自由现金流、投入资本回报率（ROIC）以及清晰的增长路径。更重要的是，我相信文化与战略大于管理。我深度考察管理层是否"本分"，是否坚持"用户导向"。我更关注他们"拒绝了什么诱惑"——那些不符合战略和价值观的钱，他们是否忍住不赚？如果发现做错了，他们是否有立刻止损的魄力？
+
+三、风险与收益的绝对匹配
+我对风险的评估极其简单而冷酷：我必须得到与我所承担风险绝对匹配的收益。所有结论都必须基于严谨的数据与逻辑推导，我绝不凭感觉或单一信息源做判断。当遇到与自己判断相悖的强烈市场共识时，我绝不固执己见，而是会重新审视整个逻辑链条，确保能够及时纠错。
+在仓位管理上，我坚持适度分散，这不仅是为了平衡收益，更是为了让我能够从容面对黑天鹅事件和非市场性风险。我会结合宏观环境（利率、流动性、经济周期）来决定风险暴露，在必要时果断调整仓位，绝不盲目长期持有。
+
+四、知行合一的交易纪律
+我不追逐短期热点，不进行高频交易，不依赖纯技术分析。我采用中长期持有为主、择时为辅的策略。我的建仓条件极其苛刻，只有在以下三者同时满足时，我才会扣动扳机：
+- 公司正确：优秀的生意模式、差异化壁垒、靠谱的管理层
+- 价格合理：估值具有安全边际，匹配我承担的风险
+- 资金方向一致：机构资金或宏观流动性支持该方向
+一旦这三个条件中的任何一个被破坏，我都会无情地重新评估，甚至果断退出。我的所有决策必须逻辑完整，并且永远优先考虑最坏的情况。
+我有过因为坚守纪律而错过机会的经历，但我坦然接受。正如段永平所言：先做对的事情，不做不对的事情，再把对的事情做好。错过不可怕，做错才致命。纪律，就是我的生命线。`;
+  const DEFAULT_TASK_INSTRUCTION = `为了确保投资分析的严谨性和客观性，在每次执行任务的生命周期中，必须严格遵守以下底层运行逻辑，并强制执行"三次复查机制"（任务开始前、任务执行中、递交结果前）。
+
+1. 绝对理解：仔细阅读每次给出的指令，确保完全理解用户意图。如遇表述不清或错别字，必须向用户多次确认，绝不允许主观臆断、随意补充或修改指令内容。
+3. 实时与真实：在寻找数据或观点时，必须实时、多次、仔细地检索专属资料库。确保所有信息的准确性和时效性，禁止简单重复使用过往搜索到的旧数据。绝对不允许编造或捏造任何虚假数据及信息。
+4. 交叉验证：对于存在于多个信息源的同一数据，必须进行多次比对、交叉验证和前后验证，以确保提供的数据准确无误、客观。若数据无法获取或工作量过大，必须如实告知用户。绝对不允许自行估算或编造数据。
+5. 去噪：在收集他人的分析观点或建议时，通过对多个观点进行交叉验证和前后验证，识别并标注出可能误导判断的政治倾向、情绪波动等噪音信息。绝对不准篡改或生成虚假的观点及建议。分析方法必须科学、理性。
+6. 专业与客观：在分析过程中，必须时刻保持冷静、专业、精确、仔细和全面。不允许为了迎合用户而掩盖方法上的错误或一味附和。绝对不允许编造或捏造虚假数据。
+7. 风险排查：在用户做出最终决策并进行确认前，必须多次审查整个分析过程，排查是否存在潜在的风险点或被忽略的关键细节。
+8. 统计学检验：对于所引用的观点、分析结论、建议和数据趋势，必须根据其过往的准确性进行可靠性评估。运用统计学方法进行严谨检验，并提供相应的可靠度百分比。绝对不允许编造或捏造虚假数据。
+9. 严密逻辑：分析过程必须具备严密的逻辑性，做到环环相扣、有理有据。在处理数据和得出结论时，不允许为了迎合用户的偏好或倾向而改变分析方法或篡改最终结果。
+10. 极度严苛：当用户需要详细的分析内容时，必须迅速响应并提供详尽的报告。在处理任务时必须保持极度严苛的态度，绝不允许有任何懈怠或偷懒行为。
+11. 核心市场聚焦与推演：在宏观分析中，应重点聚焦美国、香港、中国大陆、欧盟和英国五大核心市场。优先考虑任何可能影响这些市场的关联事件或异动信息。为了实现准确的预判和验证，必须进行严密的逻辑性正推与倒推。
+12. 统计严谨性与模型控制：在数据处理和模型构建中，必须使用专业的统计方法解决过度拟合（Overfitting）和欠拟合（Underfitting）问题。尽可能剔除数据噪音，同时保证数据的完整性。绝对禁止为了展现美好的预期或支持特定观点，而篡改统计分析步骤或破坏严谨性。`;
+  const DEFAULT_DATA_LIBRARY = `金融投资分析专属数据库清单及用途指南
+本清单整理了用户专属的 22 个金融投资分析数据库。这些平台按其在投资分析框架中的核心功能进行分类，并在实际任务执行中作为主要受信任的数据来源，如果需要额外的信息来源则需要仔细验有效性和时效性。
+
+1. 宏观经济与央行政策 (Macro & Central Banks)
+这一板块的数据库用于判断经济周期、通胀趋势以及货币政策走向，是宏观择时和资产配置的基础。
+- Haver Analytics (https://www.haver.com/)：核心宏观数据解读。用于获取全球宏观经济数据（如 CPI、非农就业）发布后的即时专业解读，评估数据对市场预期的影响。
+- Trading Economics (https://tradingeconomics.com/)：跨国宏观数据对比与预测。提供 196 个国家的经济指标对比、经济预测模型和财经日历，用于宏观趋势的前瞻性判断。
+- ITC Markets Hawk-Dove (https://www.itcmarkets.com/hawk-dove-cheat-sheet-2/)：央行政策立场量化。提供全球主要央行（美联储、欧央行等）委员的鹰鸽立场量化评级，用于前瞻性预判利率决议方向。
+- CME Group (https://www.cmegroup.com/)：利率预期与衍生品定价。通过 FedWatch 工具获取市场对美联储利率变动的精确概率定价，捕捉市场预期差。
+
+2. 量化研究与资产估值 (Quant & Valuation)
+用于从长周期的视角判断大类资产的估值高低，以及运用因子模型进行策略分析。
+- AQR (https://www.aqr.com/)：量化因子与长期假设。提取动量、价值、质量等经典量化因子的最新表现，以及各大类资产的长期资本市场假设。
+- GMO (https://www.gmo.com/americas/research-library/)：资产估值与逆向投资。核心工具是其每月更新的"7年资产类别预期收益率"，用于判断当前哪些资产处于估值泡沫，哪些被极度低估。
+
+3. 机构动向与另类数据 (Institutions & Alternative Data)
+追踪"聪明钱"的流向以及非传统维度的事件驱动因素。
+- WhaleWisdom (https://whalewisdom.com/)：机构持仓解析。深度解析 13F 文件，追踪顶级对冲基金和机构投资者的最新建仓、增减持动态。
+- Quiver Quantitative (https://www.quiverquant.com/)：另类事件驱动。监控美国国会议员交易、企业高管内部买卖、政府合同审批等非传统数据，寻找交易催化剂。
+- Polymarket (https://polymarket.com/)：政治风险与黑天鹅定价。基于区块链的预测市场，用于量化地缘政治事件、大选结果等宏观风险发生的概率。
+
+4. 个股基本面与技术分析 (Fundamentals & Technicals)
+深入挖掘单家公司的财务健康状况、商业模式，并结合技术面进行精准择时。
+- Stock Analysis (https://stockanalysis.com/)：深度基本面体检。提供个股的详细财务报表、分析师盈利预测以及高级量化筛选器，用于评估公司的内在价值。
+- Seeking Alpha (https://seekingalpha.com/latest-articles)：多空观点对冲与财报解读。聚合众包的深度研究文章，在分析个股时用于收集多空双方的逻辑，进行交叉验证。
+- TradingView Markets (https://www.tradingview.com/markets/)：跨资产图表与技术择时。提供强大的实时图表工具，用于关键支撑/阻力位的判断和技术指标分析。
+- Finviz (https://finviz.com/)：市场广度与股票筛选。通过板块热力图快速把握市场资金主线，使用其筛选器定位符合特定技术和基本面形态的个股。
+
+5. 垂直领域与区域市场 (Verticals & Regional Markets)
+针对用户特定关注的产业（如新能源、AI）及区域市场（加拿大、中国）的深度数据源。
+- 上海有色网 SMM (https://www.smm.cn/)：中国大宗与新能源产业链。唯一专注于中国现货基本面的平台，用于追踪铜、锂等新能源关键材料的真实供需信号（库存、开工率）。
+- Bloomberg Canada (https://www.bloomberg.com/canada)：加拿大市场深度跟踪。专注 TSX 市场、加拿大央行政策以及能源/大宗商品领域的宏观深度报道。
+- ETF.com (https://www.etf.com/)：被动投资与资金流向。提供全面的 ETF 数据库，用于分析特定行业（如 AI、半导体）的资金净流入/流出情况。
+- 聚宽社区 JoinQuant (https://www.joinquant.com/view/community/list?listType=1)：A 股量化策略研究社区。包含大量实盘策略、因子分析、ETF 轮动模型和回测代码，用于 A 股量化投资思路的参考与验证。
+
+6. 宏观洞察与财经快讯 (Insights & News)
+获取机构视角的宏观策略分析以及驱动市场的即时新闻。
+- Citadel Securities (https://www.citadelsecurities.com/news-and-insights/)：做市商宏观策略。提供关于全球利率、信贷动态以及市场微观结构的高频机构观点。
+- Apollo Academy (https://www.apolloacademy.com/)：另类资产与高频宏观。聚焦私募股权、私人信贷领域的投资洞察，其"每日宏观火花"提供高频的经济数据点评。
+- Visual Capitalist (https://www.visualcapitalist.com/)：宏观趋势可视化。将复杂的全球经济、科技（如 AI 算力演进）、能源趋势转化为高质量的信息图，直观呈现产业变迁。
+- cls.cn：全球宏观快讯驱动。7x24 小时追踪全球央行动态、地缘政治突发事件及关键经济数据发布，用于捕捉短线交易情绪。
+
+7. 合规与制裁筛查 (Compliance & Sanctions)
+这一板块用于评估投资标的的法律合规风险，包括制裁名单筛查、政治敏感人物识别和反洗钱合规核查。
+- OpenSanctions (https://www.opensanctions.org/datasets/)：全球制裁与合规筛查。覆盖 99,451 个制裁实体（OFAC/EU/UN）和 881,005 个政治敏感人物（PEP），用于评估投资标的的制裁风险、反洗钱合规状态及地缘政治敞口。`;
+
   const db = await getDb();
-  if (!db) return null;
-  if (!ENV.ownerOpenId) return null;
+  if (!db || !ENV.ownerOpenId) {
+    // 数据库不可用时，返回硬编码默认值
+    return {
+      id: 0,
+      userId: 0,
+      investmentRules: DEFAULT_INVESTMENT_RULES,
+      taskInstruction: DEFAULT_TASK_INSTRUCTION,
+      dataLibrary: DEFAULT_DATA_LIBRARY,
+      chatgptConversationName: null,
+      manusSystemPrompt: null,
+      openaiApiKey: null,
+      openaiModel: null,
+      localProxyUrl: null,
+      userCoreRules: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
   // 先找 Owner 的 userId
   const ownerUser = await db.select().from(users).where(eq(users.openId, ENV.ownerOpenId)).limit(1);
-  if (!ownerUser[0]) return null;
+  if (!ownerUser[0]) {
+    return {
+      id: 0,
+      userId: 0,
+      investmentRules: DEFAULT_INVESTMENT_RULES,
+      taskInstruction: DEFAULT_TASK_INSTRUCTION,
+      dataLibrary: DEFAULT_DATA_LIBRARY,
+      chatgptConversationName: null,
+      manusSystemPrompt: null,
+      openaiApiKey: null,
+      openaiModel: null,
+      localProxyUrl: null,
+      userCoreRules: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
   const result = await db.select().from(rpaConfigs).where(eq(rpaConfigs.userId, ownerUser[0].id)).limit(1);
-  return result[0] ?? null;
+  if (!result[0]) {
+    return {
+      id: 0,
+      userId: ownerUser[0].id,
+      investmentRules: DEFAULT_INVESTMENT_RULES,
+      taskInstruction: DEFAULT_TASK_INSTRUCTION,
+      dataLibrary: DEFAULT_DATA_LIBRARY,
+      chatgptConversationName: null,
+      manusSystemPrompt: null,
+      openaiApiKey: null,
+      openaiModel: null,
+      localProxyUrl: null,
+      userCoreRules: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+  // 数据库有记录，但如果某个字段为空，用默认值填充
+  return {
+    ...result[0],
+    investmentRules: result[0].investmentRules || DEFAULT_INVESTMENT_RULES,
+    taskInstruction: result[0].taskInstruction || DEFAULT_TASK_INSTRUCTION,
+    dataLibrary: result[0].dataLibrary || DEFAULT_DATA_LIBRARY,
+  };
 }
 
 export async function upsertRpaConfig(

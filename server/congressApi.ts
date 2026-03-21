@@ -20,7 +20,7 @@
 import { ENV } from "./_core/env";
 
 const BASE_URL = "https://api.congress.gov/v3";
-const API_KEY = ENV.CONGRESS_API_KEY || process.env.CONGRESS_API_KEY || "";
+const API_KEY = ENV.CONGRESS_API_KEY || "SpLH43dTTokdt5NhJDAMo6Z4dSAHAYGnLsfR8LJz";
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 

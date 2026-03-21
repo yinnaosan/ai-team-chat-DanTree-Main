@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT u.open_id, u.name, \n       rc.investment_rules,\n       rc.task_instruction,\n       rc.data_library,\n       rc.updated_at\nFROM rpa_configs rc\nJOIN users u ON u.id = rc.user_id\nORDER BY rc.updated_at DESC\nLIMIT 1;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nSELECT u.open_id, u.name, \n       rc.investment_rules,\n       rc.task_instruction,\n       rc.data_library,\n       rc.updated_at\nFROM rpa_configs rc\nJOIN users u ON u.id = rc.user_id\nORDER BY rc.updated_at DESC\nLIMIT 1;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 'rc.user_id' in 'on clause'"
+  ]
+}

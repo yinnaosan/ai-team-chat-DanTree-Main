@@ -4,10 +4,12 @@
  * 提供：实时报价、分析师评级、公司新闻、财务指标、内部交易、市场新闻
  */
 
+import { ENV } from "./_core/env";
+
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
 function getKey(): string {
-  const key = process.env.FINNHUB_API_KEY;
+  const key = ENV.FINNHUB_API_KEY || "d6v2ughr01qig546bblgd6v2ughr01qig546bbm0";
   if (!key) throw new Error("FINNHUB_API_KEY 未配置");
   return key;
 }

@@ -1,9 +1,11 @@
 /**
  * CoinGecko API 集成
- * 提供加密货币实时价格、市值、趋势、恐惧贪婪指数等数据
+ * 提供加密货币实时价格、市値、趋势、恐惧贪婪指数等数据
  * 使用 Demo API Key（免费，50 req/min）
  * 文档：https://docs.coingecko.com/reference/introduction
  */
+
+import { ENV } from "./_core/env";
 
 const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
 const TIMEOUT_MS = 10000;
@@ -77,7 +79,7 @@ export interface CoinGeckoData {
 // ─── 辅助函数 ──────────────────────────────────────────────────────────────
 
 function getApiKey(): string {
-  return process.env.COINGECKO_API_KEY || "";
+  return ENV.COINGECKO_API_KEY || "CG-xmz84aGoBNm4t3zss6sunXQT";
 }
 
 async function fetchCoinGecko<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {

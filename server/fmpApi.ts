@@ -1,13 +1,15 @@
 /**
  * Financial Modeling Prep (FMP) API 模块
  * 数据来源：Financial Modeling Prep (https://financialmodelingprep.com/stable)
- * 提供：财务报表、DCF估值、关键指标、分析师目标价、经济指标
+ * 提供：财务报表、DCF估値、关键指标、分析师目标价、经济指标
  */
+
+import { ENV } from "./_core/env";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
 function getKey(): string {
-  const key = process.env.FMP_API_KEY;
+  const key = ENV.FMP_API_KEY || "i58yYDwWrdmyuftiynHvKBg3CZ1t6Zgd";
   if (!key) throw new Error("FMP_API_KEY 未配置");
   return key;
 }

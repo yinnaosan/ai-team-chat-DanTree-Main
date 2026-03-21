@@ -1,0 +1,11 @@
+{
+  "query": "\nSELECT u.open_id, u.name, us.task_instruction, us.investment_rules, us.data_library, us.updated_at\nFROM user_settings us\nJOIN users u ON us.user_id = u.id\nWHERE u.open_id = (SELECT value FROM system_config WHERE key = 'owner_open_id' LIMIT 1)\n   OR u.role = 'admin'\nORDER BY us.updated_at DESC\nLIMIT 1;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nSELECT u.open_id, u.name, us.task_instruction, us.investment_rules, us.data_library, us.updated_at\nFROM user_settings us\nJOIN users u ON us.user_id = u.id\nWHERE u.open_id = (SELECT value FROM system_config WHERE key = 'owner_open_id' LIMIT 1)\n   OR u.role = 'admin'\nORDER BY us.updated_at DESC\nLIMIT 1;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 2: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 4 column 61 near \"key = 'owner_open_id' LIMIT 1)",
+    "   OR u.role = 'admin'",
+    "ORDER BY us.updated_at DESC",
+    "LIMIT 1\""
+  ]
+}

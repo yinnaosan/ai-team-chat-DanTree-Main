@@ -202,19 +202,28 @@ DATA_INTEGRITY[MAX]:
   const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
 你和 Manus（数据引擎）共同工作，但用户只知道你——不要提及 Manus、不要提及内部分工。
 
+## 核心人设：一针见血的判断者
+你不是数据播报员，你是有独立判断的分析师。你的价值在于：
+- **结论先行**：每个分析段落第一句就是结论，数据和推理在后面支撑，不允许铺垫半天才给结论
+- **敢于逆市**：当市场共识与数据矛盾时，明确指出「市场错了」并说明原因
+- **反常识检验**：主动问自己「如果我的判断是错的，最可能的原因是什么」并在回复中展示这个思考
+- **量级感**：不只说方向，要说幅度（「高估 30-40%」而不是「偏高」）
+
 ## 专业性标准（核心，每次必须达到）
-1. **精确性**：所有数据引用必须具体到小数点（如 PE=23.4x，不是“大约 20 多倍”）；时间节点必须标注（Q3 2024）
-2. **明确判断**：对每个核心问题必须给出明确立场（高估/合理/低估、买入/持有/减仓），禁止模糊表述如“可以考虑”“有一定可能”
-3. **推理链完整**：展示完整的推导过程：数据事实 → 分析逻辑 → 判断结论，不允许跳过中间步骤
-4. **量化支撑**：每个论点必须有具体数字支撑，禁止纯文字描述性判断
-5. **风险量化**：明确指出主要风险及其可能影响幅度（如“利率上升 100bp 将压缩估值 8-12%”）
+1. **结论先行**：每段第一句给结论，后面才是数据支撑。格式：**结论**（数据1, 数据2 → 逻辑推导）
+2. **精确性**：所有数据引用必须具体到小数点（如 PE=23.4x，不是"大约 20 多倍"）；时间节点必须标注（Q3 2024）
+3. **明确立场**：对每个核心问题必须给出明确立场（高估/合理/低估、买入/持有/减仓），禁止模糊表述
+4. **市场共识 vs 我的判断**：主动对比「市场普遍认为 X，但数据显示 Y，因此我判断 Z」
+5. **风险量化**：明确指出主要风险及其可能影响幅度（如"利率上升 100bp 将压缩估值 8-12%"）
 6. **双向验证**：正推（当前基本面→未来预期）+ 倒推（如果判断正确，未来 12 个月应出现哪些可验证数据）
 
 ## 禁止事项（严格执行）
-- 禁止输出“大约”“可能”“有待观察”“市场存分歧”等模糊表述作为核心结论
+- 禁止「平衡分析」「两方面来看」「既有机会也有风险」等中立描述作为结论
+- 禁止"大约""可能""有待观察""市场存分歧"等模糊表述作为核心结论
 - 禁止在没有数据支撑的情况下给出判断
-- 禁止把“分析框架”当作最终回复——框架是过程，结论才是交付物
+- 禁止把"分析框架"当作最终回复——框架是过程，结论才是交付物
 - 禁止将 Manus 数据报告直接转述——必须加入自己的判断和解读
+- 禁止先铺垫背景再给结论——用户需要的是判断，不是科普
 
 ## 数据图表规范（强制执行）
 **每次回复只要涉及数据、趋势、对比、走势，必须主动生成图表**，无需用户要求。
@@ -591,15 +600,15 @@ ${"```"}
         ? timed("Tavily", searchForTask(refinedTavilyQuery, userLibraryUrls))
         : Promise.resolve(""),
       // Finnhub：实时报价/分析师评级/内部交易/公司新闻（仅当检测到股票代码时）
-      resourcePlan.dataSources.deepFinancials && primaryTicker && process.env.FINNHUB_API_KEY
+      resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
         ? timed("Finnhub", getFinnhubData(primaryTicker).then(d => formatFinnhubData(d)))
         : Promise.resolve(""),
       // FMP：财务报表/DCF估値/分析师目标价/关键指标（仅当检测到股票代码时）
-      resourcePlan.dataSources.deepFinancials && primaryTicker && process.env.FMP_API_KEY
+      resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FMP_API_KEY
         ? timed("FMP", getFmpData(primaryTicker).then(d => formatFmpData(d)))
         : Promise.resolve(""),
       // Polygon.io：市场快照/公司详情/近期走势/新闻情绪（仅当检测到股票代码时）
-      primaryTicker && process.env.POLYGON_API_KEY
+      primaryTicker && ENV.POLYGON_API_KEY
         ? timed("Polygon.io", getPolygonData(primaryTicker).then(d => formatPolygonData(d)))
         : Promise.resolve(""),
       // SEC EDGAR：XBRL 财务数据/年报/季报（仅当检测到美股代码时）
@@ -607,11 +616,11 @@ ${"```"}
         ? timed("SEC EDGAR", getSecData(primaryTicker).then(d => formatSecData(d)))
         : Promise.resolve(""),
       // Alpha Vantage：宏观经测指标（利率/CPI/失业率/汇率）
-      resourcePlan.dataSources.macroData && process.env.ALPHA_VANTAGE_API_KEY
+      resourcePlan.dataSources.macroData && ENV.ALPHA_VANTAGE_API_KEY
         ? timed("Alpha Vantage", getAlphaVantageEconomicData().then(d => formatAVEconomicData(d)))
         : Promise.resolve(""),
       // CoinGecko：加密货币实时价格/市値/趋势（检测到加密货币相关任务时触发）
-      resourcePlan.dataSources.cryptoData && isCryptoTask(taskDescription + " " + gptStep1Output) && process.env.COINGECKO_API_KEY
+      resourcePlan.dataSources.cryptoData && isCryptoTask(taskDescription + " " + gptStep1Output) && ENV.COINGECKO_API_KEY
         ? timed("CoinGecko", getCryptoData(taskDescription + " " + gptStep1Output).then(d => formatCryptoData(d)))
         : Promise.resolve(""),
       // Baostock：A股历史行情/财务指标（检测到 A 股代码时触发）
@@ -649,13 +658,13 @@ ${"```"}
             .catch(() => ""))
         : Promise.resolve(""),
       // Alpha Vantage 技术指标：RSI/布林带/EMA/SMA/随机指标（仅当资源规划要求技术面且检测到股票代码时）
-      resourcePlan.dataSources.technicalIndicators && primaryTicker && process.env.ALPHA_VANTAGE_API_KEY
+      resourcePlan.dataSources.technicalIndicators && primaryTicker && ENV.ALPHA_VANTAGE_API_KEY
         ? timed("Alpha Vantage 技术指标", getTechnicalIndicators(primaryTicker)
             .then((d: Awaited<ReturnType<typeof getTechnicalIndicators>>) => d ? formatTechnicalIndicators(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
       // Polygon.io 期权链：Put-Call Ratio/行权价分布/到期日分布（仅当资源规划要求期权且检测到美股代码时）
-      resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && process.env.POLYGON_API_KEY
+      resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && ENV.POLYGON_API_KEY
         ? timed("Polygon 期权链", getOptionsChain(primaryTicker)
             .then((d: Awaited<ReturnType<typeof getOptionsChain>>) => d ? formatOptionsChain(d) : "")
             .catch(() => ""))
@@ -898,18 +907,19 @@ ${manusReport}
 现在将两者深度融合，输出最终专业报告给用户。
 
 MANDATORY（不可省略）:
-① INTEGRATE: 将 S1 框架与 Manus 数据融合 — 展示推理链（数据→逻辑→判断），不只是结论
-② POSITION: 对核心问题给出明确立场（买入/持有/卖出 | 高估/合理/低估 | 机会/风险）
-③ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（2024Q3）
-④ VALUATION: 若有 P/E|P/B|EV|PEG → 与行业均值+历史均值对比 → 给出估值结论
-⑤ TREND: 若有季度财报 → QoQ+YoY 营收/利润趋势 → 可持续性判断
-⑥ DUAL_VERIFY: 正向（现在→未来）+ 反向（若判断正确→12个月内会出现什么数据）
-⑦ RISK: 量化主要风险（如"利率上升100bp → 估值压缩8-12%"）
-⑧ CONTINUITY: 若为延续任务 → 明确引用上次结论
-⑨ CHARTS: 每个数据/趋势/对比机会嵌入 %%CHART%%...%%END_CHART%%（至少1个）
-⑩ FOLLOWUP: 结尾给出3个追问 %%FOLLOWUP%%问题%%END%%
+① CONCLUSION_FIRST: 每段第一句就是结论，格式「**[判断]**（数据→逻辑）」，禁止先铺垫再结论
+② POSITION: 对核心问题给出明确立场+幅度（「高估30-40%」不是「偏高」；「建议减仓」不是「可以考虑」）
+③ CONSENSUS_VS_MINE: 主动对比「市场普遍认为X → 但数据显示Y → 因此我判断Z」，体现独立思考
+④ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（2024Q3）
+⑤ VALUATION: 若有 P/E|P/B|EV|PEG → 与行业均值+历史均值对比 → 给出估值结论（含幅度）
+⑥ ANTI_THESIS: 主动提出「如果我错了，最可能的原因是：___」— 展示思维深度
+⑦ DUAL_VERIFY: 正向（现在→未来）+ 反向（若判断正确→12个月内会出现什么可验证数据）
+⑧ RISK: 量化主要风险（如"利率上升100bp → 估值压缩8-12%"）
+⑨ CONTINUITY: 若为延续任务 → 明确引用上次结论，说明本次更新了什么判断
+⑩ CHARTS: 每个数据/趋势/对比机会嵌入 %%CHART%%...%%END_CHART%%（至少1个）
+⑪ FOLLOWUP: 结尾给出3个追问 %%FOLLOWUP%%问题%%END%%
 
-PROHIBIT: 模糊结论("~","也许","待验证") | 纯框架无数据 | 照搬 Manus 报告 | 跳过推理链
+PROHIBIT: 「平衡分析」「两方面来看」「既有机会也有风险」等中立废话 | 模糊结论 | 纯框架无数据 | 照搬 Manus 报告 | 先铺垫后结论
 FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3列 | 中文输出
 %%FOLLOWUP%%请问下一个追问问题？%%END%%
 %%FOLLOWUP%%请问下一个追问问题？%%END%%
@@ -1517,7 +1527,7 @@ export const appRouter = router({
       const config = await getRpaConfig(ctx.user.id);
       const isOwner = ctx.user.openId === ENV.ownerOpenId;
       // 非 Owner 用户：若三个守则字段为空，自动回退读取 Owner 的默认值
-      let ownerConfig: Awaited<ReturnType<typeof getOwnerRpaConfig>> = null;
+      let ownerConfig: NonNullable<Awaited<ReturnType<typeof getOwnerRpaConfig>>> | null = null;
       if (!isOwner) {
         const needsDefault =
           !config?.investmentRules?.trim() ||
@@ -1668,7 +1678,7 @@ export const appRouter = router({
     getDataSourceStatus: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       const tavilyKeys = getTavilyKeyStatuses();
-      const fredConfigured = !!process.env.FRED_API_KEY;
+      const fredConfigured = !!ENV.FRED_API_KEY;
 
       // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo + ECB + HKEXnews
       const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth, courtListenerHealth, congressHealth, eurLexHealth, gleifHealth] = await Promise.allSettled([
@@ -1692,25 +1702,25 @@ export const appRouter = router({
         // IMF DataMapper
         checkImfApiHealth().then((r) => r.status),
         // Finnhub
-        process.env.FINNHUB_API_KEY
+        ENV.FINNHUB_API_KEY
           ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
         // FMP
-        process.env.FMP_API_KEY
+        ENV.FMP_API_KEY
           ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
         // Polygon.io
-        process.env.POLYGON_API_KEY
+        ENV.POLYGON_API_KEY
           ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
         // SEC EDGAR
         checkSecHealth().then(r => r.ok ? "active" as const : "error" as const),
         // Alpha Vantage
-        process.env.ALPHA_VANTAGE_API_KEY
+        ENV.ALPHA_VANTAGE_API_KEY
           ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
         // CoinGecko
-        process.env.COINGECKO_API_KEY
+        ENV.COINGECKO_API_KEY
           ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const)
           : Promise.resolve("error" as const),
         // Baostock（A股）：Python 子进程库，仅在本地沙筆环境可用
@@ -1720,19 +1730,19 @@ export const appRouter = router({
         // 健康检测时不实际请求（避免触发限速），直接返回 active
         Promise.resolve("active" as const),
         // NewsAPI
-        process.env.NEWS_API_KEY
+        ENV.NEWS_API_KEY
           ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
         // Marketaux
-        process.env.MARKETAUX_API_KEY
+        ENV.MARKETAUX_API_KEY
           ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
         // SimFin
-        process.env.SIMFIN_API_KEY
+        ENV.SIMFIN_API_KEY
           ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
         // Tiingo
-        process.env.TIINGO_API_KEY
+        ENV.TIINGO_API_KEY
           ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
         // ECB：免费公开 API，无需 Key
@@ -1746,7 +1756,7 @@ export const appRouter = router({
         // CourtListener：免费使用，有 Key 时请求限制更高
         checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
         // Congress.gov：需要 API Key
-        process.env.CONGRESS_API_KEY
+        ENV.CONGRESS_API_KEY
           ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const)
           : Promise.resolve("error" as const),
         // EUR-Lex：本地静态数据，无需网络
@@ -1785,24 +1795,24 @@ export const appRouter = router({
         yahoo: { configured: true, status: "active" as const },
         worldBank: { configured: true, status: worldBankStatus },
         imf: { configured: true, status: imfStatus },
-        finnhub: { configured: !!process.env.FINNHUB_API_KEY, status: finnhubStatus },
-        fmp: { configured: !!process.env.FMP_API_KEY, status: fmpStatus },
-        polygon: { configured: !!process.env.POLYGON_API_KEY, status: polygonStatus },
+        finnhub: { configured: !!ENV.FINNHUB_API_KEY, status: finnhubStatus },
+        fmp: { configured: !!ENV.FMP_API_KEY, status: fmpStatus },
+        polygon: { configured: !!ENV.POLYGON_API_KEY, status: polygonStatus },
         secEdgar: { configured: true, status: secStatus },
-        alphaVantage: { configured: !!process.env.ALPHA_VANTAGE_API_KEY, status: avStatus },
-        coinGecko: { configured: !!process.env.COINGECKO_API_KEY, status: cgStatus },
+        alphaVantage: { configured: !!ENV.ALPHA_VANTAGE_API_KEY, status: avStatus },
+        coinGecko: { configured: !!ENV.COINGECKO_API_KEY, status: cgStatus },
         baostock: { configured: true, status: bsStatus },
         gdelt: { configured: true, status: gdeltStatus },
-        newsApi: { configured: !!process.env.NEWS_API_KEY, status: newsApiStatus },
-        marketaux: { configured: !!process.env.MARKETAUX_API_KEY, status: marketauxStatus },
-        simfin: { configured: !!process.env.SIMFIN_API_KEY, status: simfinStatus },
-        tiingo: { configured: !!process.env.TIINGO_API_KEY, status: tiingoStatus },
+        newsApi: { configured: !!ENV.NEWS_API_KEY, status: newsApiStatus },
+        marketaux: { configured: !!ENV.MARKETAUX_API_KEY, status: marketauxStatus },
+        simfin: { configured: !!ENV.SIMFIN_API_KEY, status: simfinStatus },
+        tiingo: { configured: !!ENV.TIINGO_API_KEY, status: tiingoStatus },
         ecb: { configured: true, status: ecbStatus },
         hkex: { configured: true, status: hkexStatus },
         boe: { configured: true, status: boeStatus },
         hkma: { configured: true, status: hkmaStatus },
         courtListener: { configured: true, status: courtListenerStatus },
-        congress: { configured: !!process.env.CONGRESS_API_KEY, status: congressStatus },
+        congress: { configured: !!ENV.CONGRESS_API_KEY, status: congressStatus },
         eurLex: { configured: true, status: eurLexStatus },
         gleif: { configured: true, status: gleifStatus },
       };

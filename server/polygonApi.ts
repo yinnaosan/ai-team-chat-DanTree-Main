@@ -4,10 +4,12 @@
  * 提供：股票聚合数据、实时快照、公司详情、新闻、技术指标、期权、外汇
  */
 
+import { ENV } from "./_core/env";
+
 const POLY_BASE = "https://api.polygon.io";
 
 function getKey(): string {
-  const key = process.env.POLYGON_API_KEY;
+  const key = ENV.POLYGON_API_KEY || "65gRaMpwHzfm5uxZEcekmt803Y3ci6Yk";
   if (!key) throw new Error("POLYGON_API_KEY 未配置");
   return key;
 }

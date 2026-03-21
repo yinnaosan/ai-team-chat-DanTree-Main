@@ -64,7 +64,7 @@ export interface TiingoData {
 // ─── 内部工具 ────────────────────────────────────────────────────────────────
 
 function tiingoFetch(path: string): Promise<Response> {
-  const key = process.env.TIINGO_API_KEY || ENV.TIINGO_API_KEY;
+  const key = ENV.TIINGO_API_KEY || "b30264579ed635263c7fc43d27475699522cca44";
   if (!key) throw new Error("TIINGO_API_KEY not configured");
 
   const controller = new AbortController();
@@ -91,7 +91,7 @@ function formatDate(d: Date): string {
 export async function fetchTiingoData(ticker: string): Promise<TiingoData | null> {
   if (!ticker.trim()) return null;
 
-  const key = process.env.TIINGO_API_KEY || ENV.TIINGO_API_KEY;
+  const key = ENV.TIINGO_API_KEY || "b30264579ed635263c7fc43d27475699522cca44";
   if (!key) {
     console.warn("[Tiingo] TIINGO_API_KEY not configured");
     return null;

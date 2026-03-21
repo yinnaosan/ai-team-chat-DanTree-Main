@@ -18,13 +18,14 @@
 
 import { notifyOwner } from "./_core/notification";
 import { fetchMultipleWithJina } from "./jinaReader";
+import { ENV } from "./_core/env";
 
 // 四个Key按顺序排列，过滤掉未配置的
 const TAVILY_KEYS = [
-  process.env.TAVILY_API_KEY,
-  process.env.TAVILY_API_KEY_2,
-  process.env.TAVILY_API_KEY_3,
-  process.env.TAVILY_API_KEY_4,
+  ENV.TAVILY_API_KEY || "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",
+  ENV.TAVILY_API_KEY_2 || "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",
+  ENV.TAVILY_API_KEY_3 || "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",
+  ENV.TAVILY_API_KEY_4 || "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",
 ].filter(Boolean) as string[];
 
 // 记录每个Key的状态（内存级，重启后重置）
@@ -46,10 +47,10 @@ export function getTavilyKeyStatuses(): Array<{
   configured: boolean;
 }> {
   const allKeys = [
-    process.env.TAVILY_API_KEY,
-    process.env.TAVILY_API_KEY_2,
-    process.env.TAVILY_API_KEY_3,
-    process.env.TAVILY_API_KEY_4,
+    ENV.TAVILY_API_KEY || "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",
+    ENV.TAVILY_API_KEY_2 || "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",
+    ENV.TAVILY_API_KEY_3 || "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",
+    ENV.TAVILY_API_KEY_4 || "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",
   ];
   return allKeys.map((key, i) => ({
     index: i + 1,

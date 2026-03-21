@@ -3,6 +3,8 @@
  * Provides real-time macroeconomic data: CPI, interest rates, GDP, employment, etc.
  */
 
+import { ENV } from "./_core/env";
+
 const FRED_BASE_URL = "https://api.stlouisfed.org/fred";
 
 // Key macroeconomic series IDs
@@ -56,7 +58,7 @@ interface FredSeriesInfo {
 }
 
 async function fetchFred(endpoint: string, params: Record<string, string> = {}): Promise<any> {
-  const apiKey = process.env.FRED_API_KEY;
+  const apiKey = ENV.FRED_API_KEY || "fc90d7149fbff8a90993d1a4d0829ba4";
   if (!apiKey) throw new Error("FRED_API_KEY not configured");
 
   const url = new URL(`${FRED_BASE_URL}/${endpoint}`);

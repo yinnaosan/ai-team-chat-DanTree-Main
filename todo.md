@@ -938,3 +938,21 @@
 - [x] 更新 congressApi.ts 和 courtListenerApi.ts 使用 ENV 读取 Key
 - [x] 验证：12 个 API Key 全部正确配置，211 个测试通过，TypeScript 0 错误
 - [x] 保存 Checkpoint
+
+## Prompt 优化：一针见血 + 反常识检验 + 禁止中立描述
+- [x] gptSystemPrompt 增加「核心人设：一针见血的判断者」模块（结论先行/敢于逆市/反常识检验/量级感）
+- [x] 专业性标准第1条改为「结论先行」，新增第4条「市场共识 vs 我的判断」
+- [x] 禁止事项增加：禁止「平衡分析」「两方面来看」等中立废话作为结论
+- [x] Step3 MANDATORY 增加 CONCLUSION_FIRST / CONSENSUS_VS_MINE / ANTI_THESIS 三项强制要求
+- [x] 211 个测试通过，TypeScript 0 错误
+- [x] 保存 Checkpoint
+
+## 全面检查：API Key 内嵌 + Owner 默认値 + 代码质量
+- [x] 将 Owner 最新三个守则字段硬编码到 getOwnerRpaConfig 默认値
+- [x] 检查所有 API 文件确认 Key 已硬编码（不依赖环境变量）
+- [x] 检查 getDataSourceStatus 健康检测使用 ENV 而非 process.env
+- [x] TypeScript 0 错误确认
+- [x] 全量测试通过确认（211 个测试全部通过）
+- [x] 服务器正常运行确认
+- [x] 统一所有 API 文件使用 ENV 对象（清除冨余 process.env 引用）
+- [x] 保存 Checkpoint

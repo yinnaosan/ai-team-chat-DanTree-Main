@@ -4,10 +4,12 @@
  * 提供：实时报价、公司概况、技术指标、外汇汇率、加密货币、经济指标
  */
 
+import { ENV } from "./_core/env";
+
 const AV_BASE = "https://www.alphavantage.co/query";
 
 function getKey(): string {
-  const key = process.env.ALPHA_VANTAGE_API_KEY;
+  const key = ENV.ALPHA_VANTAGE_API_KEY || "RTEA1T8M5T0PXQZR";
   if (!key) throw new Error("ALPHA_VANTAGE_API_KEY 未配置");
   return key;
 }

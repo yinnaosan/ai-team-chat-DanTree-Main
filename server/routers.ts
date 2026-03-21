@@ -41,6 +41,7 @@ import {
   grantUserAccess,
   revokeUserAccess,
   getRecentMemory,
+  getRelevantMemory,
   saveMemoryContext,
   setPinned,
   setFavorited,
@@ -56,6 +57,7 @@ import {
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
+import { emitTaskStatus, emitTaskChunk, emitTaskDone, emitTaskError } from "./taskStream";
 import { getFileCategory, extractFileContent, formatFileSize } from "./fileProcessor";
 import { TRPCError } from "@trpc/server";
 import { fetchStockDataForTask } from "./yahooFinance";
@@ -262,12 +264,15 @@ ${userConfig.dataLibrary.trim()}`
 - 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
 
   // -- 历史记忆上下文 --------------------------------------------------------
-  // 对话级记忆：优先获取当前对话内的记忆，如果对话无记忆则回落到用户全局记忆
-  const conversationMemory = conversationId ? await getRecentMemory(userId, 8, conversationId) : [];
-  const recentMemory = conversationMemory.length > 0 ? conversationMemory : await getRecentMemory(userId, 5);
-  const memoryBlock = recentMemory.length > 0
-    ? `\n\n【历史任务记忆（最近${recentMemory.length}条，用于跨任务连续跟进）】\n` +
-      recentMemory.map((m, i) =>
+  // 语义相关性召回：对话级优先，全局兑底，关键词匹配 + 时间衰减双维度评分
+  const relevantMemory = await getRelevantMemory(
+    userId,
+    taskDescription,
+    { topK: 6, minRecent: 2, conversationId: conversationId ?? undefined }
+  );
+  const memoryBlock = relevantMemory.length > 0
+    ? `\n\n【历史任务记忆（按相关性排序，共${relevantMemory.length}条，用于跨任务连续跟进）】\n` +
+      relevantMemory.map((m, i) =>
         `${i + 1}. [${new Date(m.createdAt).toLocaleDateString("zh-CN")}] ${m.taskTitle}\n   摘要：${m.summary}`
       ).join("\n")
     : "";
@@ -333,9 +338,24 @@ ${userConfig.dataLibrary.trim()}`
 
   try {
     // ------------------------------------------------------------------------
-    // Step 1 - GPT 主导规划：制定分析框架，开始处理擅长的主观/逻辑部分
+    // Step 1 & Step 2 早期数据 — 真正并行化
+    //
+    // 并行策略：
+    //   A. Yahoo Finance + Tavily（用原始消息作初始 query）→ 与 Step1 同时启动
+    //   B. Step1 GPT 规划 → 同时启动
+    //   C. Step1 完成后：
+    //      - 从 Step1 输出提取「数据需求清单」精炼 Tavily query → 补充搜索
+    //      - FRED 用 Step1 关键词启动（宏观数据需要精确关键词）
     // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "manus_working");
+
+    // 解析用户数据库链接（支持换行和逗号分隔）
+    const userLibraryUrls = userConfig?.dataLibrary
+      ? userConfig.dataLibrary
+          .split(/[\n,]+/)
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.startsWith("http"))
+      : [];
 
     // GPT Step1 prompt：制定框架 + 开始主观分析
     const gptStep1UserMsg = `【用户当前消息】
@@ -365,53 +385,74 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
 ## 数据引擎精确需求清单
 （具体指标名称 + 时间范围 + 对比基准 + 关键风险指标）`;
 
-    let gptStep1Output: string;
-    if (userConfig?.openaiApiKey) {
-      try {
-        const step1Res = await callOpenAI({
-          apiKey: userConfig.openaiApiKey,
-          model: userConfig.openaiModel || DEFAULT_MODEL,
-          messages: [
-            { role: "system", content: gptSystemPrompt },
-            { role: "user", content: gptStep1UserMsg },
-          ],
-          maxTokens: modeConfig.step1MaxTokens,
-        });
-        gptStep1Output = step1Res;
-      } catch {
-        gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
-      }
-    } else {
-      gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
-    }
-    await updateTaskStatus(taskId, "manus_working");
-
-    // ------------------------------------------------------------------------
-    // Step 2 - 实时数据预取（Yahoo Finance + FRED + Tavily）
-    // 与 Step1 GPT 调用并行启动，节省等待时间
-    // ------------------------------------------------------------------------
-
-    // 解析用户数据库链接（支持换行和逗号分隔）
-    const userLibraryUrls = userConfig?.dataLibrary
-      ? userConfig.dataLibrary
-          .split(/[\n,]+/)
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.startsWith("http"))
-      : [];
-
-    // 并行获取三个数据源（失败不阻断主流程）
-    const [stockData, macroData, webSearchData] = await Promise.allSettled([
+    // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 ──────────────
+    const [step1Result, stockDataResult, earlyTavilyResult] = await Promise.allSettled([
+      // A. Step1：GPT 规划框架
+      userConfig?.openaiApiKey
+        ? callOpenAI({
+            apiKey: userConfig.openaiApiKey,
+            model: userConfig.openaiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: gptSystemPrompt },
+              { role: "user", content: gptStep1UserMsg },
+            ],
+            maxTokens: modeConfig.step1MaxTokens,
+          })
+        : Promise.resolve(null),
+      // B. Yahoo Finance：不依赖 Step1，直接用原始任务描述
       fetchStockDataForTask(taskDescription),
-      getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
+      // C. Tavily 初始搜索：用原始消息作初始 query（粗粒度，先跑起来）
       isTavilyConfigured()
         ? searchForTask(taskDescription, userLibraryUrls)
         : Promise.resolve(""),
     ]);
 
+    // 解析 Step1 结果
+    const FALLBACK_STEP1 = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
+    let gptStep1Output: string;
+    if (step1Result.status === "fulfilled" && step1Result.value) {
+      gptStep1Output = step1Result.value as string;
+    } else {
+      gptStep1Output = FALLBACK_STEP1;
+    }
+    await updateTaskStatus(taskId, "manus_working");
+
+    // ── 从 Step1 输出提取精炼搜索关键词（优化2）────────────────────────────
+    // 提取「数据引擎精确需求清单」部分作为 Tavily 精炼 query
+    const extractDataNeedsQuery = (step1Text: string, fallback: string): string => {
+      const match = step1Text.match(/##\s*数据引擎精确需求清单([\s\S]*?)(?=##|$)/);
+      if (match && match[1].trim().length > 20) {
+        // 取前 300 字作为 query（Tavily query 不宜过长）
+        return match[1].trim().slice(0, 300);
+      }
+      return fallback;
+    };
+    const refinedTavilyQuery = extractDataNeedsQuery(gptStep1Output, taskDescription);
+
+    // ── Step1 完成后：FRED（需要精确关键词）+ Tavily 精炼补充搜索 ────────────
+    const [macroDataResult, refinedTavilyResult] = await Promise.allSettled([
+      // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
+      getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
+      // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
+      isTavilyConfigured() && refinedTavilyQuery !== taskDescription
+        ? searchForTask(refinedTavilyQuery, userLibraryUrls)
+        : Promise.resolve(""),
+    ]);
+
+    // ── 合并所有数据源结果 ────────────────────────────────────────────────────
+    const stockData = stockDataResult;
+    const macroData = macroDataResult;
+    // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）
+    const earlyTavilyStr = earlyTavilyResult.status === "fulfilled" ? (earlyTavilyResult.value ?? "") : "";
+    const refinedTavilyStr = refinedTavilyResult.status === "fulfilled" ? (refinedTavilyResult.value ?? "") : "";
+    // 精炼结果有内容则用精炼结果，否则用初始结果（避免重复内容）
+    const webSearchStr = refinedTavilyStr || earlyTavilyStr;
+    const webSearchData = { status: "fulfilled" as const, value: webSearchStr };
+
     const realTimeDataBlock = [
       stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
-      webSearchData.status === "fulfilled" && webSearchData.value ? webSearchData.value : "",
+      webSearchData.value || "",
     ].filter(Boolean).join("\n\n---\n\n");
     const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
@@ -520,6 +561,7 @@ ${manusReport}
       metadata: { phase: "streaming" },
     });
     await updateTaskStatus(taskId, "streaming", { streamMsgId });
+    emitTaskStatus(taskId, "streaming", { streamMsgId }); // SSE 推送
 
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
@@ -539,6 +581,7 @@ ${manusReport}
           // 每 300ms 批量写入数据库一次（避免频繁写库）
           if (Date.now() - lastDbUpdate > 300) {
             await updateMessageContent(streamMsgId, accumulated);
+            emitTaskChunk(taskId, streamMsgId, accumulated); // SSE 实时推送
             lastDbUpdate = Date.now();
           }
         }
@@ -568,9 +611,9 @@ ${manusReport}
     }
 
     // -- 标记消息为 final，更新任务状态 -----------------------------------------
-    // 用 updateMessageContent 已写入内容，这里只需更新 metadata
     const msgId = streamMsgId;
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
+    emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
 
     // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {
@@ -604,6 +647,7 @@ ${manusReport}
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     await updateTaskStatus(taskId, "failed");
+    emitTaskError(taskId, errMsg); // SSE 错误推送
     await insertMessage({
       taskId,
       userId,

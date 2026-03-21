@@ -395,6 +395,105 @@ export async function getRecentMemory(userId: number, limit = 10, conversationId
     .orderBy(desc(memoryContext.createdAt))
     .limit(limit);
 }
+/**
+ * 语义相关性记忆召回
+ *
+ * 评分策略：关键词匹配分（TF-IDF 风格）+ 时间衰减分双维度加权
+ *
+ * 关键词匹配：将查询分词，与记忆的 taskTitle + keywords + summary 匹配
+ *   - 每个匹配词得 1 分，标题匹配得 2 分（标题权重更高）
+ *   - 包含股票代码、公司名等实体词匹配得 3 分（实体权重最高）
+ * 时间衰减：最近 7 天内 1.0，7-30 天 0.8，30-90 天 0.5，90 天以上 0.3
+ * 最终分 = 关键词匹配分 * 时间衰减系数
+ * 返回最高分的 topK 条，至少保留最近 minRecent 条（防止全部是旧记忆）
+ */
+export async function getRelevantMemory(
+  userId: number,
+  query: string,
+  options: { topK?: number; minRecent?: number; conversationId?: number } = {}
+) {
+  const { topK = 6, minRecent = 2, conversationId } = options;
+  const db = await getDb();
+  if (!db) return [];
+
+  // 获取该用户所有记忆（最多 50 条，过旧的不召回）
+  const conditions = conversationId
+    ? and(eq(memoryContext.userId, userId), eq(memoryContext.conversationId, conversationId))
+    : eq(memoryContext.userId, userId);
+  const allMemory = await db.select().from(memoryContext)
+    .where(conditions)
+    .orderBy(desc(memoryContext.createdAt))
+    .limit(50);
+
+  if (allMemory.length === 0) return [];
+
+  // 分词：提取查询中所有 2字以上的词（中文分字符，英文分单词）
+  const tokenize = (text: string): string[] => {
+    const words: string[] = [];
+    // 英文单词
+    const englishWords = text.match(/[A-Za-z][A-Za-z0-9.]{1,}/g) || [];
+    words.push(...englishWords.map(w => w.toLowerCase()));
+    // 中文 2-4 字片语（模拟 n-gram）
+    const chinese = text.replace(/[^\u4e00-\u9fa5]/g, "");
+    for (let n = 2; n <= 4; n++) {
+      for (let i = 0; i <= chinese.length - n; i++) {
+        words.push(chinese.slice(i, i + n));
+      }
+    }
+    return words;
+  };
+
+  const queryTokensArr = tokenize(query);
+  // 股票代码模式（如 AAPL、TSLA、BRK.B）
+  const tickerPattern = /\b[A-Z]{1,5}(?:\.[A-Z]{1,2})?\b/g;
+  const queryTickers = Array.from(new Set(query.match(tickerPattern) || []));
+
+  const now = Date.now();
+  const DAY = 86400000;
+
+  const scored = allMemory.map(m => {
+    // 时间衰减系数
+    const ageDays = (now - new Date(m.createdAt).getTime()) / DAY;
+    const timeFactor = ageDays <= 7 ? 1.0 : ageDays <= 30 ? 0.8 : ageDays <= 90 ? 0.5 : 0.3;
+
+    // 关键词匹配分
+    let matchScore = 0;
+    const titleTokens = tokenize(m.taskTitle || "");
+    const summaryTokens = tokenize(m.summary || "");
+    const keywordTokens = tokenize(m.keywords || "");
+
+    for (const token of queryTokensArr) {
+      if (titleTokens.includes(token)) matchScore += 2;    // 标题匹配权重更高
+      if (summaryTokens.includes(token)) matchScore += 1;
+      if (keywordTokens.includes(token)) matchScore += 1;
+    }
+
+    // 股票代码匹配（最高权重）
+    const memoryText = (m.taskTitle || "") + " " + (m.keywords || "");
+    for (const ticker of queryTickers) {
+      if (memoryText.toUpperCase().includes(ticker)) matchScore += 3;
+    }
+
+    return { memory: m, score: matchScore * timeFactor, matchScore, timeFactor };
+  });
+
+  // 按分数降序排序
+  scored.sort((a, b) => b.score - a.score);
+
+  // 取 topK 条，但至少保留最近 minRecent 条（防止全是旧记忆）
+  const topKResults = scored.slice(0, topK).map(s => s.memory);
+  const recentResults = allMemory.slice(0, minRecent);
+
+  // 合并去重（保持顺序：topK 先，最近补充）
+  const seen = new Set(topKResults.map(m => m.id));
+  const merged = [...topKResults];
+  for (const m of recentResults) {
+    if (!seen.has(m.id)) merged.push(m);
+  }
+
+  return merged;
+}
+
 export async function saveMemoryContext(data: {
   userId: number;
   taskId: number;

@@ -590,7 +590,7 @@ export default function ChatRoom() {
     enabled: isAuthenticated && !!accessData?.hasAccess,
   });
 
-  // streaming 状态标志（用于加快轮询）
+  // streaming 状态标志
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Messages for the active conversation
@@ -598,38 +598,115 @@ export default function ChatRoom() {
     { conversationId: activeConvId! },
     {
       enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
-      // streaming 时 500ms 轮询，普通进行时 2s，空闲时 5s
-      refetchInterval: isStreaming ? 500 : isTyping ? 2000 : 5000,
+      // SSE 已处理流式内容，轮询仅作兑底：空闲 5s，进行中 3s
+      refetchInterval: isTyping ? 3000 : 5000,
     }
   );
 
-  // 轮询当前活跃任务的状态（用于进度显示）
+  // 当前活跃任务 ID
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
-  const { data: activeTaskData } = trpc.chat.getTask.useQuery(
-    { taskId: activeTaskId! },
-    { enabled: isTyping && activeTaskId !== null, refetchInterval: 2000 }
-  );
+
+  // SSE 连接引用（用于清理）
+  const sseRef = useRef<EventSource | null>(null);
+
+  // 启动 SSE 订阅（替代任务状态轮询）
+  const startSSE = (taskId: number) => {
+    // 关闭旧连接
+    if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
+
+    const es = new EventSource(`/api/task-stream/${taskId}`, { withCredentials: true });
+    sseRef.current = es;
+
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data) as {
+          type: string;
+          status?: string;
+          streamMsgId?: number;
+          msgId?: number;
+          content?: string;
+          message?: string;
+        };
+
+        if (event.type === "status") {
+          const status = event.status ?? "";
+          if (status === "manus_working") { setTaskPhase("manus_working"); setIsStreaming(false); }
+          else if (status === "manus_analyzing") { setTaskPhase("manus_analyzing"); setIsStreaming(false); }
+          else if (status === "gpt_reviewing" || status === "gpt_planning") { setTaskPhase("gpt_reviewing"); setIsStreaming(false); }
+          else if (status === "streaming") {
+            setTaskPhase("gpt_reviewing");
+            setIsStreaming(true);
+            setIsTyping(false);
+          }
+        } else if (event.type === "chunk" && event.msgId != null && event.content != null) {
+          // 实时更新消息内容（直接写入 state，不等轮询）
+          setConvMessages(prev => {
+            const idx = prev.findIndex(m => m.id === event.msgId);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], content: event.content! };
+              return updated;
+            }
+            // 如果消息还没在列表里（占位消息还未加载），添加占位条目
+            return [...prev, {
+              id: event.msgId!,
+              role: "assistant" as MsgRole,
+              content: event.content!,
+              taskId,
+              conversationId: activeConvId,
+              createdAt: new Date(),
+            }];
+          });
+        } else if (event.type === "done" && event.msgId != null && event.content != null) {
+          // 流式完成：写入最终内容
+          setConvMessages(prev => {
+            const idx = prev.findIndex(m => m.id === event.msgId);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], content: event.content! };
+              return updated;
+            }
+            return [...prev, {
+              id: event.msgId!,
+              role: "assistant" as MsgRole,
+              content: event.content!,
+              taskId,
+              conversationId: activeConvId,
+              createdAt: new Date(),
+            }];
+          });
+          setIsStreaming(false);
+          setIsTyping(false);
+          setSending(false);
+          setActiveTaskId(null);
+          es.close();
+          sseRef.current = null;
+          if (memoryPanelOpen) setTimeout(() => refetchMemory(), 2000);
+          // 刷新一次消息列表确保数据一致
+          setTimeout(() => refetchMsgs(), 500);
+        } else if (event.type === "error") {
+          setIsStreaming(false);
+          setIsTyping(false);
+          setSending(false);
+          setActiveTaskId(null);
+          es.close();
+          sseRef.current = null;
+          toast.error("任务处理失败，请重试");
+        }
+      } catch { /* JSON 解析失败，忽略 */ }
+    };
+
+    es.onerror = () => {
+      // SSE 断开时回退到轮询模式（已有 refetchInterval 兑底）
+      es.close();
+      sseRef.current = null;
+    };
+  };
+
+  // 组件卸载时关闭 SSE
   useEffect(() => {
-    if (!activeTaskData) return;
-    const status = activeTaskData.status;
-    if (status === "manus_working") { setTaskPhase("manus_working"); setIsStreaming(false); }
-    else if (status === "manus_analyzing") { setTaskPhase("manus_analyzing"); setIsStreaming(false); }
-    else if (status === "gpt_reviewing" || status === "gpt_planning") { setTaskPhase("gpt_reviewing"); setIsStreaming(false); }
-    else if (status === "streaming") {
-      // GPT 正在流式输出，隐藏 typing 指示器，加快轮询显示实时内容
-      setTaskPhase("gpt_reviewing");
-      setIsStreaming(true);
-      setIsTyping(false); // 隐藏 loading 动画，展示实际内容
-    }
-    else if (status === "completed" || status === "failed") {
-      setIsStreaming(false);
-      setIsTyping(false);
-      setSending(false);
-      setActiveTaskId(null);
-      // 任务完成后刷新记忆
-      if (memoryPanelOpen) setTimeout(() => refetchMemory(), 2000);
-    }
-  }, [activeTaskData]);
+    return () => { if (sseRef.current) { sseRef.current.close(); sseRef.current = null; } };
+  }, []);
 
   // 客户端超时保护：任务运行超过 5 分钟自动解除卡住
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -703,7 +780,10 @@ export default function ChatRoom() {
 
   const submitMutation = trpc.chat.submitTask.useMutation({
     onSuccess: (data) => {
-      if (data?.taskId) setActiveTaskId(data.taskId);
+      if (data?.taskId) {
+        setActiveTaskId(data.taskId);
+        startSSE(data.taskId); // 启动 SSE 实时推送
+      }
       refetchMsgs();
       refetchConvs();
     },
@@ -752,7 +832,10 @@ export default function ChatRoom() {
 
   const retryTaskMutation = trpc.chat.retryTask.useMutation({
     onSuccess: (data) => {
-      if (data?.taskId) setActiveTaskId(data.taskId);
+      if (data?.taskId) {
+        setActiveTaskId(data.taskId);
+        startSSE(data.taskId); // 重试时也启动 SSE
+      }
       setSending(true);
       setIsTyping(true);
       setTaskPhase("manus_working");

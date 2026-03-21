@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { uploadRouter } from "../upload";
 import { chatgptProxyRouter } from "../chatgptProxy";
+import { taskStreamRouter } from "../taskStream";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -41,6 +42,8 @@ async function startServer() {
   app.use(uploadRouter);
   // ChatGPT reverse proxy (strips X-Frame-Options for iframe embedding)
   app.use(chatgptProxyRouter);
+  // SSE task stream (real-time push, replaces polling)
+  app.use(taskStreamRouter);
   // tRPC API
   app.use(
     "/api/trpc",

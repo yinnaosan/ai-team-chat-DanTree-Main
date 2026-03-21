@@ -578,3 +578,9 @@
 - [x] 清除 Vite deps 缓存（node_modules/.vite），强制重新生成一致的 chunk 哈希
 - [x] 修复 Service Worker cache-first 缓存旧 JS 问题：升级到 v5，Vite 资源改为 network-first
 - [x] index.html 添加 SW 强制更新逻辑，新 SW 安装后自动刷新页面
+
+## 工作流程四项优化（2026-03-21）
+- [x] 优化1：Yahoo Finance + Tavily 与 Step1 并行启动，FRED 等 Step1 完成后再启动
+- [x] 优化2：Step1 完成后用「数据需求清单」精炼 Tavily 搜索关键词并补充搜索
+- [x] 优化3：流式轮询改为 SSE 服务端推送（server/taskStream.ts），前端用 EventSource 订阅
+- [x] 优化4：记忆召回添加语义相关性排序（getRelevantMemory），关键词匹配+时间衰减双维度评分

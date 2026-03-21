@@ -535,4 +535,21 @@
 - [x] 接入 FRED 宏观数据 API（CPI、利率、GDP、非农等，需FRED_API_KEY）
 - [x] 接入 Tavily 搜索 API（网页内容实时搜索，需TAVILY_API_KEY，未配置时静默跳过）
 - [x] 重构 Step2 数据引擎：三源并行预取（Yahoo Finance + FRED + Tavily），真实数据注入Manus LLM上下文
-- [ ] 在设置页面「资料数据库」Tab 展示三个数据源的连接状态（待实现）
+- [x] 在设置页面「资料数据库」Tab 展示四个Key实时状态和数据源健康监控
+
+## Tavily 双Key轮换（2026-03-20）
+- [ ] 保存第二个 Tavily API Key 为 TAVILY_API_KEY_2
+- [ ] tavilySearch.ts 实现双Key轮换：第一个Key返回429/403时自动切换第二个Key
+
+## Tavily 四Key轮换 + 状态监控（2026-03-20）
+- [x] 保存四个 Tavily Key（TAVILY_API_KEY / _2 / _3 / _4）到环境变- [x] tavilySearch.ts：四Key顺序轮换，单Key失败（429/403/401）自动切换下一个Key- [x] tavilySearch.ts：全部四个Key失败时调用 notifyOwner 发站内通知
+- [x] 设置页「资料数据库」Tab：显示四个Key的实时状态（正常/已切换/已耗尽）
+- [x] 后端：新增 tRPC procedure 返回四个Key的当前状态
+
+## 数据流端到端验证与修复（2026-03-20）
+- [x] 审查：用户数据库链接是否被正确读取并传入 Tavily
+- [x] 审查：Tavily 抓取结果是真正注入 Step2 AI 上下文
+- [x] 修复：确保 dataLibrary 链接解析逻辑正确（换行/逗号分隔均支持）
+- [x] 修复：Step2 系统提示词明确要求使用已注入的真实数据，禁止编造
+- [x] 设置页显示四个 Tavily Key 实时状态（正常/已切换/已耗尽）
+- [x] 端到端测试：40个测试全部通过，三源均正常返回真实数据

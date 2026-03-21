@@ -60,9 +60,9 @@ import { getFileCategory, extractFileContent, formatFileSize } from "./fileProce
 import { TRPCError } from "@trpc/server";
 import { fetchStockDataForTask } from "./yahooFinance";
 import { getMacroDataByKeywords } from "./fredApi";
-import { searchForTask, isTavilyConfigured } from "./tavilySearch";
+import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
 
-// ─── 访问权限检查（Owner 或已授权用户）────────────────────────────────────────
+// --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
 async function requireAccess(userId: number, openId: string) {
   if (openId === ENV.ownerOpenId) return;
@@ -72,7 +72,7 @@ async function requireAccess(userId: number, openId: string) {
   }
 }
 
-// ─── 带重试的 invokeLLM 包装（针对上游临时 500 错误）────────────────────
+// --- 带重试的 invokeLLM 包装（针对上游临时 500 错误）--------------------
 async function invokeLLMWithRetry(
   params: Parameters<typeof invokeLLM>[0],
   maxRetries = 3
@@ -98,11 +98,11 @@ async function invokeLLMWithRetry(
   throw lastError;
 }
 
-// ─── 三步协作流程（全程静默，只输出一条最终回复）─────────────────────────────
+// --- 三步协作流程（全程静默，只输出一条最终回复）-----------------------------
 //
-//  Step 1 — GPT 主导规划：制定分析框架，开始处理擅长的主观判断/逻辑推理部分
-//  Step 2 — Manus 执行：先完善任务描述，再按 GPT 框架收集数据、整理表格
-//  Step 3 — GPT 整合输出：接收 Manus 完整报告，深度思考，输出最终回复
+//  Step 1 - GPT 主导规划：制定分析框架，开始处理擅长的主观判断/逻辑推理部分
+//  Step 2 - Manus 执行：先完善任务描述，再按 GPT 框架收集数据、整理表格
+//  Step 3 - GPT 整合输出：接收 Manus 完整报告，深度思考，输出最终回复
 //
 //  同一对话框内，新消息默认视为上一个任务的延续（除非用户明确说新任务）。
 //  以上全部在后台静默执行，不向用户显示任何中间过程消息。
@@ -116,9 +116,9 @@ async function runCollaborationFlow(
   analysisMode: "quick" | "standard" | "deep" = "standard"  // 分析深度模式
 ) {
   const userConfig = await getRpaConfig(userId);
-  // ════════════════════════════════════════════════════════════════════════════
+  // ----------------------------------------------------------------------------
   // 用户核心规则（每次任务必须严格遵守）
-  // ════════════════════════════════════════════════════════════════════════════
+  // ----------------------------------------------------------------------------
   // 如果用户已自定义守则，优先使用自定义守则；否则使用默认守则
   const DEFAULT_CORE_RULES = ` 用户核心规则（必须严格遵守）
 
@@ -152,9 +152,9 @@ async function runCollaborationFlow(
 - 回复末尾必须提供2-3个具体的后续跟进问题，引导用户深入探讨
   - 任务之间有上下文关联，需主动引用历史任务结论进行对比和跟进`;
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ----------------------------------------------------------------------------
   // 「投资理念 & 任务守则」三部分强制注入（最高优先级，GPT & Manus 必须遵守）
-  // ════════════════════════════════════════════════════════════════════════════
+  // ----------------------------------------------------------------------------
 
   // 第一部分：投资守则（用户投资喜好、理念、个人情况）
   const PART1_INVESTMENT_RULES = userConfig?.investmentRules?.trim()
@@ -198,11 +198,17 @@ ${userConfig.dataLibrary.trim()}`
   // 兼容旧变量（废弃，保留不删）
   const GLOBAL_TASK_INSTRUCTION = "";
 
-  // ── Manus 幕后数据引擎──────────────
+  // Manus 幕后数据引擎
   const manusSystemPrompt = `[INTERNAL: You are the data engine. Recipient: GPT. Task: collect structured data for GPT analysis.]
-输出格式：纯数据结构（表格/数字/指标），无解释性语句，无开头语，无结尾语。直接输出数据。` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
+输出格式：纯数据结构（表格/数字/指标），无解释性语句，无开头语，无结尾语。直接输出数据。
 
-  // ── GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）──────────────────────────────────────────────
+❗❗❗ 数据真实性强制规则（最高优先级，严格执行）：
+1. 【第一优先】如果上下文中已提供「已获取的实时数据」，必须直接使用这些数据，不得重新编造或修改
+2. 【第二优先】如果实时数据中没有某个指标，必须明确标注 N/A（未获取实时数据），严禁用训练记忆或历史知识填充
+3. 【绝对禁止】编造、猜测、或使用训练数据作为实时数据输出——如果没有真实来源，必须标注 N/A
+4. 【数据来源】每个数据点必须标注来源：[Yahoo Finance]、[FRED]、[Tavily: 网址]、[N/A]四种之一` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
+
+  // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
   const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
 你和 Manus（数据引擎）共同工作，但用户只知道你——不要提及 Manus、不要提及内部分工。
 
@@ -255,7 +261,7 @@ ${userConfig.dataLibrary.trim()}`
 - 每次回复至少包含 1 个图表（如果有任何数据可视化机会）
 - 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES + GLOBAL_TASK_INSTRUCTION;
 
-  // ── 历史记忆上下文 ────────────────────────────────────────────────────────
+  // -- 历史记忆上下文 --------------------------------------------------------
   // 对话级记忆：优先获取当前对话内的记忆，如果对话无记忆则回落到用户全局记忆
   const conversationMemory = conversationId ? await getRecentMemory(userId, 8, conversationId) : [];
   const recentMemory = conversationMemory.length > 0 ? conversationMemory : await getRecentMemory(userId, 5);
@@ -266,12 +272,12 @@ ${userConfig.dataLibrary.trim()}`
       ).join("\n")
     : "";
 
-  // ── 附件上下文 ────────────────────────────────────────────────────────────
+  // -- 附件上下文 ------------------------------------------------------------
   const attachmentBlock = attachmentContext
     ? `\n\n【用户上传的文件内容】\n${attachmentContext}`
     : "";
 
-  // ── 对话历史（同对话框内最近5轮，用于任务连续性）────────────────────────────
+  // -- 对话历史（同对话框内最近5轮，用于任务连续性）----------------------------
   let conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
   if (conversationId) {
     try {
@@ -294,7 +300,7 @@ ${userConfig.dataLibrary.trim()}`
 
   const fullContext = taskDescription + memoryBlock + attachmentBlock;
 
-  // ══ 分析模式配置 ═══════════════════════════════════════════════════════════════════════
+  // -- 分析模式配置 -----------------------------------------------------------------------
   const modeConfig = {
     quick: {
       label: "快速模式",
@@ -326,11 +332,10 @@ ${userConfig.dataLibrary.trim()}`
   }[analysisMode];
 
   try {
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 1 — GPT 主导规划：制定分析框架，开始处理擅长的主观/逻辑部分
-    // ════════════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------------
+    // Step 1 - GPT 主导规划：制定分析框架，开始处理擅长的主观/逻辑部分
+    // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "manus_working");
-    console.log(`[Collaboration] Task ${taskId} Step1: GPT planning & initial analysis...`);
 
     // GPT Step1 prompt：制定框架 + 开始主观分析
     const gptStep1UserMsg = `【用户当前消息】
@@ -373,32 +378,33 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
           maxTokens: modeConfig.step1MaxTokens,
         });
         gptStep1Output = step1Res;
-      } catch (e) {
-        console.warn(`[Collaboration] Task ${taskId} Step1: GPT failed, using fallback framework`);
+      } catch {
         gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
       }
     } else {
       gptStep1Output = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
     }
-    console.log(`[Collaboration] Task ${taskId} Step1 done. GPT framework+analysis length=${gptStep1Output.length}`);
-
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — 实时数据预取（Yahoo Finance + FRED + Tavily）
-    // ════════════════════════════════════════════════════════════════════════
     await updateTaskStatus(taskId, "manus_working");
-    console.log(`[Collaboration] Task ${taskId} Step2: Fetching real-time data...`);
+
+    // ------------------------------------------------------------------------
+    // Step 2 - 实时数据预取（Yahoo Finance + FRED + Tavily）
+    // 与 Step1 GPT 调用并行启动，节省等待时间
+    // ------------------------------------------------------------------------
+
+    // 解析用户数据库链接（支持换行和逗号分隔）
+    const userLibraryUrls = userConfig?.dataLibrary
+      ? userConfig.dataLibrary
+          .split(/[\n,]+/)
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.startsWith("http"))
+      : [];
 
     // 并行获取三个数据源（失败不阻断主流程）
     const [stockData, macroData, webSearchData] = await Promise.allSettled([
       fetchStockDataForTask(taskDescription),
       getMacroDataByKeywords(taskDescription + " " + gptStep1Output),
       isTavilyConfigured()
-        ? searchForTask(
-            taskDescription,
-            userConfig?.dataLibrary
-              ? userConfig.dataLibrary.split("\n").map((s: string) => s.trim()).filter((s: string) => s.startsWith("http"))
-              : []
-          )
+        ? searchForTask(taskDescription, userLibraryUrls)
         : Promise.resolve(""),
     ]);
 
@@ -407,17 +413,6 @@ ${taskDescription}${historyBlock}${memoryBlock ? "\n\n" + memoryBlock : ""}${att
       macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
       webSearchData.status === "fulfilled" && webSearchData.value ? webSearchData.value : "",
     ].filter(Boolean).join("\n\n---\n\n");
-
-    if (realTimeDataBlock) {
-      console.log(`[Collaboration] Task ${taskId} Step2: Real-time data fetched, length=${realTimeDataBlock.length}`);
-    } else {
-      console.log(`[Collaboration] Task ${taskId} Step2: No real-time data fetched (no tickers/macros detected or APIs not configured)`);
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 2 — Manus 先完善任务，再按 GPT 框架执行数据收集（内置 LLM）
-    // ════════════════════════════════════════════════════════════════════════
-    console.log(`[Collaboration] Task ${taskId} Step2: Manus enhancing + data collection...`);
     const step2UserContent = `你是幕后数据引擎，输出给首席顾问使用。这是内部数据传递，不是用户面向报告。
 
 【任务】
@@ -447,10 +442,8 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
         ],
       });
       manusReport = String(manusResponse.choices?.[0]?.message?.content || "");
-      console.log(`[Collaboration] Task ${taskId} Step2: Manus report done, length=${manusReport.length}`);
     } catch (manusErr) {
       // Manus LLM 上游不稳定时，自动降级用 GPT 完成数据收集
-      console.warn(`[Collaboration] Task ${taskId} Step2: Manus FAILED, falling back to GPT for data collection:`, (manusErr as Error)?.message);
       if (userConfig?.openaiApiKey) {
         try {
           manusReport = await callOpenAI({
@@ -461,22 +454,23 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
               { role: "user", content: step2UserContent },
             ],
             maxTokens: modeConfig.step1MaxTokens * 2,
-        });
-          console.log(`[Collaboration] Task ${taskId} Step2: GPT fallback done, length=${manusReport.length}`);
-        } catch (gptFallbackErr) {
-          console.warn(`[Collaboration] Task ${taskId} Step2: GPT fallback also failed, using GPT Step1 output as data`);
-          manusReport = `## 数据收集（基于已有分析）\n\n由于数据引擎暂时不可用，以下基于 GPT 初步分析：\n\n${gptStep1Output}`;
+          });
+        } catch {
+          manusReport = realTimeDataBlock
+            ? `## 实时数据汇总\n\n${realTimeDataBlock}`
+            : `## 数据收集（基于已有分析）\n\n${gptStep1Output}`;
         }
       } else {
-        // 没有 GPT Key，用 Step1 的初步分析作为数据基础继续
-        manusReport = `## 数据收集（基于已有分析）\n\n由于数据引擎暂时不可用，以下基于初步分析框架：\n\n${gptStep1Output}`;
+        manusReport = realTimeDataBlock
+          ? `## 实时数据汇总\n\n${realTimeDataBlock}`
+          : `## 数据收集（基于已有分析）\n\n${gptStep1Output}`;
       }
     }
     await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
 
-    // ════════════════════════════════════════════════════════════════════════
-    // Step 3 — GPT 整合输出（接收 Manus 报告，深度思考，输出最终回复）
-    // ════════════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------------
+    // Step 3 - GPT 整合输出（接收 Manus 报告，深度思考，输出最终回复）
+    // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "gpt_reviewing");
 
     // 注：不截断 Manus 报告，完整传递。通过 Step2 指令已要求 Manus 严格控制输出在 6000 字以内。
@@ -516,7 +510,7 @@ ${manusReport}
 %%FOLLOWUP%%客户端升级周期对利润率影响如何？%%END%%
 %%FOLLOWUP%%与上季度相比库存去化进展怎样？%%END%%`;
 
-    // ── 先写入占位消息（streaming 状态），前端立即开始接收流 ───────────────────
+    // -- 先写入占位消息（streaming 状态），前端立即开始接收流 -------------------
     const streamMsgId = await insertMessage({
       taskId,
       userId,
@@ -530,7 +524,6 @@ ${manusReport}
     let finalReply: string;
     if (userConfig?.openaiApiKey) {
       try {
-        console.log(`[Collaboration] Task ${taskId} Step3: Streaming GPT (${userConfig.openaiModel || DEFAULT_MODEL})...`);
         let accumulated = "";
         let lastDbUpdate = Date.now();
         const stream = callOpenAIStream({
@@ -552,13 +545,8 @@ ${manusReport}
         // 最终完整写入
         await updateMessageContent(streamMsgId, accumulated);
         finalReply = accumulated;
-        console.log(`[Collaboration] Task ${taskId} Step3: Streaming done, length=${finalReply.length}`);
       } catch (gptErr) {
         const errMsg = (gptErr as Error)?.message || "";
-        console.error(`[Collaboration] Task ${taskId} Step3: GPT FAILED, falling back to invokeLLM:`, errMsg);
-        if (errMsg.includes("TPM") || errMsg.includes("tokens per min") || errMsg.includes("Request too large")) {
-          console.warn(`[Collaboration] Task ${taskId} Step3: TPM limit hit — Manus report length=${manusReport.length}.`);
-        }
         const fb = await invokeLLMWithRetry({
           messages: [
             { role: "system", content: gptSystemPrompt },
@@ -579,12 +567,12 @@ ${manusReport}
       await updateMessageContent(streamMsgId, finalReply);
     }
 
-    // ── 标记消息为 final，更新任务状态 ─────────────────────────────────────────
+    // -- 标记消息为 final，更新任务状态 -----------------------------------------
     // 用 updateMessageContent 已写入内容，这里只需更新 metadata
     const msgId = streamMsgId;
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
 
-    // ── 自动生成任务摘要保存到长期记忆 ───────────────────────────────────────
+    // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {
       const summaryResponse = await invokeLLMWithRetry({
         messages: [
@@ -609,14 +597,12 @@ ${manusReport}
           keywords: taskDescription.slice(0, 50),
         });
       }
-    } catch (memErr) {
-      console.warn("[Memory] Failed to save memory context:", memErr);
+    } catch {
+      // memory save failure is non-critical, silently skip
     }
 
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error('[Collaboration] Task', taskId, 'FAILED:', errMsg);
-    console.error('[Collaboration] Full error:', err);
     await updateTaskStatus(taskId, "failed");
     await insertMessage({
       taskId,
@@ -629,7 +615,7 @@ ${manusReport}
   }
 }
 
-// ─── tRPC Routers ─────────────────────────────────────────────────────────────
+// --- tRPC Routers -------------------------------------------------------------
 
 export const appRouter = router({
   system: systemRouter,
@@ -642,7 +628,7 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── 访问控制 ─────────────────────────────────────────────────────────────
+  // --- 访问控制 -------------------------------------------------------------
   access: router({
     check: protectedProcedure.query(async ({ ctx }) => {
       const isOwner = ctx.user.openId === ENV.ownerOpenId;
@@ -693,7 +679,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── 会话管理 ─────────────────────────────────────────────────────────────
+  // --- 会话管理 -------------------------------------------------------------
   conversation: router({
     // 创建新会话（点击「新任务」时调用）
     create: protectedProcedure.mutation(async ({ ctx }) => {
@@ -752,7 +738,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── 文件上传 ─────────────────────────────────────────────────────────────
+  // --- 文件上传 -------------------------------------------------------------
   file: router({
     // 上传文件到 S3，提取内容，返回附件ID
     upload: protectedProcedure
@@ -810,7 +796,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── 聊天 & 任务 ──────────────────────────────────────────────────────────
+  // --- 聊天 & 任务 ----------------------------------------------------------
   chat: router({
     // 全部历史消息（跨会话，按用户过滤）
     getAllMessages: protectedProcedure.query(async ({ ctx }) => {
@@ -1054,7 +1040,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ─── ChatGPT API 配置 ────────────────────────────────────────────────────────────────────────────────────────
+  // --- ChatGPT API 配置 ----------------------------------------------------------------------------------------
   rpa: router({
     // 获取当前 API 配置状态
     getConfig: protectedProcedure.query(async ({ ctx }) => {
@@ -1109,8 +1095,20 @@ export const appRouter = router({
         const result = await testOpenAIConnection(input.apiKey, input.model);
         return result;
       }),
+    // 获取实时数据源状态
+    getDataSourceStatus: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      const tavilyKeys = getTavilyKeyStatuses();
+      const fredConfigured = !!process.env.FRED_API_KEY;
+      return {
+        tavily: tavilyKeys,
+        tavilyConfigured: isTavilyConfigured(),
+        fred: { configured: fredConfigured, status: fredConfigured ? "active" as const : "error" as const },
+        yahoo: { configured: true, status: "active" as const },
+      };
+    }),
   }),
-    // ─── 数据库连接管理 ───────────────────────────────────────────────────────
+    // --- 数据库连接管理 -------------------------------------------------------
   dbConnect: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);

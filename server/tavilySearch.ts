@@ -1,136 +1,285 @@
 /**
- * Tavily Search API integration
- * Provides real-time web search for financial news, research reports, and market data
- * from sites like Seeking Alpha, Bloomberg, Reuters, 雪球, 东方财富, etc.
+ * Tavily Search API — 四Key轮换机制
+ *
+ * 优先级：Key1 → Key2 → Key3 → Key4
+ * 单个Key返回 429/403/401 时自动切换下一个
+ * 全部Key失败时调用 notifyOwner 发站内通知
+ *
+ * 数据获取优先级（Step2数据引擎）：
+ * 1. 用户数据库链接（Tavily Extract直接抓取 + 域名范围搜索）
+ * 2. Yahoo Finance（股价/财务数据）
+ * 3. FRED（宏观经济数据）
+ * 4. 通用金融新闻搜索（兜底）
+ *
+ * ⚠️ 严禁AI编造数据：无真实来源时必须明确说明"未能获取实时数据"
  */
 
-const TAVILY_BASE_URL = "https://api.tavily.com";
+import { notifyOwner } from "./_core/notification";
 
-interface TavilySearchResult {
-  title: string;
+// 四个Key按顺序排列，过滤掉未配置的
+const TAVILY_KEYS = [
+  process.env.TAVILY_API_KEY,
+  process.env.TAVILY_API_KEY_2,
+  process.env.TAVILY_API_KEY_3,
+  process.env.TAVILY_API_KEY_4,
+].filter(Boolean) as string[];
+
+// 记录每个Key的状态（内存级，重启后重置）
+type KeyStatus = "active" | "exhausted" | "error";
+const keyStatusMap = new Map<string, KeyStatus>();
+
+// 防止重复发送通知
+let allKeysExhaustedNotified = false;
+
+export function isTavilyConfigured(): boolean {
+  return TAVILY_KEYS.length > 0;
+}
+
+/** 获取四个Key的当前状态（供设置页展示） */
+export function getTavilyKeyStatuses(): Array<{
+  index: number;
+  masked: string;
+  status: KeyStatus;
+  configured: boolean;
+}> {
+  const allKeys = [
+    process.env.TAVILY_API_KEY,
+    process.env.TAVILY_API_KEY_2,
+    process.env.TAVILY_API_KEY_3,
+    process.env.TAVILY_API_KEY_4,
+  ];
+  return allKeys.map((key, i) => ({
+    index: i + 1,
+    masked: key ? key.slice(0, 12) + "..." + key.slice(-6) : "",
+    status: key ? (keyStatusMap.get(key) ?? "active") : "error",
+    configured: !!key,
+  }));
+}
+
+/** 判断是否是额度耗尽/认证失败的错误码 */
+function isExhaustedError(status: number): boolean {
+  return status === 429 || status === 403 || status === 401;
+}
+
+/** 发送所有Key耗尽通知（只发一次） */
+async function notifyAllKeysExhausted(): Promise<void> {
+  if (allKeysExhaustedNotified) return;
+  allKeysExhaustedNotified = true;
+
+  const statusSummary = TAVILY_KEYS.map((k, i) => {
+    const s = keyStatusMap.get(k) ?? "active";
+    return `Key${i + 1}(${k.slice(0, 10)}...): ${s}`;
+  }).join("\n");
+
+  console.error("[Tavily] All keys exhausted or failed");
+
+  try {
+    await notifyOwner({
+      title: "⚠️ Tavily API 所有Key已耗尽",
+      content: `DanTree 数据引擎的 Tavily 搜索功能已无法使用，请前往设置补充新的 API Key。\n\n当前状态：\n${statusSummary}\n\n请访问 https://app.tavily.com 获取新的 API Key，然后在设置页「资料数据库」Tab 更新。`,
+    });
+  } catch (err) {
+    console.error("[Tavily] Failed to send owner notification:", err);
+  }
+}
+
+export interface TavilyResult {
   url: string;
+  title: string;
   content: string;
-  score: number;
+  score?: number;
   published_date?: string;
 }
 
-interface TavilySearchResponse {
-  query: string;
-  results: TavilySearchResult[];
-  answer?: string;
+/** 核心搜索请求，带四Key轮换 */
+async function tavilySearchRequest(
+  payload: Record<string, unknown>
+): Promise<TavilyResult[]> {
+  if (TAVILY_KEYS.length === 0) return [];
+
+  let anyActive = false;
+
+  for (let i = 0; i < TAVILY_KEYS.length; i++) {
+    const key = TAVILY_KEYS[i];
+    const currentStatus = keyStatusMap.get(key) ?? "active";
+    if (currentStatus === "exhausted") continue;
+
+    anyActive = true;
+
+    try {
+      const res = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, api_key: key }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (res.ok) {
+        keyStatusMap.set(key, "active");
+        allKeysExhaustedNotified = false; // 重置通知状态
+        const data = await res.json() as { results: TavilyResult[] };
+        return data.results ?? [];
+      }
+
+      if (isExhaustedError(res.status)) {
+        console.warn(`[Tavily] Key ${i + 1} exhausted (HTTP ${res.status}), switching to next`);
+        keyStatusMap.set(key, "exhausted");
+        continue;
+      }
+
+      console.error(`[Tavily] Key ${i + 1} HTTP ${res.status}`);
+      keyStatusMap.set(key, "error");
+      continue;
+    } catch (err) {
+      console.error(`[Tavily] Key ${i + 1} network error:`, err);
+      keyStatusMap.set(key, "error");
+      continue;
+    }
+  }
+
+  // 全部Key失败
+  await notifyAllKeysExhausted();
+  return [];
 }
 
+/** 核心Extract请求（直接抓取URL内容），带四Key轮换 */
+async function tavilyExtractRequest(urls: string[]): Promise<TavilyResult[]> {
+  if (TAVILY_KEYS.length === 0 || urls.length === 0) return [];
+
+  for (let i = 0; i < TAVILY_KEYS.length; i++) {
+    const key = TAVILY_KEYS[i];
+    if ((keyStatusMap.get(key) ?? "active") === "exhausted") continue;
+
+    try {
+      const res = await fetch("https://api.tavily.com/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, api_key: key }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (res.ok) {
+        keyStatusMap.set(key, "active");
+        const data = await res.json() as { results: TavilyResult[] };
+        return data.results ?? [];
+      }
+
+      if (isExhaustedError(res.status)) {
+        keyStatusMap.set(key, "exhausted");
+        continue;
+      }
+
+      keyStatusMap.set(key, "error");
+      continue;
+    } catch {
+      keyStatusMap.set(key, "error");
+      continue;
+    }
+  }
+
+  await notifyAllKeysExhausted();
+  return [];
+}
+
+// ─────────────────────────────────────────────
+// 对外暴露的高层函数
+// ─────────────────────────────────────────────
+
 /**
- * Search the web using Tavily API
+ * 【最高优先级】从用户数据库链接获取真实内容
+ * Step1: 直接抓取指定URL（Tavily Extract）
+ * Step2: 在这些域名范围内关键词搜索
  */
-async function tavilySearch(
+export async function searchFromUserLibrary(
   query: string,
-  options: {
-    searchDepth?: "basic" | "advanced";
-    maxResults?: number;
-    includeDomains?: string[];
-    excludeDomains?: string[];
-    includeAnswer?: boolean;
-    topic?: "general" | "news" | "finance";
-  } = {}
-): Promise<TavilySearchResponse> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) throw new Error("TAVILY_API_KEY not configured");
+  libraryUrls: string[]
+): Promise<string> {
+  if (!isTavilyConfigured() || libraryUrls.length === 0) return "";
 
-  const body: Record<string, unknown> = {
-    api_key: apiKey,
-    query,
-    search_depth: options.searchDepth ?? "basic",
-    max_results: options.maxResults ?? 5,
-    include_answer: options.includeAnswer ?? true,
-    include_raw_content: false,
-    topic: options.topic ?? "finance",
-  };
+  const results: TavilyResult[] = [];
 
-  if (options.includeDomains?.length) {
-    body.include_domains = options.includeDomains;
-  }
-  if (options.excludeDomains?.length) {
-    body.exclude_domains = options.excludeDomains;
-  }
-
-  const res = await fetch(`${TAVILY_BASE_URL}/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Tavily API error ${res.status}: ${detail}`);
-  }
-
-  return res.json();
-}
-
-/**
- * Check if Tavily API is configured
- */
-export function isTavilyConfigured(): boolean {
-  return !!process.env.TAVILY_API_KEY;
-}
-
-/**
- * Search for financial news and analysis about a topic
- */
-export async function searchFinancialNews(query: string, maxResults = 5): Promise<string> {
-  if (!isTavilyConfigured()) {
-    return ""; // Silently skip if not configured
-  }
-
+  // Step A: 直接抓取最多3个URL的完整内容
+  const topUrls = libraryUrls.slice(0, 3);
   try {
-    const response = await tavilySearch(query, {
-      searchDepth: "basic",
-      maxResults,
-      includeAnswer: true,
+    const extracted = await tavilyExtractRequest(topUrls);
+    results.push(...extracted);
+  } catch (err) {
+    console.error("[Tavily] Extract failed:", err);
+  }
+
+  // Step B: 在用户数据库域名范围内关键词搜索
+  const domains = libraryUrls
+    .map(url => {
+      try { return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, ""); }
+      catch { return null; }
+    })
+    .filter(Boolean) as string[];
+
+  const uniqueDomains = Array.from(new Set(domains)).slice(0, 10);
+
+  if (uniqueDomains.length > 0) {
+    const searchResults = await tavilySearchRequest({
+      query,
+      max_results: 5,
+      search_depth: "advanced",
+      include_domains: uniqueDomains,
+      include_answer: true,
       topic: "finance",
     });
-
-    const lines: string[] = [`## 实时搜索结果（来源：Tavily Web Search）\n`, `**搜索关键词**: ${query}\n`];
-
-    if (response.answer) {
-      lines.push(`**AI摘要**: ${response.answer}\n`);
-    }
-
-    if (response.results.length > 0) {
-      lines.push("**相关文章**:");
-      for (const result of response.results.slice(0, maxResults)) {
-        const date = result.published_date ? ` (${result.published_date})` : "";
-        lines.push(`\n### ${result.title}${date}`);
-        lines.push(`来源: ${result.url}`);
-        if (result.content) {
-          // Truncate content to avoid token overflow
-          const snippet = result.content.slice(0, 400).replace(/\n+/g, " ");
-          lines.push(`摘要: ${snippet}...`);
-        }
-      }
-    }
-
-    return lines.join("\n");
-  } catch (err: any) {
-    console.error("[Tavily] Search failed:", err.message);
-    return ""; // Fail silently, don't block the main task
+    results.push(...searchResults);
   }
+
+  if (results.length === 0) return "";
+
+  const formatted = results
+    .slice(0, 6)
+    .map((r, i) => {
+      const date = r.published_date ? ` (${r.published_date})` : "";
+      return `### 来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content?.slice(0, 800) ?? ""}`;
+    })
+    .join("\n\n---\n\n");
+
+  return `## 用户数据库实时内容（来源：Tavily 抓取）\n\n${formatted}`;
 }
 
 /**
- * Search for stock-specific news and analysis
+ * 通用金融新闻搜索（兜底，不限定域名）
+ */
+export async function searchFinancialNews(query: string, maxResults = 5): Promise<string> {
+  if (!isTavilyConfigured()) return "";
+
+  const results = await tavilySearchRequest({
+    query,
+    max_results: maxResults,
+    search_depth: "basic",
+    include_answer: true,
+    topic: "finance",
+  });
+
+  if (results.length === 0) return "";
+
+  const formatted = results
+    .map((r, i) => {
+      const date = r.published_date ? ` (${r.published_date})` : "";
+      return `### 搜索结果${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content?.slice(0, 600) ?? ""}`;
+    })
+    .join("\n\n---\n\n");
+
+  return `## 实时网络搜索结果（来源：Tavily）\n\n${formatted}`;
+}
+
+/**
+ * 股票专项搜索
  */
 export async function searchStockNews(ticker: string, companyName?: string): Promise<string> {
   const query = companyName
     ? `${companyName} ${ticker} 最新分析 股价 财报 2025 2026`
     : `${ticker} stock analysis latest news 2025 2026`;
-
   return searchFinancialNews(query, 4);
 }
 
 /**
- * Search for macro/economic news
+ * 宏观经济专项搜索
  */
 export async function searchMacroNews(topic: string): Promise<string> {
   const query = `${topic} 最新动态 2025 2026 投资影响`;
@@ -138,61 +287,7 @@ export async function searchMacroNews(topic: string): Promise<string> {
 }
 
 /**
- * Search user's configured data sources (from their data library)
- */
-export async function searchUserDataSources(
-  query: string,
-  dataSources: string[]
-): Promise<string> {
-  if (!isTavilyConfigured() || dataSources.length === 0) return "";
-
-  // Extract domains from URLs
-  const domains: string[] = [];
-  for (const source of dataSources) {
-    try {
-      const url = new URL(source.startsWith("http") ? source : `https://${source}`);
-      domains.push(url.hostname.replace("www.", ""));
-    } catch {
-      // Skip invalid URLs
-    }
-  }
-
-  if (domains.length === 0) return "";
-
-  try {
-    const response = await tavilySearch(query, {
-      searchDepth: "advanced",
-      maxResults: 5,
-      includeDomains: domains.slice(0, 10), // Tavily supports up to 10 domains
-      includeAnswer: true,
-      topic: "finance",
-    });
-
-    const lines: string[] = [`## 来自您数据库的实时内容\n`, `**搜索关键词**: ${query}\n`];
-
-    if (response.answer) {
-      lines.push(`**综合摘要**: ${response.answer}\n`);
-    }
-
-    for (const result of response.results) {
-      const date = result.published_date ? ` (${result.published_date})` : "";
-      lines.push(`\n### ${result.title}${date}`);
-      lines.push(`来源: ${result.url}`);
-      if (result.content) {
-        const snippet = result.content.slice(0, 500).replace(/\n+/g, " ");
-        lines.push(`内容: ${snippet}`);
-      }
-    }
-
-    return lines.join("\n");
-  } catch (err: any) {
-    console.error("[Tavily] User data source search failed:", err.message);
-    return "";
-  }
-}
-
-/**
- * Determine search queries based on task description
+ * 综合搜索：优先用户数据库 → 通用搜索兜底
  */
 export async function searchForTask(
   taskDescription: string,
@@ -202,13 +297,13 @@ export async function searchForTask(
 
   const parts: string[] = [];
 
-  // Search user's configured data sources first (highest priority)
+  // 优先：用户数据库链接
   if (userDataSources && userDataSources.length > 0) {
-    const userSourceData = await searchUserDataSources(taskDescription, userDataSources);
+    const userSourceData = await searchFromUserLibrary(taskDescription, userDataSources);
     if (userSourceData) parts.push(userSourceData);
   }
 
-  // General financial news search
+  // 兜底：通用金融新闻
   const generalNews = await searchFinancialNews(taskDescription, 3);
   if (generalNews) parts.push(generalNews);
 

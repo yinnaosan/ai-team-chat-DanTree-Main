@@ -12,11 +12,96 @@ import { getLoginUrl } from "@/const";
 import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
-  Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX,
+  Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity,
 } from "lucide-react";
 
 type SettingsTab = "api" | "database" | "access" | "about";
 type RulesTab = "investment" | "task" | "data";
+
+// ---- 实时数据源状态面板 ----
+function DataSourceStatusPanel() {
+  const { data: status, isLoading, refetch } = trpc.rpa.getDataSourceStatus.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+
+  const statusColor = (s: string) => {
+    if (s === "active") return "oklch(0.72 0.18 142)";
+    if (s === "exhausted") return "oklch(0.72 0.18 50)";
+    return "oklch(0.65 0.18 20)";
+  };
+  const statusLabel = (s: string) => {
+    if (s === "active") return "\u6b63\u5e38";
+    if (s === "exhausted") return "\u5df2\u8017\u5c3d";
+    return "\u672a\u914d\u7f6e";
+  };
+
+  return (
+    <div className="p-4 rounded-xl space-y-3"
+      style={{ background: "oklch(0.15 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
+          <span className="text-xs font-medium" style={{ color: "oklch(0.80 0.005 270)" }}>实时数据源状态</span>
+        </div>
+        <button onClick={() => refetch()} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+          style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.20 0.005 270)" }}>
+          <RefreshCw className="w-3 h-3" />刷新
+        </button>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" style={{ color: "oklch(0.55 0.01 270)" }} />
+          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>检测中...</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {/* Yahoo Finance */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor(status?.yahoo.status ?? "active") }} />
+              <span className="text-xs" style={{ color: "oklch(0.70 0.005 270)" }}>Yahoo Finance（股价/财务）</span>
+            </div>
+            <span className="text-xs" style={{ color: statusColor(status?.yahoo.status ?? "active") }}>
+              {statusLabel(status?.yahoo.status ?? "active")}
+            </span>
+          </div>
+          {/* FRED */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor(status?.fred.status ?? "error") }} />
+              <span className="text-xs" style={{ color: "oklch(0.70 0.005 270)" }}>FRED（宏观经测指标）</span>
+            </div>
+            <span className="text-xs" style={{ color: statusColor(status?.fred.status ?? "error") }}>
+              {statusLabel(status?.fred.status ?? "error")}
+            </span>
+          </div>
+          {/* Tavily Keys */}
+          <div className="pt-1 space-y-1.5">
+            <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>Tavily 搜索（网页内容）</p>
+            {(status?.tavily ?? []).map((k) => (
+              <div key={k.index} className="flex items-center justify-between pl-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: k.configured ? statusColor(k.status) : "oklch(0.35 0.01 270)" }} />
+                  <span className="text-xs font-mono" style={{ color: "oklch(0.55 0.008 270)" }}>
+                    {k.configured ? k.masked : `Key ${k.index} 未配置`}
+                  </span>
+                </div>
+                <span className="text-xs" style={{ color: k.configured ? statusColor(k.status) : "oklch(0.40 0.01 270)" }}>
+                  {k.configured ? statusLabel(k.status) : "未配置"}
+                </span>
+              </div>
+            ))}
+            {status && !status.tavilyConfigured && (
+              <p className="text-xs pl-2" style={{ color: "oklch(0.65 0.18 50)" }}>
+                ⚠️ 未配置 Tavily Key，网页搜索功能将不可用
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { isAuthenticated, loading } = useAuth();
@@ -533,30 +618,35 @@ export default function Settings() {
 
               {/* 资料数据库 Tab */}
               {activeRulesTab === "data" && (
-                <div className="p-4 rounded-xl space-y-3"
-                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                  <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
-                    所有观点搜索、数据来源、新闻消息、权威论证、市场政策等内容优先来自这里。无法匹配时才使用外部数据。
-                  </p>
-                  <Textarea
-                    value={dataLibrary}
-                    onChange={(e) => setDataLibrary(e.target.value)}
-                    placeholder={"示例：\n## 权威数据源\n- 中国证监会公告：https://www.csrc.gov.cn\n- 美联储利率决议：https://www.federalreserve.gov\n- 工业和信息化部数据：https://data.stats.gov.cn\n\n## 市场行情数据\n- 雪球网：https://xueqiu.com\n- 东方财富：https://www.eastmoney.com\n- Yahoo Finance：https://finance.yahoo.com\n\n## 个人笔记 / 自定义资料\n可在此处粘贴文章、数据、研究报告等任意内容"}
-                    className="min-h-[280px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.88 0.005 270)" }}
-                  />
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                      {dataLibrary.trim() ? `已配置 ${dataLibrary.split('\n').filter(l => l.includes('http')).length} 个数据源` : "未配置数据源，将使用通用搜索"}
+                <div className="space-y-3">
+                  {/* ---- 实时数据源状态面板 ---- */}
+                  <DataSourceStatusPanel />
+                  {/* ---- 资料库输入 ---- */}
+                  <div className="p-4 rounded-xl space-y-3"
+                    style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                    <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
+                      所有观点搜索、数据来源、新闻消息、权威论证、市场政策等内容优先来自这里。无法匹配时才使用外部数据。
                     </p>
-                    <Button size="sm"
-                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
-                      disabled={saveConfigMutation.isPending}
-                      className="gap-1.5 h-7 text-xs"
-                      style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-                      {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                      保存资料库
-                    </Button>
+                    <Textarea
+                      value={dataLibrary}
+                      onChange={(e) => setDataLibrary(e.target.value)}
+                      placeholder={"\u793a\u4f8b\uff1a\n## \u6743\u5a01\u6570\u636e\u6e90\n- \u4e2d\u56fd\u8bc1\u76d1\u4f1a\u516c\u544a\uff1ahttps://www.csrc.gov.cn\n- \u7f8e\u8054\u50a8\u5229\u7387\u51b3\u8bae\uff1ahttps://www.federalreserve.gov\n- \u5de5\u4e1a\u548c\u4fe1\u606f\u5316\u90e8\u6570\u636e\uff1ahttps://data.stats.gov.cn\n\n## \u5e02\u573a\u884c\u60c5\u6570\u636e\n- \u96ea\u7403\u7f51\uff1ahttps://xueqiu.com\n- \u4e1c\u65b9\u8d22\u5bcc\uff1ahttps://www.eastmoney.com\n- Yahoo Finance\uff1ahttps://finance.yahoo.com\n\n## \u4e2a\u4eba\u7b14\u8bb0 / \u81ea\u5b9a\u4e49\u8d44\u6599\n\u53ef\u5728\u6b64\u5904\u7c98\u8d34\u6587\u7ae0\u3001\u6570\u636e\u3001\u7814\u7a76\u62a5\u544a\u7b49\u4efb\u610f\u5185\u5bb9"}
+                      className="min-h-[280px] text-sm font-mono resize-y"
+                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                    />
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                        {dataLibrary.trim() ? `\u5df2\u914d\u7f6e ${dataLibrary.split('\n').filter(l => l.includes('http')).length} \u4e2a\u6570\u636e\u6e90` : "\u672a\u914d\u7f6e\u6570\u636e\u6e90\uff0c\u5c06\u4f7f\u7528\u901a\u7528\u641c\u7d22"}
+                      </p>
+                      <Button size="sm"
+                        onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
+                        disabled={saveConfigMutation.isPending}
+                        className="gap-1.5 h-7 text-xs"
+                        style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                        {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                        \u4fdd\u5b58\u8d44\u6599\u5e93
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

@@ -38,4 +38,7 @@ export const ENV = {
   MESSARI_API_KEY:        e("MESSARI_API_KEY",        "rvQ9bfuBOdOFr3+QoZgadqj7iBadOq5-7MDTZjg7sIvGOKdb"),
   CONGRESS_API_KEY:       e("CONGRESS_API_KEY",       "SpLH43dTTokdt5NhJDAMo6Z4dSAHAYGnLsfR8LJz"),
   COURTLISTENER_API_KEY:  e("COURTLISTENER_API_KEY",  "d79de03f84c80caf0f47bb7881f6f1856611f7b1"),
+  SERPER_API_KEY:          e("SERPER_API_KEY",          "fd00fed2c50e13d7e63979ad916c9bb52250af1d"),
+  SERPER_API_KEY_2:        e("SERPER_API_KEY_2",        "7d5ec70b47c60ddd093515d7970fe68de1715ee2"),
+  SERPER_API_KEY_3:        e("SERPER_API_KEY_3",        "58dbca508a4db758bf2d0c69f05c7c6204c93635"),
 };

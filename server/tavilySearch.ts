@@ -1,26 +1,29 @@
 /**
- * Tavily Search API — 四Key轮换机制
+ * Web Search Engine — Tavily + Serper 双引擎降级链
  *
- * 优先级：Key1 → Key2 → Key3 → Key4
- * 单个Key返回 429/403/401 时自动切换下一个
- * 全部Key失败时调用 notifyOwner 发站内通知
+ * 优先级：Tavily 4 Key 轮换 → Serper 3 Key 轮换
+ * Tavily 全部失败（403/429/网络错误）时自动降级到 Serper
+ * Serper 返回 Google 搜索结果，格式适配为 TavilyResult
  *
  * 数据获取策略（Step2数据引擎）：
- * 1. Tavily 限定域名搜索（include_domains）→ 返回真实存在的相关页面URL
- * 2. Jina Reader 抓取 Tavily 返回的真实URL，获取完整页面内容
+ * 1. 搜索引擎限定域名搜索 → 返回真实存在的相关页面URL
+ * 2. Jina Reader 抓取返回的真实URL，获取完整页面内容
  * 3. Yahoo Finance（股价/财务数据）
  * 4. FRED（宏观经济数据）
  * 5. 通用金融新闻搜索（兜底）
  *
  * ⚠️ 严禁AI编造数据：无真实来源时必须明确说明"未能获取实时数据"
- * ⚠️ 所有URL均来自Tavily搜索结果，100%真实有效，绝不由LLM生成
+ * ⚠️ 所有URL均来自搜索引擎结果，100%真实有效，绝不由LLM生成
  */
 
 import { notifyOwner } from "./_core/notification";
 import { fetchMultipleWithJina } from "./jinaReader";
 import { ENV } from "./_core/env";
 
-// 四个Key按顺序排列，过滤掉未配置的
+// ─────────────────────────────────────────────
+// Tavily 四Key轮换
+// ─────────────────────────────────────────────
+
 const TAVILY_KEYS = [
   ENV.TAVILY_API_KEY || "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",
   ENV.TAVILY_API_KEY_2 || "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",
@@ -28,18 +31,44 @@ const TAVILY_KEYS = [
   ENV.TAVILY_API_KEY_4 || "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",
 ].filter(Boolean) as string[];
 
-// 记录每个Key的状态（内存级，重启后重置）
+// ─────────────────────────────────────────────
+// Serper 三Key轮换（Tavily 降级备用）
+// ─────────────────────────────────────────────
+
+const SERPER_KEYS = [
+  ENV.SERPER_API_KEY,
+  ENV.SERPER_API_KEY_2,
+  ENV.SERPER_API_KEY_3,
+].filter(Boolean) as string[];
+
+// Key 状态追踪（内存级，重启后重置）
 type KeyStatus = "active" | "exhausted" | "error";
 const keyStatusMap = new Map<string, KeyStatus>();
 
-// 防止重复发送通知
+// 引擎级别状态：Tavily 是否全部不可用
+let tavilyAllDown = false;
 let allKeysExhaustedNotified = false;
 
 export function isTavilyConfigured(): boolean {
-  return TAVILY_KEYS.length > 0;
+  return TAVILY_KEYS.length > 0 || SERPER_KEYS.length > 0;
 }
 
-/** 获取四个Key的当前状态（供设置页展示） */
+export function isSerperConfigured(): boolean {
+  return SERPER_KEYS.length > 0;
+}
+
+/** 获取当前使用的搜索引擎 */
+export function getActiveSearchEngine(): "tavily" | "serper" | "none" {
+  if (!tavilyAllDown && TAVILY_KEYS.some(k => (keyStatusMap.get(k) ?? "active") !== "exhausted")) {
+    return "tavily";
+  }
+  if (SERPER_KEYS.some(k => (keyStatusMap.get(k) ?? "active") !== "exhausted")) {
+    return "serper";
+  }
+  return "none";
+}
+
+/** 获取 Tavily 四个Key的当前状态（供设置页展示） */
 export function getTavilyKeyStatuses(): Array<{
   index: number;
   masked: string;
@@ -60,32 +89,47 @@ export function getTavilyKeyStatuses(): Array<{
   }));
 }
 
-/** 判断是否是额度耗尽/认证失败的错误码 */
+/** 获取 Serper 三个Key的当前状态（供设置页展示） */
+export function getSerperKeyStatuses(): Array<{
+  index: number;
+  masked: string;
+  status: KeyStatus;
+  configured: boolean;
+}> {
+  const allKeys = [
+    ENV.SERPER_API_KEY || "",
+    ENV.SERPER_API_KEY_2 || "",
+    ENV.SERPER_API_KEY_3 || "",
+  ];
+  return allKeys.map((key, i) => ({
+    index: i + 1,
+    masked: key ? key.slice(0, 8) + "..." + key.slice(-6) : "",
+    status: key ? (keyStatusMap.get(key) ?? "active") : "error",
+    configured: !!key,
+  }));
+}
+
 function isExhaustedError(status: number): boolean {
   return status === 429 || status === 403 || status === 401;
 }
 
-/** 发送所有Key耗尽通知（只发一次） */
 async function notifyAllKeysExhausted(): Promise<void> {
   if (allKeysExhaustedNotified) return;
   allKeysExhaustedNotified = true;
-
-  const statusSummary = TAVILY_KEYS.map((k, i) => {
-    const s = keyStatusMap.get(k) ?? "active";
-    return `Key${i + 1}(${k.slice(0, 10)}...): ${s}`;
-  }).join("\n");
-
-  console.error("[Tavily] All keys exhausted or failed");
-
+  console.error("[WebSearch] All Tavily + Serper keys exhausted or failed");
   try {
     await notifyOwner({
-      title: "⚠️ Tavily API 所有Key已耗尽",
-      content: `DanTree 数据引擎的 Tavily 搜索功能已无法使用，请前往设置补充新的 API Key。\n\n当前状态：\n${statusSummary}\n\n请访问 https://app.tavily.com 获取新的 API Key，然后在设置页「资料数据库」Tab 更新。`,
+      title: "⚠️ 搜索引擎 API 全部不可用",
+      content: `Tavily（4 Key）和 Serper（3 Key）均已失败，网页搜索功能暂时不可用。\n\n请检查 API Key 额度或网络状态。`,
     });
   } catch (err) {
-    console.error("[Tavily] Failed to send owner notification:", err);
+    console.error("[WebSearch] Failed to send owner notification:", err);
   }
 }
+
+// ─────────────────────────────────────────────
+// 统一搜索结果类型
+// ─────────────────────────────────────────────
 
 export interface TavilyResult {
   url: string;
@@ -95,11 +139,15 @@ export interface TavilyResult {
   published_date?: string;
 }
 
-/** 核心搜索请求，带四Key轮换 */
+// ─────────────────────────────────────────────
+// Tavily 搜索请求（四Key轮换）
+// ─────────────────────────────────────────────
+
 async function tavilySearchRequest(
   payload: Record<string, unknown>
-): Promise<TavilyResult[]> {
-  if (TAVILY_KEYS.length === 0) return [];
+): Promise<TavilyResult[] | null> {
+  // 返回 null 表示 Tavily 全部失败，需要降级到 Serper
+  if (TAVILY_KEYS.length === 0) return null;
 
   for (let i = 0; i < TAVILY_KEYS.length; i++) {
     const key = TAVILY_KEYS[i];
@@ -116,7 +164,8 @@ async function tavilySearchRequest(
 
       if (res.ok) {
         keyStatusMap.set(key, "active");
-        allKeysExhaustedNotified = false; // 重置通知状态
+        tavilyAllDown = false;
+        allKeysExhaustedNotified = false;
         const data = await res.json() as { results: TavilyResult[] };
         return data.results ?? [];
       }
@@ -137,27 +186,128 @@ async function tavilySearchRequest(
     }
   }
 
-  // 全部Key失败
+  // Tavily 全部失败
+  tavilyAllDown = true;
+  console.warn("[Tavily] All keys failed, falling back to Serper");
+  return null;
+}
+
+// ─────────────────────────────────────────────
+// Serper 搜索请求（三Key轮换）
+// ─────────────────────────────────────────────
+
+interface SerperOrganicResult {
+  title: string;
+  link: string;
+  snippet: string;
+  date?: string;
+  position?: number;
+}
+
+/** 将 Serper 结果适配为 TavilyResult 格式 */
+function serperToTavilyResults(organic: SerperOrganicResult[]): TavilyResult[] {
+  return organic.map((r, i) => ({
+    url: r.link,
+    title: r.title,
+    content: r.snippet || "",
+    score: 1 - i * 0.1, // 按排名递减
+    published_date: r.date,
+  }));
+}
+
+async function serperSearchRequest(
+  query: string,
+  maxResults: number = 5,
+  options?: { gl?: string; hl?: string }
+): Promise<TavilyResult[]> {
+  if (SERPER_KEYS.length === 0) return [];
+
+  for (let i = 0; i < SERPER_KEYS.length; i++) {
+    const key = SERPER_KEYS[i];
+    const currentStatus = keyStatusMap.get(key) ?? "active";
+    if (currentStatus === "exhausted") continue;
+
+    try {
+      const res = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          q: query,
+          num: maxResults,
+          gl: options?.gl || "us",
+          hl: options?.hl || "en",
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (res.ok) {
+        keyStatusMap.set(key, "active");
+        allKeysExhaustedNotified = false;
+        const data = await res.json() as { organic: SerperOrganicResult[] };
+        console.log(`[Serper] Key ${i + 1} success, ${data.organic?.length ?? 0} results`);
+        return serperToTavilyResults(data.organic ?? []);
+      }
+
+      if (isExhaustedError(res.status)) {
+        console.warn(`[Serper] Key ${i + 1} exhausted (HTTP ${res.status}), switching to next`);
+        keyStatusMap.set(key, "exhausted");
+        continue;
+      }
+
+      console.error(`[Serper] Key ${i + 1} HTTP ${res.status}`);
+      keyStatusMap.set(key, "error");
+      continue;
+    } catch (err) {
+      console.error(`[Serper] Key ${i + 1} network error:`, err);
+      keyStatusMap.set(key, "error");
+      continue;
+    }
+  }
+
+  // Serper 也全部失败
   await notifyAllKeysExhausted();
   return [];
+}
+
+// ─────────────────────────────────────────────
+// 统一搜索入口（Tavily → Serper 降级链）
+// ─────────────────────────────────────────────
+
+/**
+ * 核心搜索请求：先尝试 Tavily，失败后降级到 Serper
+ */
+async function unifiedSearchRequest(
+  payload: Record<string, unknown>
+): Promise<TavilyResult[]> {
+  // 如果 Tavily 之前已知全挂，直接走 Serper
+  if (!tavilyAllDown) {
+    const tavilyResults = await tavilySearchRequest(payload);
+    if (tavilyResults !== null) return tavilyResults;
+  }
+
+  // Tavily 失败或已知不可用 → Serper 降级
+  const query = (payload.query as string) || "";
+  const maxResults = (payload.max_results as number) || 5;
+
+  // Serper 不支持 include_domains，但我们可以在 query 中加入 site: 限定
+  const includeDomains = payload.include_domains as string[] | undefined;
+  let serperQuery = query;
+  if (includeDomains && includeDomains.length > 0) {
+    // 最多取 3 个域名用 site: 限定（Google 搜索语法）
+    const siteFilter = includeDomains.slice(0, 3).map(d => `site:${d}`).join(" OR ");
+    serperQuery = `${query} (${siteFilter})`;
+  }
+
+  return serperSearchRequest(serperQuery, maxResults);
 }
 
 // ─────────────────────────────────────────────
 // 对外暴露的高层函数
 // ─────────────────────────────────────────────
 
-/**
- * 从用户数据库域名中搜索任务相关内容
- *
- * 核心策略（安全可靠，URL 100% 真实）：
- * 1. 从用户数据库 URL 提取域名列表
- * 2. Tavily include_domains 限定搜索 → 返回真实存在的相关页面 URL
- * 3. Jina Reader 抓取 Tavily 返回的真实页面，获取完整内容
- *
- * 不再直接 Extract 首页 URL（首页内容与任务无关）
- * 不再由 LLM 生成 URL（LLM 可能生成不存在的链接）
- */
-/** searchFromUserLibrary 的返回类型，包含文本内容和来源域名列表 */
 export interface SearchResult {
   content: string;
   sources: Array<{ domain: string; url: string; title: string; success: boolean }>;
@@ -184,11 +334,10 @@ export async function searchFromUserLibrary(
     .filter((d): d is string => d !== null && d.length > 0);
 
   const uniqueDomains = Array.from(new Set(domains)).slice(0, 15);
-
   if (uniqueDomains.length === 0) return emptyResult;
 
-  // Step 2: Tavily 限定域名搜索
-  const tavilyResults = await tavilySearchRequest({
+  // Step 2: 统一搜索（Tavily → Serper 降级）
+  const searchResults = await unifiedSearchRequest({
     query,
     max_results: 8,
     search_depth: "advanced",
@@ -197,10 +346,10 @@ export async function searchFromUserLibrary(
     topic: "finance",
   });
 
-  if (tavilyResults.length === 0) return emptyResult;
+  if (searchResults.length === 0) return emptyResult;
 
   // Step 3: 提取高分 URL，最多 5 个
-  const sortedResults = tavilyResults.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const sortedResults = searchResults.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const topResults = sortedResults.slice(0, 5);
   const realUrls = topResults.map(r => r.url);
 
@@ -211,7 +360,6 @@ export async function searchFromUserLibrary(
   const allParts: string[] = [];
   const sources: SearchResult["sources"] = [];
 
-  // 收集来源信息
   for (const r of topResults) {
     const jinaResult = jinaResults.find(j => j.url === r.url);
     const domain = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return r.url; } })();
@@ -223,34 +371,34 @@ export async function searchFromUserLibrary(
     });
   }
 
-  // 优先展示 Jina 抓取的完整内容
   if (jinaSuccessful.length > 0) {
     const jinaFormatted = jinaSuccessful
       .map((r, i) => {
-        const tavilyMeta = tavilyResults.find(t => t.url === r.url);
+        const tavilyMeta = searchResults.find(t => t.url === r.url);
         const date = tavilyMeta?.published_date ? ` (${tavilyMeta.published_date})` : "";
         const title = r.title || tavilyMeta?.title || r.url;
         return `### 来源${i + 1}：${title}${date}\n**URL**: ${r.url}\n\n${r.content.slice(0, 2000)}`;
       })
       .join("\n\n---\n\n");
-    allParts.push(`## 用户数据库实时内容（Tavily搜索定位 → Jina深度抓取）\n\n${jinaFormatted}`);
+    const engine = getActiveSearchEngine();
+    const engineLabel = engine === "serper" ? "Serper" : "Tavily";
+    allParts.push(`## 用户数据库实时内容（${engineLabel}搜索定位 → Jina深度抓取）\n\n${jinaFormatted}`);
   }
 
-  // Jina 失败的回退用 Tavily 摘要
   const jinaSuccessUrls = new Set(jinaSuccessful.map(r => r.url));
-  const tavilyFallback = tavilyResults.filter(
+  const fallback = searchResults.filter(
     r => !jinaSuccessUrls.has(r.url) && r.content && r.content.length > 100
   );
 
-  if (tavilyFallback.length > 0) {
-    const fallbackFormatted = tavilyFallback
+  if (fallback.length > 0) {
+    const fallbackFormatted = fallback
       .slice(0, 3)
       .map((r, i) => {
         const date = r.published_date ? ` (${r.published_date})` : "";
         return `### 补充来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content.slice(0, 800)}`;
       })
       .join("\n\n---\n\n");
-    allParts.push(`## 补充数据（Tavily摘要）\n\n${fallbackFormatted}`);
+    allParts.push(`## 补充数据（搜索摘要）\n\n${fallbackFormatted}`);
   }
 
   return { content: allParts.join("\n\n---\n\n"), sources };
@@ -262,7 +410,7 @@ export async function searchFromUserLibrary(
 export async function searchFinancialNews(query: string, maxResults = 5): Promise<string> {
   if (!isTavilyConfigured()) return "";
 
-  const results = await tavilySearchRequest({
+  const results = await unifiedSearchRequest({
     query,
     max_results: maxResults,
     search_depth: "basic",
@@ -272,6 +420,9 @@ export async function searchFinancialNews(query: string, maxResults = 5): Promis
 
   if (results.length === 0) return "";
 
+  const engine = getActiveSearchEngine();
+  const engineLabel = engine === "serper" ? "Serper/Google" : "Tavily";
+
   const formatted = results
     .map((r, i) => {
       const date = r.published_date ? ` (${r.published_date})` : "";
@@ -279,7 +430,7 @@ export async function searchFinancialNews(query: string, maxResults = 5): Promis
     })
     .join("\n\n---\n\n");
 
-  return `## 实时网络搜索结果（来源：Tavily）\n\n${formatted}`;
+  return `## 实时网络搜索结果（来源：${engineLabel}）\n\n${formatted}`;
 }
 
 /**
@@ -300,14 +451,13 @@ export async function searchMacroNews(topic: string): Promise<string> {
   return searchFinancialNews(query, 4);
 }
 
-/** searchForTask 的返回类型，包含内容和来源列表 */
 export interface TaskSearchResult {
   content: string;
   sources: SearchResult["sources"];
 }
 
 /**
- * 综合搜索：优先用户数据库 → 通用搜索底底
+ * 综合搜索：优先用户数据库 → 通用搜索兜底
  */
 export async function searchForTask(
   taskDescription: string,
@@ -327,7 +477,7 @@ export async function searchForTask(
     }
   }
 
-  // 底底：通用金融新闻（仅当用户数据库没有结果时）
+  // 兜底：通用金融新闻（仅当用户数据库没有结果时）
   if (parts.length === 0) {
     const generalNews = await searchFinancialNews(taskDescription, 3);
     if (generalNews) parts.push(generalNews);

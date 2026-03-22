@@ -65,7 +65,7 @@ import { fetchStockDataForTask, fetchStockDataForTaskWithDedup } from "./yahooFi
 import { getMacroDataByKeywords } from "./fredApi";
 import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
-import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses } from "./tavilySearch";
+import { searchForTask, isTavilyConfigured, getTavilyKeyStatuses, getSerperKeyStatuses, isSerperConfigured, getActiveSearchEngine } from "./tavilySearch";
 import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
 import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth, getTechnicalIndicators, formatTechnicalIndicators } from "./alphaVantageApi";
 import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth, getOptionsChain, formatOptionsChain } from "./polygonApi";
@@ -135,6 +135,11 @@ type DataSourceStatusResult = {
   congressStatus: ApiHealthStatus; congressConfigured: boolean;
   eurLexStatus: ApiHealthStatus; eurLexConfigured: boolean;
   gleifStatus: ApiHealthStatus; gleifConfigured: boolean;
+  // Serper（Tavily 备用搜索引擎）
+  serperConfigured: boolean;
+  serperActiveCount: number;
+  serperTotal: number;
+  activeSearchEngine: "tavily" | "serper" | "none";
 };
 let dataSourceStatusCache: DataSourceStatusResult | null = null;
 let dataSourceStatusCacheTime = 0;
@@ -173,6 +178,10 @@ function buildDefaultDataSourceStatus(): DataSourceStatusResult {
     congressStatus: "unknown", congressConfigured: !!ENV.CONGRESS_API_KEY,
     eurLexStatus: "unknown", eurLexConfigured: true,
     gleifStatus: "unknown", gleifConfigured: true,
+    serperConfigured: isSerperConfigured(),
+    serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
+    serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
+    activeSearchEngine: getActiveSearchEngine(),
   };
 }
 
@@ -261,6 +270,10 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     congressStatus: keyedMap["congress"] ?? "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
     eurLexStatus: freePublicApis.eurLex, eurLexConfigured: true,
     gleifStatus: freePublicApis.gleif, gleifConfigured: true,
+    serperConfigured: isSerperConfigured(),
+    serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
+    serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
+    activeSearchEngine: getActiveSearchEngine(),
   };
   dataSourceStatusCache = result;
   dataSourceStatusCacheTime = Date.now();
@@ -2461,6 +2474,9 @@ export const appRouter = router({
         congress: { configured: !!ENV.CONGRESS_API_KEY, status: congressStatus },
         eurLex: { configured: true, status: eurLexStatus },
         gleif: { configured: true, status: gleifStatus },
+        serper: getSerperKeyStatuses(),
+        serperConfigured: isSerperConfigured(),
+        activeSearchEngine: getActiveSearchEngine(),
       };
     }),
   }),

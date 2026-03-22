@@ -1112,3 +1112,11 @@
 - [x] Settings ⑩：投资守则改为结构化表单（philosophy chips + market_priority + 风险策略数字输入）+ 自由补充文本 + 结构化/自由文本模式切换
 - [x] AnswerHeader 升级：支持展开详情（key_findings/risks/gaps 各带 citations 数量展示）
 - [x] 运行测试：TypeScript 0 错误，248/250 测试通过（2 个外部 API 限额失败）
+
+## Serper.dev 搜索引擎接入（2026-03-22）
+- [x] 接入 Serper.dev Google Search API 作为 Tavily 备用搜索引擎（3 Key 轮换）
+- [x] Tavily 403 时自动降级到 Serper，Serper 结果格式适配为 TavilyResult（site: 语法支持域名限定）
+- [x] 配置 SERPER_API_KEY / SERPER_API_KEY_2 / SERPER_API_KEY_3 环境变量
+- [x] 设置页面展示 Serper 状态 + 当前活跃引擎指示
+- [x] DataSourceStatusResult 类型扩展（serperConfigured/serperActiveCount/serperTotal/activeSearchEngine）
+- [x] 运行测试：252/253 通过，3 个 Serper Key 验证全部通过

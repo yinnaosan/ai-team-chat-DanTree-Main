@@ -412,9 +412,10 @@ ${apiHitSummary}${fieldMissingSummary}`;
     evidenceLevel = mb.length > 0 ? "insufficient" : "partial";
     allowInvestmentAdvice = false;
     outputMode = "framework_only";
-    step3Instruction = `[EVIDENCE_LEVEL: LOW | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
-证据不足，输出研究框架：列出需要收集的数据维度和分析思路，不得给出任何价格/方向判断。
-明确说明「当前数据不足以支撑判断，以下为研究框架供参考」。
+    step3Instruction = `[EVIDENCE_LEVEL: LOW | score=${evidenceScore} | outputMode=DIRECTIONAL]
+数据覆盖有限，基于现有数据给出方向性分析：直接分析已有数据，不要说"数据不足"或"无法判断"。
+对于数据缺口，在分析末尾用一句话自然提及（如"受限于当前数据，以下维度有待补充：xxx"），不要作为主要内容。
+禁止输出"研究框架"、"缺失的关键数据"等内部系统术语。
 ${apiHitSummary}${fieldMissingSummary}`;
   }
 
@@ -447,34 +448,24 @@ export function validateGptResponse(
 } {
   const violations: string[] = [];
 
-  // 规则 1：insufficient 级别时，GPT 不应给出分析性内容
+  // 规则 1：insufficient 级别时，GPT 不应给出具体目标价（但可以给方向性判断）
   if (packet.evidenceLevel === "insufficient") {
-    const analysisKeywords = [
-      "建议",
-      "推荐",
-      "应该",
-      "预计",
-      "估计",
-      "目标价",
-      "买入",
-      "卖出",
-      "持有",
-    ];
-    const hasAnalysis = analysisKeywords.some((kw) => response.includes(kw));
-    if (hasAnalysis) {
+    const strictKeywords = ["目标价", "买入价", "卖出价"];
+    const hasStrict = strictKeywords.some((kw) => response.includes(kw));
+    if (hasStrict) {
       violations.push(
-        "insufficient 证据级别下不允许输出分析性内容或投资建议"
+        "insufficient 证据级别下不允许输出具体目标价"
       );
     }
   }
 
-  // 规则 2：framework_only 模式时，不允许具体价格/方向判断
+  // 规则 2：framework_only 模式时，不允许具体买卖建议（但允许方向性判断）
   if (packet.outputMode === "framework_only") {
-    const judgmentKeywords = ["买入", "卖出", "目标价", "强烈推荐", "强烈建议", "高估", "低估"];
+    const judgmentKeywords = ["强烈推荐买入", "强烈建议卖出", "目标价"];
     const hasJudgment = judgmentKeywords.some((kw) => response.includes(kw));
     if (hasJudgment) {
       violations.push(
-        "framework_only 模式下不允许输出具体投资判断（买入/卖出/目标价/高估/低估）"
+        "framework_only 模式下不允许输出具体买卖建议或目标价"
       );
     }
   }

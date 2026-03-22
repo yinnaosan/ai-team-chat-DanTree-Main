@@ -305,6 +305,10 @@ export interface FmpStockData {
   balanceSheets: FmpBalanceSheet[];
   cashFlows: FmpCashFlow[];
   keyMetrics: FmpKeyMetrics[];
+  // 季报数据（最近 6 个季度）
+  quarterlyIncomeStatements: FmpIncomeStatement[];
+  quarterlyBalanceSheets: FmpBalanceSheet[];
+  quarterlyCashFlows: FmpCashFlow[];
   dcf: FmpDcf | null;
   priceTarget: FmpPriceTarget | null;
   source: string;
@@ -313,7 +317,8 @@ export interface FmpStockData {
 
 export async function getStockFullData(symbol: string): Promise<FmpStockData> {
   const sym = symbol.toUpperCase();
-  const [quote, profile, income, balance, cashflow, metrics, dcf, target] = await Promise.allSettled([
+  const [quote, profile, income, balance, cashflow, metrics, dcf, target,
+    incomeQ, balanceQ, cashflowQ] = await Promise.allSettled([
     getQuote(sym),
     getProfile(sym),
     getIncomeStatement(sym, 4, "annual"),
@@ -322,6 +327,10 @@ export async function getStockFullData(symbol: string): Promise<FmpStockData> {
     getKeyMetrics(sym, 4, "annual"),
     getDcfValuation(sym),
     getPriceTargetConsensus(sym),
+    // 季报数据（最近 6 个季度）
+    getIncomeStatement(sym, 6, "quarter"),
+    getBalanceSheet(sym, 6, "quarter"),
+    getCashFlowStatement(sym, 6, "quarter"),
   ]);
 
   return {
@@ -332,6 +341,9 @@ export async function getStockFullData(symbol: string): Promise<FmpStockData> {
     balanceSheets: balance.status === "fulfilled" ? balance.value : [],
     cashFlows: cashflow.status === "fulfilled" ? cashflow.value : [],
     keyMetrics: metrics.status === "fulfilled" ? metrics.value : [],
+    quarterlyIncomeStatements: incomeQ.status === "fulfilled" ? incomeQ.value : [],
+    quarterlyBalanceSheets: balanceQ.status === "fulfilled" ? balanceQ.value : [],
+    quarterlyCashFlows: cashflowQ.status === "fulfilled" ? cashflowQ.value : [],
     dcf: dcf.status === "fulfilled" ? dcf.value : null,
     priceTarget: target.status === "fulfilled" ? target.value : null,
     source: "Financial Modeling Prep",
@@ -365,8 +377,18 @@ export function formatFmpData(data: FmpStockData): string {
     }
   }
 
+  // 季报数据（优先展示，更新更及时）
+  if (data.quarterlyIncomeStatements && data.quarterlyIncomeStatements.length > 0) {
+    lines.push(`\n### 季报损益表（最近 ${data.quarterlyIncomeStatements.length} 个季度）`);
+    lines.push(`| 季度 | 营收 | 毛利润 | 营业利润 | 净利润 | EPS |`);
+    lines.push(`|------|------|--------|----------|--------|-----|`);
+    for (const s of data.quarterlyIncomeStatements) {
+      lines.push(`| ${s.date.slice(0, 7)} (${s.period}) | $${(s.revenue / 1e9).toFixed(2)}B | $${(s.grossProfit / 1e9).toFixed(2)}B | $${(s.operatingIncome / 1e9).toFixed(2)}B | $${(s.netIncome / 1e9).toFixed(2)}B | $${s.eps?.toFixed(2) ?? "N/A"} |`);
+    }
+  }
+
   if (data.incomeStatements.length > 0) {
-    lines.push(`\n### 损益表（年度，最近 ${data.incomeStatements.length} 年）`);
+    lines.push(`\n### 年度损益表（最近 ${data.incomeStatements.length} 年）`);
     lines.push(`| 财年 | 营收 | 毛利润 | 营业利润 | 净利润 | EPS |`);
     lines.push(`|------|------|--------|----------|--------|-----|`);
     for (const s of data.incomeStatements) {

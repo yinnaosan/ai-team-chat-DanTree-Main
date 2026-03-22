@@ -450,7 +450,7 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
   );
 }
 
-function AnswerHeader({ answerObject, evidenceScore, outputMode, missingBlocking, missingImportant, missingOptional }: {
+function AnswerHeader({ answerObject, outputMode }: {
   answerObject: NonNullable<NonNullable<Msg["metadata"]>["answerObject"]>;
   evidenceScore?: number;
   outputMode?: "decisive" | "directional" | "framework_only";
@@ -459,32 +459,24 @@ function AnswerHeader({ answerObject, evidenceScore, outputMode, missingBlocking
   missingOptional?: string[];
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const outputModeMap = {
-    decisive: { label: "证据充分", color: "oklch(0.72 0.18 155)", bg: "oklch(0.72 0.18 155 / 0.1)", border: "oklch(0.72 0.18 155 / 0.2)" },
-    directional: { label: "方向性", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.1)", border: "oklch(0.78 0.18 75 / 0.2)" },
-    framework_only: { label: "框架参考", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.1)", border: "oklch(0.72 0.18 25 / 0.2)" },
-  };
+  // 置信度映射 — 仅展示置信度和引用数
   const confidenceMap = {
-    high: { label: "高置信", color: "oklch(0.72 0.18 155)", bg: "oklch(0.72 0.18 155 / 0.12)", border: "oklch(0.72 0.18 155 / 0.25)" },
-    medium: { label: "中置信", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.12)", border: "oklch(0.78 0.18 75 / 0.25)" },
-    low: { label: "低置信", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.12)", border: "oklch(0.72 0.18 25 / 0.25)" },
+    high: { label: "高置信", color: "oklch(0.72 0.18 155)", bg: "oklch(0.72 0.18 155 / 0.1)", border: "oklch(0.72 0.18 155 / 0.2)" },
+    medium: { label: "中置信", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.1)", border: "oklch(0.78 0.18 75 / 0.2)" },
+    low: { label: "低置信", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.1)", border: "oklch(0.72 0.18 25 / 0.2)" },
   };
+  // outputMode 仅影响左侧边框颜色，不展示标签
+  const modeAccent = outputMode === "decisive" ? "oklch(0.72 0.18 155 / 0.6)"
+    : outputMode === "directional" ? "oklch(0.78 0.18 75 / 0.5)"
+    : "oklch(0.45 0.01 270 / 0.5)";
   const conf = confidenceMap[answerObject.confidence] ?? confidenceMap.medium;
-  const dataGapsCount = Array.isArray(answerObject.data_gaps) ? answerObject.data_gaps.length : 0;
-  const hardMissingCount = answerObject.hard_missing_count ?? (
-    Array.isArray(answerObject.data_gaps)
-      ? answerObject.data_gaps.filter((g: any) => typeof g === "object" && g.hard_missing).length
-      : 0
-  );
   const hasDetails = (answerObject.key_findings?.length ?? 0) > 0 ||
-    (answerObject.risks?.length ?? 0) > 0 ||
-    (answerObject.gaps?.length ?? 0) > 0;
+    (answerObject.risks?.length ?? 0) > 0;
   return (
     <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
-      style={{ background: "oklch(0.16 0.01 270)", border: "1px solid oklch(0.28 0.01 270)" }}>
+      style={{ background: "oklch(0.16 0.01 270)", borderLeft: `3px solid ${modeAccent}`, border: "1px solid oklch(0.28 0.01 270)", borderLeftWidth: "3px" }}>
       {/* Verdict */}
       <div className="flex items-start gap-2">
-        <span className="shrink-0 text-xs font-semibold mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>核心判断</span>
         <span className="text-sm font-medium leading-snug flex-1" style={{ color: "oklch(0.92 0.005 270)" }}>{answerObject.verdict}</span>
         {hasDetails && (
           <button onClick={() => setExpanded(e => !e)}
@@ -494,50 +486,20 @@ function AnswerHeader({ answerObject, evidenceScore, outputMode, missingBlocking
           </button>
         )}
       </div>
-      {/* Badges row */}
+      {/* 简洁 badge 行：仅置信度 + 引用数 */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
           style={{ background: conf.bg, border: `1px solid ${conf.border}`, color: conf.color }}>
           {conf.label}
         </span>
-        {outputMode && outputModeMap[outputMode] && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: outputModeMap[outputMode].bg, border: `1px solid ${outputModeMap[outputMode].border}`, color: outputModeMap[outputMode].color }}>
-            {outputModeMap[outputMode].label}
-          </span>
-        )}
-        {evidenceScore !== undefined && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
-            证据 {evidenceScore}
-          </span>
-        )}
         {answerObject.citations_count !== undefined && answerObject.citations_count > 0 && (
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>
+            style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
             {answerObject.citations_count} 条引用
           </span>
         )}
-        {dataGapsCount > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(0.78 0.18 75 / 0.08)", border: "1px solid oklch(0.78 0.18 75 / 0.2)", color: "oklch(0.78 0.18 75)" }}>
-            {hardMissingCount > 0 ? `${hardMissingCount} 个硬缺失` : `${dataGapsCount} 个缺口`}
-          </span>
-        )}
-        {(missingBlocking?.length ?? 0) > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(0.72 0.18 25 / 0.12)", border: "1px solid oklch(0.72 0.18 25 / 0.25)", color: "oklch(0.72 0.18 25)" }}>
-            {missingBlocking!.length} 个阻断缺失
-          </span>
-        )}
-        {(missingImportant?.length ?? 0) > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(0.78 0.18 75 / 0.08)", border: "1px solid oklch(0.78 0.18 75 / 0.18)", color: "oklch(0.78 0.18 75)" }}>
-            {missingImportant!.length} 个重要缺失
-          </span>
-        )}
       </div>
-      {/* Expanded details: key_findings / risks / gaps */}
+      {/* 展开详情：主要发现 + 风险 */}
       {expanded && hasDetails && (
         <div className="mt-1 flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid oklch(0.22 0.008 270)" }}>
           {(answerObject.key_findings?.length ?? 0) > 0 && (
@@ -561,57 +523,12 @@ function AnswerHeader({ answerObject, evidenceScore, outputMode, missingBlocking
           )}
           {(answerObject.risks?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.72 0.18 25)" }}>风险项</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.72 0.18 25)" }}>风险</p>
               <div className="flex flex-col gap-1">
                 {answerObject.risks!.map((r, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 25)" }}>⚠</span>
                     <span style={{ color: "oklch(0.82 0.005 270)" }}>{r.description}</span>
-                    {(r.citations?.length ?? 0) > 0 && (
-                      <span className="shrink-0 ml-auto text-xs px-1.5 py-0.5 rounded"
-                        style={{ background: "oklch(0.72 0.18 25 / 0.1)", color: "oklch(0.72 0.18 25)" }}>
-                        {r.citations!.length}条证据
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {(answerObject.gaps?.length ?? 0) > 0 && (
-            <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.78 0.18 75)" }}>证据缺口</p>
-              <div className="flex flex-col gap-1">
-                {answerObject.gaps!.map((g, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.78 0.18 75)" }}>—</span>
-                    <span style={{ color: "oklch(0.65 0.01 270)" }}>{g.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* 字段缺失分层 */}
-          {((missingBlocking?.length ?? 0) > 0 || (missingImportant?.length ?? 0) > 0 || (missingOptional?.length ?? 0) > 0) && (
-            <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.72 0.18 25)" }}>字段覆盖缺失</p>
-              <div className="flex flex-col gap-1">
-                {missingBlocking?.map((f, i) => (
-                  <div key={`b-${i}`} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.72 0.18 25 / 0.15)", color: "oklch(0.72 0.18 25)" }}>阻断</span>
-                    <span style={{ color: "oklch(0.82 0.005 270)" }}>{f}</span>
-                  </div>
-                ))}
-                {missingImportant?.map((f, i) => (
-                  <div key={`i-${i}`} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.78 0.18 75 / 0.12)", color: "oklch(0.78 0.18 75)" }}>重要</span>
-                    <span style={{ color: "oklch(0.82 0.005 270)" }}>{f}</span>
-                  </div>
-                ))}
-                {missingOptional?.map((f, i) => (
-                  <div key={`o-${i}`} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.45 0.01 270 / 0.3)", color: "oklch(0.55 0.01 270)" }}>可选</span>
-                    <span style={{ color: "oklch(0.65 0.01 270)" }}>{f}</span>
                   </div>
                 ))}
               </div>

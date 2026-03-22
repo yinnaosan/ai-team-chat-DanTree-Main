@@ -393,6 +393,10 @@ DATA_INTEGRITY[MAX]:
 - "pie"（饼图）：市场份额、营收结构、资产配置
 - "candlestick"【K线图】：股价走势（需提供 open/high/low/close，可选包含 volume 成交量字段）
 - "heatmap"【热力图】：板块涨跌热力图（data 中每项需 name+value，可选 size 权重）
+- "waterfall"【瀑布图】：财务利润拆解（营收→毛利→EBITDA→净利润），data 中每项需 name+value+type（total/subtotal/positive/negative）
+- "gauge"【仪表盘】：综合评分、情绪指数、评级分数（0-100分制），需提供 value/min/max/thresholds
+- "dual_axis"【双轴图】：价格+成交量、营收+增速等双指标对比，需提供 leftKey/rightKey/leftUnit/rightUnit
+- "combo"【复合图】：柱状+折线复合（如营收柱+增速折线），需提供 bars 和 lines 数组
 
 **多系列图表（多条折线/多组柱状）：**
 %%CHART%%
@@ -406,10 +410,26 @@ DATA_INTEGRITY[MAX]:
 %%CHART%%
 {"type":"heatmap","title":"板块涨跌热力图","data":[{"name":"科技","value":3.2,"size":120},{"name":"金融","value":-1.5,"size":90},{"name":"消费","value":0.8,"size":70}]}
 %%END_CHART%%
+**瀑布图格式（财务利润拆解）：**
+%%CHART%%
+{"type":"waterfall","title":"利润拆解","unit":"亿元","data":[{"name":"营业收入","value":1000,"type":"total"},{"name":"营业成本","value":-600,"type":"negative"},{"name":"毛利润","value":400,"type":"subtotal"},{"name":"期间费用","value":-150,"type":"negative"},{"name":"净利润","value":250,"type":"subtotal"}]}
+%%END_CHART%%
+**仪表盘格式（综合评分）：**
+%%CHART%%
+{"type":"gauge","title":"综合投资评分","value":72,"min":0,"max":100,"unit":"分","thresholds":[{"value":40,"color":"#ef4444","label":"谨慎"},{"value":70,"color":"#f59e0b","label":"中性"},{"value":100,"color":"#22c55e","label":"积极"}]}
+%%END_CHART%%
+**双轴图格式（价格+成交量）：**
+%%CHART%%
+{"type":"dual_axis","title":"股价与成交量","data":[{"name":"${lastYearStr}-01","price":150,"volume":8000}],"xKey":"name","leftKey":"price","rightKey":"volume","leftUnit":"USD","rightUnit":"万"}
+%%END_CHART%%
+**复合图格式（营收+增速）：**
+%%CHART%%
+{"type":"combo","title":"营收与增速","data":[{"name":"${twoYearsAgoStr}Q1","revenue":500,"growth":12},{"name":"${twoYearsAgoStr}Q2","revenue":550,"growth":15}],"xKey":"name","bars":[{"key":"revenue","name":"营收","color":"#6366f1"}],"lines":[{"key":"growth","name":"增速","color":"#22c55e","unit":"%"}]}
+%%END_CHART%%
 - data 数组最多 24 个数据点（热力图可到 30 个）
 - 图表必须紧跟相关文字分析，不能孤立出现
 - 每次回复至少包含 1 个图表（如果有任何数据可视化机会）
-- 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick` + USER_CORE_RULES;
+- 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick；分析财务结构时使用 waterfall；给出综合评分时使用 gauge；分析营收趋势时使用 combo` + USER_CORE_RULES;
 
   // -- 历史记忆上下文 --------------------------------------------------------
   // 语义相关性召回：对话级优先，全局兑底，关键词匹配 + 时间衰减双维度评分

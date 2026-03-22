@@ -1,82 +1,46 @@
 /**
- * InlineChart — 解析消息内容中的 %%CHART%%...%%END_CHART%% 标记并渲染图表
+ * InlineChart — 专业金融图表组件
  *
- * 支持的图表类型：line | bar | pie | area | scatter | candlestick | heatmap | treemap
+ * 支持的图表类型：
+ *   line | bar | pie | area | scatter
+ *   candlestick  — TradingView lightweight-charts K线（含成交量+MA5/MA20/MA60）
+ *   heatmap      — 板块涨跌热力图
+ *   waterfall    — 瀑布图（财务分析）
+ *   gauge        — 仪表盘（评分/指数）
+ *   dual_axis    — 双轴图（价格+指标）
+ *   combo        — 复合图（柱+折线）
  *
  * 标记格式（后端嵌入消息中）：
  * %%CHART%%
- * {
- *   "type": "line",
- *   "title": "苹果股价走势",
- *   "data": [{"name":"2024-01","value":185},{"name":"2024-02","value":190}],
- *   "xKey": "name",
- *   "yKey": "value",
- *   "color": "#6366f1",
- *   "unit": "USD"
- * }
+ * { "type": "line", "title": "...", "data": [...], "xKey": "name", "yKey": "value", "unit": "USD" }
  * %%END_CHART%%
  *
- * K线图格式（支持成交量 + MA5/MA20）：
- * %%CHART%%
- * {
- *   "type": "candlestick",
- *   "title": "股价K线",
- *   "data": [{"name":"2024-01","open":100,"high":110,"low":95,"close":105,"volume":1234567}],
- *   "xKey": "name"
- * }
- * %%END_CHART%%
+ * K线格式：
+ * { "type": "candlestick", "title": "...", "data": [{"name":"2025-01","open":100,"high":110,"low":95,"close":105,"volume":1234567}] }
  *
- * 热力图格式（板块涨跌）：
- * %%CHART%%
- * {
- *   "type": "heatmap",
- *   "title": "板块涨跌热力图",
- *   "data": [
- *     {"name":"科技","value":3.2,"size":120},
- *     {"name":"金融","value":-1.5,"size":90}
- *   ]
- * }
- * %%END_CHART%%
+ * 瀑布图格式：
+ * { "type": "waterfall", "title": "利润瀑布", "data": [{"name":"营业收入","value":1000,"type":"total"},{"name":"营业成本","value":-600,"type":"negative"},{"name":"毛利润","value":400,"type":"subtotal"}] }
+ *
+ * 仪表盘格式：
+ * { "type": "gauge", "title": "综合评分", "value": 72, "min": 0, "max": 100, "thresholds": [{"value":40,"color":"#ef4444"},{"value":70,"color":"#f59e0b"},{"value":100,"color":"#22c55e"}] }
+ *
+ * 双轴图格式：
+ * { "type": "dual_axis", "title": "...", "data": [...], "xKey": "name", "leftKey": "price", "rightKey": "volume", "leftUnit": "USD", "rightUnit": "万" }
+ *
+ * 复合图格式：
+ * { "type": "combo", "title": "...", "data": [...], "xKey": "name", "bars": [{"key":"revenue","name":"营收","color":"#6366f1"}], "lines": [{"key":"growth","name":"增速","color":"#22c55e","unit":"%"}] }
  */
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, ReferenceLine,
 } from "recharts";
-import { Download, TrendingUp, TrendingDown } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Maximize2, Minimize2 } from "lucide-react";
 
-interface CandleData {
-  name: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume?: number;
-}
-
-interface HeatmapItem {
-  name: string;
-  value: number;   // 涨跌幅 %
-  size?: number;   // 市值权重（可选）
-  children?: HeatmapItem[];
-}
-
-interface ChartConfig {
-  type: "line" | "bar" | "pie" | "area" | "scatter" | "candlestick" | "heatmap" | "treemap";
-  title?: string;
-  data: Record<string, unknown>[];
-  xKey?: string;
-  yKey?: string;
-  /** 多系列时使用 series 字段 */
-  series?: Array<{ key: string; color?: string; name?: string }>;
-  color?: string;
-  colors?: string[];
-  unit?: string;
-}
-
+// ── 颜色系统 ──────────────────────────────────────────────────────────────────
 const DEFAULT_COLORS = [
   "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4",
   "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
@@ -103,7 +67,67 @@ const tooltipStyle = {
   cursor: { fill: "oklch(0.25 0.007 270 / 0.5)" },
 };
 
-// ── 计算移动平均线 ─────────────────────────────────────────────────────────────
+// ── 类型定义 ──────────────────────────────────────────────────────────────────
+interface CandleData {
+  name: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
+interface HeatmapItem {
+  name: string;
+  value: number;
+  size?: number;
+  children?: HeatmapItem[];
+}
+
+interface WaterfallItem {
+  name: string;
+  value: number;
+  type?: "total" | "subtotal" | "positive" | "negative" | "auto";
+}
+
+interface GaugeThreshold {
+  value: number;
+  color: string;
+  label?: string;
+}
+
+interface ChartConfig {
+  type: "line" | "bar" | "pie" | "area" | "scatter" | "candlestick" | "heatmap" | "treemap"
+    | "waterfall" | "gauge" | "dual_axis" | "combo";
+  title?: string;
+  subtitle?: string;
+  data?: Record<string, unknown>[];
+  xKey?: string;
+  yKey?: string;
+  series?: Array<{ key: string; color?: string; name?: string }>;
+  color?: string;
+  colors?: string[];
+  unit?: string;
+  // gauge 专用
+  value?: number;
+  min?: number;
+  max?: number;
+  thresholds?: GaugeThreshold[];
+  // dual_axis 专用
+  leftKey?: string;
+  rightKey?: string;
+  leftUnit?: string;
+  rightUnit?: string;
+  // combo 专用
+  bars?: Array<{ key: string; name?: string; color?: string }>;
+  lines?: Array<{ key: string; name?: string; color?: string; unit?: string }>;
+  // 参考线
+  referenceLines?: Array<{ value: number; label?: string; color?: string }>;
+  // 注释
+  annotations?: string;
+}
+
+// ── 工具函数 ──────────────────────────────────────────────────────────────────
 function calcMA(data: number[], period: number): (number | null)[] {
   return data.map((_, i) => {
     if (i < period - 1) return null;
@@ -112,11 +136,16 @@ function calcMA(data: number[], period: number): (number | null)[] {
   });
 }
 
-// ── 热力图（板块涨跌）─────────────────────────────────────────────────────────
+function formatNumber(v: number, unit = ""): string {
+  if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(2)}亿${unit}`;
+  if (Math.abs(v) >= 1e4) return `${(v / 1e4).toFixed(1)}万${unit}`;
+  return `${v.toFixed(2)}${unit}`;
+}
+
+// ── 热力图 ────────────────────────────────────────────────────────────────────
 function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string }) {
   const [hovered, setHovered] = useState<string | null>(null);
 
-  // 根据涨跌幅获取颜色
   const getColor = (value: number) => {
     const abs = Math.abs(value);
     if (value > 0) {
@@ -133,13 +162,11 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
     return { bg: "#6b7280", text: "#fff" };
   };
 
-  // 按权重排序，计算总权重
   const sorted = [...data].sort((a, b) => (b.size ?? 50) - (a.size ?? 50));
   const totalSize = sorted.reduce((s, d) => s + (d.size ?? 50), 0);
 
   return (
     <div className="px-2 pb-2">
-      {/* 图例 */}
       <div className="flex items-center justify-center gap-3 mb-3 flex-wrap">
         {[
           { label: "≥+5%", bg: "#16a34a", text: "#fff" },
@@ -157,14 +184,11 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
           </div>
         ))}
       </div>
-      {/* 热力格子 */}
       <div className="flex flex-wrap gap-1.5">
         {sorted.map((item) => {
           const { bg, text } = getColor(item.value);
           const weight = (item.size ?? 50) / totalSize;
-          // 根据权重决定格子大小（最小60px，最大180px）
-          const minW = 60, maxW = 180;
-          const w = Math.round(minW + weight * (maxW - minW) * sorted.length * 0.8);
+          const w = Math.round(60 + weight * 120 * sorted.length * 0.8);
           const isHovered = hovered === item.name;
           return (
             <div
@@ -189,218 +213,188 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
           );
         })}
       </div>
-      {/* 统计摘要 */}
       <div className="flex items-center justify-between mt-3 px-1">
         <div className="flex items-center gap-3 text-xs">
-          <span style={{ color: "#22c55e" }}>
-            上涨 {data.filter(d => d.value > 0).length} 个
-          </span>
-          <span style={{ color: "#6b7280" }}>
-            平盘 {data.filter(d => d.value === 0).length} 个
-          </span>
-          <span style={{ color: "#ef4444" }}>
-            下跌 {data.filter(d => d.value < 0).length} 个
-          </span>
+          <span style={{ color: "#22c55e" }}>上涨 {data.filter(d => d.value > 0).length} 个</span>
+          <span style={{ color: "#6b7280" }}>平盘 {data.filter(d => d.value === 0).length} 个</span>
+          <span style={{ color: "#ef4444" }}>下跌 {data.filter(d => d.value < 0).length} 个</span>
         </div>
-        <span className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-          共 {data.length} 个板块
-        </span>
+        <span className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>共 {data.length} 个板块</span>
       </div>
     </div>
   );
 }
 
-// ── K线图（含成交量 + MA5/MA20）─────────────────────────────────────────────
+// ── K线图（lightweight-charts）────────────────────────────────────────────────
 function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: string }) {
-  const hasVolume = data.some(d => d.volume != null && d.volume > 0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<unknown>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  const processed = useMemo(() => {
-    const closes = data.map(d => d.close);
-    const ma5 = calcMA(closes, 5);
-    const ma20 = calcMA(closes, 20);
+  useEffect(() => {
+    if (!containerRef.current || data.length === 0) return;
 
-    return data.map((d, i) => {
-      const isUp = d.close >= d.open;
-      const bodyLow = Math.min(d.open, d.close);
-      const bodyHigh = Math.max(d.open, d.close);
-      return {
-        name: d.name,
-        bodyBase: bodyLow,
-        bodySize: bodyHigh - bodyLow || 0.5,
+    let chart: unknown = null;
+
+    import("lightweight-charts").then(({ createChart, CrosshairMode }) => {
+      if (!containerRef.current) return;
+
+      const el = containerRef.current;
+      chart = createChart(el, {
+        width: el.clientWidth,
+        height: 300,
+        layout: {
+          background: { color: "transparent" },
+          textColor: AXIS_COLOR,
+          fontFamily: "inherit",
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { color: GRID_COLOR },
+          horzLines: { color: GRID_COLOR },
+        },
+        crosshair: { mode: CrosshairMode.Normal },
+        rightPriceScale: { borderColor: GRID_COLOR },
+        timeScale: {
+          borderColor: GRID_COLOR,
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        handleScroll: true,
+        handleScale: true,
+      });
+
+      chartRef.current = chart;
+
+      // K线系列
+      const candleSeries = (chart as { addCandlestickSeries: (opts: unknown) => unknown }).addCandlestickSeries({
+        upColor: "#22c55e",
+        downColor: "#ef4444",
+        borderUpColor: "#22c55e",
+        borderDownColor: "#ef4444",
+        wickUpColor: "#22c55e",
+        wickDownColor: "#ef4444",
+      });
+
+      // 转换数据格式
+      const candleData = data.map(d => ({
+        time: d.name as unknown as import("lightweight-charts").Time,
+        open: d.open,
         high: d.high,
         low: d.low,
-        open: d.open,
         close: d.close,
-        volume: d.volume ?? 0,
-        isUp,
-        color: isUp ? "#22c55e" : "#ef4444",
-        upperWick: d.high - bodyHigh,
-        lowerWick: bodyLow - d.low,
-        ma5: ma5[i],
-        ma20: ma20[i],
+      }));
+      (candleSeries as { setData: (d: unknown) => void }).setData(candleData);
+
+      // MA5
+      const closes = data.map(d => d.close);
+      const ma5 = calcMA(closes, 5);
+      const ma5Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+        color: "#f59e0b",
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        title: "MA5",
+      });
+      const ma5Data = data
+        .map((d, i) => ma5[i] != null ? { time: d.name as unknown as import("lightweight-charts").Time, value: ma5[i]! } : null)
+        .filter(Boolean);
+      (ma5Series as { setData: (d: unknown) => void }).setData(ma5Data);
+
+      // MA20
+      const ma20 = calcMA(closes, 20);
+      const ma20Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+        color: "#a855f7",
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        title: "MA20",
+      });
+      const ma20Data = data
+        .map((d, i) => ma20[i] != null ? { time: d.name as unknown as import("lightweight-charts").Time, value: ma20[i]! } : null)
+        .filter(Boolean);
+      (ma20Series as { setData: (d: unknown) => void }).setData(ma20Data);
+
+      // MA60（如果数据足够）
+      if (data.length >= 60) {
+        const ma60 = calcMA(closes, 60);
+        const ma60Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+          color: "#06b6d4",
+          lineWidth: 1.5,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "MA60",
+        });
+        const ma60Data = data
+          .map((d, i) => ma60[i] != null ? { time: d.name as unknown as import("lightweight-charts").Time, value: ma60[i]! } : null)
+          .filter(Boolean);
+        (ma60Series as { setData: (d: unknown) => void }).setData(ma60Data);
+      }
+
+      (chart as { timeScale: () => { fitContent: () => void } }).timeScale().fitContent();
+      setIsReady(true);
+
+      // 响应式
+      const ro = new ResizeObserver(() => {
+        if (el && chart) {
+          (chart as { applyOptions: (o: unknown) => void }).applyOptions({ width: el.clientWidth });
+        }
+      });
+      ro.observe(el);
+
+      return () => {
+        ro.disconnect();
       };
     });
+
+    return () => {
+      if (chart) {
+        (chart as { remove: () => void }).remove();
+        chartRef.current = null;
+      }
+    };
   }, [data]);
 
-  const allValues = data.flatMap((d) => [d.high, d.low]);
-  const minVal = Math.min(...allValues);
-  const maxVal = Math.max(...allValues);
-  const padding = (maxVal - minVal) * 0.05;
-
+  // 成交量副图（用 Recharts）
+  const hasVolume = data.some(d => d.volume != null && d.volume > 0);
   const maxVolume = Math.max(...data.map(d => d.volume ?? 0));
+  const closes = data.map(d => d.close);
+  const volumeData = data.map((d, i) => ({
+    name: d.name,
+    volume: d.volume ?? 0,
+    isUp: d.close >= d.open,
+  }));
 
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: typeof processed[0] }>; label?: string }) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
-        <div style={{ color: "oklch(0.82 0.005 270)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-          <span style={{ color: "oklch(0.65 0.01 270)" }}>开盘</span>
-          <span style={{ color: "oklch(0.82 0.005 270)" }}>{d.open}{unit}</span>
-          <span style={{ color: "oklch(0.65 0.01 270)" }}>收盘</span>
-          <span style={{ color: d.isUp ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{d.close}{unit}</span>
-          <span style={{ color: "oklch(0.65 0.01 270)" }}>最高</span>
-          <span style={{ color: "#22c55e" }}>{d.high}{unit}</span>
-          <span style={{ color: "oklch(0.65 0.01 270)" }}>最低</span>
-          <span style={{ color: "#ef4444" }}>{d.low}{unit}</span>
-          {d.volume > 0 && <>
-            <span style={{ color: "oklch(0.65 0.01 270)" }}>成交量</span>
-            <span style={{ color: "oklch(0.72 0.12 250)" }}>{(d.volume / 1e4).toFixed(0)}万</span>
-          </>}
-          {d.ma5 != null && <>
-            <span style={{ color: "oklch(0.65 0.01 270)" }}>MA5</span>
-            <span style={{ color: "#f59e0b" }}>{d.ma5}{unit}</span>
-          </>}
-          {d.ma20 != null && <>
-            <span style={{ color: "oklch(0.65 0.01 270)" }}>MA20</span>
-            <span style={{ color: "#a855f7" }}>{d.ma20}{unit}</span>
-          </>}
-        </div>
-        <div style={{ color: d.isUp ? "#22c55e" : "#ef4444", marginTop: 4, fontWeight: 600 }}>
-          {d.isUp ? "▲" : "▼"} {Math.abs(d.close - d.open).toFixed(2)}{unit} ({((Math.abs(d.close - d.open) / d.open) * 100).toFixed(2)}%)
-        </div>
-      </div>
-    );
-  };
-
-  // 自定义蜡烛体形状（含上下影线）
-  const CandleShape = (props: { x?: number; y?: number; width?: number; height?: number; payload?: typeof processed[0]; yAxis?: { scale?: (v: number) => number } }) => {
-    const { x = 0, y = 0, width = 0, height: barHeight = 0, payload, yAxis } = props;
-    if (!payload || barHeight === 0) return null;
-    const { isUp, high, low, open, close } = payload;
-    const color = isUp ? "#22c55e" : "#ef4444";
-    const xCenter = x + width / 2;
-    const bodyTop = y;
-    const bodyBottom = y + Math.max(barHeight, 1);
-
-    // 计算影线位置（需要用yAxis.scale转换价格到像素）
-    let wickTopY = bodyTop;
-    let wickBottomY = bodyBottom;
-    if (yAxis?.scale) {
-      const bodyHighPrice = Math.max(open, close);
-      const bodyLowPrice = Math.min(open, close);
-      wickTopY = yAxis.scale(high);
-      wickBottomY = yAxis.scale(low);
-      const bodyTopPx = yAxis.scale(bodyHighPrice);
-      const bodyBottomPx = yAxis.scale(bodyLowPrice);
-      return (
-        <g>
-          {/* 上影线 */}
-          <line x1={xCenter} x2={xCenter} y1={wickTopY} y2={bodyTopPx} stroke={color} strokeWidth={1.5} />
-          {/* 蜡烛体 */}
-          <rect x={x + width * 0.15} y={bodyTopPx} width={width * 0.7} height={Math.max(bodyBottomPx - bodyTopPx, 1)} fill={color} rx={1} />
-          {/* 下影线 */}
-          <line x1={xCenter} x2={xCenter} y1={bodyBottomPx} y2={wickBottomY} stroke={color} strokeWidth={1.5} />
-        </g>
-      );
-    }
-
-    return (
-      <g>
-        <rect x={x + width * 0.15} y={bodyTop} width={width * 0.7} height={Math.max(barHeight, 1)} fill={color} rx={1} />
-        <line x1={xCenter} x2={xCenter} y1={bodyTop} y2={wickTopY} stroke={color} strokeWidth={1.5} />
-        <line x1={xCenter} x2={xCenter} y1={bodyBottom} y2={wickBottomY} stroke={color} strokeWidth={1.5} />
-      </g>
-    );
-  };
-
-  // 成交量柱颜色
-  const VolumeBar = (props: { x?: number; y?: number; width?: number; height?: number; payload?: typeof processed[0] }) => {
+  const VolumeBar = (props: { x?: number; y?: number; width?: number; height?: number; payload?: typeof volumeData[0] }) => {
     const { x = 0, y = 0, width = 0, height: barH = 0, payload } = props;
     if (!payload) return null;
-    const color = payload.isUp ? "rgba(34,197,94,0.5)" : "rgba(239,68,68,0.5)";
-    return <rect x={x} y={y} width={width} height={barH} fill={color} rx={1} />;
+    return <rect x={x} y={y} width={width} height={barH} fill={payload.isUp ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"} rx={1} />;
   };
 
   return (
     <div>
-      {/* K线主图 */}
-      <ResponsiveContainer width="100%" height={hasVolume ? 240 : 300}>
-        <ComposedChart data={processed} barCategoryGap="20%">
-          <CartesianGrid {...gridStyle} />
-          <XAxis dataKey="name" tick={axisStyle} />
-          <YAxis
-            domain={[minVal - padding, maxVal + padding]}
-            tick={axisStyle}
-            tickFormatter={(v: number) => `${v.toFixed(0)}${unit}`}
-            width={55}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          {/* 透明底部（占位到 bodyBase） */}
-          <Bar dataKey="bodyBase" stackId="candle" fill="transparent" legendType="none" />
-          {/* 蜡烛体 */}
-          <Bar dataKey="bodySize" stackId="candle" shape={<CandleShape />} minPointSize={1} legendType="none">
-            {processed.map((entry, index) => (
-              <Cell key={index} fill={entry.isUp ? "#22c55e" : "#ef4444"} />
-            ))}
-          </Bar>
-          {/* MA5 均线 */}
-          {processed.some(d => d.ma5 != null) && (
-            <Line
-              type="monotone"
-              dataKey="ma5"
-              stroke="#f59e0b"
-              strokeWidth={1.5}
-              dot={false}
-              name="MA5"
-              connectNulls={false}
-            />
-          )}
-          {/* MA20 均线 */}
-          {processed.some(d => d.ma20 != null) && (
-            <Line
-              type="monotone"
-              dataKey="ma20"
-              stroke="#a855f7"
-              strokeWidth={1.5}
-              dot={false}
-              name="MA20"
-              connectNulls={false}
-            />
-          )}
-          {(processed.some(d => d.ma5 != null) || processed.some(d => d.ma20 != null)) && (
-            <Legend
-              wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-              formatter={(value) => <span style={{ color: value === "MA5" ? "#f59e0b" : "#a855f7", fontSize: 11 }}>{value}</span>}
-            />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
-
+      {/* MA 图例 */}
+      <div className="flex items-center gap-3 px-4 pb-1">
+        <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#f59e0b" }} /><span className="text-[10px]" style={{ color: "#f59e0b" }}>MA5</span></div>
+        <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#a855f7" }} /><span className="text-[10px]" style={{ color: "#a855f7" }}>MA20</span></div>
+        {data.length >= 60 && <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#06b6d4" }} /><span className="text-[10px]" style={{ color: "#06b6d4" }}>MA60</span></div>}
+        <span className="text-[10px] ml-auto" style={{ color: "oklch(0.45 0.01 270)" }}>可拖拽 · 滚轮缩放</span>
+      </div>
+      {/* lightweight-charts 容器 */}
+      <div ref={containerRef} style={{ width: "100%", height: 300 }} />
       {/* 成交量副图 */}
       {hasVolume && (
         <div style={{ borderTop: "1px solid oklch(0.22 0.007 270)", marginTop: 2 }}>
           <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-0.5">
             <span className="text-[10px] font-medium" style={{ color: "oklch(0.50 0.01 270)" }}>成交量</span>
           </div>
-          <ResponsiveContainer width="100%" height={70}>
-            <BarChart data={processed} barCategoryGap="20%">
+          <ResponsiveContainer width="100%" height={60}>
+            <BarChart data={volumeData} barCategoryGap="20%">
               <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
               <YAxis
                 tick={{ fill: AXIS_COLOR, fontSize: 9 }}
                 tickFormatter={(v: number) => v >= 1e8 ? `${(v / 1e8).toFixed(0)}亿` : `${(v / 1e4).toFixed(0)}万`}
-                width={40}
+                width={38}
                 domain={[0, maxVolume * 1.2]}
               />
               <Tooltip
@@ -409,8 +403,8 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
                 labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
               />
               <Bar dataKey="volume" shape={<VolumeBar />} minPointSize={1}>
-                {processed.map((entry, index) => (
-                  <Cell key={index} fill={entry.isUp ? "rgba(34,197,94,0.5)" : "rgba(239,68,68,0.5)"} />
+                {volumeData.map((entry, index) => (
+                  <Cell key={index} fill={entry.isUp ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"} />
                 ))}
               </Bar>
             </BarChart>
@@ -421,11 +415,264 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
   );
 }
 
-// ── 主图表渲染器 ────────────────────────────────────────────────────────────────
+// ── 瀑布图 ────────────────────────────────────────────────────────────────────
+function WaterfallChart({ data, unit = "" }: { data: WaterfallItem[]; unit?: string }) {
+  // 计算每个柱子的起始位置
+  const processed = useMemo(() => {
+    let running = 0;
+    return data.map((item) => {
+      const itemType = item.type ?? (item.value >= 0 ? "positive" : "negative");
+      let base = 0;
+      let barValue = 0;
+      let displayValue = item.value;
+
+      if (itemType === "total" || itemType === "subtotal") {
+        base = 0;
+        barValue = item.value;
+        running = item.value;
+      } else if (item.value >= 0) {
+        base = running;
+        barValue = item.value;
+        running += item.value;
+      } else {
+        base = running + item.value;
+        barValue = Math.abs(item.value);
+        running += item.value;
+      }
+
+      const isPositive = item.value >= 0;
+      const isTotal = itemType === "total" || itemType === "subtotal";
+      return {
+        name: item.name,
+        base,
+        barValue,
+        displayValue,
+        isPositive,
+        isTotal,
+        color: isTotal ? "#6366f1" : isPositive ? "#22c55e" : "#ef4444",
+      };
+    });
+  }, [data]);
+
+  const allValues = processed.flatMap(d => [d.base, d.base + d.barValue]);
+  const minVal = Math.min(0, ...allValues);
+  const maxVal = Math.max(...allValues);
+  const padding = (maxVal - minVal) * 0.1;
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: typeof processed[0] }>; label?: string }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
+        <div style={{ color: "oklch(0.82 0.005 270)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
+        <div style={{ color: d.isPositive ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+          {d.displayValue > 0 ? "+" : ""}{formatNumber(d.displayValue, unit)}
+        </div>
+      </div>
+    );
+  };
+
+  const WaterfallBar = (props: { x?: number; y?: number; width?: number; height?: number; payload?: typeof processed[0] }) => {
+    const { x = 0, y = 0, width = 0, height: h = 0, payload } = props;
+    if (!payload) return null;
+    const { color, isTotal } = payload;
+    return (
+      <g>
+        <rect x={x + 2} y={y} width={width - 4} height={Math.max(h, 1)} fill={color} rx={3}
+          opacity={isTotal ? 1 : 0.85}
+          stroke={isTotal ? "rgba(255,255,255,0.2)" : "none"}
+          strokeWidth={1}
+        />
+        {/* 连接线 */}
+        <line x1={x + width - 2} x2={x + width + 4} y1={y} y2={y}
+          stroke="oklch(0.40 0.01 270)" strokeWidth={1} strokeDasharray="2 2" />
+      </g>
+    );
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <ComposedChart data={processed} barCategoryGap="25%">
+        <CartesianGrid {...gridStyle} />
+        <XAxis dataKey="name" tick={axisStyle} />
+        <YAxis
+          domain={[minVal - padding, maxVal + padding]}
+          tick={axisStyle}
+          tickFormatter={(v: number) => formatNumber(v, unit)}
+          width={60}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <ReferenceLine y={0} stroke="oklch(0.40 0.01 270)" strokeWidth={1} />
+        {/* 透明底部（占位到 base） */}
+        <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
+        {/* 实际柱子 */}
+        <Bar dataKey="barValue" stackId="waterfall" shape={<WaterfallBar />} legendType="none">
+          {processed.map((entry, index) => (
+            <Cell key={index} fill={entry.color} />
+          ))}
+        </Bar>
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── 仪表盘 ────────────────────────────────────────────────────────────────────
+function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }: {
+  value: number; min?: number; max?: number;
+  thresholds?: GaugeThreshold[]; unit?: string; title?: string;
+}) {
+  const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const angle = -150 + pct * 300; // -150° to +150°
+
+  // 确定颜色
+  const defaultThresholds: GaugeThreshold[] = thresholds ?? [
+    { value: max * 0.4, color: "#ef4444", label: "偏低" },
+    { value: max * 0.7, color: "#f59e0b", label: "中性" },
+    { value: max, color: "#22c55e", label: "偏高" },
+  ];
+
+  let activeColor = defaultThresholds[defaultThresholds.length - 1]?.color ?? "#22c55e";
+  let activeLabel = defaultThresholds[defaultThresholds.length - 1]?.label ?? "";
+  for (const t of defaultThresholds) {
+    if (value <= t.value) {
+      activeColor = t.color;
+      activeLabel = t.label ?? "";
+      break;
+    }
+  }
+
+  // SVG 弧线路径
+  const cx = 100, cy = 90, r = 70;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const arcPath = (startDeg: number, endDeg: number, radius: number) => {
+    const s = { x: cx + radius * Math.cos(toRad(startDeg)), y: cy + radius * Math.sin(toRad(startDeg)) };
+    const e = { x: cx + radius * Math.cos(toRad(endDeg)), y: cy + radius * Math.sin(toRad(endDeg)) };
+    const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${radius} ${radius} 0 ${largeArc} 1 ${e.x} ${e.y}`;
+  };
+
+  // 指针
+  const needleRad = toRad(angle);
+  const needleX = cx + (r - 10) * Math.cos(needleRad);
+  const needleY = cy + (r - 10) * Math.sin(needleRad);
+
+  return (
+    <div className="flex flex-col items-center py-4">
+      <svg width="200" height="130" viewBox="0 0 200 130">
+        {/* 背景弧 */}
+        <path d={arcPath(-150, 150, r)} fill="none" stroke="oklch(0.25 0.007 270)" strokeWidth={14} strokeLinecap="round" />
+        {/* 颜色分段 */}
+        {defaultThresholds.map((t, i) => {
+          const prevVal = i === 0 ? min : defaultThresholds[i - 1].value;
+          const startPct = (prevVal - min) / (max - min);
+          const endPct = (t.value - min) / (max - min);
+          const startDeg = -150 + startPct * 300;
+          const endDeg = -150 + endPct * 300;
+          return (
+            <path key={i} d={arcPath(startDeg, endDeg, r)} fill="none"
+              stroke={t.color} strokeWidth={14} strokeLinecap="butt" opacity={0.3} />
+          );
+        })}
+        {/* 已完成弧 */}
+        <path d={arcPath(-150, angle, r)} fill="none" stroke={activeColor} strokeWidth={14} strokeLinecap="round" />
+        {/* 指针 */}
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="oklch(0.88 0.008 270)" strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={5} fill="oklch(0.88 0.008 270)" />
+        {/* 数值 */}
+        <text x={cx} y={cy + 28} textAnchor="middle" fontSize={22} fontWeight={700} fill={activeColor}>
+          {value}{unit}
+        </text>
+        <text x={cx} y={cy + 44} textAnchor="middle" fontSize={11} fill="oklch(0.60 0.01 270)">
+          {activeLabel}
+        </text>
+        {/* 最小/最大标签 */}
+        <text x={cx - r - 4} y={cy + 20} textAnchor="middle" fontSize={10} fill={AXIS_COLOR}>{min}</text>
+        <text x={cx + r + 4} y={cy + 20} textAnchor="middle" fontSize={10} fill={AXIS_COLOR}>{max}</text>
+      </svg>
+      {/* 图例 */}
+      <div className="flex items-center gap-4 mt-1">
+        {defaultThresholds.map((t, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
+            <span className="text-[10px]" style={{ color: "oklch(0.55 0.01 270)" }}>{t.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 双轴图 ────────────────────────────────────────────────────────────────────
+function DualAxisChart({ config }: { config: ChartConfig }) {
+  const { data = [], xKey = "name", leftKey = "value", rightKey = "volume",
+    leftUnit = "", rightUnit = "", colors = DEFAULT_COLORS } = config;
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <ComposedChart data={data}>
+        <CartesianGrid {...gridStyle} />
+        <XAxis dataKey={xKey} tick={axisStyle} />
+        <YAxis
+          yAxisId="left"
+          tick={axisStyle}
+          tickFormatter={(v: number) => `${v}${leftUnit}`}
+          width={55}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          tick={axisStyle}
+          tickFormatter={(v: number) => `${v}${rightUnit}`}
+          width={50}
+        />
+        <Tooltip
+          contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
+          labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
+        <Bar yAxisId="right" dataKey={rightKey} fill={colors[1] ?? "#22c55e"} opacity={0.6} radius={[2, 2, 0, 0]} name={rightKey} />
+        <Line yAxisId="left" type="monotone" dataKey={leftKey} stroke={colors[0] ?? "#6366f1"} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} name={leftKey} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── 复合图（柱+折线）─────────────────────────────────────────────────────────
+function ComboChart({ config }: { config: ChartConfig }) {
+  const { data = [], xKey = "name", bars = [], lines = [], colors = DEFAULT_COLORS } = config;
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <ComposedChart data={data}>
+        <CartesianGrid {...gridStyle} />
+        <XAxis dataKey={xKey} tick={axisStyle} />
+        <YAxis yAxisId="left" tick={axisStyle} width={55} />
+        {lines.length > 0 && <YAxis yAxisId="right" orientation="right" tick={axisStyle} width={45} />}
+        <Tooltip
+          contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
+          labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
+        {bars.map((b, i) => (
+          <Bar key={b.key} yAxisId="left" dataKey={b.key} name={b.name ?? b.key}
+            fill={b.color ?? colors[i % colors.length]} radius={[3, 3, 0, 0]} opacity={0.85} />
+        ))}
+        {lines.map((l, i) => (
+          <Line key={l.key} yAxisId="right" type="monotone" dataKey={l.key} name={l.name ?? l.key}
+            stroke={l.color ?? colors[(bars.length + i) % colors.length]} strokeWidth={2.5}
+            dot={false} activeDot={{ r: 4 }} />
+        ))}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ── 主图表渲染器 ───────────────────────────────────────────────────────────────
 function ChartRenderer({ config }: { config: ChartConfig }) {
   const {
-    type, data, xKey = "name", yKey = "value",
+    type, data = [], xKey = "name", yKey = "value",
     series, color = "#6366f1", colors = DEFAULT_COLORS, unit = "",
+    referenceLines = [],
   } = config;
 
   const seriesList = series ?? [{ key: yKey, color, name: yKey }];
@@ -433,30 +680,33 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   if (type === "candlestick") {
     return <CandlestickChart data={data as unknown as CandleData[]} unit={unit} />;
   }
-
   if (type === "heatmap" || type === "treemap") {
     return <HeatmapChart data={data as unknown as HeatmapItem[]} unit={unit || "%"} />;
+  }
+  if (type === "waterfall") {
+    return <WaterfallChart data={data as unknown as WaterfallItem[]} unit={unit} />;
+  }
+  if (type === "gauge") {
+    return <GaugeChart value={config.value ?? 0} min={config.min} max={config.max}
+      thresholds={config.thresholds} unit={unit} title={config.title} />;
+  }
+  if (type === "dual_axis") {
+    return <DualAxisChart config={config} />;
+  }
+  if (type === "combo") {
+    return <ComboChart config={config} />;
   }
 
   if (type === "pie") {
     return (
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={300}>
         <PieChart>
-          <Pie
-            data={data}
-            dataKey={yKey}
-            nameKey={xKey}
-            cx="50%"
-            cy="50%"
-            outerRadius={105}
-            innerRadius={40}
-            paddingAngle={2}
+          <Pie data={data} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%"
+            outerRadius={110} innerRadius={45} paddingAngle={2}
             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
             labelLine={{ stroke: "oklch(0.40 0.01 270)", strokeWidth: 1 }}
           >
-            {data.map((_, i) => (
-              <Cell key={i} fill={colors[i % colors.length]} stroke="transparent" />
-            ))}
+            {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="transparent" />)}
           </Pie>
           <Tooltip {...tooltipStyle} formatter={(v) => [`${v}${unit}`, ""]} />
           <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
@@ -467,24 +717,14 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
 
   if (type === "scatter") {
     return (
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={300}>
         <ScatterChart>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} name={xKey} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} name={yKey} />
-          <Tooltip
-            {...tooltipStyle}
-            cursor={{ strokeDasharray: "3 3", stroke: GRID_COLOR }}
-            formatter={(v: unknown) => [`${v}${unit}`, ""]}
-          />
+          <Tooltip {...tooltipStyle} cursor={{ strokeDasharray: "3 3", stroke: GRID_COLOR }} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
           {seriesList.map((s, i) => (
-            <Scatter
-              key={s.key}
-              name={s.name || s.key}
-              data={data}
-              fill={s.color || colors[i % colors.length]}
-              opacity={0.85}
-            />
+            <Scatter key={s.key} name={s.name || s.key} data={data} fill={s.color || colors[i % colors.length]} opacity={0.85} />
           ))}
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
         </ScatterChart>
@@ -492,20 +732,20 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
     );
   }
 
+  // line / bar / area
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={300}>
       {type === "bar" ? (
         <BarChart data={data} barCategoryGap="25%">
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
-          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} />
+          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
           {seriesList.map((s, i) => (
             <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
-              fill={s.color || colors[i % colors.length]}
-              radius={[3, 3, 0, 0]}
-            />
+              fill={s.color || colors[i % colors.length]} radius={[3, 3, 0, 0]} />
           ))}
         </BarChart>
       ) : type === "area" ? (
@@ -523,35 +763,31 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           </defs>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
-          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} />
+          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
           {seriesList.map((s, i) => {
             const c = s.color || colors[i % colors.length];
             return (
               <Area key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
-                stroke={c} strokeWidth={2}
-                fill={`url(#grad-${s.key})`}
-                dot={false} activeDot={{ r: 4, strokeWidth: 0 }}
-              />
+                stroke={c} strokeWidth={2.5} fill={`url(#grad-${s.key})`}
+                dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
             );
           })}
         </AreaChart>
       ) : (
-        // line
         <LineChart data={data}>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
-          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} />
+          <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
           {seriesList.map((s, i) => (
             <Line key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
-              stroke={s.color || colors[i % colors.length]}
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0 }}
-            />
+              stroke={s.color || colors[i % colors.length]} strokeWidth={2.5}
+              dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
           ))}
         </LineChart>
       )}
@@ -559,13 +795,14 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   );
 }
 
-// ── 图表容器组件 ────────────────────────────────────────────────────────────────
+// ── 图表容器 ───────────────────────────────────────────────────────────────────
 interface InlineChartProps {
   raw: string;
 }
 
 export function InlineChart({ raw }: InlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
 
   let config: ChartConfig;
   try {
@@ -579,6 +816,27 @@ export function InlineChart({ raw }: InlineChartProps) {
   }
 
   const handleDownload = () => {
+    if (config.type === "gauge") {
+      const svgEl = containerRef.current?.querySelector("svg") as SVGElement | null;
+      if (!svgEl) return;
+      const svgData = new XMLSerializer().serializeToString(svgEl);
+      const canvas = document.createElement("canvas");
+      canvas.width = 400; canvas.height = 260;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = "#161620";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const a = document.createElement("a");
+        a.download = `${config.title || "gauge"}.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      };
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+      return;
+    }
     const svgEl = containerRef.current?.querySelector("svg") as SVGElement | null;
     if (!svgEl) return;
     const svgData = new XMLSerializer().serializeToString(svgEl);
@@ -601,13 +859,13 @@ export function InlineChart({ raw }: InlineChartProps) {
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
-  // 计算趋势（折线/面积图）
   const getTrend = () => {
-    if (!["line", "area"].includes(config.type) || config.data.length < 2) return null;
+    if (!["line", "area"].includes(config.type) || (config.data?.length ?? 0) < 2) return null;
     const yKey = config.yKey || "value";
-    const first = Number(config.data[0][yKey]);
-    const last = Number(config.data[config.data.length - 1][yKey]);
-    if (isNaN(first) || isNaN(last)) return null;
+    const d = config.data!;
+    const first = Number(d[0][yKey]);
+    const last = Number(d[d.length - 1][yKey]);
+    if (isNaN(first) || isNaN(last) || first === 0) return null;
     const pct = ((last - first) / Math.abs(first)) * 100;
     return { up: pct >= 0, pct: Math.abs(pct).toFixed(1) };
   };
@@ -618,13 +876,21 @@ export function InlineChart({ raw }: InlineChartProps) {
     line: "折线图", area: "面积图", bar: "柱状图",
     pie: "饼图", scatter: "散点图", candlestick: "K线图",
     heatmap: "热力图", treemap: "板块热力图",
+    waterfall: "瀑布图", gauge: "仪表盘",
+    dual_axis: "双轴图", combo: "复合图",
   };
+
+  const noDownload = ["heatmap", "treemap", "gauge"].includes(config.type);
 
   return (
     <div
       ref={containerRef}
-      className="my-4 rounded-xl overflow-hidden"
-      style={{ background: CHART_BG, border: "1px solid oklch(0.25 0.007 270)" }}
+      className="my-4 rounded-xl overflow-hidden transition-all"
+      style={{
+        background: CHART_BG,
+        border: "1px solid oklch(0.25 0.007 270)",
+        ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16 } : {}),
+      }}
     >
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
@@ -638,40 +904,61 @@ export function InlineChart({ raw }: InlineChartProps) {
               {config.title}
             </span>
           )}
+          {config.subtitle && (
+            <span className="text-xs shrink-0" style={{ color: "oklch(0.52 0.01 270)" }}>
+              {config.subtitle}
+            </span>
+          )}
           {trend && (
             <span className="flex items-center gap-0.5 text-xs shrink-0"
               style={{ color: trend.up ? "#22c55e" : "#ef4444" }}>
-              {trend.up
-                ? <TrendingUp className="w-3 h-3" />
-                : <TrendingDown className="w-3 h-3" />}
+              {trend.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               {trend.pct}%
             </span>
           )}
         </div>
-        {config.type !== "heatmap" && config.type !== "treemap" && (
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8 shrink-0"
-            style={{ color: "oklch(0.52 0.01 270)" }}
-            title="下载图表 PNG"
-          >
-            <Download className="w-3 h-3" />
-            <span>PNG</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {!noDownload && (
+            <button onClick={handleDownload}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+              style={{ color: "oklch(0.52 0.01 270)" }} title="下载 PNG">
+              <Download className="w-3 h-3" /><span>PNG</span>
+            </button>
+          )}
+          <button onClick={() => setExpanded(e => !e)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+            style={{ color: "oklch(0.52 0.01 270)" }} title={expanded ? "收起" : "全屏"}>
+            {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
           </button>
-        )}
+        </div>
       </div>
 
       {/* 图表区域 */}
       <div className="px-2 pb-3">
         <ChartRenderer config={config} />
       </div>
+
+      {/* 注释 */}
+      {config.annotations && (
+        <div className="px-4 pb-3 text-xs" style={{ color: "oklch(0.50 0.01 270)", borderTop: "1px solid oklch(0.22 0.007 270)", paddingTop: 8 }}>
+          {config.annotations}
+        </div>
+      )}
+
+      {/* 全屏遮罩 */}
+      {expanded && (
+        <div
+          className="fixed inset-0 bg-black/60 -z-10"
+          onClick={() => setExpanded(false)}
+          style={{ zIndex: 9998 }}
+        />
+      )}
     </div>
   );
 }
 
 /**
  * 解析消息内容，将 %%CHART%%...%%END_CHART%% 替换为图表组件
- * 返回混合内容数组：text（Markdown文本）| chart（图表）
  */
 export function parseChartBlocks(content: string): Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> {
   const parts: Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> = [];

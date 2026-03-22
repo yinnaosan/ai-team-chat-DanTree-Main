@@ -999,3 +999,14 @@
 - [x] 后端：任务完成后将 citationSummary 写入 message metadata（来源列表+时间戳+白名单状态）
 - [x] 前端：AI 回复底部 DataSourcesFooter 展示 citationHits（来源名 | 数据时间 | 白名单状态）
 - [x] 测试：23 个注册表单元测试全部通过
+
+## DataSourcesFooter 升级 + Jina 归因 + Source Gating 验证（2026-03-22）
+- [ ] 前端：DataSourcesFooter 升级——白名单徽章（绿色✓/灰色）、数据时间戳、耗时颜色编码（<500ms绿/500-2000ms黄/>2000ms红）
+- [ ] 后端：dataSourceRegistry.ts 新增 jina_reader 条目（网页搜索分类）
+- [ ] 后端：routers.ts 将 Jina Reader 抓取结果传入 buildCitationSummary()
+- [ ] 测试：dataSourceRegistry.test.ts 新增 Source Gating 无数据场景验证测试
+
+## PDF 导出 oklch 颜色兼容性修复
+- [x] 修复 html2canvas 不支持 oklch() 颜色函数导致 exportAsPDF 失败的问题
+- [x] 实现 patchOklchForCanvas()：截图前将所有 <style> 和 inline style 中的 oklch() 替换为等价 rgb()，截图后自动恢复
+- [x] 应用到 exportAsPDF 和 exportConversationAsPDF 两处 html2canvas 调用

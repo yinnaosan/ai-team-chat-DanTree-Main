@@ -3,6 +3,90 @@
  * 支持 Markdown、纯文本、单条 PDF、完整对话 PDF 四种格式
  */
 
+/**
+ * html2canvas 不支持 oklch() 颜色函数（Tailwind 4 默认使用）。
+ * 在截图前，将所有 <style> 和 inline style 中的 oklch() 替换为等价 rgb()，
+ * 截图完成后恢复原始样式，确保页面视觉不受影响。
+ */
+function oklchToRgbApprox(oklchStr: string): string {
+  // 将 oklch(L C H / A) 转换为近似 rgb
+  // 使用简化映射：保留亮度信息，色相映射到 HSL 再转 RGB
+  return oklchStr.replace(
+    /oklch\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
+    (_match, l, c, h, a) => {
+      const L = parseFloat(l) / (l.includes("%") ? 100 : 1);
+      const C = parseFloat(c);
+      const H = parseFloat(h);
+      const alpha = a ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+
+      // oklch → approximate sRGB via simplified LCH→Lab→XYZ→sRGB
+      // For UI purposes, a hue-based HSL approximation is sufficient
+      const hDeg = H % 360;
+      // Map lightness: oklch L=0→black, L=1→white
+      const lightness = Math.max(0, Math.min(1, L));
+      // Chroma → saturation approximation (oklch chroma 0-0.4 typical range)
+      const saturation = Math.max(0, Math.min(1, C / 0.4));
+
+      // HSL to RGB
+      const hslH = hDeg / 360;
+      const hslS = saturation;
+      const hslL = lightness;
+      const q = hslL < 0.5 ? hslL * (1 + hslS) : hslL + hslS - hslL * hslS;
+      const p = 2 * hslL - q;
+      const hue2rgb = (t: number) => {
+        let tt = t;
+        if (tt < 0) tt += 1;
+        if (tt > 1) tt -= 1;
+        if (tt < 1/6) return p + (q - p) * 6 * tt;
+        if (tt < 1/2) return q;
+        if (tt < 2/3) return p + (q - p) * (2/3 - tt) * 6;
+        return p;
+      };
+      const r = Math.round(hue2rgb(hslH + 1/3) * 255);
+      const g = Math.round(hue2rgb(hslH) * 255);
+      const b = Math.round(hue2rgb(hslH - 1/3) * 255);
+
+      return alpha < 1
+        ? `rgba(${r},${g},${b},${alpha.toFixed(3)})`
+        : `rgb(${r},${g},${b})`;
+    }
+  );
+}
+
+/** 截图前替换所有 oklch，截图后恢复 */
+function patchOklchForCanvas(): () => void {
+  const patches: Array<{ node: HTMLStyleElement | HTMLElement; attr: string; original: string }> = [];
+
+  // 1. 处理所有 <style> 标签
+  document.querySelectorAll<HTMLStyleElement>("style").forEach((style) => {
+    if (style.textContent && style.textContent.includes("oklch")) {
+      const original = style.textContent;
+      style.textContent = oklchToRgbApprox(original);
+      patches.push({ node: style, attr: "textContent", original });
+    }
+  });
+
+  // 2. 处理所有 inline style 属性
+  document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
+    const original = el.getAttribute("style") || "";
+    if (original.includes("oklch")) {
+      el.setAttribute("style", oklchToRgbApprox(original));
+      patches.push({ node: el, attr: "style", original });
+    }
+  });
+
+  // 返回恢复函数
+  return () => {
+    patches.forEach(({ node, attr, original }) => {
+      if (attr === "textContent") {
+        (node as HTMLStyleElement).textContent = original;
+      } else {
+        (node as HTMLElement).setAttribute("style", original);
+      }
+    });
+  };
+}
+
 /** 下载文本文件 */
 function downloadText(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -55,13 +139,19 @@ export async function exportAsPDF(element: HTMLElement, title?: string) {
       import("jspdf"),
     ]);
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#161620",
-      logging: false,
-      ignoreElements: (el) => el.hasAttribute("data-export-ignore"),
-    });
+    const restoreOklch = patchOklchForCanvas();
+    let canvas;
+    try {
+      canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#161620",
+        logging: false,
+        ignoreElements: (el) => el.hasAttribute("data-export-ignore"),
+      });
+    } finally {
+      restoreOklch();
+    }
 
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -183,13 +273,19 @@ export async function exportConversationAsPDF(
     onProgress?.(5 + Math.round(((i + 1) / elements.length) * 88));
 
     try {
-      const canvas = await html2canvas(el, {
-        backgroundColor: "#161620",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        ignoreElements: (elem) => elem.hasAttribute("data-export-ignore"),
-      });
+      const restoreOklch = patchOklchForCanvas();
+      let canvas;
+      try {
+        canvas = await html2canvas(el, {
+          backgroundColor: "#161620",
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          ignoreElements: (elem) => elem.hasAttribute("data-export-ignore"),
+        });
+      } finally {
+        restoreOklch();
+      }
 
       const imgWidthPx = canvas.width;
       const imgHeightPx = canvas.height;

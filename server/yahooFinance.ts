@@ -37,12 +37,19 @@ export function extractTickers(text: string): string[] {
   // Match explicit tickers: AAPL, 0700.HK, 600519.SS, 600519.SZ
   const explicitPattern = /\b([A-Z]{1,5}(?:\.[A-Z]{1,2})?|\d{4,6}(?:\.[A-Z]{1,2})?)\b/g;
   let m: RegExpExecArray | null;
+  // 常见非 ticker 大写词 + 年份范围过滤
+  const NON_TICKER_WORDS = new Set(["USD", "CNY", "HKD", "EUR", "GDP", "CPI", "ETF", "IPO", "PE", "PB", "EPS", "ROE", "FCF", "AI", "CEO", "CFO", "COO", "CTO", "SEC", "FED", "IMF", "ECB", "BOE", "API", "DCF", "YOY", "QOQ", "TTM", "NAV", "AUM", "ESG"]);
   while ((m = explicitPattern.exec(text)) !== null) {
     const t = m[1];
-    // Filter out common non-ticker uppercase words
-    if (!["USD", "CNY", "HKD", "EUR", "GDP", "CPI", "ETF", "IPO", "PE", "PB", "EPS", "ROE", "FCF"].includes(t)) {
-      tickers.push(normalizeTicker(t));
+    // 过滤常见非 ticker 词
+    if (NON_TICKER_WORDS.has(t)) continue;
+    // 过滤纯数字（可能是年份如 2025、2024，或百分比等）
+    if (/^\d{4,6}$/.test(t)) {
+      const num = parseInt(t, 10);
+      // 4位数字在 1990-2099 范围内视为年份，跳过
+      if (t.length === 4 && num >= 1990 && num <= 2099) continue;
     }
+    tickers.push(normalizeTicker(t));
   }
 
   // Common name → ticker mapping

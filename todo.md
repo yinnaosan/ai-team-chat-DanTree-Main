@@ -1157,4 +1157,12 @@
 - [x] 关闭 Serper/Tavily 网页搜索调用（routers.ts 中 searchForTask/searchFinancialNews 全部跳过）
 - [x] 调整 evidenceValidator 逻辑，纯 API 数据也能产出 decisive/directional 结论（blocking 字段均为纯 API 源，无需调整）
 - [x] 移除或隐藏 Settings 页面中的搜索引擎状态展示
-- [ ] 测试验证纯 API 模式下分析任务能正常完成
+- [x] 测试验证纯 API 模式下分析任务能正常完成
+
+## 核心 Bug 修复：deepFinancials 默认 false 导致 FMP/SimFin 等核心数据源从未被调用（2026-03-22）
+- [x] 根因：resourcePlan.dataSources.deepFinancials 默认 false，只有 GPT Step1 输出包含 fmp/simfin 等 API 名称时才为 true
+- [x] 修复：当检测到 primaryTicker 时，自动将 deepFinancials/secFilings/newsAndSentiment 设为 true
+- [x] 修复：宏观分析任务自动启用 macroData
+- [x] 修复：extractTickers 年份误匹配（2025 被识别为 2025.HK 港股代码）
+- [x] 修复：扩展 NON_TICKER_WORDS 过滤列表（AI/CEO/SEC/FED 等常见缩写）
+- [ ] 验证：端到端测试纯 API 模式下 FMP 数据正常获取

@@ -850,6 +850,19 @@ ${"```"}`;
     };
     const resourcePlan = parseResourcePlan(gptStep1Output);
 
+    // ── 智能默认值覆盖：当检测到股票代码时，自动启用核心财务数据源 ──
+    // 不依赖 GPT Step1 的规划结果，确保 FMP/SimFin/Finnhub/SEC 等核心源始终被调用
+    if (primaryTicker) {
+      resourcePlan.dataSources.deepFinancials = true;
+      resourcePlan.dataSources.secFilings = true;
+      resourcePlan.dataSources.newsAndSentiment = true;
+    }
+    // 宏观分析任务也自动启用宏观数据源
+    const isMacroTask = /宏观|利率|GDP|CPI|通胀|就业|PMI|央行|美联储|Fed|macro|interest rate|inflation/i.test(taskDescription);
+    if (isMacroTask) {
+      resourcePlan.dataSources.macroData = true;
+    }
+
     // ── 从 Step1 输出提取精炼搜索关键词（优化2）────────────────────────────
     // 提取「数据引擎精确需求清单」部分作为 Tavily 精炼 query
     const extractDataNeedsQuery = (step1Text: string, fallback: string): string => {

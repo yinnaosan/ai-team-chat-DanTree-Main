@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, openaiApiKey IS NOT NULL AND openaiApiKey != '' as hasOpenaiKey, openaiModel, manusSystemPrompt IS NOT NULL as hasManusPrompt FROM rpa_configs LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT id, openaiApiKey IS NOT NULL AND openaiApiKey != '' as hasOpenaiKey, openaiModel, manusSystemPrompt IS NOT NULL as hasManusPrompt FROM rpa_configs LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "hasOpenaiKey": "1",
+      "openaiModel": "gpt-4o",
+      "hasManusPrompt": "1"
+    },
+    {
+      "id": "30001",
+      "hasOpenaiKey": "0",
+      "openaiModel": "gpt-4o-mini",
+      "hasManusPrompt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\thasOpenaiKey\topenaiModel\thasManusPrompt\n1\t1\tgpt-4o\t1\n30001\t0\tgpt-4o-mini\t1\n",
+  "stderr": "",
+  "execution_time_ms": 397
+}

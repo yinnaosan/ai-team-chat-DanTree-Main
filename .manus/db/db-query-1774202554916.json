@@ -1,0 +1,42 @@
+{
+  "query": "SELECT t.id, t.userId, t.title, t.status, t.createdAt FROM tasks t ORDER BY t.id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT t.id, t.userId, t.title, t.status, t.createdAt FROM tasks t ORDER BY t.id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "420002",
+      "userId": "1",
+      "title": "分析苹果 2025 年 Q1 财报」",
+      "status": "completed",
+      "createdAt": "2026-03-22 17:51:16"
+    },
+    {
+      "id": "420001",
+      "userId": "1",
+      "title": "分析苹果 2025 年 Q1 财报」",
+      "status": "completed",
+      "createdAt": "2026-03-22 17:32:34"
+    },
+    {
+      "id": "390001",
+      "userId": "1",
+      "title": "苹果 Apple Inc.(AAPL) 投资分析报告",
+      "status": "completed",
+      "createdAt": "2026-03-22 15:31:22"
+    },
+    {
+      "id": "360011",
+      "userId": "1",
+      "title": "下周你觉得纳斯达克会怎么样",
+      "status": "completed",
+      "createdAt": "2026-03-22 13:40:28"
+    }
+  ],
+  "messages": [
+    "390002\t1\t1. 获取市盈率（TTM PE）以及与行业或历史均值的对比数据，以判断当前估值是否合理。",
+    "2. 获取最近的季度财报数据，特别是营收增长和净利润率，以检验公司财务表现是否支持其估值水平。",
+    "3. 访问分析师对未来的利润预测和增长预期，以确认市场对苹果未来发展的乐观程度是否合理。\tcompleted\t2026-03-22 15:33:02"
+  ],
+  "stdout": "id\tuserId\ttitle\tstatus\tcreatedAt\n420002\t1\t分析苹果 2025 年 Q1 财报」\tcompleted\t2026-03-22 17:51:16\n420001\t1\t分析苹果 2025 年 Q1 财报」\tcompleted\t2026-03-22 17:32:34\n390002\t1\t1. 获取市盈率（TTM PE）以及与行业或历史均值的对比数据，以判断当前估值是否合理。\n2. 获取最近的季度财报数据，特别是营收增长和净利润率，以检验公司财务表现是否支持其估值水平。\n3. 访问分析师对未来的利润预测和增长预期，以确认市场对苹果未来发展的乐观程度是否合理。\tcompleted\t2026-03-22 15:33:02\n390001\t1\t苹果 Apple Inc.(AAPL) 投资分析报告\tcompleted\t2026-03-22 15:31:22\n360011\t1\t下周你觉得纳斯达克会怎么样\tcompleted\t2026-03-22 13:40:28\n",
+  "stderr": "",
+  "execution_time_ms": 363
+}

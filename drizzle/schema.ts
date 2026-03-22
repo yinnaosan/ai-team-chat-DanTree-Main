@@ -215,6 +215,10 @@ export const memoryContext = mysqlTable("memory_context", {
   taskTitle: text("taskTitle").notNull(),
   // 关键词（便于相关任务检索）
   keywords: text("keywords"),
+  // 记忆分层：preference=用户偏好/workflow=工作流程/watchlist=监控列表/analysis=分析结果
+  memoryType: mysqlEnum("memoryType", ["preference", "workflow", "watchlist", "analysis"]).default("analysis").notNull(),
+  // 记忆过期时间（null 表示永不过期）
+  expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

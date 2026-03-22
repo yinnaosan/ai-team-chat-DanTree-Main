@@ -1012,3 +1012,30 @@
 - [x] 应用到 exportAsPDF 和 exportConversationAsPDF 两处 html2canvas 调用
 - [x] 扩展 patchOklchForCanvas 覆盖所有现代颜色函数（oklab/lch/lab/color()/display-p3 等）并处理 SVG 内联样式
 - [x] 改用 html2canvas onclone 回调在克隆 DOM 中修复现代颜色函数（根治 oklab/oklch 报错）
+
+## GPT 架构改造说明书（Retrieval-First 重构）
+- [ ] Step1：删除 GPT_ANALYSIS 字段，改为只输出 task_parse + hypotheses + required_fields + source_groups + retrieval_plan_outline
+- [ ] Step1：新增禁止项——Step1 不允许出现买入/卖出/持有/高估/低估/目标价/结论性摘要
+- [ ] Step2：27 源并行改为三阶段检索（core 2-4 源 / conditional 按条件扩展 / deep 仅 depth_mode=deep 时触发）
+- [ ] Step2：新增 RetrievalTask 类型（taskId/phase/source/action/params/required/dependsOn/triggerIf）
+- [ ] Step2：core 并发上限 3，conditional 并发上限 3，deep 并发上限 2，phase 间串行
+- [ ] Step2：required 源失败记为 hard_missing，hard_missing 不允许 GPT 自行脑补
+- [ ] Manus 输出：DATA_REPORT 改为结构化事实对象，每个 fact 必须带 value/unit/timestamp/source
+- [ ] Manus 输出：新增 missing 字段（未获取的字段+原因）和 source_status 字段（每个源的成功/延迟）
+- [ ] 新增 Evidence Validator：数字必须映射 facts.*，当前/最新表述必须绑定实时源，估值结论必须绑定估值+价格 fact
+- [ ] Evidence Validator：返回 pass/rewrite_required/blocked 三种状态
+- [ ] Step3：先生成结构化 answer object（summary/thesis/risks/gaps 各带 citations），再渲染自然语言
+- [ ] Step3：没有 citations 的结论句不允许渲染为强判断
+- [ ] 记忆分层：memory 表新增 memoryType（preference/workflow/watchlist/thesis/temporary）和 expiresAt 字段
+- [ ] 记忆分层：默认只注入 preference/workflow/watchlist，thesis 和 temporary 默认不注入
+- [ ] 健康检测五态：unknown/checking/active/degraded/error，默认 unknown（不是 error）
+- [ ] 健康检测：打开页面只读缓存，用户点击刷新才真正探测，每批 5 个并发
+- [ ] evidence_score 机制：计算 required fields 命中率/实时源覆盖率/citation 完整率/hard_missing 数量/source freshness
+- [ ] evidence_score 决策：>=0.8 可输出明确判断，0.5-0.8 只输出方向性判断，<0.5 只输出研究框架和缺口
+
+## GPT 架构改造完成记录（2026-03-22）
+- [x] Phase 1：Step1 prompt 改造——删除 GPT_ANALYSIS，改为输出 task_parse + hypotheses + retrieval_plan
+- [x] Phase 2：Step2 Manus prompt 改造——结构化 DATA_REPORT（每个 fact 带 value/unit/timestamp/source）
+- [x] Phase 3：Step3 GPT prompt 改造——注入 Evidence Validator（HARD_MISSING 检测）+ Citation 约束
+- [x] Phase 4：记忆分层——schema 新增 memoryType + expiresAt 字段，数据库迁移完成
+- [x] Phase 5：健康检测五态——ApiHealthStatus 类型（unknown/checking/active/degraded/error），默认状态改为 unknown，前端颜色映射更新

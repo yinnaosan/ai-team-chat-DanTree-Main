@@ -1,0 +1,2 @@
+ALTER TABLE `memory_context` ADD `memoryType` enum('preference','workflow','watchlist','analysis') DEFAULT 'analysis' NOT NULL;--> statement-breakpoint
+ALTER TABLE `memory_context` ADD `expiresAt` timestamp;

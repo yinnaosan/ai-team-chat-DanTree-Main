@@ -99,38 +99,41 @@ async function requireAccess(userId: number, openId: string) {
 }
 
 // --- 带重试的 invokeLLM 包装（针对上游临时 500 错误）--------------------
-// ── 数据源状态缓存（服务端内存缓存，避免每次请求都并行测试所有 API）──────────────
-// 完全扁平化结构，避免 SuperJSON 深度截断（[Max Depth]）
+// ── 数据源状态缓存（服务端内存缓存，避免每次请求都并行测试所有 API）──────────────────────
+// 完全屁平化结构，避免 SuperJSON 深度截断（[Max Depth]）
+// 五态健康状态：unknown=未检测 | checking=检测中 | active=正常 | degraded=降级 | error=失败
+type ApiHealthStatus = "unknown" | "checking" | "active" | "degraded" | "error" | "warning" | "timeout";
 type DataSourceStatusResult = {
   // Tavily 汇总（避免嵌套数组）
   tavilyConfigured: boolean;
   tavilyActiveCount: number;  // 有效 Key 数量
   tavilyTotal: number;        // 总 Key 数量
-  // 各 API 状态（扁平化：xxxStatus + xxxConfigured）
-  fredStatus: string; fredConfigured: boolean;
-  yahooStatus: string; yahooConfigured: boolean;
-  worldBankStatus: string; worldBankConfigured: boolean;
-  imfStatus: string; imfConfigured: boolean;
-  finnhubStatus: string; finnhubConfigured: boolean;
-  fmpStatus: string; fmpConfigured: boolean;
-  polygonStatus: string; polygonConfigured: boolean;
-  secEdgarStatus: string; secEdgarConfigured: boolean;
-  alphaVantageStatus: string; alphaVantageConfigured: boolean;
-  coinGeckoStatus: string; coinGeckoConfigured: boolean;
-  baostockStatus: string; baostockConfigured: boolean;
-  gdeltStatus: string; gdeltConfigured: boolean;
-  newsApiStatus: string; newsApiConfigured: boolean;
-  marketauxStatus: string; marketauxConfigured: boolean;
-  simfinStatus: string; simfinConfigured: boolean;
-  tiingoStatus: string; tiingoConfigured: boolean;
-  ecbStatus: string; ecbConfigured: boolean;
-  hkexStatus: string; hkexConfigured: boolean;
-  boeStatus: string; boeConfigured: boolean;
-  hkmaStatus: string; hkmaConfigured: boolean;
-  courtListenerStatus: string; courtListenerConfigured: boolean;
-  congressStatus: string; congressConfigured: boolean;
-  eurLexStatus: string; eurLexConfigured: boolean;
-  gleifStatus: string; gleifConfigured: boolean;
+  // 各 API 状态（屁平化：xxx Status + xxxConfigured）
+  // 五态：unknown=未检测 | checking=检测中 | active=正常 | degraded=降级 | error=失败
+  fredStatus: ApiHealthStatus; fredConfigured: boolean;
+  yahooStatus: ApiHealthStatus; yahooConfigured: boolean;
+  worldBankStatus: ApiHealthStatus; worldBankConfigured: boolean;
+  imfStatus: ApiHealthStatus; imfConfigured: boolean;
+  finnhubStatus: ApiHealthStatus; finnhubConfigured: boolean;
+  fmpStatus: ApiHealthStatus; fmpConfigured: boolean;
+  polygonStatus: ApiHealthStatus; polygonConfigured: boolean;
+  secEdgarStatus: ApiHealthStatus; secEdgarConfigured: boolean;
+  alphaVantageStatus: ApiHealthStatus; alphaVantageConfigured: boolean;
+  coinGeckoStatus: ApiHealthStatus; coinGeckoConfigured: boolean;
+  baostockStatus: ApiHealthStatus; baostockConfigured: boolean;
+  gdeltStatus: ApiHealthStatus; gdeltConfigured: boolean;
+  newsApiStatus: ApiHealthStatus; newsApiConfigured: boolean;
+  marketauxStatus: ApiHealthStatus; marketauxConfigured: boolean;
+  simfinStatus: ApiHealthStatus; simfinConfigured: boolean;
+  tiingoStatus: ApiHealthStatus; tiingoConfigured: boolean;
+  ecbStatus: ApiHealthStatus; ecbConfigured: boolean;
+  hkexStatus: ApiHealthStatus; hkexConfigured: boolean;
+  boeStatus: ApiHealthStatus; boeConfigured: boolean;
+  hkmaStatus: ApiHealthStatus; hkmaConfigured: boolean;
+  courtListenerStatus: ApiHealthStatus; courtListenerConfigured: boolean;
+  congressStatus: ApiHealthStatus; congressConfigured: boolean;
+  eurLexStatus: ApiHealthStatus; eurLexConfigured: boolean;
+  gleifStatus: ApiHealthStatus; gleifConfigured: boolean;
 };
 let dataSourceStatusCache: DataSourceStatusResult | null = null;
 let dataSourceStatusCacheTime = 0;
@@ -139,34 +142,36 @@ let dataSourceStatusRefreshing = false;
 // 返回一个所有状态为 "error" 的默认值（扁平化结构，用于缓存未就绪时的占位）
 function buildDefaultDataSourceStatus(): DataSourceStatusResult {
   const tavilyKeys = getTavilyKeyStatuses();
+  // 默认状态为 "unknown"（未检测），而非 "error"（检测失败）
+  // 这样页面加载时不会显示红色，等用户点击「刷新」后才触发真正的健康检测
   return {
     tavilyConfigured: isTavilyConfigured(),
     tavilyActiveCount: tavilyKeys.filter(k => k.configured && k.status === "active").length,
     tavilyTotal: tavilyKeys.filter(k => k.configured).length,
-    fredStatus: "error", fredConfigured: !!ENV.FRED_API_KEY,
-    yahooStatus: "error", yahooConfigured: true,
-    worldBankStatus: "error", worldBankConfigured: true,
-    imfStatus: "error", imfConfigured: true,
-    finnhubStatus: "error", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
-    fmpStatus: "error", fmpConfigured: !!ENV.FMP_API_KEY,
-    polygonStatus: "error", polygonConfigured: !!ENV.POLYGON_API_KEY,
-    secEdgarStatus: "error", secEdgarConfigured: true,
-    alphaVantageStatus: "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
-    coinGeckoStatus: "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
-    baostockStatus: "warning", baostockConfigured: true,
-    gdeltStatus: "error", gdeltConfigured: true,
-    newsApiStatus: "error", newsApiConfigured: !!ENV.NEWS_API_KEY,
-    marketauxStatus: "error", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
-    simfinStatus: "error", simfinConfigured: !!ENV.SIMFIN_API_KEY,
-    tiingoStatus: "error", tiingoConfigured: !!ENV.TIINGO_API_KEY,
-    ecbStatus: "error", ecbConfigured: true,
-    hkexStatus: "error", hkexConfigured: true,
-    boeStatus: "error", boeConfigured: true,
-    hkmaStatus: "error", hkmaConfigured: true,
-    courtListenerStatus: "error", courtListenerConfigured: true,
-    congressStatus: "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
-    eurLexStatus: "error", eurLexConfigured: true,
-    gleifStatus: "error", gleifConfigured: true,
+    fredStatus: "unknown", fredConfigured: !!ENV.FRED_API_KEY,
+    yahooStatus: "unknown", yahooConfigured: true,
+    worldBankStatus: "unknown", worldBankConfigured: true,
+    imfStatus: "unknown", imfConfigured: true,
+    finnhubStatus: "unknown", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
+    fmpStatus: "unknown", fmpConfigured: !!ENV.FMP_API_KEY,
+    polygonStatus: "unknown", polygonConfigured: !!ENV.POLYGON_API_KEY,
+    secEdgarStatus: "unknown", secEdgarConfigured: true,
+    alphaVantageStatus: "unknown", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
+    coinGeckoStatus: "unknown", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    baostockStatus: "unknown", baostockConfigured: true,
+    gdeltStatus: "unknown", gdeltConfigured: true,
+    newsApiStatus: "unknown", newsApiConfigured: !!ENV.NEWS_API_KEY,
+    marketauxStatus: "unknown", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
+    simfinStatus: "unknown", simfinConfigured: !!ENV.SIMFIN_API_KEY,
+    tiingoStatus: "unknown", tiingoConfigured: !!ENV.TIINGO_API_KEY,
+    ecbStatus: "unknown", ecbConfigured: true,
+    hkexStatus: "unknown", hkexConfigured: true,
+    boeStatus: "unknown", boeConfigured: true,
+    hkmaStatus: "unknown", hkmaConfigured: true,
+    courtListenerStatus: "unknown", courtListenerConfigured: true,
+    congressStatus: "unknown", congressConfigured: !!ENV.CONGRESS_API_KEY,
+    eurLexStatus: "unknown", eurLexConfigured: true,
+    gleifStatus: "unknown", gleifConfigured: true,
   };
 }
 
@@ -555,50 +560,60 @@ DATA_INTEGRITY[MAX]:
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
 ${AVAILABLE_APIS_CATALOG}
 [INSTRUCTIONS]
-你是首席投资顾问（GPT）。Step1 同步完成两件事：
+你是首席投资顾问（GPT）。Step1 只做一件事：**任务解析与检索规划**，不输出任何投资结论或主观判断。
 
-■ PART-A：任务规划与资源分配（目的：让 Manus 拿到后直接上手，无需重新思考框架）
-① 判断任务类型（新任务/延续，如延续引用上次具体结论）
-② 建立分析框架（3-5层，明确核心问题和分析角度）
-③ 资源分配（分两组）：
-   [GPT_RESOURCES] — GPT 自己分析时需要参考的数据（由系统同步获取后在 Step3 提供给你）
-   [MANUS_RESOURCES] — Manus 负责收集整理的数据（Manus 独立执行）
-   ⚠ 资源选取原则：
-   • 只选任务真正需要的 API，不堆砌，不重复
-   • params 精确指定字段和时间范围（如 fields:["revenue","netIncome"] 而非取全量）
-   • 快速问答/闲聊：两组均为空数组，不调用任何 API
-   • tavily_query：只在需要市场观点/新闻/行业报告时才填，否则为 null
+**职责边界（严格遵守）：**
+• GPT 负责：识别任务类型、拆解研究问题、提出待验证假设、设计检索计划
+• Manus 负责：按计划调用 API、抓取数据、清洗计算、返回结构化事实包
+• 禁止在 Step1 出现：买入/卖出/持有/高估/低估/目标价/结论性摘要/方向性判断
+• 禁止用「待数据验证」替代假设——假设必须是可被数据证伪的具体陈述
 
-■ PART-B：GPT 主观分析（同步执行，不等数据，基于专业知识立即输出）
-• 投资逻辑推演（护城河/竞争优势/行业格局/商业模式）
-• 宏观叙事判断（政策方向/市场情绪/周期位置/利率环境）
-• 风险识别（尾部风险/结构性风险/黑天鹅/监管风险）
-• 历史类比（与历史相似情形对比，给出方向性判断）
-⚠ PART-B 必须有实质性判断，禁止用「待数据验证」替代内容
+**三阶段检索计划（core / conditional / deep）：**
+• core：每个任务必须执行的 2-4 个最关键数据源（并发上限 3）
+• conditional：满足特定条件才扩展（如涉及宏观→FRED，涉及舆情→news_api）（并发上限 3）
+• deep：仅 depth_mode=deep 或用户特别要求时触发（并发上限 2）
+• required=true 的源失败时，必须标记为 hard_missing，不允许 GPT 在 Step3 自行脑补
 
 [OUTPUT - 严格遵守此格式，Manus 将直接解析执行]
-## TASK_ANALYSIS
-（任务类型|连续性|核心问题，3句以内）
-## ANALYSIS_FRAMEWORK
-（分析层次，每层一行，格式：层级→核心问题）
+## TASK_PARSE
+（任务类型 | 涉及实体 | 时间范围 | 是否延续任务，3句以内）
+## HYPOTHESES
+（每个假设一行，格式：[Hx] 假设陈述 | 需要字段：field1, field2）
 ## RESOURCE_SPEC
 ${"```"}json
 {
-  "gpt_resources": [
-    {"name": "API名称", "params": {"ticker": "AAPL", "period": "1y"}, "purpose": "验证我的估值判断"}
+  "task_parse": {
+    "task_type": "stock_analysis|macro_analysis|event_driven|general",
+    "symbols": ["AAPL"],
+    "markets": ["US"],
+    "time_scope": "current|historical|forecast",
+    "depth_mode": "quick|standard|deep"
+  },
+  "hypotheses": [
+    {
+      "id": "h1",
+      "statement": "当前估值是否偏高",
+      "required_fields": ["price.current", "valuation.ttm_pe"],
+      "priority": "high"
+    }
   ],
-  "manus_resources": [
-    {"name": "API名称", "params": {"ticker": "AAPL", "statements": ["IS","BS"], "years": 3}, "purpose": "完整财务报表供深度分析"},
-    {"name": "fred", "params": {"series_ids": ["FEDFUNDS","CPIAUCSL"], "limit": 24}, "purpose": "宏观利率环境数据"}
-  ],
-  "tavily_query": "苹果AI战略分析师观点 ${currentYearStr} 或 null",
+  "source_groups": ["market_data", "filings", "macro", "news", "web"],
+  "retrieval_plan": {
+    "core": [
+      {"name": "yahoo_finance", "params": {"ticker": "AAPL", "period": "1y"}, "required": true, "purpose": "当前价格和基础估值"}
+    ],
+    "conditional": [
+      {"name": "fred", "params": {"series_ids": ["FEDFUNDS"], "limit": 12}, "required": false, "triggerIf": "涉及利率敏感性", "purpose": "宏观利率环境"}
+    ],
+    "deep": [
+      {"name": "simfin", "params": {"ticker": "AAPL"}, "required": false, "purpose": "详细财务衍生指标"}
+    ]
+  },
+  "tavily_query": "苹果AI战略分析师观点 ${currentYearStr}",
   "company_names": ["苹果", "Apple Inc."],
-  "priority": "quick|standard|deep",
-  "reasoning": "资源选取理由（一句话）"
+  "reasoning": "检索计划选取理由（一句话）"
 }
-${"```"}
-## GPT_ANALYSIS
-（PART-B 实质性分析，必须包含方向性判断，禁止纯框架描述）`;
+${"```"}`;
     
 
     // ── 并行启动：Step1 GPT + Yahoo Finance + Tavily 初始搜索 + 多源金融数据 ──────────────
@@ -663,14 +678,28 @@ ${"```"}
     type ResourcePlanWithSpec = ResourcePlan & { taskSpec: { apis: Array<{ name: string; params: Record<string, unknown>; purpose: string }>; tavily_query: string | null; priority: string; reasoning: string } | null };
     // ── 新版 TASK_SPEC 解析：将精确 API 名称映射到布尔开关 ──────────────────
     interface TaskSpec {
-      apis: Array<{ name: string; params: Record<string, unknown>; purpose: string }>;
+      apis: Array<{ name: string; params: Record<string, unknown>; purpose: string; phase?: string; required?: boolean }>;
       tavily_query: string | null;
       company_names?: string[];  // GPT 提取的公司名称实体（用于 GLEIF 精确查询）
       priority: "quick" | "standard" | "deep";
       reasoning: string;
+      // 新格式扩展字段（Retrieval-First 架构）
+      hypotheses?: Array<{ id: string; statement: string; required_fields: string[]; priority: string }>;
+      retrieval_plan?: {
+        core?: Array<{ name: string; params: Record<string, unknown>; required?: boolean; purpose?: string }>;
+        conditional?: Array<{ name: string; params: Record<string, unknown>; required?: boolean; purpose?: string; triggerIf?: string }>;
+        deep?: Array<{ name: string; params: Record<string, unknown>; required?: boolean; purpose?: string }>;
+      };
+      task_parse?: {
+        task_type?: string;
+        symbols?: string[];
+        markets?: string[];
+        time_scope?: string;
+        depth_mode?: "quick" | "standard" | "deep";
+      };
     }
     const parseResourcePlan = (step1Text: string): ResourcePlan & { taskSpec: TaskSpec | null } => {
-      // 默认规划（兜底，当 GPT 未输出 TASK_SPEC 时使用）
+      // 默认规划（兆底，当 GPT 未输出 TASK_SPEC 时使用）
       const defaultPlan: ResourcePlan & { taskSpec: TaskSpec | null } = {
         dataSources: {
           technicalIndicators: false,
@@ -689,9 +718,36 @@ ${"```"}
       try {
         // 优先解析新格式 RESOURCE_SPEC JSON
         const specMatch = step1Text.match(/##\s*RESOURCE_SPEC[\s\S]*?```json([\s\S]*?)```/m)
+          || step1Text.match(/```json([\s\S]*?{[\s\S]*?"retrieval_plan"[\s\S]*?})```/m)
           || step1Text.match(/```json([\s\S]*?{[\s\S]*?"apis"[\s\S]*?})```/m);
         if (specMatch) {
-          const spec = JSON.parse(specMatch[1].trim()) as TaskSpec;
+          const raw = JSON.parse(specMatch[1].trim()) as Record<string, unknown>;
+          // 尝试解析新格式（含 retrieval_plan.core/conditional/deep）
+          let spec: TaskSpec;
+          if (raw.retrieval_plan) {
+            // 新格式：将 core+conditional+deep 合并为平平 apis 列表，保持向后兼容
+            type RetrievalEntry = { name: string; params: Record<string, unknown>; required?: boolean; purpose?: string; triggerIf?: string };
+            type RetrievalPlan = { core?: RetrievalEntry[]; conditional?: RetrievalEntry[]; deep?: RetrievalEntry[] };
+            const rp = raw.retrieval_plan as RetrievalPlan;
+            const allApis: Array<{ name: string; params: Record<string, unknown>; purpose: string; phase: string; required: boolean }> = [
+              ...(rp.core || []).map(a => ({ ...a, phase: "core", required: a.required !== false, purpose: a.purpose || "" })),
+              ...(rp.conditional || []).map(a => ({ ...a, phase: "conditional", required: false, purpose: a.purpose || "" })),
+              ...(rp.deep || []).map(a => ({ ...a, phase: "deep", required: false, purpose: a.purpose || "" })),
+            ];
+            spec = {
+              apis: allApis,
+              tavily_query: (raw.tavily_query as string | null) ?? null,
+              company_names: raw.company_names as string[] | undefined,
+              priority: ((raw.task_parse as Record<string, unknown>)?.depth_mode as "quick" | "standard" | "deep") ?? "standard",
+              reasoning: (raw.reasoning as string) ?? "",
+              // 保留新格式字段供后续使用
+              hypotheses: raw.hypotheses as TaskSpec["hypotheses"],
+              retrieval_plan: rp,
+              task_parse: raw.task_parse as TaskSpec["task_parse"],
+            } as TaskSpec;
+          } else {
+            spec = raw as unknown as TaskSpec;
+          }
           const apiNames = (spec.apis || []).map((a) => a.name.toLowerCase());
           // API 名称 → 布尔开关映射（精确控制，不堆砌）
           const has = (names: string[]) => names.some((n) => apiNames.includes(n));
@@ -1011,34 +1067,38 @@ ${"```"}
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
     const realTimeDataBlock = [structuredDataBlock, webContentBlock].filter(Boolean).join("\n\n---\n\n");
-    // Step2 Manus prompt（压缩 AI 内部语言）
+    // Step2 Manus prompt（结构化 DATA_REPORT 输出）
+    // 提取 hypotheses 中的 required_fields 供 Manus 针对性收集
+    const hypothesesBlock = resourcePlan.taskSpec?.hypotheses && resourcePlan.taskSpec.hypotheses.length > 0
+      ? `\nHYPOTHESES_TO_VERIFY:\n${resourcePlan.taskSpec.hypotheses.map((h: { id: string; statement: string; required_fields: string[] }) => `[${h.id}] ${h.statement} | fields_needed: ${h.required_fields.join(", ")}`).join("\n")}`
+      : "";
     const step2UserContent = `[MANUS←GPT|STEP2|INTERNAL]
 TASK:${taskDescription.slice(0, 200)}
-GPT_FRAMEWORK:
-${gptStep1Output}
+GPT_RETRIEVAL_PLAN:
+${gptStep1Output.slice(0, 1200)}${hypothesesBlock}
 ${structuredDataBlock ? `[PRE_DATA:structured]\n${structuredDataBlock}` : ""}
 ${webContentBlock ? `[PRE_DATA:web_raw]\n${webContentBlock}` : ""}
 [MANUS_INSTRUCTIONS]
-ROLE: data_executor — GPT 是决策大脑，你是专业数据执行者
-MISSION: 执行 GPT 在 RESOURCE_SPEC.manus_resources 中指定的数据任务，确保数据完整准确
+ROLE: data_executor — 你是专业数据执行层，不做任何分析判断
+MISSION: 按照 GPT 的 retrieval_plan 收集数据，输出结构化事实包
 
-STEP1_REVIEW（执行前快速核查，不推翻 GPT 规划，仅做执行层专业判断）:
-□ 每个 manus_resource：params 是否足够精确？时间范围是否合适？
-□ GPT 框架中提到但 manus_resources 未列入的关键数据 → 补充，标注[MANUS_ADD]
-□ 明显冗余重叠的资源 → 合并或去除，标注[MANUS_REMOVE]
-□ PRE_DATA 已有的数据 → 直接使用，标注[CACHED]，不重复调用
-
-EXECUTION:
-1. 输出 RESOURCE_REVIEW（每个 api 一行：EXECUTE|ADD|REMOVE|ADJUST → 理由，最多8字）
-2. 按审查后的清单精准调用 API，收集数据
-3. tavily：仅在 GPT 指定的资源库域名内搜索，提取结构化数据
+**输出规范（严格遵守）：**
+1. 每个数据点必须包含：字段名 | 数字值 | 单位 | 数据时间 | 来源
+   格式：field_name: value unit (YYYY-MM-DD) [source]
+   示例：price.current: 189.30 USD (${currentDateStr}) [Yahoo Finance]
+2. 缺失数据必须标注：field_name: [DATA_UNAVAILABLE] reason
+3. 禁止输出：分析评论 | 方向性判断 | 投资建议 | 任何主观推断
+4. 对应 HYPOTHESES_TO_VERIFY 中的 required_fields，确保每个字段都有对应数据或 [DATA_UNAVAILABLE]
+5. 如果 required=true 的源失败，在该字段后标注 [HARD_MISSING]
 
 OUTPUT_FORMAT (strict):
 [RESOURCE_REVIEW]
-api_name: EXECUTE|ADD|REMOVE|ADJUST → reason
+api_name: EXECUTE|CACHED|SKIP → reason（最多8字）
 [DATA_REPORT]
-数字/表格/指标为主 | 标注来源和时间 | 缺失标 N/A | 不写分析评论（那是 GPT 的工作）
-limit: ${modeConfig.step2MaxWords} tokens — 在输入端控制精度，不靠截断
+## {source_group}
+field: value unit (date) [source]
+...
+limit: ${modeConfig.step2MaxWords} tokens
 ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
 
     let manusReport: string;
@@ -1127,33 +1187,49 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     await updateTaskStatus(taskId, "gpt_reviewing");
 
     // 注：不截断 Manus 报告，完整传递。通过 Step2 指令已要求 Manus 严格控制输出在 6000 字以内。
+    // Evidence Validator：检测 HARD_MISSING 字段，生成证据完整性报告
+    const hardMissingFields = (() => {
+      const matches = manusReport.match(/\[HARD_MISSING\]/g) || [];
+      return matches.length;
+    })();
+    const evidenceGatingBlock = hardMissingFields > 0
+      ? `\n[EVIDENCE_VALIDATOR] 警告：发现 ${hardMissingFields} 个 HARD_MISSING 字段。对于这些字段：
+  - 不得用训练记忆或历史经验补全
+  - 必须在输出中明确标注「当前数据不可用」
+  - 如果所有关键字段均为 HARD_MISSING，必须输出「当前证据不足，无法给出可靠判断」`
+      : "";
     // Step3 GPT prompt（内部接收压缩格式，输出人类语言）
     const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
-[GPT_ANALYSIS_S1]
-${gptStep1Output}
+[GPT_RETRIEVAL_PLAN_S1]
+${gptStep1Output.slice(0, 800)}
 [MANUS_DATA_REPORT]
-${manusReport}
+${manusReport}${evidenceGatingBlock}
 ${citationSummary.sourcingBlock}
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━
-你是首席分析师（GPT）。你在 S1 已完成主观分析框架，Manus 已完成数据收集。
-现在将两者深度融合，输出最终专业报告给用户。
+你是首席分析师（GPT）。Manus 已完成数据收集，现在基于实际数据输出最终专业报告给用户。
+
+**Citation 约束（最重要）：**
+- 每个数字、百分比、价格、指标必须来自 MANUS_DATA_REPORT，格式：数字（时间，来源）
+- 禁止使用训练记忆中的任何数据补全空白
+- HARD_MISSING 字段必须在正文中标注「当前数据不可用」，不得用历史经验补全
+- 如果所有关键数据均为 HARD_MISSING，输出「当前证据不足，无法给出可靠判断」
 
 MANDATORY（不可省略）:
 ① CONCLUSION_FIRST: 每段第一句就是结论，格式「**[判断]**（数据→逻辑）」，禁止先铺垫再结论
-② POSITION: 对核心问题给出明确立场+幅度（「高估30-40%」不是「偏高」；「建议减仓」不是「可以考虑」）
+② POSITION: 对核心问题给出明确立场+幅度（「高体30-40%」不是「偏高」；「建议减仓」不是「可以考虑」）
 ③ CONSENSUS_VS_MINE: 主动对比「市场普遍认为X → 但数据显示Y → 因此我判断Z」，体现独立思考
-④ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（如 ${lastYearStr}Q3）
+④ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非“约20x”），标注时间（如 ${lastYearStr}Q3）
 ⑤ VALUATION: 若有 P/E|P/B|EV|PEG → 与行业均值+历史均值对比 → 给出估值结论（含幅度）
 ⑥ ANTI_THESIS: 主动提出「如果我错了，最可能的原因是：___」— 展示思维深度
 ⑦ DUAL_VERIFY: 正向（现在→未来）+ 反向（若判断正确→12个月内会出现什么可验证数据）
-⑧ RISK: 量化主要风险（如"利率上升100bp → 估值压缩8-12%"）
+⑧ RISK: 量化主要风险（如“利率上升100bp → 估值压缩8-12%”）
 ⑨ CONTINUITY: 若为延续任务 → 明确引用上次结论，说明本次更新了什么判断
 ⑩ CHARTS: 每个数据/趋势/对比机会嵌入 %%CHART%%...%%END_CHART%%（至少1个）
 ⑪ FOLLOWUP: 结尾给出3个追问 %%FOLLOWUP%%问题%%END%%
 
-PROHIBIT: 「平衡分析」「两方面来看」「既有机会也有风险」等中立废话 | 模糊结论 | 纯框架无数据 | 照搬 Manus 报告 | 先铺垫后结论
+PROHIBIT: 「平衡分析」「两方面来看」「既有机会也有风险」等中立废话 | 模糊结论 | 纯框架无数据 | 照晁 Manus 报告 | 先铺垫后结论 | 用训练记忆数据补全空白
 FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3列 | 中文输出
 %%FOLLOWUP%%请问下一个追问问题？%%END%%
 %%FOLLOWUP%%请问下一个追问问题？%%END%%

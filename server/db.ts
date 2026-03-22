@@ -654,10 +654,15 @@ export async function saveMemoryContext(data: {
   taskTitle: string;
   summary: string;
   keywords?: string;
+  memoryType?: "preference" | "workflow" | "watchlist" | "analysis";
+  expiresAt?: Date;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.insert(memoryContext).values(data);
+  await db.insert(memoryContext).values({
+    ...data,
+    memoryType: data.memoryType ?? "analysis",
+  });
 }
 
 // ─── Conversation Group helpers ───────────────────────────────────────────────

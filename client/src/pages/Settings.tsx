@@ -39,23 +39,32 @@ function DataSourceStatusPanel() {
 
   const statusColor = (s: string) => {
     if (s === "active") return "oklch(0.72 0.18 142)";
+    if (s === "degraded") return "oklch(0.72 0.18 80)"; // 黄色：降级运行
     if (s === "exhausted") return "oklch(0.72 0.18 50)";
     if (s === "timeout") return "oklch(0.72 0.18 50)";
     if (s === "warning") return "oklch(0.75 0.16 80)"; // 黄色：环境限制
+    if (s === "unknown") return "oklch(0.55 0.01 270)"; // 灰色：未检测
+    if (s === "checking") return "oklch(0.65 0.15 240)"; // 蓝色：检测中
     return "oklch(0.65 0.18 20)";
   };
   const statusBg = (s: string) => {
     if (s === "active") return "oklch(0.72 0.18 142 / 0.12)";
+    if (s === "degraded") return "oklch(0.72 0.18 80 / 0.10)";
     if (s === "exhausted" || s === "timeout") return "oklch(0.72 0.18 50 / 0.12)";
     if (s === "warning") return "oklch(0.75 0.16 80 / 0.10)"; // 黄色背景
+    if (s === "unknown") return "oklch(0.20 0.005 270 / 0.40)"; // 深灰背景
+    if (s === "checking") return "oklch(0.65 0.15 240 / 0.08)"; // 淡蓝背景
     return "oklch(0.65 0.18 20 / 0.12)";
   };
   const statusLabel = (s: string) => {
     if (s === "active") return "正常";
+    if (s === "degraded") return "降级";
     if (s === "exhausted") return "已耗尽";
     if (s === "timeout") return "超时";
-    if (s === "warning") return "本地运行"; // Python 库仅在本地沙筆可用
+    if (s === "warning") return "本地运行"; // Python 库仅在本地沙笔可用
     if (s === "error") return "连接失败";
+    if (s === "unknown") return "未检测";
+    if (s === "checking") return "检测中...";
     return "未配置";
   };
 
@@ -158,7 +167,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="FRED"
             desc="美联储宏观指标"
-            statusStr={status?.fredStatus ?? "error"}
+            statusStr={status?.fredStatus ?? "unknown"}
             badge={
               !status?.fredConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -202,7 +211,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Finnhub"
             desc="实时报价 / 分析师评级 / 内部交易"
-            statusStr={status?.finnhubStatus ?? "error"}
+            statusStr={status?.finnhubStatus ?? "unknown"}
             badge={
               !status?.finnhubConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -217,7 +226,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Financial Modeling Prep"
             desc="财务报表 / DCF估值 / 分析师目标价"
-            statusStr={status?.fmpStatus ?? "error"}
+            statusStr={status?.fmpStatus ?? "unknown"}
             badge={
               !status?.fmpConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -232,7 +241,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Polygon.io"
             desc="市场快照 / 近期走势 / 新闻情绪"
-            statusStr={status?.polygonStatus ?? "error"}
+            statusStr={status?.polygonStatus ?? "unknown"}
             badge={
               !status?.polygonConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -247,7 +256,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Alpha Vantage"
             desc="宏观指标 / 汇率 / CPI / 利率"
-            statusStr={status?.alphaVantageStatus ?? "error"}
+            statusStr={status?.alphaVantageStatus ?? "unknown"}
             badge={
               !status?.alphaVantageConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -262,7 +271,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="SEC EDGAR"
             desc="XBRL 财务事实 / 10-K 年报 / 10-Q 季报 / 8-K 公告 / 公司基本信息"
-            statusStr={status?.secEdgarStatus ?? "error"}
+            statusStr={status?.secEdgarStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -275,7 +284,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="CoinGecko"
             desc="加密货币 / 市值 / 趋势"
-            statusStr={status?.coinGeckoStatus ?? "error"}
+            statusStr={status?.coinGeckoStatus ?? "unknown"}
             badge={
               !status?.coinGeckoConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -295,7 +304,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Baostock"
             desc="A股历史行情 / 财务指标"
-            statusStr={status?.baostockStatus ?? "error"}
+            statusStr={status?.baostockStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -324,7 +333,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="NewsAPI"
             desc="全球新闻搜索 / 头条"
-            statusStr={status?.newsApiStatus ?? "error"}
+            statusStr={status?.newsApiStatus ?? "unknown"}
             badge={
               !status?.newsApiConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -344,7 +353,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Marketaux"
             desc="金融新闻 / 情绪评分 / 实体识别"
-            statusStr={status?.marketauxStatus ?? "error"}
+            statusStr={status?.marketauxStatus ?? "unknown"}
             badge={
               !status?.marketauxConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -364,7 +373,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="SimFin"
             desc="财务报表 / 衡生指标 / 股价历史"
-            statusStr={status?.simfinStatus ?? "error"}
+            statusStr={status?.simfinStatus ?? "unknown"}
             badge={
               !status?.simfinConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -384,7 +393,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Tiingo"
             desc="实时估值倍数（P/E、P/B、EV、PEG）/ 历史 OHLCV / 季度财务报表"
-            statusStr={status?.tiingoStatus ?? "error"}
+            statusStr={status?.tiingoStatus ?? "unknown"}
             badge={
               !status?.tiingoConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -404,7 +413,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="ECB"
             desc="欧元区利率 / 通胀 / 汇率 / 货币供应量"
-            statusStr={status?.ecbStatus ?? "error"}
+            statusStr={status?.ecbStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
@@ -417,7 +426,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="HKEXnews"
             desc="港股公告 / 年报 / 监管文件（香港交易所官方披露易）"
-            statusStr={status?.hkexStatus ?? "error"}
+            statusStr={status?.hkexStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
@@ -432,7 +441,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Bank of England"
             desc="英国基准利率 / 国债收益率 / GBP 汇率 / M4 货币供应量"
-            statusStr={status?.boeStatus ?? "error"}
+            statusStr={status?.boeStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 240 / 0.1)", color: "oklch(0.55 0.15 240)", border: "1px solid oklch(0.72 0.18 240 / 0.2)" }}>
@@ -447,7 +456,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="HKMA"
             desc="港元利率 / 货币供应量 / 银行间流动性 / 外汇储备（香港金融管理局）"
-            statusStr={status?.hkmaStatus ?? "error"}
+            statusStr={status?.hkmaStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 30 / 0.1)", color: "oklch(0.55 0.15 30)", border: "1px solid oklch(0.72 0.18 30 / 0.2)" }}>
@@ -463,7 +472,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="CourtListener"
             desc="美国法院诉讼 / 判决历史 / 公司诉讼风险"
-            statusStr={status?.courtListenerStatus ?? "error"}
+            statusStr={status?.courtListenerStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -476,7 +485,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Congress.gov"
             desc="美国立法动态 / 法案进展 / 监管政策"
-            statusStr={status?.congressStatus ?? "error"}
+            statusStr={status?.congressStatus ?? "unknown"}
             badge={
               !status?.congressConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
@@ -509,7 +518,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="GLEIF"
             desc="全球 LEI 法人识别码 / 法人结构 / 母子公司关系"
-            statusStr={status?.gleifStatus ?? "error"}
+            statusStr={status?.gleifStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>

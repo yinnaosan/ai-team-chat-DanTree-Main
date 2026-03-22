@@ -8,7 +8,6 @@
  */
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
-import { fetchWithJina } from "./jinaReader";
 
 export type FileCategory = "document" | "image" | "video" | "audio" | "other";
 
@@ -153,33 +152,13 @@ export async function extractFileContent(
         const desc = String(response.choices?.[0]?.message?.content || "PDF内容无法识别");
         return `[PDF文件：${filename}]\n${desc}`;
       } catch {
-        // 方法3：用 Jina Reader 抓取 S3 URL（兜底）
-        try {
-          const jinaResult = await fetchWithJina(s3Url);
-          if (jinaResult.success && jinaResult.content.length > 100) {
-            return `[PDF文件：${filename}]\n${jinaResult.content.slice(0, 15000)}`;
-          }
-        } catch {
-          // ignore
-        }
         return `[PDF文件：${filename}]\nPDF内容提取失败，请确保文件可读。`;
       }
     }
 
-    // ── Word/Excel/其他文档：用 Jina Reader 提取文本 ─────────────────────────
-    // Bug7 修复：Word/Excel 是二进制格式，LLM 无法通过 image_url 解析
-    // 改用 Jina Reader 抓取 S3 URL，Jina 支持 Office 文档文本提取
+    // ── Word/Excel/其他文档：提取可读文本 ─────────────────────────────────────
     if (category === "document") {
-      try {
-        const jinaResult = await fetchWithJina(s3Url);
-        if (jinaResult.success && jinaResult.content.trim().length > 100) {
-          return `[文档文件：${filename}]\n${jinaResult.content.slice(0, 15000)}`;
-        }
-      } catch {
-        // Jina 失败时继续尝试其他方法
-      }
-
-      // 兜底：尝试直接读取文档中的可读文本（适合部分 XML-based 格式如 .docx/.xlsx）
+      // 尝试直接读取文档中的可读文本（适合部分 XML-based 格式如 .docx/.xlsx）
       try {
         const raw = buffer.toString("utf-8");
         // docx/xlsx 是 ZIP 格式，内部有 XML，提取可读文本

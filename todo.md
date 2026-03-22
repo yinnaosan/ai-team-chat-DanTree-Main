@@ -1186,3 +1186,17 @@
 - [ ] 清理 Settings.tsx 中上述数据源的状态展示
 - [ ] TypeScript 编译 0 错误
 - [ ] 测试全部通过
+
+## 清理：移除不稳定/废弃数据源（2026-03-22）
+- [x] 删除 server/simfinApi.ts（429 配额耗尽 + 500 服务器错误）
+- [x] 删除 server/tiingoApi.ts（fetch failed 网络连接失败）
+- [x] 删除 server/gdeltApi.ts（429 限流 + JSON 解析错误）
+- [x] 删除 server/baoStockApi.ts（Python 依赖，沙盒无法运行）
+- [x] 删除 server/courtListenerApi.ts（极少触发，维护成本高）
+- [x] 删除 server/eurLexApi.ts（极少触发，维护成本高）
+- [x] 删除 server/jinaReader.ts（Jina 网址爬取功能废弃）
+- [x] 简化 server/tavilySearch.ts（移除 searchFromUserLibrary/fetchMultipleWithJina）
+- [x] 清理 server/routers.ts 中所有已删除 API 的 import、调用、类型字段
+- [x] 清理 client/src/pages/Settings.tsx 中已删除 API 的 UI 行（GDELT/CourtListener/BaoStock/SimFin/Tiingo/EurLex）
+- [x] 删除 server/tiingo.test.ts、server/simfin.test.ts、server/cryptoAstock.test.ts
+- [x] TypeScript 0 错误，15 个测试文件 190 个测试全部通过

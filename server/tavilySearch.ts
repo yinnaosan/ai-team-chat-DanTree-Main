@@ -18,7 +18,6 @@
  */
 
 import { notifyOwner } from "./_core/notification";
-import { fetchMultipleWithJina } from "./jinaReader";
 import { ENV } from "./_core/env";
 
 // ─────────────────────────────────────────────
@@ -326,94 +325,11 @@ export interface SearchResult {
 }
 
 export async function searchFromUserLibrary(
-  query: string,
-  libraryUrls: string[]
+  _query: string,
+  _libraryUrls: string[]
 ): Promise<SearchResult> {
-  const emptyResult: SearchResult = { content: "", sources: [] };
-  if (libraryUrls.length === 0) return emptyResult;
-  if (!isTavilyConfigured()) return emptyResult;
-
-  // Step 1: 从用户数据库 URL 提取域名列表
-  const domains = libraryUrls
-    .map(url => {
-      try {
-        const normalized = url.startsWith("http") ? url : `https://${url}`;
-        return new URL(normalized).hostname.replace(/^www\./, "");
-      } catch {
-        return null;
-      }
-    })
-    .filter((d): d is string => d !== null && d.length > 0);
-
-  const uniqueDomains = Array.from(new Set(domains)).slice(0, 15);
-  if (uniqueDomains.length === 0) return emptyResult;
-
-  // Step 2: 统一搜索（Tavily → Serper 降级）
-  const searchResults = await unifiedSearchRequest({
-    query,
-    max_results: 8,
-    search_depth: "advanced",
-    include_domains: uniqueDomains,
-    include_answer: false,
-    topic: "finance",
-  });
-
-  if (searchResults.length === 0) return emptyResult;
-
-  // Step 3: 提取高分 URL，最多 5 个
-  const sortedResults = searchResults.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  const topResults = sortedResults.slice(0, 5);
-  const realUrls = topResults.map(r => r.url);
-
-  // Step 4: Jina 抓取完整内容
-  const jinaResults = await fetchMultipleWithJina(realUrls, 3);
-  const jinaSuccessful = jinaResults.filter(r => r.success && r.content.trim().length > 100);
-
-  const allParts: string[] = [];
-  const sources: SearchResult["sources"] = [];
-
-  for (const r of topResults) {
-    const jinaResult = jinaResults.find(j => j.url === r.url);
-    const domain = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return r.url; } })();
-    sources.push({
-      domain,
-      url: r.url,
-      title: r.title || domain,
-      success: !!(jinaResult?.success && jinaResult.content.trim().length > 100),
-    });
-  }
-
-  if (jinaSuccessful.length > 0) {
-    const jinaFormatted = jinaSuccessful
-      .map((r, i) => {
-        const tavilyMeta = searchResults.find(t => t.url === r.url);
-        const date = tavilyMeta?.published_date ? ` (${tavilyMeta.published_date})` : "";
-        const title = r.title || tavilyMeta?.title || r.url;
-        return `### 来源${i + 1}：${title}${date}\n**URL**: ${r.url}\n\n${r.content.slice(0, 2000)}`;
-      })
-      .join("\n\n---\n\n");
-    const engine = getActiveSearchEngine();
-    const engineLabel = engine === "serper" ? "Serper" : "Tavily";
-    allParts.push(`## 用户数据库实时内容（${engineLabel}搜索定位 → Jina深度抓取）\n\n${jinaFormatted}`);
-  }
-
-  const jinaSuccessUrls = new Set(jinaSuccessful.map(r => r.url));
-  const fallback = searchResults.filter(
-    r => !jinaSuccessUrls.has(r.url) && r.content && r.content.length > 100
-  );
-
-  if (fallback.length > 0) {
-    const fallbackFormatted = fallback
-      .slice(0, 3)
-      .map((r, i) => {
-        const date = r.published_date ? ` (${r.published_date})` : "";
-        return `### 补充来源${i + 1}：${r.title}${date}\n**URL**: ${r.url}\n${r.content.slice(0, 800)}`;
-      })
-      .join("\n\n---\n\n");
-    allParts.push(`## 补充数据（搜索摘要）\n\n${fallbackFormatted}`);
-  }
-
-  return { content: allParts.join("\n\n---\n\n"), sources };
+  // 网址爬取功能已移除，返回空结果
+  return { content: "", sources: [] };
 }
 
 /**

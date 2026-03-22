@@ -140,12 +140,12 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes(status.alphaVantageStatus) ? 1 : 0,
                 ["active","warning"].includes(status.secEdgarStatus) ? 1 : 0,
                 ["active","warning"].includes(status.coinGeckoStatus) ? 1 : 0,
-                ["active","warning"].includes(status.baostockStatus) ? 1 : 0,
+
                 1, // GDELT 免费公开，始终计入
                 ["active","warning"].includes(status.newsApiStatus) ? 1 : 0,
                 ["active","warning"].includes(status.marketauxStatus) ? 1 : 0,
-                ["active","warning"].includes(status.simfinStatus) ? 1 : 0,
-                ["active","warning"].includes(status.tiingoStatus) ? 1 : 0,
+
+
                 ["active","warning"].includes(status.ecbStatus) ? 1 : 0,
                 ["active","warning"].includes(status.hkexStatus) ? 1 : 0,
                 ["active","warning"].includes(status.boeStatus) ? 1 : 0,
@@ -321,34 +321,7 @@ function DataSourceStatusPanel() {
             }
           />
 
-          {/* Baostock */}
-          <SourceRow
-            label="Baostock"
-            desc="A股历史行情 / 财务指标"
-            statusStr={status?.baostockStatus ?? "unknown"}
-            badge={
-              <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                免费公开
-              </span>
-            }
-          />
 
-          {/* 分组标题：新闻与情绪 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 新闻与情绪</p>
-
-          {/* GDELT */}
-          <SourceRow
-            label="GDELT"
-            desc="全球事件 / 地缘风险 / 新闻情绪"
-            statusStr={status?.gdeltStatus ?? "active"}
-            badge={
-              <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                免费公开 | 5秒限频
-              </span>
-            }
-          />
 
           {/* NewsAPI */}
           <SourceRow
@@ -390,45 +363,9 @@ function DataSourceStatusPanel() {
             }
           />
 
-          {/* SimFin */}
-          <SourceRow
-            label="SimFin"
-            desc="财务报表 / 衡生指标 / 股价历史"
-            statusStr={status?.simfinStatus ?? "unknown"}
-            badge={
-              !status?.simfinConfigured ? (
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
-                  未配置
-                </span>
-              ) : (
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
-                  需 API Key | 财务数据
-                </span>
-              )
-            }
-          />
 
-          {/* Tiingo */}
-          <SourceRow
-            label="Tiingo"
-            desc="实时估值倍数（P/E、P/B、EV、PEG）/ 历史 OHLCV / 季度财务报表"
-            statusStr={status?.tiingoStatus ?? "unknown"}
-            badge={
-              !status?.tiingoConfigured ? (
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
-                  未配置
-                </span>
-              ) : (
-                <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
-                  需 API Key | 估值数据
-                </span>
-              )
-            }
-          />
+
+
 
           {/* ECB */}
           <SourceRow
@@ -487,21 +424,6 @@ function DataSourceStatusPanel() {
           />
 
           {/* 分组标题：法律数据 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 法律与监管</p>
-
-          {/* CourtListener */}
-          <SourceRow
-            label="CourtListener"
-            desc="美国法院诉讼 / 判决历史 / 公司诉讼风险"
-            statusStr={status?.courtListenerStatus ?? "unknown"}
-            badge={
-              <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                免费公开 | 美国诉讼
-              </span>
-            }
-          />
-
           {/* Congress.gov */}
           <SourceRow
             label="Congress.gov"
@@ -522,18 +444,7 @@ function DataSourceStatusPanel() {
             }
           />
 
-          {/* EUR-Lex */}
-          <SourceRow
-            label="EUR-Lex"
-            desc="欧盟法规 / MiCA / GDPR / DORA / MiFID II / AI Act"
-            statusStr={status?.eurLexStatus ?? "active"}
-            badge={
-              <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                本地静态数据
-              </span>
-            }
-          />
+
 
           {/* GLEIF */}
           <SourceRow

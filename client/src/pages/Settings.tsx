@@ -18,6 +18,28 @@ import {
 type SettingsTab = "api" | "database" | "access" | "logic";
 type RulesTab = "investment" | "task" | "data";
 
+// ---- TrustedSource 类型（与后端 db.ts 一致）----
+interface TrustedSource {
+  id: string;
+  name: string;
+  url: string;
+  category: string;
+  routingKeys: string[];
+  trustLevel: "primary" | "secondary" | "supplementary";
+  enabled: boolean;
+}
+interface TrustedSourcesPolicy {
+  requireCitation: boolean;
+  fallbackToTraining: boolean;
+  minEvidenceScore: number;
+  blockOnHardMissing: boolean;
+}
+interface TrustedSourcesConfig {
+  sources: TrustedSource[];
+  routingRules: { id: string; pattern: string; targetSources: string[]; priority: number }[];
+  policy: TrustedSourcesPolicy;
+}
+
 // ---- 实时数据源状态面板 ----
 function DataSourceStatusPanel() {
   const utils = trpc.useUtils();
@@ -583,6 +605,13 @@ export default function Settings() {
   const [investmentRules, setInvestmentRules] = useState("");
   const [taskInstruction, setTaskInstruction] = useState("");
   const [dataLibrary, setDataLibrary] = useState("");
+  const [trustedSourcesConfig, setTrustedSourcesConfig] = useState<TrustedSourcesConfig>({
+    sources: [],
+    routingRules: [],
+    policy: { requireCitation: true, fallbackToTraining: false, minEvidenceScore: 0.6, blockOnHardMissing: true },
+  });
+  const [newSourceForm, setNewSourceForm] = useState({ name: "", url: "", category: "", routingKeys: "", trustLevel: "primary" as TrustedSource["trustLevel"] });
+  const [showNewSourceForm, setShowNewSourceForm] = useState(false);
   const [activeRulesTab, setActiveRulesTab] = useState<RulesTab>("investment");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
@@ -627,6 +656,8 @@ export default function Settings() {
       setInvestmentRules((savedConfig as any).investmentRules || "");
       setTaskInstruction((savedConfig as any).taskInstruction || "");
       setDataLibrary((savedConfig as any).dataLibrary || "");
+      const tsc = (savedConfig as any).trustedSourcesConfig;
+      if (tsc?.sources) setTrustedSourcesConfig(tsc);
     }
   }, [savedConfig]);
 
@@ -1177,30 +1208,187 @@ export default function Settings() {
                 <div className="space-y-3">
                   {/* ---- 实时数据源状态面板 ---- */}
                   <DataSourceStatusPanel />
-                  {/* ---- 资料库输入 ---- */}
+
+                  {/* ---- 结构化 Trusted Sources ---- */}
+                  <div className="p-4 rounded-xl space-y-3" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: "oklch(0.88 0.005 270)" }}>可信来源层 (Trusted Sources)</p>
+                        <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
+                        onClick={() => setShowNewSourceForm(v => !v)}
+                        style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
+                        <Plus className="w-3 h-3" />添加来源
+                      </Button>
+                    </div>
+
+                    {/* 添加来源表单 */}
+                    {showNewSourceForm && (
+                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.72 0.18 250 / 0.3)" }}>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>来源名称</Label>
+                            <Input value={newSourceForm.name} onChange={e => setNewSourceForm(f => ({ ...f, name: e.target.value }))}
+                              placeholder="AQR Capital" className="h-8 text-xs"
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>分类</Label>
+                            <Input value={newSourceForm.category} onChange={e => setNewSourceForm(f => ({ ...f, category: e.target.value }))}
+                              placeholder="quant / macro / fundamentals" className="h-8 text-xs"
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>URL</Label>
+                          <Input value={newSourceForm.url} onChange={e => setNewSourceForm(f => ({ ...f, url: e.target.value }))}
+                            placeholder="https://www.aqr.com/insights" className="h-8 text-xs font-mono"
+                            style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>路由关键词（逗号分隔）</Label>
+                            <Input value={newSourceForm.routingKeys} onChange={e => setNewSourceForm(f => ({ ...f, routingKeys: e.target.value }))}
+                              placeholder="\u91cf化,因子,小市値" className="h-8 text-xs"
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>信任等级</Label>
+                            <Select value={newSourceForm.trustLevel} onValueChange={v => setNewSourceForm(f => ({ ...f, trustLevel: v as TrustedSource["trustLevel"] }))}>
+                              <SelectTrigger className="h-8 text-xs" style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="primary">主要来源</SelectItem>
+                                <SelectItem value="secondary">次要来源</SelectItem>
+                                <SelectItem value="supplementary">补充来源</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowNewSourceForm(false)}
+                            style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.60 0.01 270)" }}>取消</Button>
+                          <Button size="sm" className="h-7 text-xs gap-1"
+                            style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}
+                            onClick={() => {
+                              if (!newSourceForm.name || !newSourceForm.url) { toast.error("请填写名称和 URL"); return; }
+                              const newSrc: TrustedSource = {
+                                id: newSourceForm.name.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 20) + "_" + Date.now().toString(36),
+                                name: newSourceForm.name,
+                                url: newSourceForm.url,
+                                category: newSourceForm.category || "general",
+                                routingKeys: newSourceForm.routingKeys.split(",").map(s => s.trim()).filter(Boolean),
+                                trustLevel: newSourceForm.trustLevel,
+                                enabled: true,
+                              };
+                              setTrustedSourcesConfig(c => ({ ...c, sources: [...c.sources, newSrc] }));
+                              setNewSourceForm({ name: "", url: "", category: "", routingKeys: "", trustLevel: "primary" });
+                              setShowNewSourceForm(false);
+                            }}>
+                            <Plus className="w-3 h-3" />确认添加
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 来源列表 */}
+                    {trustedSourcesConfig.sources.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {trustedSourcesConfig.sources.map(src => (
+                          <div key={src.id} className="flex items-center gap-2 p-2.5 rounded-lg"
+                            style={{ background: "oklch(0.13 0.004 270)", border: `1px solid ${src.enabled ? "oklch(0.72 0.18 250 / 0.25)" : "oklch(0.25 0.007 270)"}` }}>
+                            <button onClick={() => setTrustedSourcesConfig(c => ({ ...c, sources: c.sources.map(s => s.id === src.id ? { ...s, enabled: !s.enabled } : s) }))}
+                              className="flex-shrink-0">
+                              {src.enabled
+                                ? <CheckCircle2 className="w-4 h-4" style={{ color: "oklch(0.72 0.18 142)" }} />
+                                : <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: "oklch(0.35 0.008 270)" }} />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>{src.name}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: src.trustLevel === "primary" ? "oklch(0.72 0.18 250 / 0.2)" : "oklch(0.25 0.007 270)", color: src.trustLevel === "primary" ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}>
+                                  {src.trustLevel === "primary" ? "主要" : src.trustLevel === "secondary" ? "次要" : "补充"}
+                                </span>
+                                {src.category && <span className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>{src.category}</span>}
+                              </div>
+                              <p className="text-xs truncate mt-0.5" style={{ color: "oklch(0.45 0.01 270)" }}>{src.url}</p>
+                              {src.routingKeys.length > 0 && (
+                                <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.15 250)" }}>路由: {src.routingKeys.join(" · ")}</p>
+                              )}
+                            </div>
+                            <button onClick={() => setTrustedSourcesConfig(c => ({ ...c, sources: c.sources.filter(s => s.id !== src.id) }))}
+                              className="flex-shrink-0 p-1 rounded hover:bg-white/5"
+                              style={{ color: "oklch(0.45 0.01 270)" }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-center py-4" style={{ color: "oklch(0.45 0.01 270)" }}>暂无可信来源，点击「添加来源」进行配置</p>
+                    )}
+
+                    {/* Policy 配置 */}
+                    <div className="pt-2 border-t" style={{ borderColor: "oklch(0.25 0.007 270)" }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: "oklch(0.65 0.008 270)" }}>Policy 配置</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { key: "requireCitation" as const, label: "强制引用来源" },
+                          { key: "blockOnHardMissing" as const, label: "缺失数据时阻断" },
+                          { key: "fallbackToTraining" as const, label: "允许训练记忆备用" },
+                        ] as const).map(({ key, label }) => (
+                          <button key={key}
+                            onClick={() => setTrustedSourcesConfig(c => ({ ...c, policy: { ...c.policy, [key]: !c.policy[key] } }))}
+                            className="flex items-center gap-2 p-2 rounded-lg text-xs"
+                            style={{ background: trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.15)" : "oklch(0.14 0.004 270)", border: `1px solid ${trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.25 0.007 270)"}`, color: trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}>
+                            {trustedSourcesConfig.policy[key] ? <CheckCircle2 className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border" style={{ borderColor: "oklch(0.35 0.008 270)" }} />}
+                            {label}
+                          </button>
+                        ))}
+                        <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.25 0.007 270)" }}>
+                          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>最低证据分</span>
+                          <input type="range" min="0" max="1" step="0.1"
+                            value={trustedSourcesConfig.policy.minEvidenceScore}
+                            onChange={e => setTrustedSourcesConfig(c => ({ ...c, policy: { ...c.policy, minEvidenceScore: parseFloat(e.target.value) } }))}
+                            className="flex-1 h-1 accent-blue-400" />
+                          <span className="text-xs font-mono w-6" style={{ color: "oklch(0.72 0.18 250)" }}>{trustedSourcesConfig.policy.minEvidenceScore}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button size="sm" className="gap-1.5 h-7 text-xs"
+                        style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}
+                        onClick={() => saveConfigMutation.mutate({ trustedSourcesConfig } as any)}
+                        disabled={saveConfigMutation.isPending}>
+                        {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                        保存可信来源配置
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* ---- 传统资料库文本输入（兼容旧模式）---- */}
                   <div className="p-4 rounded-xl space-y-3"
-                    style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
-                    <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
-                      所有观点搜索、数据来源、新闻消息、权威论证、市场政策等内容优先来自这里。无法匹配时才使用外部数据。
-                    </p>
+                    style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+                    <p className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>传统模式：直接输入 URL 列表</p>
+                    <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>如果上方已配置结构化来源，优先使用结构化配置。</p>
                     <Textarea
                       value={dataLibrary}
                       onChange={(e) => setDataLibrary(e.target.value)}
-                      placeholder={"\u793a\u4f8b\uff1a\n## \u6743\u5a01\u6570\u636e\u6e90\n- \u4e2d\u56fd\u8bc1\u76d1\u4f1a\u516c\u544a\uff1ahttps://www.csrc.gov.cn\n- \u7f8e\u8054\u50a8\u5229\u7387\u51b3\u8bae\uff1ahttps://www.federalreserve.gov\n- \u5de5\u4e1a\u548c\u4fe1\u606f\u5316\u90e8\u6570\u636e\uff1ahttps://data.stats.gov.cn\n\n## \u5e02\u573a\u884c\u60c5\u6570\u636e\n- \u96ea\u7403\u7f51\uff1ahttps://xueqiu.com\n- \u4e1c\u65b9\u8d22\u5bcc\uff1ahttps://www.eastmoney.com\n- Yahoo Finance\uff1ahttps://finance.yahoo.com\n\n## \u4e2a\u4eba\u7b14\u8bb0 / \u81ea\u5b9a\u4e49\u8d44\u6599\n\u53ef\u5728\u6b64\u5904\u7c98\u8d34\u6587\u7ae0\u3001\u6570\u636e\u3001\u7814\u7a76\u62a5\u544a\u7b49\u4efb\u610f\u5185\u5bb9"}
-                      className="min-h-[280px] text-sm font-mono resize-y"
-                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                      placeholder={"\u793a\u4f8b\uff1a\n## \u6743\u5a01\u6570\u636e\u6e90\n- \u4e2d\u56fd\u8bc1\u76d1\u4f1a\u516c\u544a\uff1ahttps://www.csrc.gov.cn\n- \u7f8e\u8054\u50a8\u5229\u7387\u51b3\u8bae\uff1ahttps://www.federalreserve.gov"}
+                      className="min-h-[160px] text-sm font-mono resize-y"
+                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.88 0.005 270)" }}
                     />
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                        {dataLibrary.trim() ? `\u5df2\u914d\u7f6e ${dataLibrary.split('\n').filter(l => l.includes('http')).length} \u4e2a\u6570\u636e\u6e90` : "\u672a\u914d\u7f6e\u6570\u636e\u6e90\uff0c\u5c06\u4f7f\u7528\u901a\u7528\u641c\u7d22"}
-                      </p>
+                    <div className="flex justify-end">
                       <Button size="sm"
                         onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
                         disabled={saveConfigMutation.isPending}
                         className="gap-1.5 h-7 text-xs"
                         style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
                         {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                        \u4fdd\u5b58\u8d44\u6599\u5e93
+                        保存资料库
                       </Button>
                     </div>
                   </div>

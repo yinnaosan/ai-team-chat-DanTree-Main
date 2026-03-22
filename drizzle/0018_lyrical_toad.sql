@@ -1,0 +1,1 @@
+ALTER TABLE `rpa_configs` ADD `trustedSourcesConfig` json;

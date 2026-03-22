@@ -145,6 +145,8 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   taskInstruction: text("taskInstruction"),
   // 第三部分：资料数据库（优先数据来源：链接/API/权威资料）
   dataLibrary: text("dataLibrary"),
+  // 第四部分：结构化可信数据源配置（trusted_sources + routing_rules + policy）
+  trustedSourcesConfig: json("trustedSourcesConfig"),
   // 兼容旧字段（废弃，保留不删）
   userCoreRules: text("userCoreRules"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

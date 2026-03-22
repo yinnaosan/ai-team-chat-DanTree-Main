@@ -8,6 +8,37 @@ import {
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
+// ─── TrustedSourcesConfig 类型定义 ──────────────────────────────────────────────
+export interface TrustedSource {
+  id: string;           // 唯一标识，如 "aqr", "gmo"
+  name: string;         // 显示名称
+  url: string;          // 来源 URL
+  category: string;     // 分类，如 "macro", "quant", "fundamentals"
+  routingKeys: string[]; // 触发关键词，如 ["量化", "因子", "估值"]
+  trustLevel: "primary" | "secondary" | "supplementary"; // 信任等级
+  enabled: boolean;
+}
+
+export interface RoutingRule {
+  id: string;
+  pattern: string;      // 匹配模式，如 "美联储", "利率"
+  targetSources: string[]; // 匹配时优先调用的来源 ID
+  priority: number;     // 优先级（越高越先匹配）
+}
+
+export interface TrustedSourcesPolicy {
+  requireCitation: boolean;    // 是否强制引用来源
+  fallbackToTraining: boolean; // 无数据时是否允许使用训练记忆
+  minEvidenceScore: number;    // 最低证据分数（0-1）
+  blockOnHardMissing: boolean; // HARD_MISSING 时是否阻断输出
+}
+
+export interface TrustedSourcesConfig {
+  sources: TrustedSource[];
+  routingRules: RoutingRule[];
+  policy: TrustedSourcesPolicy;
+}
+
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
@@ -452,7 +483,7 @@ export async function getOwnerRpaConfig() {
 
 export async function upsertRpaConfig(
   userId: number,
-  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null }
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null; trustedSourcesConfig?: TrustedSourcesConfig | null }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

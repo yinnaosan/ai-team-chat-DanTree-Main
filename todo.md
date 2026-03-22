@@ -45,6 +45,15 @@
 - [ ] 后端：收集实际使用的数据源列表，随任务结果一起返回给前端
 - [ ] 前端：AI 回复底部显示可折叠的「数据来源」卡片（列出本次任务实际调用了哪些 API）
 
+## PART3 资料数据库升级 + Step3 两阶段渲染
+- [x] 数据库迁移：rpaConfigs 表新增 trustedSourcesConfig JSON 字段
+- [x] 后端 db.ts：新增 TrustedSourcesConfig 类型 + upsert 逻辑
+- [x] 后端 routers.ts：Step1 注入 routing_rules + policy 到 Source Router
+- [x] 前端 Settings.tsx：资料数据库 Tab 升级为结构化 trusted_sources 编辑器（添加/删除来源、信任等级、路由关键词、Policy 开关）
+- [x] Step3 Phase A：结构化 answer object（JSON Schema，内部使用）
+- [x] Step3 Phase B：基于 answer object 渲染自然语言（流式输出）
+- [x] answerObject 写入 message metadata，供前端展示结构化引用卡片
+
 ## 新闻与情绪 API 集成（GDELT + NewsAPI + Marketaux）
 - [x] 创建 server/gdeltApi.ts 模块（GDELT 全球事件数据库，5秒限频队列）
 - [x] 创建 server/newsApi.ts 模块（NewsAPI 全球新闻搜索）
@@ -1054,3 +1063,8 @@
 - [x] evidenceValidator 集成到 Step3 prompt：step3Instruction 注入
 - [x] 健康检测懒加载批量执行：免费公开 API 直接 active，12 个密钥 API 分批 5 个检测
 - [x] 健康检测五态：unknown/checking/active/degraded/error，设置页默认显示灰色「未检测」
+
+## GPT 说明书第 3 项 + 第 8/9 项（2026-03-22 继续）
+- [ ] PART3 数据库新增 trusted_sources/routing_rules/policy 字段，后端读取并注入 Source Router
+- [ ] Settings.tsx 资料数据库 Tab 升级为结构化 trusted_sources 编辑界面
+- [ ] Step3 两阶段渲染：先 LLM 生成 answer object（带 citations），再渲染自然语言

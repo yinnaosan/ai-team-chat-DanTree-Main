@@ -40,9 +40,10 @@ describe("SimFin API — Configuration Check", () => {
 describe("SimFin API — Health Check", () => {
   it("should report health status (pass or quota-limited)", async () => {
     // 健康检测可能因配额限制失败，但不应抛出异常
-    const ok = await checkSimFinHealth();
-    console.log(`SimFin health check result: ${ok}`);
-    expect(typeof ok).toBe("boolean");
+    const result = await checkSimFinHealth();
+    console.log(`SimFin health check result: ${JSON.stringify(result)}`);
+    expect(typeof result).toBe("object");
+    expect(typeof result.ok).toBe("boolean");
   }, 20000);
 });
 

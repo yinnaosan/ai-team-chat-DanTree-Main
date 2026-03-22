@@ -594,9 +594,9 @@ export async function getRecentMemory(userId: number, limit = 10, conversationId
 export async function getRelevantMemory(
   userId: number,
   query: string,
-  options: { topK?: number; minRecent?: number; conversationId?: number } = {}
+  options: { topK?: number; minRecent?: number; conversationId?: number; excludeTypes?: string[] } = {}
 ) {
-  const { topK = 6, minRecent = 2, conversationId } = options;
+  const { topK = 6, minRecent = 2, conversationId, excludeTypes = ["analysis"] } = options;
   const db = await getDb();
   if (!db) return [];
 
@@ -604,10 +604,14 @@ export async function getRelevantMemory(
   const conditions = conversationId
     ? and(eq(memoryContext.userId, userId), eq(memoryContext.conversationId, conversationId))
     : eq(memoryContext.userId, userId);
-  const allMemory = await db.select().from(memoryContext)
+  const allMemoryRaw = await db.select().from(memoryContext)
     .where(conditions)
     .orderBy(desc(memoryContext.createdAt))
     .limit(50);
+  // 默认排除 analysis 类型，防止旧结论污染当前分析
+  const allMemory = excludeTypes.length > 0
+    ? allMemoryRaw.filter(m => !excludeTypes.includes(m.memoryType ?? "analysis"))
+    : allMemoryRaw;
 
   if (allMemory.length === 0) return [];
 

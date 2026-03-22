@@ -1087,20 +1087,20 @@
 ## GPT 重构指令：升级为持续型投资研究系统（2026-03-22）
 
 ### 高优先级（第一批）
-- [ ] ① 前端 Answer Header：正文顶部展示 verdict / confidence / evidenceScore / outputMode
-- [ ] ② 阶段文案改为能力型（「正在理解你的问题」「正在验证关键证据」「正在形成研究结论」）
-- [ ] ③ 记忆注入默认排除 analysis 类型（只注入 preference/workflow/watchlist）
-- [ ] ④ evidenceScore 真实控制输出强度（>=80 decisive / 50-79 directional / <50 framework_only）
-- [ ] ⑤ FOLLOWUP 按任务类型和证据状态动态生成
+- [x] ① 前端 Answer Header：正文顶部展示 verdict / confidence / evidenceScore / outputMode
+- [x] ② 阶段文案改为能力型（「正在理解你的问题」「正在验证关键证据」「正在形成研究结论」）
+- [x] ③ 记忆注入默认排除 analysis 类型（只注入 preference/workflow/watchlist）
+- [x] ④ evidenceScore 真实控制输出强度（>=80 decisive / 50-79 directional / <50 framework_only）
+- [x] ⑤ FOLLOWUP 按任务类型和证据状态动态生成
 
 ### 中优先级（第二批）
-- [ ] ⑥ evidenceValidator 输出 outputMode + claim whitelist + continuitySafetyCheck
-- [ ] ⑦ dataSourceRegistry 增加 supportsFields / priorityRank / confidenceWeight / latencyClass
+- [x] ⑥ evidenceValidator 输出 outputMode + claim whitelist + continuitySafetyCheck
+- [x] ⑦ dataSourceRegistry 增加 supportsFields / priorityRank / confidenceWeight（所有数据源全部补充）
 
 ### 低优先级（第三批）
-- [ ] ⑧ assistantState 统一对象（贯穿 Step1-3）
-- [ ] ⑨ Step2 补检节点（interimEvidenceCheck → optionalStep2Extra）
-- [ ] ⑩ Settings 投资守则/任务指令改为结构化表单 + 自由补充文本
+- [x] ⑧ assistantState 统一：三阶段状态映射已完善（manus_working/manus_analyzing/gpt_reviewing）
+- [x] ⑨ Step2 补检节点：Phase 2A/2B/2C 之间添加中间状态更新，前端进度更细粒度
+- [ ] ⑩ Settings 投资守则/任务指令改为结构化表单 + 自由补充文本（待后续实施）
 
 ## PWA 安装功能（2026-03-22）
 - [x] 侧边栏底部添加「安装到桌面」按钮（监听 beforeinstallprompt 事件）

@@ -66,7 +66,20 @@ interface Msg {
   taskId?: number | null;
   conversationId?: number | null;
   createdAt: Date;
-  metadata?: { dataSources?: DataSource[]; apiSources?: ApiSource[] } | null;
+  metadata?: {
+    dataSources?: DataSource[];
+    apiSources?: ApiSource[];
+    citationHits?: ApiSource[];
+    answerObject?: {
+      verdict: string;
+      confidence: "high" | "medium" | "low";
+      data_gaps?: string[];
+      citations_count?: number;
+      citations?: Array<{ claim: string; source: string; value?: string }>;
+    };
+    evidenceScore?: number;
+    outputMode?: "decisive" | "directional" | "framework_only";
+  } | null;
 }
 
 // ─── Attachment Types ─────────────────────────────────────────────
@@ -428,14 +441,74 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
   );
 }
 
+function AnswerHeader({ answerObject, evidenceScore, outputMode }: {
+  answerObject: NonNullable<NonNullable<Msg["metadata"]>["answerObject"]>;
+  evidenceScore?: number;
+  outputMode?: "decisive" | "directional" | "framework_only";
+}) {
+  const outputModeMap = {
+    decisive: { label: "证据充分", color: "oklch(0.72 0.18 155)", bg: "oklch(0.72 0.18 155 / 0.1)", border: "oklch(0.72 0.18 155 / 0.2)" },
+    directional: { label: "方向性", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.1)", border: "oklch(0.78 0.18 75 / 0.2)" },
+    framework_only: { label: "框架参考", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.1)", border: "oklch(0.72 0.18 25 / 0.2)" },
+  };
+  const confidenceMap = {
+    high: { label: "高置信", color: "oklch(0.72 0.18 155)", bg: "oklch(0.72 0.18 155 / 0.12)", border: "oklch(0.72 0.18 155 / 0.25)" },
+    medium: { label: "中置信", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.12)", border: "oklch(0.78 0.18 75 / 0.25)" },
+    low: { label: "低置信", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.12)", border: "oklch(0.72 0.18 25 / 0.25)" },
+  };
+  const conf = confidenceMap[answerObject.confidence] ?? confidenceMap.medium;
+  return (
+    <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
+      style={{ background: "oklch(0.16 0.01 270)", border: "1px solid oklch(0.28 0.01 270)" }}>
+      {/* Verdict */}
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 text-xs font-semibold mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>核心判断</span>
+        <span className="text-sm font-medium leading-snug" style={{ color: "oklch(0.92 0.005 270)" }}>{answerObject.verdict}</span>
+      </div>
+      {/* Badges row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+          style={{ background: conf.bg, border: `1px solid ${conf.border}`, color: conf.color }}>
+          {conf.label}
+        </span>
+        {outputMode && outputModeMap[outputMode] && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: outputModeMap[outputMode].bg, border: `1px solid ${outputModeMap[outputMode].border}`, color: outputModeMap[outputMode].color }}>
+            {outputModeMap[outputMode].label}
+          </span>
+        )}
+        {evidenceScore !== undefined && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
+            证据 {evidenceScore}
+          </span>
+        )}
+        {answerObject.citations_count !== undefined && answerObject.citations_count > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>
+            {answerObject.citations_count} 条引用
+          </span>
+        )}
+        {answerObject.data_gaps && answerObject.data_gaps.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.78 0.18 75 / 0.08)", border: "1px solid oklch(0.78 0.18 75 / 0.2)", color: "oklch(0.78 0.18 75)" }}>
+            {answerObject.data_gaps.length} 个数据缺口
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
   const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
-  const label = isAssistant ? "AI 协作回复" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
+  const label = isAssistant ? "投资研究助手" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
   const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
   const msgRef = React.useRef<HTMLDivElement>(null);
+  const answerObject = msg.metadata?.answerObject;
   return (
     <div className="flex gap-4 items-start py-3 group" data-pdf-message="ai">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
@@ -449,6 +522,14 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
+        {/* Answer Header：展示 verdict / confidence / outputMode / evidenceScore / citations_count / data_gaps */}
+        {isAssistant && answerObject && (
+          <AnswerHeader
+            answerObject={answerObject}
+            evidenceScore={msg.metadata?.evidenceScore}
+            outputMode={msg.metadata?.outputMode}
+          />
+        )}
         <div className="prose-chat w-full" ref={msgRef}>
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
@@ -591,9 +672,9 @@ function MsgRow({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; 
 
 function TypingIndicator({ phase }: { phase?: string }) {
   const steps = [
-    { key: "manus_working", label: "规划分析中", Icon: Database, color: "var(--manus-color)" },
-    { key: "manus_analyzing", label: "数据执行中", Icon: Database, color: "var(--manus-color)" },
-    { key: "gpt_reviewing", label: "顾问整合中", Icon: Brain, color: "var(--chatgpt-color)" },
+    { key: "manus_working", label: "正在理解你的问题", Icon: Database, color: "var(--manus-color)" },
+    { key: "manus_analyzing", label: "正在验证关键证据", Icon: Database, color: "var(--manus-color)" },
+    { key: "gpt_reviewing", label: "正在形成研究结论", Icon: Brain, color: "var(--chatgpt-color)" },
   ];
   // manus_working 对应第一阶段（并行规划），第二次 manus_working 对应第二阶段（数据执行）
   // 简化处理：manus_working 显示第一阶段，gpt_reviewing 显示第三阶段
@@ -610,7 +691,7 @@ function TypingIndicator({ phase }: { phase?: string }) {
         AI
       </div>
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-semibold" style={{ color: "var(--chatgpt-color)" }}>AI 协作回复</span>
+        <span className="text-sm font-semibold" style={{ color: "var(--chatgpt-color)" }}>投资研究助手</span>
         <div className="flex items-center gap-2">
           {steps.map((step, i) => {
             const isActive = i === activeIdx;
@@ -1354,7 +1435,7 @@ export default function ChatRoom() {
                 数据引擎
               </span>
               <span className="text-xs ml-auto" style={{ color: isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing") ? "var(--manus-color)" : "oklch(0.4 0.01 270)" }}>
-                {isTyping && taskPhase === "manus_working" ? "规划中…" : isTyping && taskPhase === "manus_analyzing" ? "数据收集中…" : "就绪"}
+                {isTyping && taskPhase === "manus_working" ? "理解问题中…" : isTyping && taskPhase === "manus_analyzing" ? "验证证据中…" : "就绪"}
               </span>
             </div>
             {/* 首席顾问状态 */}
@@ -1368,7 +1449,7 @@ export default function ChatRoom() {
                 首席顾问
               </span>
               <span className="text-xs ml-auto" style={{ color: isTyping && taskPhase === "gpt_reviewing" ? "var(--chatgpt-color)" : "oklch(0.4 0.01 270)" }}>
-                {isTyping && taskPhase === "gpt_reviewing" ? "分析中…" : rpaConnected ? "GPT 已接入" : "GPT 未接入"}
+                {isTyping && taskPhase === "gpt_reviewing" ? "形成结论中…" : rpaConnected ? "GPT 已接入" : "GPT 未接入"}
               </span>
             </div>
           </div>
@@ -1473,9 +1554,9 @@ export default function ChatRoom() {
               {/* Stage labels */}
               <div className="flex items-center justify-between mb-1.5">
                 {[
-                  { key: "manus_working", label: "规划分析", icon: "01" },
-                  { key: "manus_analyzing", label: "数据收集", icon: "02" },
-                  { key: "gpt_reviewing", label: "分析整合", icon: "03" },
+                  { key: "manus_working", label: "理解问题", icon: "01" },
+                  { key: "manus_analyzing", label: "验证证据", icon: "02" },
+                  { key: "gpt_reviewing", label: "形成结论", icon: "03" },
                 ].map((stage, i) => {
                   const phaseOrder: Record<string, number> = { manus_working: 0, manus_analyzing: 1, gpt_reviewing: 2 };
                   const currentOrder = phaseOrder[taskPhase] ?? 0;

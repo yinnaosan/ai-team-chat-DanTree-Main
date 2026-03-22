@@ -1068,3 +1068,12 @@
 - [ ] PART3 数据库新增 trusted_sources/routing_rules/policy 字段，后端读取并注入 Source Router
 - [ ] Settings.tsx 资料数据库 Tab 升级为结构化 trusted_sources 编辑界面
 - [ ] Step3 两阶段渲染：先 LLM 生成 answer object（带 citations），再渲染自然语言
+
+## Bug 修复（2026-03-22）
+- [x] 修复可信来源配置无法保存（getConfig 返回字段缺失，导致页面加载后配置消失）
+- [ ] 修复 Alpha Vantage / SimFin 健康检测误报「连接失败」（免费 key 限流导致，需降级为 degraded 而非 error）
+- [x] 修复追问问题消失（finalReply 无 FOLLOWUP 标记时自动追加兜底追问）
+- [x] 恢复「滚动到底部」小尖头按鈕（居中，点击跳到最下面）
+- [x] 点进对话框时自动跳到最下面
+- [x] 不立项直接输入提问，自动创建对话框并根据关键词生成名称
+- [x] 追问问题兜底：finalReply 无 FOLLOWUP 标记时自动追加

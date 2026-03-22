@@ -952,6 +952,13 @@ export default function ChatRoom() {
     if (distFromBottom < 200) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages, isTyping]);
 
+  // 切换对话框时自动滚到最底部
+  useEffect(() => {
+    if (activeConvId) {
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "instant" }), 80);
+    }
+  }, [activeConvId]);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate("/");
   }, [authLoading, isAuthenticated, navigate]);
@@ -980,8 +987,14 @@ export default function ChatRoom() {
         setActiveTaskId(data.taskId);
         startSSE(data.taskId); // 启动 SSE 实时推送
       }
+      // 如果后端自动创建了新对话框，同步到前端
+      if (data?.conversationId && !activeConvId) {
+        setActiveConvId(data.conversationId);
+        setConvMessages([]);
+      }
       refetchMsgs();
       refetchConvs();
+      refetchGroups();
     },
     onError: (err) => {
       toast.error(err.message || "任务提交失败");
@@ -1079,10 +1092,6 @@ export default function ChatRoom() {
   const handleSubmit = useCallback((overrideText?: string) => {
     const text = (overrideText ?? input).trim();
     if (!text || sending) return;
-    if (!activeConvId) {
-      toast.error("请先点击「新任务」创建一个对话");
-      return;
-    }
     // 跟进问题不携带附件，正常发送才处理附件
     const uploadedFiles = overrideText ? [] : pendingFiles.filter(p => p.uploadedUrl && !p.error);
     // 收集附件ID列表（优先使用数据库ID，让AI能读取提取的文件内容）
@@ -1100,7 +1109,8 @@ export default function ChatRoom() {
     setIsTyping(true);
     setTaskPhase("manus_working");
     setActiveTaskId(null);
-    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId, analysisMode, attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined });
+    // 如果没有对话框，不传 conversationId，后端会自动创建并返回新 conversationId
+    submitMutation.mutate({ title: text + attachmentNote, conversationId: activeConvId ?? undefined, analysisMode, attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined });
   }, [input, sending, pendingFiles, activeConvId, submitMutation]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1611,8 +1621,8 @@ export default function ChatRoom() {
           {/* Scroll to bottom */}
           {showScrollBtn && (
             <button onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
-              className="absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110"
-              style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.65 0.01 270)" }}>
+              className="absolute bottom-5 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 z-10"
+              style={{ background: "oklch(0.22 0.015 250)", border: "1px solid oklch(0.45 0.12 250 / 0.6)", color: "oklch(0.72 0.18 250)", boxShadow: "0 4px 16px oklch(0.72 0.18 250 / 0.2)" }}>
               <ChevronDown className="w-4 h-4" />
             </button>
           )}
@@ -1724,9 +1734,9 @@ export default function ChatRoom() {
                     ))}
                   </div>
                 </div>
-                <button onClick={() => handleSubmit()} disabled={!input.trim() || !activeConvId || sending}
+                <button onClick={() => handleSubmit()} disabled={!input.trim() || sending}
                   className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{ background: input.trim() && activeConvId && !sending ? "oklch(0.72 0.18 250)" : "oklch(0.25 0.007 270)", color: "white" }}>
+                  style={{ background: input.trim() && !sending ? "oklch(0.72 0.18 250)" : "oklch(0.25 0.007 270)", color: "white" }}>
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>

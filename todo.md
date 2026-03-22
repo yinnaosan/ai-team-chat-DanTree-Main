@@ -968,3 +968,10 @@
 - [x] 修复：通过 webdev_request_secrets 将 17 个 API Key 注入生产环境变量
 - [x] 16 个测试文件，227 个测试全部通过
 - [x] 保存 Checkpoint
+
+## 修复健康检测 checkHealth 端点（使用实际可用端点）
+- [x] 根因确认：生产构建的 tree-shaking 把 LOCAL_CONFIG 对象优化掉，导致 getConfig() 返回 undefined，而 "undefined" 是 truthy 导致 API 请求失败
+- [x] 修复：重写 env.ts 的 e() 函数，完全去掉 getConfig() 调用，直接用 process.env || 硬编码字符串作为回退
+- [x] 验证生产构建中 e() 函数和硬编码均正确嵌入
+- [x] 16 个测试文件，227 个测试全部通过
+- [x] 验证并发布

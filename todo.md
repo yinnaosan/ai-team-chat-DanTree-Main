@@ -1146,3 +1146,15 @@
 - [ ] P2-11: 外部数据库真正接入 retrieval pipeline
 - [x] P2-12: analysis 记忆只在显式延续任务时注入
 - [x] P2-13: UI 整体去分体感，保留一个统一助手品牌
+
+## Bug 修复（2026-03-22 搜索引擎降级逻辑）
+- [ ] Serper 返回 0 条结果时不应判定为"引擎失败"并设置 serperAllDown=true
+- [ ] serperAllDown/tavilyAllDown 应有自动恢复机制（冷却后重试），避免永久锁死
+- [ ] serperSearchRequest 应区分"Key 全部 exhausted"和"搜索返回空结果"两种情况
+- [ ] 任务执行中搜索失败后应继续执行其他数据源，而非整体卡住
+
+## 关闭网页搜索功能，纯 API 模式（2026-03-22）
+- [x] 关闭 Serper/Tavily 网页搜索调用（routers.ts 中 searchForTask/searchFinancialNews 全部跳过）
+- [x] 调整 evidenceValidator 逻辑，纯 API 数据也能产出 decisive/directional 结论（blocking 字段均为纯 API 源，无需调整）
+- [x] 移除或隐藏 Settings 页面中的搜索引擎状态展示
+- [ ] 测试验证纯 API 模式下分析任务能正常完成

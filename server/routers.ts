@@ -707,10 +707,8 @@ ${"```"}`;
       earlyAStockCodes.length > 0
         ? fetchStockDataForTaskWithDedup(taskDescription, earlyAStockCodes)
         : fetchStockDataForTask(taskDescription),
-      // C. Tavily 初始搜索：用原始消息作初始 query（粗粒度，先跑起来）
-      isTavilyConfigured()
-        ? searchForTask(taskDescription, allSearchUrls)
-        : Promise.resolve(""),
+      // C. 网页搜索已关闭，纯 API 模式
+      Promise.resolve(""),
     ]);
 
     // 解析 Step1 结果
@@ -930,10 +928,8 @@ ${"```"}`;
       () => resourcePlan.dataSources.macroData
         ? timed("IMF WEO", fetchImfData(taskDescription + " " + gptStep1Output).then(d => d ? formatImfDataAsMarkdown(d) : ""))
         : Promise.resolve(""),
-      // Tavily 精炼搜索
-      () => resourcePlan.dataSources.webSearch && isTavilyConfigured() && refinedTavilyQuery !== taskDescription
-        ? timed("Tavily", searchForTask(refinedTavilyQuery, allSearchUrls).then(r => typeof r === "string" ? r : (r?.content ?? "")))
-        : Promise.resolve(""),
+      // 网页搜索已关闭，纯 API 模式
+      () => Promise.resolve(""),
       // Finnhub
       () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
         ? timed("Finnhub", getFinnhubData(primaryTicker).then(d => formatFinnhubData(d)))

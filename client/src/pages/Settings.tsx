@@ -150,11 +150,9 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes(status.hkexStatus) ? 1 : 0,
                 ["active","warning"].includes(status.boeStatus) ? 1 : 0,
                 ["active","warning"].includes(status.hkmaStatus) ? 1 : 0,
-                status.tavilyActiveCount ?? 0,
-                status.serperActiveCount ?? 0,
               ].reduce((a, b) => a + b, 0)}
               /
-              {20 + (status.tavilyTotal ?? 0) + (status.serperTotal ?? 0)}
+              {20}
                正常
             </span>
           )}
@@ -550,77 +548,21 @@ function DataSourceStatusPanel() {
             }
           />
 
-          {/* 分组标题：网页搜索 */}
+          {/* 网页搜索已关闭，纯 API 模式 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
-
-          {/* Tavily Keys 汇总 */}
-          {status && (
-            <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
-              style={{ background: status.tavilyConfigured ? statusBg(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.18 0.005 270)" }}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{
-                    background: status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.30 0.01 270)",
-                    boxShadow: status.tavilyConfigured && status.tavilyActiveCount > 0 ? `0 0 5px ${statusColor("active")}` : "none",
-                  }} />
-                <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>Tavily 网页搜索</span>
-                <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>
-                  {status.tavilyConfigured ? `${status.tavilyActiveCount}/${status.tavilyTotal} Key 可用` : "未配置"}
-                </span>
-              </div>
-              <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
-                style={{
-                  color: status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.40 0.01 270)",
-                  background: status.tavilyConfigured ? statusBg(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.22 0.005 270)",
-                  border: `1px solid ${status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") + "33" : "oklch(0.28 0.007 270)"}`,
-                }}>
-                {status.tavilyConfigured ? statusLabel(status.tavilyActiveCount > 0 ? "active" : "error") : "未配置"}
-              </span>
+          <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
+            style={{ background: "oklch(0.18 0.005 270)" }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: "oklch(0.55 0.01 270)" }} />
+              <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>网页搜索</span>
+              <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>已关闭（纯 API 模式）</span>
             </div>
-          )}
-
-          {/* Serper 备用搜索引擎 */}
-          {status && (
-            <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
-              style={{ background: status.serperConfigured ? statusBg(status.serperActiveCount > 0 ? "active" : "error") : "oklch(0.18 0.005 270)" }}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{
-                    background: status.serperConfigured ? statusColor(status.serperActiveCount > 0 ? "active" : "error") : "oklch(0.30 0.01 270)",
-                    boxShadow: status.serperConfigured && status.serperActiveCount > 0 ? `0 0 5px ${statusColor("active")}` : "none",
-                  }} />
-                <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>Serper Google 搜索</span>
-                <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>
-                  {status.serperConfigured ? `${status.serperActiveCount}/${status.serperTotal} Key 可用` : "未配置"}
-                </span>
-              </div>
-              <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
-                style={{
-                  color: status.serperConfigured ? statusColor(status.serperActiveCount > 0 ? "active" : "error") : "oklch(0.40 0.01 270)",
-                  background: status.serperConfigured ? statusBg(status.serperActiveCount > 0 ? "active" : "error") : "oklch(0.22 0.005 270)",
-                  border: `1px solid ${status.serperConfigured ? statusColor(status.serperActiveCount > 0 ? "active" : "error") + "33" : "oklch(0.28 0.007 270)"}`,
-                }}>
-                {status.serperConfigured ? statusLabel(status.serperActiveCount > 0 ? "active" : "error") : "未配置"}
-              </span>
-            </div>
-          )}
-
-          {/* 当前活跃搜索引擎指示 */}
-          {status && (status.tavilyConfigured || status.serperConfigured) && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "oklch(0.18 0.02 270)", border: "1px solid oklch(0.25 0.01 270)" }}>
-              <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>当前引擎：</span>
-              <span className="text-xs font-semibold" style={{ color: status.activeSearchEngine === "none" ? "oklch(0.65 0.18 25)" : "oklch(0.75 0.15 160)" }}>
-                {status.activeSearchEngine === "tavily" ? "Tavily（主）" : status.activeSearchEngine === "serper" ? "Serper（备用）" : "全部不可用"}
-              </span>
-            </div>
-          )}
-
-          {status && !status.tavilyConfigured && !status.serperConfigured && (
-            <p className="text-xs px-2 py-1.5 rounded-lg"
-              style={{ color: "oklch(0.65 0.18 50)", background: "oklch(0.65 0.18 50 / 0.08)", border: "1px solid oklch(0.65 0.18 50 / 0.2)" }}>
-              ⚠️ 未配置搜索引擎 Key（Tavily/Serper），网页搜索功能将不可用
-            </p>
-          )}
+            <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
+              style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.22 0.005 270)", border: "1px solid oklch(0.28 0.007 270)" }}>
+              已禁用
+            </span>
+          </div>
         </div>
       )}
     </div>

@@ -101,50 +101,47 @@ function hasModernColor(s: string): boolean {
   return /oklch\(|oklab\(|\blch\(|\blab\(|color\(\s*(?:display-p3|srgb)/i.test(s);
 }
 
-/** 截图前替换所有现代颜色函数，截图后恢复 */
-function patchOklchForCanvas(): () => void {
-  const patches: Array<{ node: HTMLStyleElement | HTMLElement; attr: string; original: string }> = [];
-
-  // 1. 处理所有 <style> 标签
-  document.querySelectorAll<HTMLStyleElement>("style").forEach((style) => {
+/**
+ * 在 html2canvas 的 onclone 回调中修复克隆 DOM 里的现代颜色函数。
+ * onclone 是最可靠的方式：html2canvas 在克隆完成、解析前调用，
+ * 此时修改克隆副本不会影响原始页面，也不会被 computedStyle 覆盖。
+ */
+function fixClonedDocColors(clonedDoc: Document): void {
+  // 1. 修复所有 <style> 标签
+  clonedDoc.querySelectorAll<HTMLStyleElement>("style").forEach((style) => {
     if (style.textContent && hasModernColor(style.textContent)) {
-      const original = style.textContent;
-      style.textContent = patchModernColors(original);
-      patches.push({ node: style, attr: "textContent", original });
+      style.textContent = patchModernColors(style.textContent);
     }
   });
 
-  // 2. 处理所有 inline style 属性
-  document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
-    const original = el.getAttribute("style") || "";
-    if (hasModernColor(original)) {
-      el.setAttribute("style", patchModernColors(original));
-      patches.push({ node: el, attr: "style", original });
+  // 2. 修复所有 inline style 属性
+  clonedDoc.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
+    const val = el.getAttribute("style") || "";
+    if (hasModernColor(val)) {
+      el.setAttribute("style", patchModernColors(val));
     }
   });
 
-  // 3. 处理 SVG 内联 fill/stroke 属性（html2canvas 也会解析 SVG 属性中的颜色）
+  // 3. 修复 SVG 内联属性
   const svgAttrs = ["fill", "stroke", "stop-color", "flood-color", "lighting-color"];
-  document.querySelectorAll<SVGElement>("svg *").forEach((el) => {
+  clonedDoc.querySelectorAll<SVGElement>("svg, svg *").forEach((el) => {
     svgAttrs.forEach((attr) => {
       const val = el.getAttribute(attr);
       if (val && hasModernColor(val)) {
         el.setAttribute(attr, patchModernColors(val));
-        patches.push({ node: el as unknown as HTMLElement, attr, original: val });
       }
     });
   });
 
-  // 返回恢复函数
-  return () => {
-    patches.forEach(({ node, attr, original }) => {
-      if (attr === "textContent") {
-        (node as HTMLStyleElement).textContent = original;
-      } else {
-        (node as HTMLElement).setAttribute(attr, original);
-      }
-    });
-  };
+  // 4. 修复所有元素的 computedStyle 中可能包含现代颜色的 CSS 变量
+  // 通过将常用的 CSS 变量覆写为 fallback 颜色
+  const rootStyle = clonedDoc.documentElement.style;
+  // 如果 :root 上有内联 style 包含现代颜色，一并修复
+  const rootInline = clonedDoc.documentElement.getAttribute("style") || "";
+  if (hasModernColor(rootInline)) {
+    clonedDoc.documentElement.setAttribute("style", patchModernColors(rootInline));
+  }
+  void rootStyle; // suppress unused warning
 }
 
 /** 下载文本文件 */
@@ -199,19 +196,14 @@ export async function exportAsPDF(element: HTMLElement, title?: string) {
       import("jspdf"),
     ]);
 
-    const restoreOklch = patchOklchForCanvas();
-    let canvas;
-    try {
-      canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#161620",
-        logging: false,
-        ignoreElements: (el) => el.hasAttribute("data-export-ignore"),
-      });
-    } finally {
-      restoreOklch();
-    }
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#161620",
+      logging: false,
+      ignoreElements: (el) => el.hasAttribute("data-export-ignore"),
+      onclone: (_clonedDoc: Document) => { fixClonedDocColors(_clonedDoc); },
+    });
 
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -333,19 +325,14 @@ export async function exportConversationAsPDF(
     onProgress?.(5 + Math.round(((i + 1) / elements.length) * 88));
 
     try {
-      const restoreOklch = patchOklchForCanvas();
-      let canvas;
-      try {
-        canvas = await html2canvas(el, {
-          backgroundColor: "#161620",
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          ignoreElements: (elem) => elem.hasAttribute("data-export-ignore"),
-        });
-      } finally {
-        restoreOklch();
-      }
+      const canvas = await html2canvas(el, {
+        backgroundColor: "#161620",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        ignoreElements: (elem) => elem.hasAttribute("data-export-ignore"),
+        onclone: (_clonedDoc: Document) => { fixClonedDocColors(_clonedDoc); },
+      });
 
       const imgWidthPx = canvas.width;
       const imgHeightPx = canvas.height;

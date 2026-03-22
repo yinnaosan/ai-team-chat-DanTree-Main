@@ -1305,11 +1305,20 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     );
     const { missingBlocking, missingImportant, missingOptional } = classifyMissingFields(fieldCoverage);
 
+    // 构建 API 命中统计（从 citationSummary 提取，不依赖 LLM 格式化输出）
+    const hitSourceIdsList = citationSummary.citations.filter(c => c.hit).map(c => c.sourceId);
+    const apiHitStats = {
+      hitCount: citationSummary.hitCount,
+      totalCount: citationSummary.citations.length,
+      hitSourceIds: hitSourceIdsList,
+      hasWhitelistedHit: citationSummary.hasEvidenceToBasis,
+    };
+
     const evidencePacket = buildEvidencePacket(taskDescription, manusReport, {
       missingBlocking,
       missingImportant,
       missingOptional,
-    });
+    }, apiHitStats);
 
     // ------------------------------------------------------------------------
     // Step 3 - GPT 整合输出（两阶段渲染）

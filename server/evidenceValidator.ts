@@ -11,8 +11,11 @@
  * evidence_score 控制 Step3 输出强度（outputMode）：
  *   ≥ 70 → DECISIVE：强判断 + 投资建议（明确立场+幅度）
  *   50-69 → DIRECTIONAL：方向性判断（偏高/谨慎），禁止具体目标价
- *   30-49 → FRAMEWORK_ONLY：仅输出研究框架，不得给出任何价格/方向判断
- *   < 30  → BLOCKED：证据严重不足，拒绝分析
+ *   < 50  → FRAMEWORK_ONLY：仅输出研究框架，不得给出任何价格/方向判断
+ *
+ * 2026-03-22 重构：evidenceScore 现在基于两个维度：
+ *   A. API 实际命中数据（citationHitCount）— 主要评分依据，不依赖 LLM 格式化输出
+ *   B. LLM 解析的 facts（如有）— 加分项
  */
 
 export interface EvidenceFact {
@@ -69,6 +72,18 @@ export interface FieldMissingTiers {
   missingBlocking: string[];
   missingImportant: string[];
   missingOptional: string[];
+}
+
+/** API 命中统计（从 citationSummary 传入） */
+export interface ApiHitStats {
+  /** 命中的白名单数据源数量 */
+  hitCount: number;
+  /** 总数据源数量（包括未命中的） */
+  totalCount: number;
+  /** 命中的数据源 ID 列表 */
+  hitSourceIds: string[];
+  /** 是否有白名单来源命中 */
+  hasWhitelistedHit: boolean;
 }
 
 /**
@@ -278,47 +293,62 @@ function computeFreshness(
 /**
  * 计算证据充分度得分（0-100）
  *
- * 评分规则：
- * - 基础分：有 facts 则 30 分
- * - 每个 fresh fact：+5 分（上限 40 分）
- * - 每个 stale fact：+2 分（上限 15 分）
- * - 有 blocking hardMissing：-30 分/项（下限 0）
- * - 有非 blocking hardMissing：-10 分/项
- * - 来源多样性加分：≥3 个不同来源 +10 分
- * - P0-3 字段级缺失扣分：blocking -25/项, important -8/项, optional -2/项
+ * 2026-03-22 重构：双维度评分
+ * 维度 A — API 实际命中（主要评分依据，不依赖 LLM 格式化输出）
+ *   - 每命中 1 个白名单 API 数据源：+12 分（上限 60 分）
+ *   - 有 ≥3 个不同 API 源命中：+10 分
+ * 维度 B — LLM 解析的 facts（加分项）
+ *   - 有 facts：+5 分
+ *   - 每个 fresh fact：+2 分（上限 10 分）
+ * 扣分：
+ *   - blocking hardMissing：-20 分/项
+ *   - non-blocking hardMissing：-5 分/项
+ *   - 字段级缺失：blocking -20/项, important -5/项, optional -1/项
  */
 export function computeEvidenceScore(
   facts: EvidenceFact[],
   hardMissing: HardMissingItem[],
-  fieldMissing?: FieldMissingTiers
+  fieldMissing?: FieldMissingTiers,
+  apiHitStats?: ApiHitStats
 ): number {
   let score = 0;
 
-  if (facts.length > 0) score += 30;
+  // ── 维度 A：API 实际命中（主要评分依据）──
+  if (apiHitStats) {
+    // 每命中 1 个 API 源 +12 分（上限 60 分）
+    score += Math.min(apiHitStats.hitCount * 12, 60);
+    // 来源多样性加分：≥3 个不同 API 源 +10 分
+    if (apiHitStats.hitCount >= 3) score += 10;
+    // 有白名单来源命中 +5 分
+    if (apiHitStats.hasWhitelistedHit) score += 5;
+  }
 
+  // ── 维度 B：LLM 解析的 facts（加分项）──
+  if (facts.length > 0) score += 5;
   const freshBonus = Math.min(
-    facts.filter((f) => f.freshness === "fresh").length * 5,
-    40
+    facts.filter((f) => f.freshness === "fresh").length * 2,
+    10
   );
-  const staleBonus = Math.min(
-    facts.filter((f) => f.freshness === "stale").length * 2,
-    15
-  );
-  score += freshBonus + staleBonus;
+  score += freshBonus;
 
+  // ── 扣分 ──
   const blockingCount = hardMissing.filter((h) => h.blocking).length;
   const nonBlockingCount = hardMissing.filter((h) => !h.blocking).length;
-  score -= blockingCount * 30;
-  score -= nonBlockingCount * 10;
+  score -= blockingCount * 20;
+  score -= nonBlockingCount * 5;
 
-  const uniqueSources = new Set(facts.map((f) => f.source)).size;
-  if (uniqueSources >= 3) score += 10;
-
-  // P0-3: 字段级缺失扣分
+  // P0-3: 字段级缺失扣分（降低扣分力度，避免 optional 字段过度惩罚）
   if (fieldMissing) {
-    score -= fieldMissing.missingBlocking.length * 25;
-    score -= fieldMissing.missingImportant.length * 8;
-    score -= fieldMissing.missingOptional.length * 2;
+    score -= fieldMissing.missingBlocking.length * 20;
+    score -= fieldMissing.missingImportant.length * 5;
+    score -= fieldMissing.missingOptional.length * 1;
+  }
+
+  // ── 兜底：如果没有 apiHitStats 但有 facts，使用旧逻辑 ──
+  if (!apiHitStats && facts.length > 0) {
+    score += 25; // 旧逻辑基础分补偿
+    const uniqueSources = new Set(facts.map((f) => f.source)).size;
+    if (uniqueSources >= 3) score += 10;
   }
 
   return Math.max(0, Math.min(100, score));
@@ -326,16 +356,17 @@ export function computeEvidenceScore(
 
 /**
  * 构建 EVIDENCE_PACKET
- * 输入：Manus 的 DATA_REPORT 文本 + 任务描述 + 可选字段级缺失分层
+ * 输入：Manus 的 DATA_REPORT 文本 + 任务描述 + 可选字段级缺失分层 + API 命中统计
  * 输出：结构化证据包 + Step3 指令 + outputMode + claimWhitelist
  */
 export function buildEvidencePacket(
   taskDescription: string,
   dataReport: string,
-  fieldMissing?: FieldMissingTiers
+  fieldMissing?: FieldMissingTiers,
+  apiHitStats?: ApiHitStats
 ): EvidencePacket {
   const { facts, hardMissing } = parseDataReport(dataReport);
-  const evidenceScore = computeEvidenceScore(facts, hardMissing, fieldMissing);
+  const evidenceScore = computeEvidenceScore(facts, hardMissing, fieldMissing, apiHitStats);
 
   const mb = fieldMissing?.missingBlocking ?? [];
   const mi = fieldMissing?.missingImportant ?? [];
@@ -356,14 +387,19 @@ export function buildEvidencePacket(
     ? `\n字段覆盖缺口：${mb.length > 0 ? `[阻断] ${mb.join(", ")}` : ""}${mi.length > 0 ? ` [重要] ${mi.join(", ")}` : ""}${mo.length > 0 ? ` [可选] ${mo.join(", ")}` : ""}`
     : "";
 
+  // API 命中摘要
+  const apiHitSummary = apiHitStats
+    ? `\n已命中 ${apiHitStats.hitCount}/${apiHitStats.totalCount} 个数据源：${apiHitStats.hitSourceIds.join(", ")}`
+    : "";
+
   if (evidenceScore >= 70) {
     evidenceLevel = "sufficient";
     allowInvestmentAdvice = true;
     outputMode = "decisive";
     step3Instruction = `[EVIDENCE_LEVEL: SUFFICIENT | score=${evidenceScore} | outputMode=DECISIVE]
 证据充分，输出强判断：每个结论必须给出明确立场+幅度（如「高估30-40%」「建议减仓」），禁止模糊表述。
-每个数字/结论必须引用对应的 [FACT] 来源和时间戳。允许输出投资建议，但必须注明数据来源和时间。
-已验证事实（${claimWhitelist.length}条）可直接引用，其余数据标注来源后方可使用。${fieldMissingSummary}`;
+每个数字/结论必须引用对应的数据来源和时间戳。允许输出投资建议，但必须注明数据来源和时间。
+${apiHitSummary}${fieldMissingSummary}`;
   } else if (evidenceScore >= 50) {
     evidenceLevel = "partial";
     allowInvestmentAdvice = false;
@@ -371,24 +407,15 @@ export function buildEvidencePacket(
     step3Instruction = `[EVIDENCE_LEVEL: PARTIAL | score=${evidenceScore} | outputMode=DIRECTIONAL]
 证据部分充分，输出方向性判断：可给出趋势方向（如「偏高」「谨慎」），但禁止给出具体目标价/买卖建议。
 每个结论后必须标注「（数据不完整，仅供参考）」。
-缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}${fieldMissingSummary}`;
-  } else if (evidenceScore >= 30) {
-    evidenceLevel = "partial";
-    allowInvestmentAdvice = false;
-    outputMode = "framework_only";
-    step3Instruction = `[EVIDENCE_LEVEL: PARTIAL_LOW | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
-证据不足，只能输出研究框架：列出需要收集的数据维度和分析思路，不得给出任何价格/方向判断。
-明确说明「当前数据不足以支撑判断，以下为研究框架供参考」。
-缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}${fieldMissingSummary}`;
+${apiHitSummary}${fieldMissingSummary}`;
   } else {
-    evidenceLevel = "insufficient";
+    evidenceLevel = mb.length > 0 ? "insufficient" : "partial";
     allowInvestmentAdvice = false;
     outputMode = "framework_only";
-    const blockingItems = hardMissing.filter((h) => h.blocking);
-    step3Instruction = `[EVIDENCE_LEVEL: INSUFFICIENT | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
-[HARD_MISSING] 证据严重不足，禁止进行分析或给出任何结论。
-必须输出：「当前无法获取足够的实时数据来回答此问题。缺失的关键数据：${blockingItems.map((h) => h.dataType).join("、") || mb.join("、") || "全部核心数据"}。请稍后重试或换一个可以获取实时数据的问题。」
-禁止使用训练记忆数据补充。${fieldMissingSummary}`;
+    step3Instruction = `[EVIDENCE_LEVEL: LOW | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
+证据不足，输出研究框架：列出需要收集的数据维度和分析思路，不得给出任何价格/方向判断。
+明确说明「当前数据不足以支撑判断，以下为研究框架供参考」。
+${apiHitSummary}${fieldMissingSummary}`;
   }
 
   return {

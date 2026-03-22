@@ -1166,3 +1166,9 @@
 - [x] 修复：extractTickers 年份误匹配（2025 被识别为 2025.HK 港股代码）
 - [x] 修复：扩展 NON_TICKER_WORDS 过滤列表（AI/CEO/SEC/FED 等常见缩写）
 - [ ] 验证：端到端测试纯 API 模式下 FMP 数据正常获取
+
+## 核心 Bug 修复：evidenceScore 过度依赖 LLM 格式化输出（2026-03-22）
+- [x] 根因：evidenceScore 依赖 Step2 LLM 输出的 [EVIDENCE_PACKET] JSON 解析 facts，LLM 格式不标准时 facts=0 → score=0
+- [x] 修复：直接从 citationSummary（API 实际命中结果）计算 evidenceScore，不依赖 LLM 格式
+- [x] 修复：citationSummary.hitCount 作为 evidenceScore 的主要输入
+- [x] 修复：保留 LLM 解析的 facts 作为加分项，但不作为唯一评分依据

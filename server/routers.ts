@@ -99,63 +99,73 @@ async function requireAccess(userId: number, openId: string) {
 
 // --- 带重试的 invokeLLM 包装（针对上游临时 500 错误）--------------------
 // ── 数据源状态缓存（服务端内存缓存，避免每次请求都并行测试所有 API）──────────────
+// 完全扁平化结构，避免 SuperJSON 深度截断（[Max Depth]）
 type DataSourceStatusResult = {
-  tavily: ReturnType<typeof getTavilyKeyStatuses>;
+  // Tavily 汇总（避免嵌套数组）
   tavilyConfigured: boolean;
-  fred: { configured: boolean; status: "active" | "error" | "timeout" };
-  yahoo: { configured: boolean; status: "active" | "error" | "timeout" };
-  worldBank: { configured: boolean; status: "active" | "error" | "timeout" };
-  imf: { configured: boolean; status: "active" | "error" | "timeout" };
-  finnhub: { configured: boolean; status: "active" | "error" | "timeout" };
-  fmp: { configured: boolean; status: "active" | "error" | "timeout" };
-  polygon: { configured: boolean; status: "active" | "error" | "timeout" };
-  secEdgar: { configured: boolean; status: "active" | "error" | "timeout" };
-  alphaVantage: { configured: boolean; status: "active" | "error" | "timeout" };
-  coinGecko: { configured: boolean; status: "active" | "error" | "timeout" };
-  baostock: { configured: boolean; status: "active" | "error" | "timeout" | "warning" };
-  gdelt: { configured: boolean; status: "active" | "error" | "timeout" };
-  newsApi: { configured: boolean; status: "active" | "error" | "timeout" };
-  marketaux: { configured: boolean; status: "active" | "error" | "timeout" };
-  simfin: { configured: boolean; status: "active" | "error" | "timeout" };
-  tiingo: { configured: boolean; status: "active" | "error" | "timeout" };
-  ecb: { configured: boolean; status: "active" | "error" | "timeout" };
-  hkex: { configured: boolean; status: "active" | "error" | "timeout" };
-  boe: { configured: boolean; status: "active" | "error" | "timeout" };
-  hkma: { configured: boolean; status: "active" | "error" | "timeout" };
-  courtListener: { configured: boolean; status: "active" | "error" | "timeout" };
-  congress: { configured: boolean; status: "active" | "error" | "timeout" };
-  eurLex: { configured: boolean; status: "active" | "error" | "timeout" };
-  gleif: { configured: boolean; status: "active" | "error" | "timeout" };
+  tavilyActiveCount: number;  // 有效 Key 数量
+  tavilyTotal: number;        // 总 Key 数量
+  // 各 API 状态（扁平化：xxxStatus + xxxConfigured）
+  fredStatus: string; fredConfigured: boolean;
+  yahooStatus: string; yahooConfigured: boolean;
+  worldBankStatus: string; worldBankConfigured: boolean;
+  imfStatus: string; imfConfigured: boolean;
+  finnhubStatus: string; finnhubConfigured: boolean;
+  fmpStatus: string; fmpConfigured: boolean;
+  polygonStatus: string; polygonConfigured: boolean;
+  secEdgarStatus: string; secEdgarConfigured: boolean;
+  alphaVantageStatus: string; alphaVantageConfigured: boolean;
+  coinGeckoStatus: string; coinGeckoConfigured: boolean;
+  baostockStatus: string; baostockConfigured: boolean;
+  gdeltStatus: string; gdeltConfigured: boolean;
+  newsApiStatus: string; newsApiConfigured: boolean;
+  marketauxStatus: string; marketauxConfigured: boolean;
+  simfinStatus: string; simfinConfigured: boolean;
+  tiingoStatus: string; tiingoConfigured: boolean;
+  ecbStatus: string; ecbConfigured: boolean;
+  hkexStatus: string; hkexConfigured: boolean;
+  boeStatus: string; boeConfigured: boolean;
+  hkmaStatus: string; hkmaConfigured: boolean;
+  courtListenerStatus: string; courtListenerConfigured: boolean;
+  congressStatus: string; congressConfigured: boolean;
+  eurLexStatus: string; eurLexConfigured: boolean;
+  gleifStatus: string; gleifConfigured: boolean;
 };
 let dataSourceStatusCache: DataSourceStatusResult | null = null;
 let dataSourceStatusCacheTime = 0;
 let dataSourceStatusRefreshing = false;
 
-// 返回一个所有状态为 "error" 的默认值（用于缓存未就绪时的占位）
+// 返回一个所有状态为 "error" 的默认值（扁平化结构，用于缓存未就绪时的占位）
 function buildDefaultDataSourceStatus(): DataSourceStatusResult {
-  const err = { configured: true, status: "error" as const };
+  const tavilyKeys = getTavilyKeyStatuses();
   return {
-    tavily: getTavilyKeyStatuses(),
     tavilyConfigured: isTavilyConfigured(),
-    fred: { configured: !!ENV.FRED_API_KEY, status: "error" as const },
-    yahoo: { configured: true, status: "error" as const },
-    worldBank: err, imf: err,
-    finnhub: { configured: !!ENV.FINNHUB_API_KEY, status: "error" as const },
-    fmp: { configured: !!ENV.FMP_API_KEY, status: "error" as const },
-    polygon: { configured: !!ENV.POLYGON_API_KEY, status: "error" as const },
-    secEdgar: err,
-    alphaVantage: { configured: !!ENV.ALPHA_VANTAGE_API_KEY, status: "error" as const },
-    coinGecko: { configured: !!ENV.COINGECKO_API_KEY, status: "error" as const },
-    baostock: { configured: true, status: "warning" as const },
-    gdelt: { configured: true, status: "error" as const },
-    newsApi: { configured: !!ENV.NEWS_API_KEY, status: "error" as const },
-    marketaux: { configured: !!ENV.MARKETAUX_API_KEY, status: "error" as const },
-    simfin: { configured: !!ENV.SIMFIN_API_KEY, status: "error" as const },
-    tiingo: { configured: !!ENV.TIINGO_API_KEY, status: "error" as const },
-    ecb: err, hkex: err, boe: err, hkma: err,
-    courtListener: err,
-    congress: { configured: !!ENV.CONGRESS_API_KEY, status: "error" as const },
-    eurLex: err, gleif: err,
+    tavilyActiveCount: tavilyKeys.filter(k => k.configured && k.status === "active").length,
+    tavilyTotal: tavilyKeys.filter(k => k.configured).length,
+    fredStatus: "error", fredConfigured: !!ENV.FRED_API_KEY,
+    yahooStatus: "error", yahooConfigured: true,
+    worldBankStatus: "error", worldBankConfigured: true,
+    imfStatus: "error", imfConfigured: true,
+    finnhubStatus: "error", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
+    fmpStatus: "error", fmpConfigured: !!ENV.FMP_API_KEY,
+    polygonStatus: "error", polygonConfigured: !!ENV.POLYGON_API_KEY,
+    secEdgarStatus: "error", secEdgarConfigured: true,
+    alphaVantageStatus: "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
+    coinGeckoStatus: "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    baostockStatus: "warning", baostockConfigured: true,
+    gdeltStatus: "error", gdeltConfigured: true,
+    newsApiStatus: "error", newsApiConfigured: !!ENV.NEWS_API_KEY,
+    marketauxStatus: "error", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
+    simfinStatus: "error", simfinConfigured: !!ENV.SIMFIN_API_KEY,
+    tiingoStatus: "error", tiingoConfigured: !!ENV.TIINGO_API_KEY,
+    ecbStatus: "error", ecbConfigured: true,
+    hkexStatus: "error", hkexConfigured: true,
+    boeStatus: "error", boeConfigured: true,
+    hkmaStatus: "error", hkmaConfigured: true,
+    courtListenerStatus: "error", courtListenerConfigured: true,
+    congressStatus: "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
+    eurLexStatus: "error", eurLexConfigured: true,
+    gleifStatus: "error", gleifConfigured: true,
   };
 }
 
@@ -209,32 +219,33 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
   const fredConfigured = !!ENV.FRED_API_KEY;
 
   const result: DataSourceStatusResult = {
-    tavily: tavilyKeys,
     tavilyConfigured: isTavilyConfigured(),
-    fred: { configured: fredConfigured, status: fredConfigured ? "active" as const : "error" as const },
-    yahoo: { configured: true, status: "active" as const },
-    worldBank: { configured: true, status: wbHealth.status === "fulfilled" ? wbHealth.value : "error" as const },
-    imf: { configured: true, status: imfHealth.status === "fulfilled" ? imfHealth.value : "error" as const },
-    finnhub: { configured: !!ENV.FINNHUB_API_KEY, status: finnhubHealth.status === "fulfilled" ? finnhubHealth.value : "error" as const },
-    fmp: { configured: !!ENV.FMP_API_KEY, status: fmpHealth.status === "fulfilled" ? fmpHealth.value : "error" as const },
-    polygon: { configured: !!ENV.POLYGON_API_KEY, status: polygonHealth.status === "fulfilled" ? polygonHealth.value : "error" as const },
-    secEdgar: { configured: true, status: secHealth.status === "fulfilled" ? secHealth.value : "error" as const },
-    alphaVantage: { configured: !!ENV.ALPHA_VANTAGE_API_KEY, status: avHealth.status === "fulfilled" ? avHealth.value : "error" as const },
-    coinGecko: { configured: !!ENV.COINGECKO_API_KEY, status: cgHealth.status === "fulfilled" ? cgHealth.value : "error" as const },
-    baostock: { configured: true, status: bsHealth.status === "fulfilled" ? bsHealth.value : "warning" as const },
-    gdelt: { configured: true, status: gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active" as const },
-    newsApi: { configured: !!ENV.NEWS_API_KEY, status: newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error" as const },
-    marketaux: { configured: !!ENV.MARKETAUX_API_KEY, status: marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error" as const },
-    simfin: { configured: !!ENV.SIMFIN_API_KEY, status: simfinHealth.status === "fulfilled" ? simfinHealth.value : "error" as const },
-    tiingo: { configured: !!ENV.TIINGO_API_KEY, status: tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error" as const },
-    ecb: { configured: true, status: ecbHealth.status === "fulfilled" ? ecbHealth.value : "error" as const },
-    hkex: { configured: true, status: hkexHealth.status === "fulfilled" ? hkexHealth.value : "error" as const },
-    boe: { configured: true, status: boeHealth.status === "fulfilled" ? boeHealth.value : "error" as const },
-    hkma: { configured: true, status: hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error" as const },
-    courtListener: { configured: true, status: courtListenerHealth.status === "fulfilled" ? courtListenerHealth.value : "error" as const },
-    congress: { configured: !!ENV.CONGRESS_API_KEY, status: congressHealth.status === "fulfilled" ? congressHealth.value : "error" as const },
-    eurLex: { configured: true, status: eurLexHealth.status === "fulfilled" ? eurLexHealth.value : "active" as const },
-    gleif: { configured: true, status: gleifHealth.status === "fulfilled" ? gleifHealth.value : "error" as const },
+    tavilyActiveCount: tavilyKeys.filter(k => k.configured && ["active","warning"].includes(k.status)).length,
+    tavilyTotal: tavilyKeys.filter(k => k.configured).length,
+    fredStatus: fredConfigured ? "active" : "error", fredConfigured,
+    yahooStatus: "active", yahooConfigured: true,
+    worldBankStatus: wbHealth.status === "fulfilled" ? wbHealth.value : "error", worldBankConfigured: true,
+    imfStatus: imfHealth.status === "fulfilled" ? imfHealth.value : "error", imfConfigured: true,
+    finnhubStatus: finnhubHealth.status === "fulfilled" ? finnhubHealth.value : "error", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
+    fmpStatus: fmpHealth.status === "fulfilled" ? fmpHealth.value : "error", fmpConfigured: !!ENV.FMP_API_KEY,
+    polygonStatus: polygonHealth.status === "fulfilled" ? polygonHealth.value : "error", polygonConfigured: !!ENV.POLYGON_API_KEY,
+    secEdgarStatus: secHealth.status === "fulfilled" ? secHealth.value : "error", secEdgarConfigured: true,
+    alphaVantageStatus: avHealth.status === "fulfilled" ? avHealth.value : "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
+    coinGeckoStatus: cgHealth.status === "fulfilled" ? cgHealth.value : "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    baostockStatus: bsHealth.status === "fulfilled" ? bsHealth.value : "warning", baostockConfigured: true,
+    gdeltStatus: gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active", gdeltConfigured: true,
+    newsApiStatus: newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error", newsApiConfigured: !!ENV.NEWS_API_KEY,
+    marketauxStatus: marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
+    simfinStatus: simfinHealth.status === "fulfilled" ? simfinHealth.value : "error", simfinConfigured: !!ENV.SIMFIN_API_KEY,
+    tiingoStatus: tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error", tiingoConfigured: !!ENV.TIINGO_API_KEY,
+    ecbStatus: ecbHealth.status === "fulfilled" ? ecbHealth.value : "error", ecbConfigured: true,
+    hkexStatus: hkexHealth.status === "fulfilled" ? hkexHealth.value : "error", hkexConfigured: true,
+    boeStatus: boeHealth.status === "fulfilled" ? boeHealth.value : "error", boeConfigured: true,
+    hkmaStatus: hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error", hkmaConfigured: true,
+    courtListenerStatus: courtListenerHealth.status === "fulfilled" ? courtListenerHealth.value : "error", courtListenerConfigured: true,
+    congressStatus: congressHealth.status === "fulfilled" ? congressHealth.value : "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
+    eurLexStatus: eurLexHealth.status === "fulfilled" ? eurLexHealth.value : "active", eurLexConfigured: true,
+    gleifStatus: gleifHealth.status === "fulfilled" ? gleifHealth.value : "error", gleifConfigured: true,
   };
 
   dataSourceStatusCache = result;
@@ -333,21 +344,26 @@ EXEC: self-check_before/during/after|2-3_followup_Qs|context_continuity`;
   // 合并三部分，构建完整的守则块
   const USER_CORE_RULES = PART1_INVESTMENT_RULES + PART2_TASK_INSTRUCTION + PART3_DATA_LIBRARY;
 
-  // Manus 幕后数据引擎
-  const manusSystemPrompt = `[SYS:MANUS|ROLE:data_engine|RECIPIENT:GPT]
-OUT:table/num/metric_only|no_intro|no_outro|direct_data
-DATA_INTEGRITY[MAX]:
-1. realtime_ctx→use_as_is|no_modify
-2. missing→N/A|no_hallucinate|no_training_fill
-3. PROHIBIT:fabricate|guess|training_data_as_realtime
-4. LABEL:[yahoo_finance]|[fred]|[tavily:domain]|[api:name]|[N/A]` + USER_CORE_RULES;
-
-  // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
+  // -- 日期变量（必须先于两个系统 prompt 定义）----------------------------------------------
   const NOW = new Date();
   const currentDateStr = `${NOW.getFullYear()}年${NOW.getMonth()+1}月${NOW.getDate()}日`;
   const currentYearStr = String(NOW.getFullYear());
   const lastYearStr = String(NOW.getFullYear() - 1);
   const twoYearsAgoStr = String(NOW.getFullYear() - 2);
+
+  // Manus 幕后数据引擎
+  const manusSystemPrompt = `[SYS:MANUS|ROLE:data_engine|RECIPIENT:GPT]
+TODAY:${currentDateStr}|TRAINING_CUTOFF:2024-early
+OUT:table/num/metric_only|no_intro|no_outro|direct_data
+DATA_INTEGRITY[MAX]:
+1. realtime_ctx→use_as_is|no_modify
+2. missing→output_exactly_"[DATA_UNAVAILABLE:source_name]"|NEVER_guess|NEVER_use_training_memory
+3. PROHIBIT:fabricate|guess|training_data_as_realtime|fill_blanks_with_memory
+4. LABEL:[yahoo_finance]|[fred]|[tavily:domain]|[api:name]|[DATA_UNAVAILABLE:source]
+5. CRITICAL:if_API_returns_no_data→write_"[DATA_UNAVAILABLE]"→do_NOT_invent_plausible_numbers
+6. YEAR_CHECK:any_data_you_output_must_come_from_API_response|if_year_is_${currentYearStr}_verify_it_came_from_API` + USER_CORE_RULES;
+
+  // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
   const gptSystemPrompt = `【重要系统信息】今天是 ${currentDateStr}。你的训练数据截止于 2024 年初，因此你对 ${currentYearStr} 年及 ${lastYearStr} 年的实时事件没有记忆。所有涉及当前市场状况、最新财务数据、近期新闻的内容，必须以 Manus 提供的实时 API 数据为准，严禁用训练记忆填充当前数据。
 
 你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。

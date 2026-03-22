@@ -99,30 +99,30 @@ function DataSourceStatusPanel() {
             <span className="text-xs px-1.5 py-0.5 rounded-full"
               style={{ background: "oklch(0.20 0.005 270)", color: "oklch(0.50 0.01 270)" }}>
               {[
-                ["active","warning"].includes(status.yahoo.status) ? 1 : 0,
-                ["active","warning"].includes(status.fred.status) ? 1 : 0,
-                ["active","warning"].includes(status.worldBank.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).imf?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).finnhub?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).fmp?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).polygon?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).alphaVantage?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).secEdgar?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).coinGecko?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).baostock?.status) ? 1 : 0,
+                ["active","warning"].includes(status.yahooStatus) ? 1 : 0,
+                ["active","warning"].includes(status.fredStatus) ? 1 : 0,
+                ["active","warning"].includes(status.worldBankStatus) ? 1 : 0,
+                ["active","warning"].includes(status.imfStatus) ? 1 : 0,
+                ["active","warning"].includes(status.finnhubStatus) ? 1 : 0,
+                ["active","warning"].includes(status.fmpStatus) ? 1 : 0,
+                ["active","warning"].includes(status.polygonStatus) ? 1 : 0,
+                ["active","warning"].includes(status.alphaVantageStatus) ? 1 : 0,
+                ["active","warning"].includes(status.secEdgarStatus) ? 1 : 0,
+                ["active","warning"].includes(status.coinGeckoStatus) ? 1 : 0,
+                ["active","warning"].includes(status.baostockStatus) ? 1 : 0,
                 1, // GDELT 免费公开，始终计入
-                ["active","warning"].includes((status as any).newsApi?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).marketaux?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).simfin?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).tiingo?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).ecb?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).hkex?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).boe?.status) ? 1 : 0,
-                ["active","warning"].includes((status as any).hkma?.status) ? 1 : 0,
-                (status.tavily ?? []).filter(k => k.configured && ["active","warning"].includes(k.status)).length,
+                ["active","warning"].includes(status.newsApiStatus) ? 1 : 0,
+                ["active","warning"].includes(status.marketauxStatus) ? 1 : 0,
+                ["active","warning"].includes(status.simfinStatus) ? 1 : 0,
+                ["active","warning"].includes(status.tiingoStatus) ? 1 : 0,
+                ["active","warning"].includes(status.ecbStatus) ? 1 : 0,
+                ["active","warning"].includes(status.hkexStatus) ? 1 : 0,
+                ["active","warning"].includes(status.boeStatus) ? 1 : 0,
+                ["active","warning"].includes(status.hkmaStatus) ? 1 : 0,
+                status.tavilyActiveCount ?? 0,
               ].reduce((a, b) => a + b, 0)}
               /
-              {20 + (status.tavily ?? []).filter(k => k.configured).length}
+              {20 + (status.tavilyTotal ?? 0)}
                正常
             </span>
           )}
@@ -151,16 +151,16 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Yahoo Finance"
             desc="股价 / 财务 / 估値"
-            statusStr={status?.yahoo.status ?? "active"}
+            statusStr={status?.yahooStatus ?? "active"}
           />
 
           {/* FRED */}
           <SourceRow
             label="FRED"
             desc="美联储宏观指标"
-            statusStr={status?.fred.status ?? "error"}
+            statusStr={status?.fredStatus ?? "error"}
             badge={
-              !status?.fred.configured ? (
+              !status?.fredConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -173,7 +173,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="World Bank"
             desc="全球 GDP / 通胀 / 贸易"
-            statusStr={status?.worldBank?.status ?? "active"}
+            statusStr={status?.worldBankStatus ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -186,7 +186,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="IMF/WB 宏观数据"
             desc="GDP / 通胀 / 债务 / 展望"
-            statusStr={status?.imf?.status ?? "active"}
+            statusStr={status?.imfStatus ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
@@ -202,9 +202,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Finnhub"
             desc="实时报价 / 分析师评级 / 内部交易"
-            statusStr={(status as any)?.finnhub?.status ?? "error"}
+            statusStr={status?.finnhubStatus ?? "error"}
             badge={
-              !(status as any)?.finnhub?.configured ? (
+              !status?.finnhubConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -217,9 +217,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Financial Modeling Prep"
             desc="财务报表 / DCF估值 / 分析师目标价"
-            statusStr={(status as any)?.fmp?.status ?? "error"}
+            statusStr={status?.fmpStatus ?? "error"}
             badge={
-              !(status as any)?.fmp?.configured ? (
+              !status?.fmpConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -232,9 +232,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Polygon.io"
             desc="市场快照 / 近期走势 / 新闻情绪"
-            statusStr={(status as any)?.polygon?.status ?? "error"}
+            statusStr={status?.polygonStatus ?? "error"}
             badge={
-              !(status as any)?.polygon?.configured ? (
+              !status?.polygonConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -247,9 +247,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Alpha Vantage"
             desc="宏观指标 / 汇率 / CPI / 利率"
-            statusStr={(status as any)?.alphaVantage?.status ?? "error"}
+            statusStr={status?.alphaVantageStatus ?? "error"}
             badge={
-              !(status as any)?.alphaVantage?.configured ? (
+              !status?.alphaVantageConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -262,7 +262,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="SEC EDGAR"
             desc="XBRL 财务事实 / 10-K 年报 / 10-Q 季报 / 8-K 公告 / 公司基本信息"
-            statusStr={(status as any)?.secEdgar?.status ?? "error"}
+            statusStr={status?.secEdgarStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -275,9 +275,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="CoinGecko"
             desc="加密货币 / 市值 / 趋势"
-            statusStr={(status as any)?.coinGecko?.status ?? "error"}
+            statusStr={status?.coinGeckoStatus ?? "error"}
             badge={
-              !(status as any)?.coinGecko?.configured ? (
+              !status?.coinGeckoConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
                   需 API Key
@@ -295,7 +295,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Baostock"
             desc="A股历史行情 / 财务指标"
-            statusStr={(status as any)?.baostock?.status ?? "error"}
+            statusStr={status?.baostockStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -311,7 +311,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="GDELT"
             desc="全球事件 / 地缘风险 / 新闻情绪"
-            statusStr={(status as any)?.gdelt?.status ?? "active"}
+            statusStr={status?.gdeltStatus ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -324,9 +324,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="NewsAPI"
             desc="全球新闻搜索 / 头条"
-            statusStr={(status as any)?.newsApi?.status ?? "error"}
+            statusStr={status?.newsApiStatus ?? "error"}
             badge={
-              !(status as any)?.newsApi?.configured ? (
+              !status?.newsApiConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
                   未配置
@@ -344,9 +344,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Marketaux"
             desc="金融新闻 / 情绪评分 / 实体识别"
-            statusStr={(status as any)?.marketaux?.status ?? "error"}
+            statusStr={status?.marketauxStatus ?? "error"}
             badge={
-              !(status as any)?.marketaux?.configured ? (
+              !status?.marketauxConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
                   未配置
@@ -364,9 +364,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="SimFin"
             desc="财务报表 / 衡生指标 / 股价历史"
-            statusStr={(status as any)?.simfin?.status ?? "error"}
+            statusStr={status?.simfinStatus ?? "error"}
             badge={
-              !(status as any)?.simfin?.configured ? (
+              !status?.simfinConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
                   未配置
@@ -384,9 +384,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Tiingo"
             desc="实时估值倍数（P/E、P/B、EV、PEG）/ 历史 OHLCV / 季度财务报表"
-            statusStr={(status as any)?.tiingo?.status ?? "error"}
+            statusStr={status?.tiingoStatus ?? "error"}
             badge={
-              !(status as any)?.tiingo?.configured ? (
+              !status?.tiingoConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.1)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.2)" }}>
                   未配置
@@ -404,7 +404,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="ECB"
             desc="欧元区利率 / 通胀 / 汇率 / 货币供应量"
-            statusStr={(status as any)?.ecb?.status ?? "error"}
+            statusStr={status?.ecbStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
@@ -417,7 +417,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="HKEXnews"
             desc="港股公告 / 年报 / 监管文件（香港交易所官方披露易）"
-            statusStr={(status as any)?.hkex?.status ?? "error"}
+            statusStr={status?.hkexStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
@@ -432,7 +432,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Bank of England"
             desc="英国基准利率 / 国债收益率 / GBP 汇率 / M4 货币供应量"
-            statusStr={(status as any)?.boe?.status ?? "error"}
+            statusStr={status?.boeStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 240 / 0.1)", color: "oklch(0.55 0.15 240)", border: "1px solid oklch(0.72 0.18 240 / 0.2)" }}>
@@ -447,7 +447,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="HKMA"
             desc="港元利率 / 货币供应量 / 银行间流动性 / 外汇储备（香港金融管理局）"
-            statusStr={(status as any)?.hkma?.status ?? "error"}
+            statusStr={status?.hkmaStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 30 / 0.1)", color: "oklch(0.55 0.15 30)", border: "1px solid oklch(0.72 0.18 30 / 0.2)" }}>
@@ -463,7 +463,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="CourtListener"
             desc="美国法院诉讼 / 判决历史 / 公司诉讼风险"
-            statusStr={(status as any)?.courtListener?.status ?? "error"}
+            statusStr={status?.courtListenerStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -476,9 +476,9 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="Congress.gov"
             desc="美国立法动态 / 法案进展 / 监管政策"
-            statusStr={(status as any)?.congress?.status ?? "error"}
+            statusStr={status?.congressStatus ?? "error"}
             badge={
-              !(status as any)?.congress?.configured ? (
+              !status?.congressConfigured ? (
                 <span className="text-xs px-1.5 py-0.5 rounded"
                   style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
                   需 API Key
@@ -496,7 +496,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="EUR-Lex"
             desc="欧盟法规 / MiCA / GDPR / DORA / MiFID II / AI Act"
-            statusStr={(status as any)?.eurLex?.status ?? "active"}
+            statusStr={status?.eurLexStatus ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -509,7 +509,7 @@ function DataSourceStatusPanel() {
           <SourceRow
             label="GLEIF"
             desc="全球 LEI 法人识别码 / 法人结构 / 母子公司关系"
-            statusStr={(status as any)?.gleif?.status ?? "error"}
+            statusStr={status?.gleifStatus ?? "error"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
@@ -521,33 +521,31 @@ function DataSourceStatusPanel() {
           {/* 分组标题：网页搜索 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
 
-          {/* Tavily Keys */}
-          {(status?.tavily ?? []).map((k) => (
-            <div key={k.index} className="flex items-center justify-between py-1.5 px-2 rounded-lg"
-              style={{ background: k.configured ? statusBg(k.status) : "oklch(0.18 0.005 270)" }}>
+          {/* Tavily Keys 汇总 */}
+          {status && (
+            <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
+              style={{ background: status.tavilyConfigured ? statusBg(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.18 0.005 270)" }}>
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{
-                    background: k.configured ? statusColor(k.status) : "oklch(0.30 0.01 270)",
-                    boxShadow: k.configured && k.status === "active" ? `0 0 5px ${statusColor(k.status)}` : "none",
+                    background: status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.30 0.01 270)",
+                    boxShadow: status.tavilyConfigured && status.tavilyActiveCount > 0 ? `0 0 5px ${statusColor("active")}` : "none",
                   }} />
-                <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>
-                  Tavily Key {k.index}
-                </span>
-                <span className="text-xs font-mono" style={{ color: "oklch(0.48 0.008 270)" }}>
-                  {k.configured ? k.masked : "未配置"}
+                <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>Tavily 网页搜索</span>
+                <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>
+                  {status.tavilyConfigured ? `${status.tavilyActiveCount}/${status.tavilyTotal} Key 可用` : "未配置"}
                 </span>
               </div>
               <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
                 style={{
-                  color: k.configured ? statusColor(k.status) : "oklch(0.40 0.01 270)",
-                  background: k.configured ? statusBg(k.status) : "oklch(0.22 0.005 270)",
-                  border: `1px solid ${k.configured ? statusColor(k.status) + "33" : "oklch(0.28 0.007 270)"}`,
+                  color: status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.40 0.01 270)",
+                  background: status.tavilyConfigured ? statusBg(status.tavilyActiveCount > 0 ? "active" : "error") : "oklch(0.22 0.005 270)",
+                  border: `1px solid ${status.tavilyConfigured ? statusColor(status.tavilyActiveCount > 0 ? "active" : "error") + "33" : "oklch(0.28 0.007 270)"}`,
                 }}>
-                {k.configured ? statusLabel(k.status) : "未配置"}
+                {status.tavilyConfigured ? statusLabel(status.tavilyActiveCount > 0 ? "active" : "error") : "未配置"}
               </span>
             </div>
-          ))}
+          )}
 
           {status && !status.tavilyConfigured && (
             <p className="text-xs px-2 py-1.5 rounded-lg"

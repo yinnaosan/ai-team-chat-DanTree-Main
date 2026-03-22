@@ -981,3 +981,12 @@
 - [x] 添加 /api/net-test 端点用于诊断生产环境网络连通性
 - [ ] 修复健康检测超时：20+ API 并行请求超时导致整个 tRPC 查询失败
 - [ ] 保存 Checkpoint 并发布
+
+## SuperJSON 深度限制修复 & LLM 实时数据强化（2026-03-22）
+- [x] 修复 Settings.tsx：将所有 status?.xxx.status 改为扁平化字段 status?.xxxStatus
+- [x] 修复 Settings.tsx：Marketaux/SimFin/Tiingo/Congress 字段引用错误（编辑时替换混乱导致）
+- [x] 修复 Settings.tsx：Tavily 显示从数组遍历改为汇总显示（tavilyActiveCount/tavilyTotal）
+- [x] 强化 manusSystemPrompt：注入今日日期、训练截止日期、明确禁止使用训练记忆数据
+- [x] 强化 manusSystemPrompt：API 无数据时输出 [DATA_UNAVAILABLE] 而非猜测
+- [x] 将 NOW/currentDateStr/currentYearStr 变量移到 manusSystemPrompt 之前（修复 TS 编译错误）
+- [x] 227 个测试全部通过，TypeScript 0 错误

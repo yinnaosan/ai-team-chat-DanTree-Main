@@ -4,64 +4,112 @@
  */
 
 /**
- * html2canvas 不支持 oklch() 颜色函数（Tailwind 4 默认使用）。
- * 在截图前，将所有 <style> 和 inline style 中的 oklch() 替换为等价 rgb()，
+ * html2canvas 不支持现代 CSS 颜色函数（oklch/oklab/lch/lab/color()）。
+ * 在截图前，将页面上所有不支持的颜色函数替换为等价 rgb()，
  * 截图完成后恢复原始样式，确保页面视觉不受影响。
  */
-function oklchToRgbApprox(oklchStr: string): string {
-  // 将 oklch(L C H / A) 转换为近似 rgb
-  // 使用简化映射：保留亮度信息，色相映射到 HSL 再转 RGB
-  return oklchStr.replace(
+
+/** 将 oklch/oklab/lch/lab/color() 转换为近似 rgb */
+function patchModernColors(css: string): string {
+  // 处理 oklch(L C H / A)
+  let result = css.replace(
     /oklch\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
-    (_match, l, c, h, a) => {
-      const L = parseFloat(l) / (l.includes("%") ? 100 : 1);
+    (_m, l, c, h, a) => {
+      const L = parseFloat(l) / (String(l).includes("%") ? 100 : 1);
       const C = parseFloat(c);
       const H = parseFloat(h);
-      const alpha = a ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
-
-      // oklch → approximate sRGB via simplified LCH→Lab→XYZ→sRGB
-      // For UI purposes, a hue-based HSL approximation is sufficient
-      const hDeg = H % 360;
-      // Map lightness: oklch L=0→black, L=1→white
-      const lightness = Math.max(0, Math.min(1, L));
-      // Chroma → saturation approximation (oklch chroma 0-0.4 typical range)
-      const saturation = Math.max(0, Math.min(1, C / 0.4));
-
-      // HSL to RGB
-      const hslH = hDeg / 360;
-      const hslS = saturation;
-      const hslL = lightness;
-      const q = hslL < 0.5 ? hslL * (1 + hslS) : hslL + hslS - hslL * hslS;
-      const p = 2 * hslL - q;
-      const hue2rgb = (t: number) => {
-        let tt = t;
-        if (tt < 0) tt += 1;
-        if (tt > 1) tt -= 1;
-        if (tt < 1/6) return p + (q - p) * 6 * tt;
-        if (tt < 1/2) return q;
-        if (tt < 2/3) return p + (q - p) * (2/3 - tt) * 6;
-        return p;
-      };
-      const r = Math.round(hue2rgb(hslH + 1/3) * 255);
-      const g = Math.round(hue2rgb(hslH) * 255);
-      const b = Math.round(hue2rgb(hslH - 1/3) * 255);
-
-      return alpha < 1
-        ? `rgba(${r},${g},${b},${alpha.toFixed(3)})`
-        : `rgb(${r},${g},${b})`;
+      const alpha = a !== undefined ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+      return lchishToRgb(L, C, H, alpha);
     }
   );
+
+  // 处理 oklab(L a b / A)
+  result = result.replace(
+    /oklab\(\s*([\d.]+%?)\s+([\d.e+-]+)\s+([\d.e+-]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
+    (_m, l, _a2, _b2, a) => {
+      const L = parseFloat(l) / (String(l).includes("%") ? 100 : 1);
+      const alpha = a !== undefined ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+      // oklab: no hue, use lightness only
+      const v = Math.round(Math.max(0, Math.min(1, L)) * 255);
+      return alpha < 1 ? `rgba(${v},${v},${v},${alpha.toFixed(3)})` : `rgb(${v},${v},${v})`;
+    }
+  );
+
+  // 处理 lch(L C H / A)
+  result = result.replace(
+    /lch\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
+    (_m, l, c, h, a) => {
+      const L = parseFloat(l) / (String(l).includes("%") ? 100 : 1);
+      const C = parseFloat(c);
+      const H = parseFloat(h);
+      const alpha = a !== undefined ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+      return lchishToRgb(L / 100, C / 150, H, alpha); // lch L is 0-100
+    }
+  );
+
+  // 处理 lab(L a b / A)
+  result = result.replace(
+    /lab\(\s*([\d.]+%?)\s+([\d.e+-]+)\s+([\d.e+-]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
+    (_m, l, _a2, _b2, a) => {
+      const L = parseFloat(l) / (String(l).includes("%") ? 100 : 1);
+      const alpha = a !== undefined ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+      const v = Math.round(Math.max(0, Math.min(1, L)) * 255);
+      return alpha < 1 ? `rgba(${v},${v},${v},${alpha.toFixed(3)})` : `rgb(${v},${v},${v})`;
+    }
+  );
+
+  // 处理 color(display-p3 R G B / A) 和 color(srgb R G B / A)
+  result = result.replace(
+    /color\(\s*(?:display-p3|srgb|srgb-linear|a98-rgb|prophoto-rgb)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/gi,
+    (_m, r, g, b, a) => {
+      const R = Math.round(Math.max(0, Math.min(1, parseFloat(r))) * 255);
+      const G = Math.round(Math.max(0, Math.min(1, parseFloat(g))) * 255);
+      const B = Math.round(Math.max(0, Math.min(1, parseFloat(b))) * 255);
+      const alpha = a !== undefined ? parseFloat(a) / (String(a).includes("%") ? 100 : 1) : 1;
+      return alpha < 1 ? `rgba(${R},${G},${B},${alpha.toFixed(3)})` : `rgb(${R},${G},${B})`;
+    }
+  );
+
+  return result;
 }
 
-/** 截图前替换所有 oklch，截图后恢复 */
+/** LCH-风格转 RGB（oklch/lch 共用） */
+function lchishToRgb(L: number, C: number, H: number, alpha: number): string {
+  const hDeg = H % 360;
+  const lightness = Math.max(0, Math.min(1, L));
+  const saturation = Math.max(0, Math.min(1, C / 0.4));
+  const hslH = hDeg / 360;
+  const q = lightness < 0.5 ? lightness * (1 + saturation) : lightness + saturation - lightness * saturation;
+  const p = 2 * lightness - q;
+  const hue2rgb = (t: number) => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1/6) return p + (q - p) * 6 * tt;
+    if (tt < 1/2) return q;
+    if (tt < 2/3) return p + (q - p) * (2/3 - tt) * 6;
+    return p;
+  };
+  const r = Math.round(hue2rgb(hslH + 1/3) * 255);
+  const g = Math.round(hue2rgb(hslH) * 255);
+  const b = Math.round(hue2rgb(hslH - 1/3) * 255);
+  return alpha < 1 ? `rgba(${r},${g},${b},${alpha.toFixed(3)})` : `rgb(${r},${g},${b})`;
+}
+
+/** 检测字符串是否包含任何现代颜色函数 */
+function hasModernColor(s: string): boolean {
+  return /oklch\(|oklab\(|\blch\(|\blab\(|color\(\s*(?:display-p3|srgb)/i.test(s);
+}
+
+/** 截图前替换所有现代颜色函数，截图后恢复 */
 function patchOklchForCanvas(): () => void {
   const patches: Array<{ node: HTMLStyleElement | HTMLElement; attr: string; original: string }> = [];
 
   // 1. 处理所有 <style> 标签
   document.querySelectorAll<HTMLStyleElement>("style").forEach((style) => {
-    if (style.textContent && style.textContent.includes("oklch")) {
+    if (style.textContent && hasModernColor(style.textContent)) {
       const original = style.textContent;
-      style.textContent = oklchToRgbApprox(original);
+      style.textContent = patchModernColors(original);
       patches.push({ node: style, attr: "textContent", original });
     }
   });
@@ -69,10 +117,22 @@ function patchOklchForCanvas(): () => void {
   // 2. 处理所有 inline style 属性
   document.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
     const original = el.getAttribute("style") || "";
-    if (original.includes("oklch")) {
-      el.setAttribute("style", oklchToRgbApprox(original));
+    if (hasModernColor(original)) {
+      el.setAttribute("style", patchModernColors(original));
       patches.push({ node: el, attr: "style", original });
     }
+  });
+
+  // 3. 处理 SVG 内联 fill/stroke 属性（html2canvas 也会解析 SVG 属性中的颜色）
+  const svgAttrs = ["fill", "stroke", "stop-color", "flood-color", "lighting-color"];
+  document.querySelectorAll<SVGElement>("svg *").forEach((el) => {
+    svgAttrs.forEach((attr) => {
+      const val = el.getAttribute(attr);
+      if (val && hasModernColor(val)) {
+        el.setAttribute(attr, patchModernColors(val));
+        patches.push({ node: el as unknown as HTMLElement, attr, original: val });
+      }
+    });
   });
 
   // 返回恢复函数
@@ -81,7 +141,7 @@ function patchOklchForCanvas(): () => void {
       if (attr === "textContent") {
         (node as HTMLStyleElement).textContent = original;
       } else {
-        (node as HTMLElement).setAttribute("style", original);
+        (node as HTMLElement).setAttribute(attr, original);
       }
     });
   };

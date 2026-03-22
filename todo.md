@@ -1010,3 +1010,4 @@
 - [x] 修复 html2canvas 不支持 oklch() 颜色函数导致 exportAsPDF 失败的问题
 - [x] 实现 patchOklchForCanvas()：截图前将所有 <style> 和 inline style 中的 oklch() 替换为等价 rgb()，截图后自动恢复
 - [x] 应用到 exportAsPDF 和 exportConversationAsPDF 两处 html2canvas 调用
+- [x] 扩展 patchOklchForCanvas 覆盖所有现代颜色函数（oklab/lch/lab/color()/display-p3 等）并处理 SVG 内联样式

@@ -962,3 +962,9 @@
 - [x] 修复：在 ENV 对象中为所有金融 API Key 添加第三级硬编码回退（环境变量 > local.config > 硬编码）
 - [x] TypeScript 0 错误，211 个测试全部通过
 - [x] 保存 Checkpoint
+
+## 修复数据源健康检测大量「未配置」问题（含免费公开数据源）
+- [x] 根因定位：所有金融 API Key 从未通过 webdev_request_secrets 注入到生产环境，导致 ENV.X 在生产环境为空，健康检测跳过实际请求
+- [x] 修复：通过 webdev_request_secrets 将 17 个 API Key 注入生产环境变量
+- [x] 16 个测试文件，227 个测试全部通过
+- [x] 保存 Checkpoint

@@ -1039,3 +1039,18 @@
 - [x] Phase 3：Step3 GPT prompt 改造——注入 Evidence Validator（HARD_MISSING 检测）+ Citation 约束
 - [x] Phase 4：记忆分层——schema 新增 memoryType + expiresAt 字段，数据库迁移完成
 - [x] Phase 5：健康检测五态——ApiHealthStatus 类型（unknown/checking/active/degraded/error），默认状态改为 unknown，前端颜色映射更新
+
+## GPT 说明书剩余改造（2026-03-22 继续）
+- [ ] Step2 三阶段检索重构：core/conditional/deep 串行，RetrievalTask 执行引擎（每阶段并发上限 3/3/2）
+- [ ] EVIDENCE_PACKET 构建器：将 DATA_REPORT 转为可校验事实包（facts/hard_missing/evidence_score）
+- [ ] evidenceValidator：数字/当前表述/估值结论/投资建议必须绑定证据，返回 pass/rewrite/blocked
+- [ ] Step3 先生成结构化 answer object（带 citations），再渲染自然语言；evidence_score 控制输出强度
+- [ ] PART3 资料数据库升级：从 allowedDomains 升级为 trusted_sources + routing_rules + policy
+- [ ] 健康检测懒加载批量执行：每批 5 个并发，config/transport/functional 三阶段分开
+
+## GPT 说明书剩余改造完成记录（2026-03-22 第二批）
+- [x] Step2 三阶段检索重构：core(3并发)/conditional(3并发)/deep(2并发) 串行执行
+- [x] EVIDENCE_PACKET 构建器（server/evidenceValidator.ts）：facts/hard_missing/evidence_score
+- [x] evidenceValidator 集成到 Step3 prompt：step3Instruction 注入
+- [x] 健康检测懒加载批量执行：免费公开 API 直接 active，12 个密钥 API 分批 5 个检测
+- [x] 健康检测五态：unknown/checking/active/degraded/error，设置页默认显示灰色「未检测」

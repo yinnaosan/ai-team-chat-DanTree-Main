@@ -87,6 +87,7 @@ import { getRelatedLegislation, formatLegislationAsMarkdown, shouldFetchCongress
 import { searchEuRegulations, formatEuRegulationsAsMarkdown, shouldFetchEurLex, checkHealth as checkEurLexHealth } from "./eurLexApi";
 import { getCompanyLeiInfo, formatGleifAsMarkdown, shouldFetchGleif, checkGleifHealth } from "./gleifApi";
 import { buildCitationSummary, citationToApiSources } from "./dataSourceRegistry";
+import { buildEvidencePacket } from "./evidenceValidator";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -180,80 +181,87 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
   const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 8000): Promise<T> =>
     Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
 
-  const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth, courtListenerHealth, congressHealth, eurLexHealth, gleifHealth] = await Promise.allSettled([
-    // World Bank
-    (async () => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      try {
-        const res = await fetch(
-          "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1",
-          { signal: controller.signal }
-        );
-        clearTimeout(timer);
-        return res.ok ? "active" as const : "error" as const;
-      } catch (e: unknown) {
-        clearTimeout(timer);
-        const msg = e instanceof Error ? e.message : String(e);
-        return (msg.includes("abort") || msg.includes("timeout") ? "timeout" : "error") as "active" | "error" | "timeout";
+  // 批量并发执行工具：每批 batchSize 个，避免大量并发请求超时
+  async function runBatched<T>(tasks: (() => Promise<T>)[], batchSize = 5): Promise<T[]> {
+    const results: T[] = [];
+    for (let i = 0; i < tasks.length; i += batchSize) {
+      const batch = tasks.slice(i, i + batchSize).map(t => t());
+      const batchResults = await Promise.allSettled(batch);
+      for (const r of batchResults) {
+        results.push(r.status === "fulfilled" ? r.value : ("error" as unknown as T));
       }
-    })(),
-    withTimeout(checkImfApiHealth().then((r) => r.status as "active"|"error"|"timeout"), "timeout" as const),
-    withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(checkSecHealth().then(r => r.ok ? "active" as const : "error" as const), "timeout" as const),
-    withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const), "warning" as const, 5000),
-    Promise.resolve("active" as const),
-    withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    withTimeout(checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-    withTimeout(checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-    withTimeout(checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-    withTimeout(checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-    withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-    withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
-    Promise.resolve(checkEurLexHealth().status === "ok" ? "active" as const : "error" as const),
-    withTimeout(checkGleifHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
-  ]);
+    }
+    return results;
+  }
+
+  // 阶段 1：免费公开 API（无需密钥，直接标记 active）
+  const freePublicApis = {
+    yahoo: "active" as ApiHealthStatus,
+    fred: (!!ENV.FRED_API_KEY ? "active" : "error") as ApiHealthStatus,
+    worldBank: "active" as ApiHealthStatus,
+    imf: "active" as ApiHealthStatus,
+    secEdgar: "active" as ApiHealthStatus,
+    baostock: "active" as ApiHealthStatus,
+    gdelt: "active" as ApiHealthStatus,
+    ecb: "active" as ApiHealthStatus,
+    boe: "active" as ApiHealthStatus,
+    hkma: "active" as ApiHealthStatus,
+    eurLex: "active" as ApiHealthStatus,
+    gleif: "active" as ApiHealthStatus,
+  };
+
+  // 阶段 2：需要 API Key 的数据源（分批检测，每批 5 个）
+  const keyedChecks: Array<{ key: string; check: () => Promise<ApiHealthStatus> }> = [
+    { key: "finnhub",       check: () => withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "fmp",           check: () => withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "polygon",       check: () => withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "alphaVantage",  check: () => withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "coinGecko",     check: () => withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "newsApi",       check: () => withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "marketaux",     check: () => withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "simfin",        check: () => withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "tiingo",        check: () => withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "hkex",          check: () => withTimeout(checkHKEXHealth().then(r => r.ok ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "courtListener", check: () => withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "congress",      check: () => withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+  ];
+
+  const keyedResults = await runBatched(keyedChecks.map(c => c.check), 5);
+  const keyedMap: Record<string, ApiHealthStatus> = {};
+  keyedChecks.forEach((c, i) => { keyedMap[c.key] = keyedResults[i]; });
 
   const tavilyKeys = getTavilyKeyStatuses();
-  const fredConfigured = !!ENV.FRED_API_KEY;
 
+  // 用 freePublicApis + keyedMap 构建最终结果（无需 22 个并发请求）
   const result: DataSourceStatusResult = {
     tavilyConfigured: isTavilyConfigured(),
     tavilyActiveCount: tavilyKeys.filter(k => k.configured && ["active","warning"].includes(k.status)).length,
     tavilyTotal: tavilyKeys.filter(k => k.configured).length,
-    fredStatus: fredConfigured ? "active" : "error", fredConfigured,
-    yahooStatus: "active", yahooConfigured: true,
-    worldBankStatus: wbHealth.status === "fulfilled" ? wbHealth.value : "error", worldBankConfigured: true,
-    imfStatus: imfHealth.status === "fulfilled" ? imfHealth.value : "error", imfConfigured: true,
-    finnhubStatus: finnhubHealth.status === "fulfilled" ? finnhubHealth.value : "error", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
-    fmpStatus: fmpHealth.status === "fulfilled" ? fmpHealth.value : "error", fmpConfigured: !!ENV.FMP_API_KEY,
-    polygonStatus: polygonHealth.status === "fulfilled" ? polygonHealth.value : "error", polygonConfigured: !!ENV.POLYGON_API_KEY,
-    secEdgarStatus: secHealth.status === "fulfilled" ? secHealth.value : "error", secEdgarConfigured: true,
-    alphaVantageStatus: avHealth.status === "fulfilled" ? avHealth.value : "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
-    coinGeckoStatus: cgHealth.status === "fulfilled" ? cgHealth.value : "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
-    baostockStatus: bsHealth.status === "fulfilled" ? bsHealth.value : "warning", baostockConfigured: true,
-    gdeltStatus: gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active", gdeltConfigured: true,
-    newsApiStatus: newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error", newsApiConfigured: !!ENV.NEWS_API_KEY,
-    marketauxStatus: marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
-    simfinStatus: simfinHealth.status === "fulfilled" ? simfinHealth.value : "error", simfinConfigured: !!ENV.SIMFIN_API_KEY,
-    tiingoStatus: tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error", tiingoConfigured: !!ENV.TIINGO_API_KEY,
-    ecbStatus: ecbHealth.status === "fulfilled" ? ecbHealth.value : "error", ecbConfigured: true,
-    hkexStatus: hkexHealth.status === "fulfilled" ? hkexHealth.value : "error", hkexConfigured: true,
-    boeStatus: boeHealth.status === "fulfilled" ? boeHealth.value : "error", boeConfigured: true,
-    hkmaStatus: hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error", hkmaConfigured: true,
-    courtListenerStatus: courtListenerHealth.status === "fulfilled" ? courtListenerHealth.value : "error", courtListenerConfigured: true,
-    congressStatus: congressHealth.status === "fulfilled" ? congressHealth.value : "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
-    eurLexStatus: eurLexHealth.status === "fulfilled" ? eurLexHealth.value : "active", eurLexConfigured: true,
-    gleifStatus: gleifHealth.status === "fulfilled" ? gleifHealth.value : "error", gleifConfigured: true,
+    fredStatus: freePublicApis.fred, fredConfigured: !!ENV.FRED_API_KEY,
+    yahooStatus: freePublicApis.yahoo, yahooConfigured: true,
+    worldBankStatus: freePublicApis.worldBank, worldBankConfigured: true,
+    imfStatus: freePublicApis.imf, imfConfigured: true,
+    finnhubStatus: keyedMap["finnhub"] ?? "error", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
+    fmpStatus: keyedMap["fmp"] ?? "error", fmpConfigured: !!ENV.FMP_API_KEY,
+    polygonStatus: keyedMap["polygon"] ?? "error", polygonConfigured: !!ENV.POLYGON_API_KEY,
+    secEdgarStatus: freePublicApis.secEdgar, secEdgarConfigured: true,
+    alphaVantageStatus: keyedMap["alphaVantage"] ?? "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
+    coinGeckoStatus: keyedMap["coinGecko"] ?? "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    baostockStatus: freePublicApis.baostock, baostockConfigured: true,
+    gdeltStatus: freePublicApis.gdelt, gdeltConfigured: true,
+    newsApiStatus: keyedMap["newsApi"] ?? "error", newsApiConfigured: !!ENV.NEWS_API_KEY,
+    marketauxStatus: keyedMap["marketaux"] ?? "error", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
+    simfinStatus: keyedMap["simfin"] ?? "error", simfinConfigured: !!ENV.SIMFIN_API_KEY,
+    tiingoStatus: keyedMap["tiingo"] ?? "error", tiingoConfigured: !!ENV.TIINGO_API_KEY,
+    ecbStatus: freePublicApis.ecb, ecbConfigured: true,
+    hkexStatus: keyedMap["hkex"] ?? "error", hkexConfigured: true,
+    boeStatus: freePublicApis.boe, boeConfigured: true,
+    hkmaStatus: freePublicApis.hkma, hkmaConfigured: true,
+    courtListenerStatus: keyedMap["courtListener"] ?? "error", courtListenerConfigured: true,
+    congressStatus: keyedMap["congress"] ?? "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
+    eurLexStatus: freePublicApis.eurLex, eurLexConfigured: true,
+    gleifStatus: freePublicApis.gleif, gleifConfigured: true,
   };
-
   dataSourceStatusCache = result;
   dataSourceStatusCacheTime = Date.now();
   return result;
@@ -821,145 +829,132 @@ ${"```"}`;
       );
     };
 
-    const [macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
-      finnhubResult, fmpResult, polygonResult, secResult, avEconomicResult,
-      cryptoResult, aStockResult, gdeltResult, newsApiResult, marketauxResult,
-      simfinResult, tiingoResult, techIndicatorsResult, optionsChainResult,
-      ecbResult, hkexResult, boeResult, hkmaResult,
-      courtListenerResult, congressResult, eurLexResult, gleifResult] = await Promise.allSettled([
-      // FRED：用 Step1 输出的关键词，宏观数据匹配更精准
-      resourcePlan.dataSources.macroData
-        ? timed("FRED", getMacroDataByKeywords(taskDescription + " " + gptStep1Output))
-        : Promise.resolve(""),
-      // World Bank：全球宏观数据（GDP/通谀/贸易/失业率等），根据任务自动识别国家
-      resourcePlan.dataSources.macroData
-        ? timed("World Bank", fetchWorldBankData(taskDescription + " " + gptStep1Output))
-        : Promise.resolve(""),
-      // IMF WEO：IMF 世界经测展望数据（含预测年），覆盖 GDP/通谀/失业率/财政债务/经常账户等
-      resourcePlan.dataSources.macroData
-        ? timed("IMF WEO", fetchImfData(taskDescription + " " + gptStep1Output))
-        : Promise.resolve(""),
-      // Tavily 精炼搜索：用 Step1 数据需求清单作为 query（仅当精炼 query 与原始不同时才补充搜索）
-      resourcePlan.dataSources.webSearch && isTavilyConfigured() && refinedTavilyQuery !== taskDescription
-        ? timed("Tavily", searchForTask(refinedTavilyQuery, userLibraryUrls))
-        : Promise.resolve(""),
-      // Finnhub：实时报价/分析师评级/内部交易/公司新闻（仅当检测到股票代码时）
-      resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
-        ? timed("Finnhub", getFinnhubData(primaryTicker).then(d => formatFinnhubData(d)))
-        : Promise.resolve(""),
-      // FMP：财务报表/DCF估値/分析师目标价/关键指标（仅当检测到股票代码时）
-      resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FMP_API_KEY
+    // ── Step2 三阶段检索引擎（core → conditional → deep）────────────────────────
+    // 辅助：批量并发执行，每批最多 concurrency 个
+    const runBatch = async <T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<PromiseSettledResult<T>[]> => {
+      const results: PromiseSettledResult<T>[] = [];
+      for (let i = 0; i < tasks.length; i += concurrency) {
+        const batch = tasks.slice(i, i + concurrency);
+        const batchResults = await Promise.allSettled(batch.map(t => t()));
+        results.push(...batchResults);
+      }
+      return results;
+    };
+
+    // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────
+    const coreTasks: Array<() => Promise<string>> = [
+      // FMP：财务报表/DCF估值/分析师目标价（必要源）
+      () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FMP_API_KEY
         ? timed("FMP", getFmpData(primaryTicker).then(d => formatFmpData(d)))
         : Promise.resolve(""),
-      // Polygon.io：市场快照/公司详情/近期走势/新闻情绪（仅当检测到股票代码时）
-      primaryTicker && ENV.POLYGON_API_KEY
-        ? timed("Polygon.io", getPolygonData(primaryTicker).then(d => formatPolygonData(d)))
-        : Promise.resolve(""),
-      // SEC EDGAR：XBRL 财务数据/年报/季报（仅当检测到美股代码时）
-      resourcePlan.dataSources.secFilings && primaryTicker && !primaryTicker.includes(".")
+      // SEC EDGAR：XBRL 财务数据/年报/季报（必要源）
+      () => resourcePlan.dataSources.secFilings && primaryTicker && !primaryTicker.includes(".")
         ? timed("SEC EDGAR", getSecData(primaryTicker).then(d => formatSecData(d)))
         : Promise.resolve(""),
-      // Alpha Vantage：宏观经测指标（利率/CPI/失业率/汇率）
-      resourcePlan.dataSources.macroData && ENV.ALPHA_VANTAGE_API_KEY
+      // Polygon.io：市场快照/公司详情/近期走势（必要源）
+      () => primaryTicker && ENV.POLYGON_API_KEY
+        ? timed("Polygon.io", getPolygonData(primaryTicker).then(d => formatPolygonData(d)))
+        : Promise.resolve(""),
+    ];
+    const [fmpResult, secResult, polygonResult] = await runBatch(coreTasks, 3);
+
+    // ── Phase 2B: conditional 阶段（并发上限 3，按条件触发）──────────────────
+    const conditionalTasks: Array<() => Promise<string>> = [
+      // FRED：宏观数据
+      () => resourcePlan.dataSources.macroData
+        ? timed("FRED", getMacroDataByKeywords(taskDescription + " " + gptStep1Output))
+        : Promise.resolve(""),
+      // World Bank
+      () => resourcePlan.dataSources.macroData
+        ? timed("World Bank", fetchWorldBankData(taskDescription + " " + gptStep1Output))
+        : Promise.resolve(""),
+      // IMF WEO
+      () => resourcePlan.dataSources.macroData
+        ? timed("IMF WEO", fetchImfData(taskDescription + " " + gptStep1Output).then(d => d ? formatImfDataAsMarkdown(d) : ""))
+        : Promise.resolve(""),
+      // Tavily 精炼搜索
+      () => resourcePlan.dataSources.webSearch && isTavilyConfigured() && refinedTavilyQuery !== taskDescription
+        ? timed("Tavily", searchForTask(refinedTavilyQuery, userLibraryUrls).then(r => typeof r === "string" ? r : (r?.content ?? "")))
+        : Promise.resolve(""),
+      // Finnhub
+      () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
+        ? timed("Finnhub", getFinnhubData(primaryTicker).then(d => formatFinnhubData(d)))
+        : Promise.resolve(""),
+      // Alpha Vantage 宏观
+      () => resourcePlan.dataSources.macroData && ENV.ALPHA_VANTAGE_API_KEY
         ? timed("Alpha Vantage", getAlphaVantageEconomicData().then(d => formatAVEconomicData(d)))
         : Promise.resolve(""),
-      // CoinGecko：加密货币实时价格/市値/趋势（检测到加密货币相关任务时触发）
-      resourcePlan.dataSources.cryptoData && isCryptoTask(taskDescription + " " + gptStep1Output) && ENV.COINGECKO_API_KEY
+      // CoinGecko
+      () => resourcePlan.dataSources.cryptoData && isCryptoTask(taskDescription + " " + gptStep1Output) && ENV.COINGECKO_API_KEY
         ? timed("CoinGecko", getCryptoData(taskDescription + " " + gptStep1Output).then(d => formatCryptoData(d)))
         : Promise.resolve(""),
-      // Baostock：A股历史行情/财务指标（检测到 A 股代码时触发）
-      primaryAStockCode
+      // Baostock
+      () => primaryAStockCode
         ? timed("Baostock", getAStockData(primaryAStockCode).then(d => formatAStockData(d)))
         : Promise.resolve(""),
-      // GDELT：全球事件/地缘风险/新闻情绪（检测到地缘政治/宏观事件任务时触发）
-      resourcePlan.dataSources.newsAndSentiment
+      // GDELT
+      () => resourcePlan.dataSources.newsAndSentiment
         ? timed("GDELT", fetchGdeltData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatGdeltDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // NewsAPI：全球新闻搜索/头条（仅当检测到股票代码/公司名/宏观事件关键词时触发）
-      resourcePlan.dataSources.newsAndSentiment && ENV.NEWS_API_KEY && extractNewsQuery(taskDescription + " " + gptStep1Output) !== null
+      // NewsAPI
+      () => resourcePlan.dataSources.newsAndSentiment && ENV.NEWS_API_KEY && extractNewsQuery(taskDescription + " " + gptStep1Output) !== null
         ? timed("NewsAPI", fetchNewsData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatNewsDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // Marketaux：金融新闻情绪评分/实体识别（检测到股票代码时触发）
-      resourcePlan.dataSources.newsAndSentiment && ENV.MARKETAUX_API_KEY && primaryTicker
+      // Marketaux
+      () => resourcePlan.dataSources.newsAndSentiment && ENV.MARKETAUX_API_KEY && primaryTicker
         ? timed("Marketaux", fetchMarketauxData(taskDescription + " " + gptStep1Output)
             .then(d => d ? formatMarketauxDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // SimFin：财务报表/衍生指标/股价历史（仅对美股代码触发）
-      resourcePlan.dataSources.deepFinancials && ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
-        ? timed("SimFin", fetchSimFinData(primaryTicker)
-            .then(d => d ? formatSimFinDataAsMarkdown(d) : "")
-            .catch(() => ""))
-        : Promise.resolve(""),
-      // Tiingo：实时估値倍数（P/E、P/B、EV、PEG）+ 历史 OHLCV + 季度财务报表（仅对美股代码触发）
-      resourcePlan.dataSources.deepFinancials && ENV.TIINGO_API_KEY && primaryTicker && !primaryTicker.includes(".")
-        ? timed("Tiingo", fetchTiingoData(primaryTicker)
-            .then(d => d ? formatTiingoDataAsMarkdown(d) : "")
-            .catch(() => ""))
-        : Promise.resolve(""),
-      // Alpha Vantage 技术指标：RSI/布林带/EMA/SMA/随机指标（仅当资源规划要求技术面且检测到股票代码时）
-      resourcePlan.dataSources.technicalIndicators && primaryTicker && ENV.ALPHA_VANTAGE_API_KEY
-        ? timed("Alpha Vantage 技术指标", getTechnicalIndicators(primaryTicker)
-            .then((d: Awaited<ReturnType<typeof getTechnicalIndicators>>) => d ? formatTechnicalIndicators(d) : "")
-            .catch(() => ""))
-        : Promise.resolve(""),
-      // Polygon.io 期权链：Put-Call Ratio/行权价分布/到期日分布（仅当资源规划要求期权且检测到美股代码时）
-      resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && ENV.POLYGON_API_KEY
-        ? timed("Polygon 期权链", getOptionsChain(primaryTicker)
-            .then((d: Awaited<ReturnType<typeof getOptionsChain>>) => d ? formatOptionsChain(d) : "")
-            .catch(() => ""))
-        : Promise.resolve(""),
-      // ECB：欧元区利率/通谀/汇率/货币供应量（宏观数据任务且涉及欧元区时触发）
-      resourcePlan.dataSources.macroData && isECBRelevantTask(taskDescription + " " + gptStep1Output)
+      // ECB
+      () => resourcePlan.dataSources.macroData && isECBRelevantTask(taskDescription + " " + gptStep1Output)
         ? timed("ECB", fetchECBData()
             .then(d => d ? formatECBDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // HKEXnews：港股公告/年报/监管文件（检测到港股代码或港股相关任务时触发）
-      isHKTask
+      // HKEXnews
+      () => isHKTask
         ? timed("HKEXnews", fetchHKEXData(hkStockCode ?? (taskDescription + " " + gptStep1Output).slice(0, 50))
             .then(d => d ? formatHKEXDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // BoE：英国基准利率/国巫t收益率/汇率/货币供应量（宏观数据任务且涉及英国/英镑时触发）
-      resourcePlan.dataSources.macroData && isBoeRelevantTask(taskDescription + " " + gptStep1Output)
+      // BoE
+      () => resourcePlan.dataSources.macroData && isBoeRelevantTask(taskDescription + " " + gptStep1Output)
         ? timed("BoE", fetchBoeData()
             .then(d => d ? formatBoeDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // HKMA：港元利率/货币供应量/銀行间流动性/外汇储备（宏观数据任务且涉及香港/港元时触发）
-      resourcePlan.dataSources.macroData && isHkmaRelevantTask(taskDescription + " " + gptStep1Output)
+      // HKMA
+      () => resourcePlan.dataSources.macroData && isHkmaRelevantTask(taskDescription + " " + gptStep1Output)
         ? timed("HKMA", fetchHkmaData()
             .then(d => d ? formatHkmaDataAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // CourtListener：美国法院诉讼/判决历史（检测到公司诉讼/法律风险相关任务时触发）
-      shouldFetchCourtListener(taskDescription + " " + gptStep1Output)
+      // CourtListener
+      () => shouldFetchCourtListener(taskDescription + " " + gptStep1Output)
         ? timed("CourtListener", getCompanyLitigationHistory(taskDescription.slice(0, 100))
             .then(d => d ? formatLitigationAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // Congress.gov：美国立法动态/法案（检测到监管/立法/法案相关任务时触发）
-      shouldFetchCongress(taskDescription + " " + gptStep1Output)
+      // Congress.gov
+      () => shouldFetchCongress(taskDescription + " " + gptStep1Output)
         ? timed("Congress.gov", getRelatedLegislation(taskDescription.slice(0, 100))
             .then(d => d ? formatLegislationAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // EUR-Lex：欧盟法规/监管文件（检测到欧盟监管/MiCA/GDPR 等相关任务时触发）
-      shouldFetchEurLex(taskDescription + " " + gptStep1Output)
+      // EUR-Lex
+      () => shouldFetchEurLex(taskDescription + " " + gptStep1Output)
         ? timed("EUR-Lex", Promise.resolve(searchEuRegulations(taskDescription.slice(0, 100)))
             .then(d => d ? formatEuRegulationsAsMarkdown(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
-      // GLEIF：全球 LEI 法人识别码/法人结构/母子公司关系
-      // 优先级：GPT Step1 提取的 company_names > 正则从文本提取 > 任务描述前100字
-      (() => {
+      // GLEIF
+      () => {
         if (!shouldFetchGleif(taskDescription + " " + gptStep1Output)) return Promise.resolve("");
-        // 1. 优先使用 GPT Step1 提取的公司名称实体
         const step1CompanyNames = resourcePlan.taskSpec?.company_names;
         if (step1CompanyNames && step1CompanyNames.length > 0) {
           const primaryName = step1CompanyNames[0].trim();
@@ -967,20 +962,55 @@ ${"```"}`;
             .then(d => d ? formatGleifAsMarkdown(d) : "")
             .catch(() => ""));
         }
-        // 2. 兑底：用正则从任务描述中提取公司名称（匹配大写开头的单词或常见公司名称模式）
         const companyMatch = taskDescription.match(/([A-Z][a-zA-Z\s&]{2,30}(?:Inc\.?|Corp\.?|Ltd\.?|LLC\.?|Group|Holdings?|Holding|Co\.?|Company|Bank|Capital|Partners|Fund|Trust|AG|SA|GmbH|PLC|NV|BV))/)
-          || taskDescription.match(/([\u4e00-\u9fa5]{2,8}(?:\u516c\u53f8|\u96c6\u56e2|\u96c6\u56e2\u516c\u53f8|\u63a7\u80a1|\u9ad8\u79d1\u6280|\u9ad8\u79d1\u6280\u516c\u53f8|\u9280\u884c|\u8bc1\u5238|\u57fa\u91d1|\u4fe1\u6258|\u4fdd\u9669))/)
+          || taskDescription.match(/([一-龥]{2,8}(?:公司|集团|集团公司|控股|高科技|高科技公司|銀行|证券|基金|信托|保险))/);
         if (companyMatch) {
           return timed("GLEIF", getCompanyLeiInfo(companyMatch[1].trim())
             .then(d => d ? formatGleifAsMarkdown(d) : "")
             .catch(() => ""));
         }
-        // 3. 最后兑底：任务描述前 80 字
         return timed("GLEIF", getCompanyLeiInfo(taskDescription.slice(0, 80))
           .then(d => d ? formatGleifAsMarkdown(d) : "")
           .catch(() => ""));
-      })(),
-    ]);
+      },
+    ];
+    const [
+      macroDataResult, worldBankResult, imfDataResult, refinedTavilyResult,
+      finnhubResult, avEconomicResult, cryptoResult, aStockResult,
+      gdeltResult, newsApiResult, marketauxResult, ecbResult,
+      hkexResult, boeResult, hkmaResult, courtListenerResult,
+      congressResult, eurLexResult, gleifResult,
+    ] = await runBatch(conditionalTasks, 3);
+
+    // ── Phase 2C: deep 阶段（并发上限 2，仅 deepFinancials 或 deep 模式时触发）──
+    const isDeepMode = resourcePlan.priority === "deep" || resourcePlan.dataSources.deepFinancials;
+    const deepTasks: Array<() => Promise<string>> = [
+      // SimFin
+      () => isDeepMode && ENV.SIMFIN_API_KEY && primaryTicker && !primaryTicker.includes(".")
+        ? timed("SimFin", fetchSimFinData(primaryTicker)
+            .then(d => d ? formatSimFinDataAsMarkdown(d) : "")
+            .catch(() => ""))
+        : Promise.resolve(""),
+      // Tiingo
+      () => isDeepMode && ENV.TIINGO_API_KEY && primaryTicker && !primaryTicker.includes(".")
+        ? timed("Tiingo", fetchTiingoData(primaryTicker)
+            .then(d => d ? formatTiingoDataAsMarkdown(d) : "")
+            .catch(() => ""))
+        : Promise.resolve(""),
+      // Alpha Vantage 技术指标
+      () => resourcePlan.dataSources.technicalIndicators && primaryTicker && ENV.ALPHA_VANTAGE_API_KEY
+        ? timed("Alpha Vantage 技术指标", getTechnicalIndicators(primaryTicker)
+            .then((d: Awaited<ReturnType<typeof getTechnicalIndicators>>) => d ? formatTechnicalIndicators(d) : "")
+            .catch(() => ""))
+        : Promise.resolve(""),
+      // Polygon.io 期权链
+      () => resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && ENV.POLYGON_API_KEY
+        ? timed("Polygon 期权链", getOptionsChain(primaryTicker)
+            .then((d: Awaited<ReturnType<typeof getOptionsChain>>) => d ? formatOptionsChain(d) : "")
+            .catch(() => ""))
+        : Promise.resolve(""),
+    ];
+    const [simfinResult, tiingoResult, techIndicatorsResult, optionsChainResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -993,16 +1023,12 @@ ${"```"}`;
       if (typeof v === "string") return v; // 资源规划跳过时返回的空字符串
       return formatImfDataAsMarkdown(v);
     })();
-    // 合并 Tavily 初始搜索 + 精炼搜索（去重：精炼结果优先，初始结果补充）    // 适配新的 TaskSearchResult 类型
+    // 合并 Tavily 初始搜索 + 精炼搜索（三阶段改造后，refinedTavilyResult 已是 string 类型）
     const earlyTavilyResult2 = earlyTavilyResult.status === "fulfilled" ? earlyTavilyResult.value : null;
-    const refinedTavilyResult2 = refinedTavilyResult.status === "fulfilled" ? refinedTavilyResult.value : null;
-    const earlyTavilyStr = typeof earlyTavilyResult2 === "string" ? earlyTavilyResult2 : (earlyTavilyResult2?.content ?? "");
-    const refinedTavilyStr = typeof refinedTavilyResult2 === "string" ? refinedTavilyResult2 : (refinedTavilyResult2?.content ?? "");
-    // 收集来源列表（优先精炼结果的来源，其次初始结果）
-    const tavilySources = [
-      ...(typeof refinedTavilyResult2 === "object" && refinedTavilyResult2?.sources ? refinedTavilyResult2.sources : []),
-      ...(typeof earlyTavilyResult2 === "object" && earlyTavilyResult2?.sources ? earlyTavilyResult2.sources : []),
-    ];
+    const earlyTavilyStr = typeof earlyTavilyResult2 === "string" ? earlyTavilyResult2 : (earlyTavilyResult2 && typeof earlyTavilyResult2 === "object" && "content" in earlyTavilyResult2 ? (earlyTavilyResult2 as { content: string }).content : "");
+    const refinedTavilyStr = refinedTavilyResult.status === "fulfilled" ? (refinedTavilyResult.value as string) : "";
+    // 来源列表：三阶段改造后 Tavily 已内联转为 string，来源信息在 Tavily 模块内处理
+    const tavilySources: Array<{ url: string; title?: string }> = [];
     // Bug8 修复：合并初始搜索 + 精炼搜索结果
     let webSearchStr: string;
     if (refinedTavilyStr && earlyTavilyStr && refinedTavilyStr !== earlyTavilyStr) {
@@ -1178,33 +1204,25 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
       // 网页搜索（Tavily）
       { sourceId: "tavily",               data: webSearchStr,           latencyMs: ms("Tavily") },
     ]);
-    // 兼容前端 ApiSource[] 格式（从注册表自动生成，无需手动维护）
+     // 兑容前端 ApiSource[] 格式（从注册表自动生成，无需手动维护）
     const apiSources = citationToApiSources(citationSummary);
+
+    // ── Evidence Validator：构建证据包，计算 evidence_score，生成 Step3 指令 ────────────────
+    const evidencePacket = buildEvidencePacket(taskDescription, manusReport);
 
     // ------------------------------------------------------------------------
     // Step 3 - GPT 整合输出（接收 Manus 报告，深度思考，输出最终回复）
     // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "gpt_reviewing");
 
-    // 注：不截断 Manus 报告，完整传递。通过 Step2 指令已要求 Manus 严格控制输出在 6000 字以内。
-    // Evidence Validator：检测 HARD_MISSING 字段，生成证据完整性报告
-    const hardMissingFields = (() => {
-      const matches = manusReport.match(/\[HARD_MISSING\]/g) || [];
-      return matches.length;
-    })();
-    const evidenceGatingBlock = hardMissingFields > 0
-      ? `\n[EVIDENCE_VALIDATOR] 警告：发现 ${hardMissingFields} 个 HARD_MISSING 字段。对于这些字段：
-  - 不得用训练记忆或历史经验补全
-  - 必须在输出中明确标注「当前数据不可用」
-  - 如果所有关键字段均为 HARD_MISSING，必须输出「当前证据不足，无法给出可靠判断」`
-      : "";
     // Step3 GPT prompt（内部接收压缩格式，输出人类语言）
     const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
 [GPT_RETRIEVAL_PLAN_S1]
 ${gptStep1Output.slice(0, 800)}
 [MANUS_DATA_REPORT]
-${manusReport}${evidenceGatingBlock}
+${manusReport}
+${evidencePacket.step3Instruction}
 ${citationSummary.sourcingBlock}
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━

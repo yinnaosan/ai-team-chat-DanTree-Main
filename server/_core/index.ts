@@ -44,6 +44,26 @@ async function startServer() {
   app.use(chatgptProxyRouter);
   // SSE task stream (real-time push, replaces polling)
   app.use(taskStreamRouter);
+  // 网络连通性测试端点（用于诊断生产环境是否能访问外部 API）
+  app.get("/api/net-test", async (_req, res) => {
+    const tests = [
+      { name: "Finnhub", url: "https://finnhub.io/api/v1/quote?symbol=AAPL&token=d6v2ughr01qig546bblgd6v2ughr01qig546bbm0" },
+      { name: "FMP", url: "https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=i58yYDwWrdmyuftiynHvKBg3CZ1t6Zgd" },
+      { name: "FRED", url: "https://api.stlouisfed.org/fred/series?series_id=FEDFUNDS&api_key=fc90d7149fbff8a90993d1a4d0829ba4&file_type=json" },
+      { name: "Yahoo", url: "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1d" },
+    ];
+    const results: Record<string, unknown> = {};
+    await Promise.all(tests.map(async ({ name, url }) => {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        results[name] = { status: r.status, ok: r.ok };
+      } catch (e: unknown) {
+        results[name] = { error: e instanceof Error ? e.message : String(e) };
+      }
+    }));
+    res.json({ env: process.env.NODE_ENV, results });
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

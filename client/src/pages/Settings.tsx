@@ -605,6 +605,12 @@ export default function Settings() {
   const [investmentRules, setInvestmentRules] = useState("");
   const [taskInstruction, setTaskInstruction] = useState("");
   const [dataLibrary, setDataLibrary] = useState("");
+  // 结构化投资守则表单
+  const [invPhilosophy, setInvPhilosophy] = useState<string[]>([]);
+  const [invMarketPriority, setInvMarketPriority] = useState<string[]>([]);
+  const [invRiskPolicy, setInvRiskPolicy] = useState({ maxSinglePosition: 20, maxSectorPosition: 35, holdingPeriod: "medium" as "short" | "medium" | "long" });
+  const [invFreeText, setInvFreeText] = useState("");
+  const [invFormMode, setInvFormMode] = useState<"structured" | "freetext">("structured");
   const [trustedSourcesConfig, setTrustedSourcesConfig] = useState<TrustedSourcesConfig>({
     sources: [],
     routingRules: [],
@@ -672,6 +678,19 @@ export default function Settings() {
       setInvestmentRules((savedConfig as any).investmentRules || "");
       setTaskInstruction((savedConfig as any).taskInstruction || "");
       setDataLibrary((savedConfig as any).dataLibrary || "");
+      // 解析结构化守则字段
+      const structured = (savedConfig as any).structuredInvestmentRules;
+      if (structured) {
+        setInvPhilosophy(structured.philosophy ?? []);
+        setInvMarketPriority(structured.marketPriority ?? []);
+        setInvRiskPolicy(structured.riskPolicy ?? { maxSinglePosition: 20, maxSectorPosition: 35, holdingPeriod: "medium" });
+        setInvFreeText(structured.freeText ?? "");
+        setInvFormMode("structured");
+      } else if ((savedConfig as any).investmentRules) {
+        // 旧数据展示为自由文本模式
+        setInvFreeText((savedConfig as any).investmentRules || "");
+        setInvFormMode("freetext");
+      }
       const tsc = (savedConfig as any).trustedSourcesConfig;
       if (tsc?.sources) setTrustedSourcesConfig(tsc);
     }
@@ -1093,102 +1112,166 @@ export default function Settings() {
                 ))}
               </div>
 
-              {/* 投资守则 Tab */}
+              {/* 投资守则 Tab - 结构化表单 */}
               {activeRulesTab === "investment" && (
-                <div className="p-4 rounded-xl space-y-3"
+                <div className="p-4 rounded-xl space-y-4"
                   style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 155 / 0.2)" }}>
-                  <div className="flex items-center gap-2">
+                  {/* 模式切换 */}
+                  <div className="flex items-center justify-between">
                     <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
-                      表明您的投资喜好、理念、个人情况。GPT & Manus 每次任务必须遵守。
+                      GPT & Manus 每次任务必须遵守以下守则
                     </p>
-                    <button type="button"
-                      onClick={() => setInvestmentRules(DEFAULT_INVESTMENT_RULES)}
-                      className="ml-auto text-xs px-2 py-1 rounded shrink-0 transition-colors hover:opacity-80"
-                      style={{ color: "oklch(0.72 0.18 155)", background: "oklch(0.72 0.18 155 / 0.1)", border: "1px solid oklch(0.72 0.18 155 / 0.25)" }}>
-                      填入默认守则
-                    </button>
-                  </div>
-                  <Textarea
-                    value={investmentRules}
-                    onChange={(e) => setInvestmentRules(e.target.value)}
-                    placeholder={"示例：\n我的投资理念基于段永平价値投资体系。\n我关注美股和港股，尤其是科技和消费行业。\n我的风险承受能力中等，希望长期持有。"}
-                    className="min-h-[280px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 270)" }}
-                  />
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
-                        {dataLibrary.trim() ? `已配置 ${dataLibrary.split('\n').filter(l => l.includes('http')).length} 个数据源` : "未配置数据源，将使用通用搜索"}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {/* 健康检测按鈕 */}
-                        {dataLibrary.trim() && dataLibrary.split('\n').filter(l => l.includes('http')).length > 0 && (
-                          <Button size="sm" variant="outline"
-                            onClick={() => {
-                              const urls = dataLibrary.split('\n').map(l => l.trim()).filter(l => l.includes('http') && !l.startsWith('#') && !l.startsWith('-'));
-                              // 也提取带前缀的行（如 "- https://...")
-                              const allUrls = dataLibrary.split('\n')
-                                .map(l => { const m = l.match(/https?:\/\/[^\s]+/); return m ? m[0] : null; })
-                                .filter((u): u is string => u !== null);
-                              const uniqueUrls = Array.from(new Set(allUrls));
-                              setUrlCheckResults(null);
-                              checkUrlsMutation.mutate({ urls: uniqueUrls.slice(0, 50) });
-                            }}
-                            disabled={checkUrlsMutation.isPending}
-                            className="gap-1.5 h-7 text-xs"
-                            style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
-                            {checkUrlsMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
-                            {checkUrlsMutation.isPending ? "检测中..." : "检测链接"}
-                          </Button>
-                        )}
-                        <Button size="sm"
-                          onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
-                          disabled={saveConfigMutation.isPending}
-                          className="gap-1.5 h-7 text-xs"
-                          style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
-                          {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                          保存资料库
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: "oklch(0.14 0.004 270)" }}>
+                      {(["structured", "freetext"] as const).map(m => (
+                        <button key={m} onClick={() => setInvFormMode(m)}
+                          className="text-xs px-2.5 py-1 rounded-md transition-all"
+                          style={{
+                            background: invFormMode === m ? "oklch(0.22 0.008 270)" : "transparent",
+                            color: invFormMode === m ? "oklch(0.88 0.005 270)" : "oklch(0.50 0.01 270)",
+                          }}>
+                          {m === "structured" ? "结构化" : "自由文本"}
+                        </button>
+                      ))}
                     </div>
+                  </div>
 
-                    {/* 检测结果列表 */}
-                    {urlCheckResults && urlCheckResults.length > 0 && (
-                      <div className="mt-3 space-y-1.5">
-                        <p className="text-xs font-medium" style={{ color: "oklch(0.70 0.005 270)" }}>
-                          链接健康检测结果
-                          <span className="ml-2 font-normal" style={{ color: "oklch(0.50 0.01 270)" }}>
-                            ({urlCheckResults.filter(r => r.status === "ok").length}/{urlCheckResults.length} 可访问)
-                          </span>
-                        </p>
-                        <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
-                          {urlCheckResults.map((r, i) => (
-                            <div key={i} className="flex items-start gap-2 p-2 rounded-lg text-xs"
+                  {invFormMode === "structured" ? (
+                    <div className="space-y-4">
+                      {/* 投资哲学 */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.72 0.18 155)" }}>投资哲学</p>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {[
+                            "段永平价值投资体系", "基本面优先", "长期持有", "能力圈原则",
+                            "安全边际优先", "不做短线投机", "集中持仓", "分散风险"
+                          ].map(tag => (
+                            <button key={tag} onClick={() => setInvPhilosophy(p => p.includes(tag) ? p.filter(x => x !== tag) : [...p, tag])}
+                              className="text-xs px-2.5 py-1 rounded-full transition-all"
                               style={{
-                                background: r.status === "ok" ? "oklch(0.72 0.18 142 / 0.08)" : "oklch(0.65 0.18 20 / 0.08)",
-                                border: `1px solid ${r.status === "ok" ? "oklch(0.72 0.18 142 / 0.2)" : "oklch(0.65 0.18 20 / 0.2)"}`
+                                background: invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155 / 0.15)" : "oklch(0.14 0.004 270)",
+                                border: `1px solid ${invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155 / 0.4)" : "oklch(0.28 0.008 270)"}`,
+                                color: invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)",
                               }}>
-                              {/* 状态图标 */}
-                              {r.status === "ok" ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 142)" }} />
-                              ) : r.status === "timeout" ? (
-                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 50)" }} />
-                              ) : (
-                                <WifiOff className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "oklch(0.65 0.18 20)" }} />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="truncate font-mono" style={{ color: "oklch(0.75 0.005 270)" }}>{r.url}</p>
-                                <p style={{ color: r.status === "ok" ? "oklch(0.65 0.18 142)" : r.status === "timeout" ? "oklch(0.65 0.18 50)" : "oklch(0.60 0.18 20)" }}>
-                                  {r.status === "ok" ? `可访问${r.latencyMs ? ` · ${r.latencyMs}ms` : ""}` :
-                                   r.status === "timeout" ? `超时${r.error ? ` · ${r.error}` : ""}` :
-                                   r.status === "invalid" ? `URL 格式无效` :
-                                   `无法访问${r.error ? ` · ${r.error}` : ""}`}
-                                </p>
-                              </div>
-                            </div>
+                              {tag}
+                            </button>
                           ))}
                         </div>
                       </div>
-                    )}
+
+                      {/* 重点市场 */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.72 0.18 250)" }}>重点关注市场</p>
+                        <div className="flex flex-wrap gap-2">
+                          {["美股", "港股", "A股", "欧股", "英股", "加密货币", "债券", "大宗商品"].map(m => (
+                            <button key={m} onClick={() => setInvMarketPriority(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
+                              className="text-xs px-2.5 py-1 rounded-full transition-all"
+                              style={{
+                                background: invMarketPriority.includes(m) ? "oklch(0.72 0.18 250 / 0.15)" : "oklch(0.14 0.004 270)",
+                                border: `1px solid ${invMarketPriority.includes(m) ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.28 0.008 270)"}`,
+                                color: invMarketPriority.includes(m) ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)",
+                              }}>
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 风险策略 */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.72 0.18 25)" }}>风险策略</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>单仓上限 %</label>
+                            <input type="number" min={5} max={100} step={5}
+                              value={invRiskPolicy.maxSinglePosition}
+                              onChange={e => setInvRiskPolicy(p => ({ ...p, maxSinglePosition: Number(e.target.value) }))}
+                              className="w-full text-xs px-2 py-1.5 rounded-lg"
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                          </div>
+                          <div>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>行业上限 %</label>
+                            <input type="number" min={10} max={100} step={5}
+                              value={invRiskPolicy.maxSectorPosition}
+                              onChange={e => setInvRiskPolicy(p => ({ ...p, maxSectorPosition: Number(e.target.value) }))}
+                              className="w-full text-xs px-2 py-1.5 rounded-lg"
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                          </div>
+                          <div>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>持仓周期</label>
+                            <select value={invRiskPolicy.holdingPeriod}
+                              onChange={e => setInvRiskPolicy(p => ({ ...p, holdingPeriod: e.target.value as any }))}
+                              className="w-full text-xs px-2 py-1.5 rounded-lg"
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }}>
+                              <option value="short">短期(&lt;1年)</option>
+                              <option value="medium">中期(1-3年)</option>
+                              <option value="long">长期(3年+)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 自由补充 */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.55 0.01 270)" }}>补充说明（可选）</p>
+                        <Textarea value={invFreeText} onChange={e => setInvFreeText(e.target.value)}
+                          placeholder="其他特殊约束、禁止行业、个人情况等..."
+                          className="min-h-[80px] text-xs resize-y"
+                          style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                      </div>
+
+                      {/* 保存按钮 */}
+                      <div className="flex justify-end">
+                        <Button size="sm"
+                          onClick={() => {
+                            const structuredRules = {
+                              philosophy: invPhilosophy,
+                              marketPriority: invMarketPriority,
+                              riskPolicy: invRiskPolicy,
+                              freeText: invFreeText,
+                            };
+                            const rulesText = [
+                              invPhilosophy.length > 0 ? `投资哲学：${invPhilosophy.join("、")}` : "",
+                              invMarketPriority.length > 0 ? `重点市场：${invMarketPriority.join("、")}` : "",
+                              `单仓上限：${invRiskPolicy.maxSinglePosition}%，行业上限：${invRiskPolicy.maxSectorPosition}%，持仓周期：${{ short: "短期", medium: "中期", long: "长期" }[invRiskPolicy.holdingPeriod]}`,
+                              invFreeText ? `补充：${invFreeText}` : "",
+                            ].filter(Boolean).join("\n");
+                            saveConfigMutation.mutate({ investmentRules: rulesText, structuredInvestmentRules: structuredRules } as any);
+                          }}
+                          disabled={saveConfigMutation.isPending}
+                          className="gap-1.5 h-7 text-xs"
+                          style={{ background: "oklch(0.72 0.18 155)", color: "oklch(0.13 0.005 270)" }}>
+                          {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          保存守则
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={invFreeText || investmentRules}
+                        onChange={(e) => { setInvFreeText(e.target.value); setInvestmentRules(e.target.value); }}
+                        placeholder={"示例：\n我的投资理念基于段永平价値投资体系。\n我关注美股和港股，尤其是科技和消费行业。\n我的风险承受能力中等，希望长期持有。"}
+                        className="min-h-[280px] text-sm font-mono resize-y"
+                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                      />
+                      <div className="flex justify-between items-center">
+                        <button type="button"
+                          onClick={() => setInvFreeText(DEFAULT_INVESTMENT_RULES)}
+                          className="text-xs px-2 py-1 rounded transition-colors hover:opacity-80"
+                          style={{ color: "oklch(0.72 0.18 155)", background: "oklch(0.72 0.18 155 / 0.1)", border: "1px solid oklch(0.72 0.18 155 / 0.25)" }}>
+                          填入默认守则
+                        </button>
+                        <Button size="sm"
+                          onClick={() => saveConfigMutation.mutate({ investmentRules: invFreeText || investmentRules } as any)}
+                          disabled={saveConfigMutation.isPending}
+                          className="gap-1.5 h-7 text-xs"
+                          style={{ background: "oklch(0.72 0.18 155)", color: "oklch(0.13 0.005 270)" }}>
+                          {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          保存守则
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

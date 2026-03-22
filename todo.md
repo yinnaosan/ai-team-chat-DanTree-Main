@@ -1105,3 +1105,10 @@
 ## PWA 安装功能（2026-03-22）
 - [x] 侧边栏底部添加「安装到桌面」按钮（监听 beforeinstallprompt 事件）
 - [x] 安装引导弹窗（说明安装步骤，区分 Chrome/Safari/Edge）
+
+## GPT 工程改造说明书：Retrieval-First 架构（2026-03-22 第三批）
+- [x] Step2 Manus prompt 强化：OUTPUT_FORMAT 改为 JSON 结构化 DATA_REPORT（facts/missing/source_status）
+- [x] Step3 answer object schema 扩展：key_findings/risks/gaps 各带 citations 数组，无 citations 不输出强判断；phaseABlock 注入 CITATION_RULE
+- [x] Settings ⑩：投资守则改为结构化表单（philosophy chips + market_priority + 风险策略数字输入）+ 自由补充文本 + 结构化/自由文本模式切换
+- [x] AnswerHeader 升级：支持展开详情（key_findings/risks/gaps 各带 citations 数量展示）
+- [x] 运行测试：TypeScript 0 错误，248/250 测试通过（2 个外部 API 限额失败）

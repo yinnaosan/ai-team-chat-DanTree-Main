@@ -1172,3 +1172,17 @@
 - [x] 修复：直接从 citationSummary（API 实际命中结果）计算 evidenceScore，不依赖 LLM 格式
 - [x] 修复：citationSummary.hitCount 作为 evidenceScore 的主要输入
 - [x] 修复：保留 LLM 解析的 facts 作为加分项，但不作为唯一评分依据
+
+## 简化数据来源：关闭所有网页/搜索类数据源（2026-03-22）
+
+- [ ] 删除 tavilySearch.ts（Serper + Tavily 搜索引擎）
+- [ ] 删除 jinaReader.ts（网页内容抓取）
+- [ ] 删除 gdeltApi.ts（GDELT 新闻爬取）
+- [ ] 删除 eurLexApi.ts（欧盟法律文件网页）
+- [ ] 删除 courtListenerApi.ts（法院文件网页）
+- [ ] 删除 baoStockApi.ts（A股爬取，需要 Python 环境）
+- [ ] 清理 routers.ts 中所有上述数据源的 import 和调用
+- [ ] 清理 dataSourceRegistry.ts 中上述数据源的注册
+- [ ] 清理 Settings.tsx 中上述数据源的状态展示
+- [ ] TypeScript 编译 0 错误
+- [ ] 测试全部通过

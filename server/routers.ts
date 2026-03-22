@@ -72,20 +72,25 @@ import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as c
 import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
 import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
-import { getAStockData, formatAStockData, isAStockTask, extractAStockCodes, pingBaostock } from "./baoStockApi";
-import { fetchGdeltData, formatGdeltDataAsMarkdown, checkGdeltHealth } from "./gdeltApi";
+import { fetchEFinanceData, formatEFinanceDataAsMarkdown, isEFinanceTask, extractStockCodes as extractEFinanceCodes, pingEFinance } from "./efinanceApi";
+
 import { fetchNewsData, formatNewsDataAsMarkdown, checkNewsApiHealth, extractNewsQuery } from "./newsApi";
 import { fetchMarketauxData, formatMarketauxDataAsMarkdown, checkMarketauxHealth } from "./marketauxApi";
-import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "./simfinApi";
+
 import { fetchTiingoData, formatTiingoDataAsMarkdown, checkTiingoHealth } from "./tiingoApi";
 import { fetchECBData, formatECBDataAsMarkdown, checkECBHealth, isECBRelevantTask } from "./ecbApi";
 import { fetchHKEXData, formatHKEXDataAsMarkdown, checkHKEXHealth, isHKStockTask, extractHKStockCode } from "./hkexApi";
 import { fetchBoeData, formatBoeDataAsMarkdown, checkBoeHealth, isBoeRelevantTask } from "./boeApi";
 import { fetchHkmaData, formatHkmaDataAsMarkdown, checkHkmaHealth, isHkmaRelevantTask } from "./hkmaApi";
-import { getCompanyLitigationHistory, formatLitigationAsMarkdown, shouldFetchCourtListener, checkHealth as checkCourtListenerHealth } from "./courtListenerApi";
+
 import { getRelatedLegislation, formatLegislationAsMarkdown, shouldFetchCongress, checkHealth as checkCongressHealth } from "./congressApi";
-import { searchEuRegulations, formatEuRegulationsAsMarkdown, shouldFetchEurLex, checkHealth as checkEurLexHealth } from "./eurLexApi";
+
 import { getCompanyLeiInfo, formatGleifAsMarkdown, shouldFetchGleif, checkGleifHealth } from "./gleifApi";
+import { extractAStockCodes, getAStockData, formatAStockData, pingBaostock } from "./baoStockApi";
+import { fetchSimFinData, formatSimFinDataAsMarkdown, checkSimFinHealth } from "./simfinApi";
+import { fetchGdeltData, formatGdeltDataAsMarkdown } from "./gdeltApi";
+import { shouldFetchCourtListener, getCompanyLitigationHistory, formatLitigationAsMarkdown, checkHealth as checkCourtListenerHealth } from "./courtListenerApi";
+import { shouldFetchEurLex, searchEuRegulations, formatEuRegulationsAsMarkdown, checkHealth as checkEurLexHealth } from "./eurLexApi";
 import { buildCitationSummary, citationToApiSources, resolveFieldSources, classifyMissingFields, FIELD_FALLBACK_MAP } from "./dataSourceRegistry";
 import { buildEvidencePacket } from "./evidenceValidator";
 import { createBudgetTracker, removeBudgetTracker, getCachedSearch, setCachedSearch, type BudgetProfile } from "./resourceBudget";
@@ -122,19 +127,20 @@ type DataSourceStatusResult = {
   secEdgarStatus: ApiHealthStatus; secEdgarConfigured: boolean;
   alphaVantageStatus: ApiHealthStatus; alphaVantageConfigured: boolean;
   coinGeckoStatus: ApiHealthStatus; coinGeckoConfigured: boolean;
+  efinanceStatus: ApiHealthStatus; efinanceConfigured: boolean;
   baostockStatus: ApiHealthStatus; baostockConfigured: boolean;
   gdeltStatus: ApiHealthStatus; gdeltConfigured: boolean;
+  simfinStatus: ApiHealthStatus; simfinConfigured: boolean;
+  courtListenerStatus: ApiHealthStatus; courtListenerConfigured: boolean;
+  eurLexStatus: ApiHealthStatus; eurLexConfigured: boolean;
   newsApiStatus: ApiHealthStatus; newsApiConfigured: boolean;
   marketauxStatus: ApiHealthStatus; marketauxConfigured: boolean;
-  simfinStatus: ApiHealthStatus; simfinConfigured: boolean;
   tiingoStatus: ApiHealthStatus; tiingoConfigured: boolean;
   ecbStatus: ApiHealthStatus; ecbConfigured: boolean;
   hkexStatus: ApiHealthStatus; hkexConfigured: boolean;
   boeStatus: ApiHealthStatus; boeConfigured: boolean;
   hkmaStatus: ApiHealthStatus; hkmaConfigured: boolean;
-  courtListenerStatus: ApiHealthStatus; courtListenerConfigured: boolean;
   congressStatus: ApiHealthStatus; congressConfigured: boolean;
-  eurLexStatus: ApiHealthStatus; eurLexConfigured: boolean;
   gleifStatus: ApiHealthStatus; gleifConfigured: boolean;
   // Serper（Tavily 备用搜索引擎）
   serperConfigured: boolean;
@@ -174,6 +180,7 @@ function buildDefaultDataSourceStatus(): DataSourceStatusResult {
     secEdgarStatus: "active", secEdgarConfigured: true,
     alphaVantageStatus: smartDefault(!!ENV.ALPHA_VANTAGE_API_KEY, false), alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
     coinGeckoStatus: smartDefault(!!ENV.COINGECKO_API_KEY, false), coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    efinanceStatus: "active", efinanceConfigured: true,
     baostockStatus: "active", baostockConfigured: true,
     gdeltStatus: "active", gdeltConfigured: true,
     newsApiStatus: smartDefault(!!ENV.NEWS_API_KEY, false), newsApiConfigured: !!ENV.NEWS_API_KEY,
@@ -267,6 +274,7 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     secEdgarStatus: freePublicApis.secEdgar, secEdgarConfigured: true,
     alphaVantageStatus: keyedMap["alphaVantage"] ?? "error", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
     coinGeckoStatus: keyedMap["coinGecko"] ?? "error", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    efinanceStatus: freePublicApis.baostock, efinanceConfigured: true,
     baostockStatus: freePublicApis.baostock, baostockConfigured: true,
     gdeltStatus: freePublicApis.gdelt, gdeltConfigured: true,
     newsApiStatus: keyedMap["newsApi"] ?? "error", newsApiConfigured: !!ENV.NEWS_API_KEY,

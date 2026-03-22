@@ -17,7 +17,6 @@ import { checkHealth as checkAVHealth } from "../alphaVantageApi";
 import { checkHealth as checkSecHealth } from "../secEdgarApi";
 import { checkNewsApiHealth } from "../newsApi";
 import { checkMarketauxHealth } from "../marketauxApi";
-import { checkSimFinHealth } from "../simfinApi";
 import { checkTiingoHealth } from "../tiingoApi";
 import { checkECBHealth } from "../ecbApi";
 import { checkHKEXHealth } from "../hkexApi";
@@ -65,22 +64,21 @@ async function startServer() {
     const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 10000): Promise<T> =>
       Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
     const t0 = Date.now();
-    const [finnhub, fmp, polygon, av, sec, newsApi, marketaux, simfin, tiingo, ecb, hkex, boe, hkma, gleif, imf] = await Promise.allSettled([
-      withTimeout(checkFinnhubHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkFmpHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkPolygonHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkAVHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkSecHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkNewsApiHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkMarketauxHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkSimFinHealth().then(r => ({ ok: r.ok, detail: r.ok ? 'ok' : (r.isRateLimit ? 'rate_limited' : 'fail'), ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkTiingoHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkECBHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkHKEXHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkBoeHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
-      withTimeout(checkHkmaHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
-      withTimeout(checkGleifHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkImfApiHealth().then(r => ({ ok: r.status === 'active', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+    const [finnhub, fmp, polygon, av, sec, newsApi, marketaux, tiingo, ecb, hkex, boe, hkma, gleif, imf] = await Promise.allSettled([
+      withTimeout(checkFinnhubHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkFmpHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkPolygonHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkAVHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkSecHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkNewsApiHealth().then((ok: boolean) => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkMarketauxHealth().then((ok: boolean) => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkTiingoHealth().then((ok: boolean) => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkECBHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkHKEXHealth().then((r: { ok: boolean; detail: string; latencyMs: number }) => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkBoeHealth().then((r: { status: string; latency?: number }) => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
+      withTimeout(checkHkmaHealth().then((r: { status: string; latency?: number }) => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
+      withTimeout(checkGleifHealth().then((r: { status: string; latencyMs?: number }) => ({ ok: r.status === 'ok', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkImfApiHealth().then((r: { status: string; latencyMs?: number }) => ({ ok: r.status === 'active', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
     ]);
     const fmt = (r: PromiseSettledResult<{ok:boolean;detail:string;ms:number}>) =>
       r.status === 'fulfilled' ? r.value : { ok: false, detail: String((r as PromiseRejectedResult).reason), ms: -1 };
@@ -94,7 +92,6 @@ async function startServer() {
         AV: !!ENV.ALPHA_VANTAGE_API_KEY,
         NEWS_API: !!ENV.NEWS_API_KEY,
         MARKETAUX: !!ENV.MARKETAUX_API_KEY,
-        SIMFIN: !!ENV.SIMFIN_API_KEY,
         TIINGO: !!ENV.TIINGO_API_KEY,
       },
       results: {
@@ -105,7 +102,6 @@ async function startServer() {
         secEdgar: fmt(sec),
         newsApi: fmt(newsApi),
         marketaux: fmt(marketaux),
-        simfin: fmt(simfin),
         tiingo: fmt(tiingo),
         ecb: fmt(ecb),
         hkex: fmt(hkex),

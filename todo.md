@@ -1200,3 +1200,12 @@
 - [x] 清理 client/src/pages/Settings.tsx 中已删除 API 的 UI 行（GDELT/CourtListener/BaoStock/SimFin/Tiingo/EurLex）
 - [x] 删除 server/tiingo.test.ts、server/simfin.test.ts、server/cryptoAstock.test.ts
 - [x] TypeScript 0 错误，15 个测试文件 190 个测试全部通过
+
+## GitHub 资源接入进度（2026-03-22）
+
+- [x] cinar/indicator — 接入 indicatorts，本地计算 RSI/MACD/布林带/EMA/SMA/ATR/KDJ/CCI/OBV/VWAP/Williams %R，替代 Alpha Vantage 技术指标 API，6/6 测试通过
+- [ ] JerBouma/FinanceToolkit — 标准化财务指标公式（ROE/ROIC/EV-EBITDA/夏普比率等）
+- [ ] TradingAgents + AutoHedge — 升级为并行多 Agent 架构
+- [ ] Alpaca — 模拟交易执行
+- [ ] Tushare — 强化 A 股数据
+- [ ] AlgorithmicTrading — 技术信号自动标注

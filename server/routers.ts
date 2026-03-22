@@ -67,7 +67,8 @@ import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
 import { isTavilyConfigured, getTavilyKeyStatuses, getSerperKeyStatuses, isSerperConfigured, getActiveSearchEngine } from "./tavilySearch";
 import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
-import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth, getTechnicalIndicators, formatTechnicalIndicators } from "./alphaVantageApi";
+import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth } from "./alphaVantageApi";
+import { getLocalTechnicalIndicators, formatLocalTechnicalIndicators } from "./localIndicators";
 import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth, getOptionsChain, formatOptionsChain } from "./polygonApi";
 import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
@@ -1044,10 +1045,10 @@ ${"```"}`;
       () => Promise.resolve(""),
       // [已移除 Tiingo]
       () => Promise.resolve(""),
-      // Alpha Vantage 技术指标
-      () => resourcePlan.dataSources.technicalIndicators && primaryTicker && ENV.ALPHA_VANTAGE_API_KEY
-        ? timed("Alpha Vantage 技术指标", getTechnicalIndicators(primaryTicker)
-            .then((d: Awaited<ReturnType<typeof getTechnicalIndicators>>) => d ? formatTechnicalIndicators(d) : "")
+      // 本地技术指标（indicatorts 本地计算，无需 API 配额）
+      () => resourcePlan.dataSources.technicalIndicators && primaryTicker
+        ? timed("本地技术指标", getLocalTechnicalIndicators(primaryTicker)
+            .then(d => d ? formatLocalTechnicalIndicators(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
       // Polygon.io 期权链
@@ -1236,7 +1237,7 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
       { sourceId: "simfin",               data: simfinMarkdown,         latencyMs: ms("SimFin") },
       { sourceId: "tiingo",               data: tiingoMarkdown,         latencyMs: ms("Tiingo") },
       // 技术分析
-      { sourceId: "alpha_vantage_tech",   data: techIndicatorsMarkdown, latencyMs: ms("Alpha Vantage 技术指标") },
+      { sourceId: "local_indicators",     data: techIndicatorsMarkdown, latencyMs: ms("本地技术指标") },
       // 期权数据
       { sourceId: "polygon_options",      data: optionsChainMarkdown,   latencyMs: ms("Polygon 期权链") },
       // 宏观指标

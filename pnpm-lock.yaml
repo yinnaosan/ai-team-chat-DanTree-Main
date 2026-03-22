@@ -163,6 +163,9 @@ importers:
       http-proxy-middleware:
         specifier: ^3.0.5
         version: 3.0.5
+      indicatorts:
+        specifier: ^2.2.2
+        version: 2.2.2
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -3401,6 +3404,9 @@ packages:
   iconv-lite@0.7.0:
     resolution: {integrity: sha512-cf6L2Ds3h57VVmkZe+Pn+5APsT7FpqJtEhhieDCvrE2MK5Qk9MyffgQyuxQTm6BChfeZNtcOLHp9IcWRVcIcBQ==}
     engines: {node: '>=0.10.0'}
+
+  indicatorts@2.2.2:
+    resolution: {integrity: sha512-oJRe83n2zj826Mlp2RKQVfurqbq5dEHzAWgZidiYkS0mrx3GCbXlNj59YtwZvekRmNwi/d4NdeHGHd8Nspl6Xg==}
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -8135,6 +8141,8 @@ snapshots:
   iconv-lite@0.7.0:
     dependencies:
       safer-buffer: 2.1.2
+
+  indicatorts@2.2.2: {}
 
   inherits@2.0.4: {}
 

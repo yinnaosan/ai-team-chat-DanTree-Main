@@ -42,6 +42,7 @@ function DataSourceStatusPanel() {
     if (s === "exhausted") return "已耗尽";
     if (s === "timeout") return "超时";
     if (s === "warning") return "本地运行"; // Python 库仅在本地沙筆可用
+    if (s === "error") return "连接失败";
     return "未配置";
   };
 

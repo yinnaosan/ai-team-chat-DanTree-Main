@@ -84,6 +84,9 @@ interface Msg {
     };
     evidenceScore?: number;
     outputMode?: "decisive" | "directional" | "framework_only";
+    missingBlocking?: string[];
+    missingImportant?: string[];
+    missingOptional?: string[];
   } | null;
 }
 
@@ -446,10 +449,13 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
   );
 }
 
-function AnswerHeader({ answerObject, evidenceScore, outputMode }: {
+function AnswerHeader({ answerObject, evidenceScore, outputMode, missingBlocking, missingImportant, missingOptional }: {
   answerObject: NonNullable<NonNullable<Msg["metadata"]>["answerObject"]>;
   evidenceScore?: number;
   outputMode?: "decisive" | "directional" | "framework_only";
+  missingBlocking?: string[];
+  missingImportant?: string[];
+  missingOptional?: string[];
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const outputModeMap = {
@@ -517,6 +523,18 @@ function AnswerHeader({ answerObject, evidenceScore, outputMode }: {
             {hardMissingCount > 0 ? `${hardMissingCount} 个硬缺失` : `${dataGapsCount} 个缺口`}
           </span>
         )}
+        {(missingBlocking?.length ?? 0) > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.72 0.18 25 / 0.12)", border: "1px solid oklch(0.72 0.18 25 / 0.25)", color: "oklch(0.72 0.18 25)" }}>
+            {missingBlocking!.length} 个阻断缺失
+          </span>
+        )}
+        {(missingImportant?.length ?? 0) > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.78 0.18 75 / 0.08)", border: "1px solid oklch(0.78 0.18 75 / 0.18)", color: "oklch(0.78 0.18 75)" }}>
+            {missingImportant!.length} 个重要缺失
+          </span>
+        )}
       </div>
       {/* Expanded details: key_findings / risks / gaps */}
       {expanded && hasDetails && (
@@ -572,6 +590,32 @@ function AnswerHeader({ answerObject, evidenceScore, outputMode }: {
               </div>
             </div>
           )}
+          {/* 字段缺失分层 */}
+          {((missingBlocking?.length ?? 0) > 0 || (missingImportant?.length ?? 0) > 0 || (missingOptional?.length ?? 0) > 0) && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.72 0.18 25)" }}>字段覆盖缺失</p>
+              <div className="flex flex-col gap-1">
+                {missingBlocking?.map((f, i) => (
+                  <div key={`b-${i}`} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.72 0.18 25 / 0.15)", color: "oklch(0.72 0.18 25)" }}>阻断</span>
+                    <span style={{ color: "oklch(0.82 0.005 270)" }}>{f}</span>
+                  </div>
+                ))}
+                {missingImportant?.map((f, i) => (
+                  <div key={`i-${i}`} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.78 0.18 75 / 0.12)", color: "oklch(0.78 0.18 75)" }}>重要</span>
+                    <span style={{ color: "oklch(0.82 0.005 270)" }}>{f}</span>
+                  </div>
+                ))}
+                {missingOptional?.map((f, i) => (
+                  <div key={`o-${i}`} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-xs" style={{ background: "oklch(0.45 0.01 270 / 0.3)", color: "oklch(0.55 0.01 270)" }}>可选</span>
+                    <span style={{ color: "oklch(0.65 0.01 270)" }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -583,8 +627,8 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
   const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
-  const label = isAssistant ? "投资研究助手" : (msg.role === "chatgpt" ? "ChatGPT" : "Manus");
-  const abbr = isAssistant ? "AI" : (msg.role === "chatgpt" ? "G" : "M");
+  const label = "投资研究助手";
+  const abbr = "AI";
   const msgRef = React.useRef<HTMLDivElement>(null);
   const answerObject = msg.metadata?.answerObject;
   return (
@@ -606,6 +650,9 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             answerObject={answerObject}
             evidenceScore={msg.metadata?.evidenceScore}
             outputMode={msg.metadata?.outputMode}
+            missingBlocking={msg.metadata?.missingBlocking}
+            missingImportant={msg.metadata?.missingImportant}
+            missingOptional={msg.metadata?.missingOptional}
           />
         )}
         <div className="prose-chat w-full" ref={msgRef}>
@@ -750,9 +797,9 @@ function MsgRow({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; 
 
 function TypingIndicator({ phase }: { phase?: string }) {
   const steps = [
-    { key: "manus_working", label: "正在理解你的问题", Icon: Database, color: "var(--manus-color)" },
-    { key: "manus_analyzing", label: "正在验证关键证据", Icon: Database, color: "var(--manus-color)" },
-    { key: "gpt_reviewing", label: "正在形成研究结论", Icon: Brain, color: "var(--chatgpt-color)" },
+    { key: "manus_working", label: "正在理解你的问题", Icon: Database, color: "oklch(0.65 0.18 25)" },
+    { key: "manus_analyzing", label: "正在验证关键证据", Icon: Database, color: "oklch(0.65 0.18 25)" },
+    { key: "gpt_reviewing", label: "正在形成研究结论", Icon: Brain, color: "oklch(0.65 0.18 25)" },
   ];
   // manus_working 对应第一阶段（并行规划），第二次 manus_working 对应第二阶段（数据执行）
   // 简化处理：manus_working 显示第一阶段，gpt_reviewing 显示第三阶段
@@ -765,11 +812,11 @@ function TypingIndicator({ phase }: { phase?: string }) {
   return (
     <div className="flex gap-4 items-start py-3">
       <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
-        style={{ background: "var(--chatgpt-bg)", border: "1.5px solid var(--chatgpt-border)", color: "var(--chatgpt-color)" }}>
+        style={{ background: "oklch(0.20 0.02 25)", border: "1.5px solid oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.65 0.18 25)" }}>
         AI
       </div>
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-semibold" style={{ color: "var(--chatgpt-color)" }}>投资研究助手</span>
+        <span className="text-sm font-semibold" style={{ color: "oklch(0.65 0.18 25)" }}>投资研究助手</span>
         <div className="flex items-center gap-2">
           {steps.map((step, i) => {
             const isActive = i === activeIdx;
@@ -1502,32 +1549,18 @@ export default function ChatRoom() {
         {/* Footer */}
         <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid oklch(0.22 0.007 270)" }}>
           <div className="px-2 py-2 rounded-xl mb-2 space-y-1.5" style={{ background: "oklch(0.18 0.005 270)" }}>
-            {/* 数据引擎状态 */}
+            {/* AI 引擎状态（统一单助手） */}
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                {isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing")
-                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--manus-color)" }} /><span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--manus-color)" }} /></>
-                  : <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "oklch(0.55 0.12 155)" }} />}
+                {isTyping
+                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "oklch(0.65 0.18 25)" }} /><span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "oklch(0.65 0.18 25)" }} /></>
+                  : <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: rpaConnected ? "oklch(0.55 0.15 150)" : "oklch(0.38 0.01 270)" }} />}
               </span>
-              <span className="text-xs" style={{ color: isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing") ? "var(--manus-color)" : "oklch(0.65 0.01 270)" }}>
-                数据引擎
+              <span className="text-xs" style={{ color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(0.65 0.01 270)" : "oklch(0.42 0.01 270)" }}>
+                AI 研究引擎
               </span>
-              <span className="text-xs ml-auto" style={{ color: isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing") ? "var(--manus-color)" : "oklch(0.4 0.01 270)" }}>
-                {isTyping && taskPhase === "manus_working" ? "理解问题中…" : isTyping && taskPhase === "manus_analyzing" ? "验证证据中…" : "就绪"}
-              </span>
-            </div>
-            {/* 首席顾问状态 */}
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                {isTyping && taskPhase === "gpt_reviewing"
-                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--chatgpt-color)" }} /><span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--chatgpt-color)" }} /></>
-                  : <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: rpaConnected ? "oklch(0.65 0.18 155)" : "oklch(0.38 0.01 270)" }} />}
-              </span>
-              <span className="text-xs" style={{ color: isTyping && taskPhase === "gpt_reviewing" ? "var(--chatgpt-color)" : rpaConnected ? "oklch(0.65 0.01 270)" : "oklch(0.42 0.01 270)" }}>
-                首席顾问
-              </span>
-              <span className="text-xs ml-auto" style={{ color: isTyping && taskPhase === "gpt_reviewing" ? "var(--chatgpt-color)" : "oklch(0.4 0.01 270)" }}>
-                {isTyping && taskPhase === "gpt_reviewing" ? "形成结论中…" : rpaConnected ? "GPT 已接入" : "GPT 未接入"}
+              <span className="text-xs ml-auto" style={{ color: isTyping ? "oklch(0.65 0.18 25)" : "oklch(0.4 0.01 270)" }}>
+                {isTyping && taskPhase === "manus_working" ? "理解问题中…" : isTyping && taskPhase === "manus_analyzing" ? "数据验证中…" : isTyping && taskPhase === "gpt_reviewing" ? "形成结论中…" : rpaConnected ? "引擎就绪" : "引擎待机"}
               </span>
             </div>
           </div>
@@ -1600,27 +1633,16 @@ export default function ChatRoom() {
                 )}
               </button>
             )}
-            {/* 数据引擎状态标志 - 只显示固定职责名称 */}
+            {/* AI 研究引擎状态标志（统一单助手） */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
-              style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-border)", color: "var(--manus-color)" }}>
+              style={{ background: "oklch(0.20 0.02 25 / 0.5)", border: "1px solid oklch(0.65 0.18 25 / 0.3)", color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(0.60 0.10 25)" : "oklch(0.42 0.01 270)" }}>
               <span className="relative flex h-1.5 w-1.5">
-                {isTyping && (taskPhase === "manus_working" || taskPhase === "manus_analyzing")
-                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--manus-color)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--manus-color)" }} /></>
-                  : <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "oklch(0.55 0.12 155)" }} />}
-              </span>
-              <Bot className="w-3 h-3" />
-              <span>数据引擎</span>
-            </div>
-            {/* 首席顾问状态标志 - 只显示固定职责名称 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
-              style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-border)", color: rpaConnected ? "var(--chatgpt-color)" : "oklch(0.42 0.01 270)" }}>
-              <span className="relative flex h-1.5 w-1.5">
-                {isTyping && taskPhase === "gpt_reviewing"
-                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "var(--chatgpt-color)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "var(--chatgpt-color)" }} /></>
-                  : <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: rpaConnected ? "oklch(0.65 0.18 155)" : "oklch(0.38 0.01 270)" }} />}
+                {isTyping
+                  ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "oklch(0.65 0.18 25)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "oklch(0.65 0.18 25)" }} /></>
+                  : <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: rpaConnected ? "oklch(0.55 0.15 150)" : "oklch(0.38 0.01 270)" }} />}
               </span>
               <Brain className="w-3 h-3" />
-              <span>首席顾问</span>
+              <span>{isTyping && taskPhase === "manus_working" ? "理解中" : isTyping && taskPhase === "manus_analyzing" ? "验证中" : isTyping && taskPhase === "gpt_reviewing" ? "分析中" : "AI 引擎"}</span>
             </div>
           </div>
         </header>
@@ -1706,14 +1728,10 @@ export default function ChatRoom() {
                       style={{ background: "oklch(0.72 0.18 250 / 0.12)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
                       <Plus className="w-4 h-4" />新建任务
                     </button>
-                    <div className="flex items-center justify-center gap-6 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                    <div className="flex items-center justify-center gap-4 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
                       <div className="flex items-center gap-1.5">
-                        <Database className="w-3.5 h-3.5" style={{ color: "var(--manus-color)" }} />
-                        数据统筹 · 分析执行
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Brain className="w-3.5 h-3.5" style={{ color: "var(--chatgpt-color)" }} />
-                        审查 · 战略汇总
+                        <Brain className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.18 25)" }} />
+                        数据采集 → 证据验证 → 研究结论
                       </div>
                     </div>
                   </div>
@@ -1916,7 +1934,7 @@ export default function ChatRoom() {
               </div>
             </div>
             <p className="text-center text-xs mt-1.5" style={{ color: "oklch(0.38 0.007 270)" }}>
-              Manus 分析擅长领域 · GPT 处理主观判断 · GPT 汇总输出
+              数据检索 · 证据验证 · 结论生成 — 全流程 AI 驱动
             </p>
           </div>
         </div>

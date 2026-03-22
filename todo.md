@@ -1125,3 +1125,24 @@
 - [x] 诊断 403 根因：沙箱出口 IP 102.223.191.153 被 Tavily nginx 层 403 封锁，所有方式（标准 POST/Bearer/UA/SDK）均被拦截
 - [x] 解决方案：将 Serper 升级为主搜索引擎，Tavily 降为备用（以防将来 IP 解封后自动恢复）
 - [x] 验证：Serper 3 Key 全部测试通过，金融搜索 + 域名限定搜索均正常工作
+
+## GPT 第四批系统级改造（2026-03-22）
+
+### P0 最高优先级
+- [x] P0-1: 健康检测六态（unknown/checking/active/degraded/error/not_configured）+ 缓存 + 懒加载 + 冷却
+- [x] P0-2: dataSourceRegistry 增加 costClass/healthClass/requiresApiKey + FIELD_FALLBACK_MAP
+- [x] P0-3: routers.ts 字段级 fallback 主链路 + blocking/important/optional 分层 + 小范围补检
+- [x] P0-4: evidenceValidator 重构 missingBlocking/Important/Optional + outputMode 真控输出 + stock_analysis 特殊豁免
+- [x] P0-5: ChatRoom.tsx Answer Header 升级 + 单助手文案统一（投资研究助手）
+
+### P1 第二阶段
+- [x] P1-6: Step3 prompt 严格按 outputMode 分档输出（decisive/directional/framework_only）
+- [x] P1-7: Resource Budget Controller（API/search/token/chart/fallback 预算）
+- [x] P1-8: Settings 策略层双层结构化（investmentRules JSON + 文本 / taskInstruction 开关 + 文本）
+- [x] P1-9: 资料数据库 Trusted Sources 逐步进入 registry/connector pipeline
+
+### P2 第三阶段
+- [ ] P2-10: URL list 抓取与索引
+- [ ] P2-11: 外部数据库真正接入 retrieval pipeline
+- [x] P2-12: analysis 记忆只在显式延续任务时注入
+- [x] P2-13: UI 整体去分体感，保留一个统一助手品牌

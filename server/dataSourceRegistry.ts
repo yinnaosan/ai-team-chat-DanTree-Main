@@ -64,12 +64,16 @@ export interface DataSourceDefinition {
   dataType: "structured" | "web";
   /** 官方文档/主页 URL（用于 Settings 页面链接） */
   homepageUrl?: string;
-  /** 支持的数据字段（用于 Step2 路由和 Step3 Source Gating） */
+  /** 支持的数据字段（用于 Step2 字段级 fallback 路由） */
   supportsFields?: string[];
   /** 优先级：1=最高优先级（必调），5=最低优先级（备用） */
   priorityRank?: number;
   /** 置信权重：0.0-1.0，越高表示该来源数据对 evidenceScore 贡献越大 */
   confidenceWeight?: number;
+  /** 成本分类：free=免费公开 | freemium=免费有限额 | paid=付费 Key */
+  costClass?: "free" | "freemium" | "paid";
+  /** 字段优先级分层：blocking=必须有（无则降级）| important=重要（无则降信）| optional=可选（无则忽略） */
+  fieldPriority?: "blocking" | "important" | "optional";
 }
 
 /**
@@ -92,6 +96,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["price.current", "price.history", "market_cap", "volume", "52w_high", "52w_low"],
     priorityRank: 1,
     confidenceWeight: 0.95,
+    costClass: "free",
+    fieldPriority: "blocking",
   },
   {
     id: "finnhub",
@@ -107,6 +113,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["price.current", "analyst.rating", "analyst.target_price", "insider_trading", "earnings.eps"],
     priorityRank: 1,
     confidenceWeight: 0.90,
+    costClass: "freemium",
+    fieldPriority: "important",
   },
   {
     id: "fmp",
@@ -122,6 +130,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["valuation.pe", "valuation.pb", "valuation.ev", "valuation.peg", "financials.income", "financials.balance", "financials.cashflow", "dcf", "analyst.target_price"],
     priorityRank: 1,
     confidenceWeight: 0.92,
+    costClass: "freemium",
+    fieldPriority: "blocking",
   },
   {
     id: "polygon",
@@ -137,6 +147,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["price.current", "price.history", "volume", "news.sentiment"],
     priorityRank: 2,
     confidenceWeight: 0.88,
+    costClass: "freemium",
+    fieldPriority: "important",
   },
   {
     id: "tiingo",
@@ -152,6 +164,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["valuation.pe", "valuation.pb", "valuation.ev", "valuation.peg", "price.current"],
     priorityRank: 2,
     confidenceWeight: 0.88,
+    costClass: "freemium",
+    fieldPriority: "important",
   },
   {
     id: "simfin",
@@ -167,6 +181,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["financials.income", "financials.balance", "financials.cashflow", "valuation.pe", "earnings.eps"],
     priorityRank: 2,
     confidenceWeight: 0.85,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
   {
     id: "sec_edgar",
@@ -182,6 +198,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["financials.income", "financials.balance", "financials.cashflow", "filings.10k", "filings.10q", "filings.8k"],
     priorityRank: 1,
     confidenceWeight: 0.98,
+    costClass: "free",
+    fieldPriority: "blocking",
   },
   // ── 技术分析 ──────────────────────────────────────────────────────────
   {
@@ -198,10 +216,14 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["technical.rsi", "technical.bollinger", "technical.ema", "technical.sma", "technical.stochastic", "technical.macd"],
     priorityRank: 2,
     confidenceWeight: 0.85,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
   // ── 期权数据 ──────────────────────────────────────────────────────────
   {
     id: "polygon_options",
+    costClass: "freemium",
+    fieldPriority: "optional",
     displayName: "Polygon 期权链",
     category: "期权数据",
     icon: "⚡",
@@ -230,6 +252,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.interest_rate", "macro.cpi", "macro.unemployment", "macro.gdp", "macro.yield_curve"],
     priorityRank: 1,
     confidenceWeight: 0.98,
+    costClass: "freemium",
+    fieldPriority: "important",
   },
   {
     id: "world_bank",
@@ -245,6 +269,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.gdp", "macro.inflation", "macro.trade", "macro.unemployment"],
     priorityRank: 2,
     confidenceWeight: 0.90,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "imf_weo",
@@ -260,6 +286,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.gdp_forecast", "macro.inflation_forecast", "macro.current_account"],
     priorityRank: 2,
     confidenceWeight: 0.88,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "ecb",
@@ -275,6 +303,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.interest_rate", "macro.inflation", "macro.exchange_rate", "macro.money_supply"],
     priorityRank: 2,
     confidenceWeight: 0.90,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "boe",
@@ -290,6 +320,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.interest_rate", "macro.bond_yield", "macro.money_supply"],
     priorityRank: 3,
     confidenceWeight: 0.88,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "hkma",
@@ -305,6 +337,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.interest_rate", "macro.money_supply", "macro.fx_reserves"],
     priorityRank: 3,
     confidenceWeight: 0.85,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "alpha_vantage_econ",
@@ -320,6 +354,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["macro.interest_rate", "macro.cpi", "macro.unemployment", "macro.exchange_rate"],
     priorityRank: 3,
     confidenceWeight: 0.82,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
   // ── 新闻情绪 ──────────────────────────────────────────────────────────
   {
@@ -336,6 +372,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["news.headlines", "news.articles"],
     priorityRank: 2,
     confidenceWeight: 0.75,
+    costClass: "freemium",
+    fieldPriority: "important",
   },
   {
     id: "marketaux",
@@ -351,6 +389,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["news.sentiment_score", "news.entity_mentions", "news.articles"],
     priorityRank: 2,
     confidenceWeight: 0.78,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
   {
     id: "gdelt",
@@ -366,6 +406,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["news.geopolitical_risk", "news.event_tone", "news.articles"],
     priorityRank: 3,
     confidenceWeight: 0.72,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   // ── 加密货币 ──────────────────────────────────────────────────────────────────
   {
@@ -382,6 +424,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["crypto.price", "crypto.market_cap", "crypto.volume", "crypto.dominance"],
     priorityRank: 1,
     confidenceWeight: 0.90,
+    costClass: "freemium",
+    fieldPriority: "blocking",
   },
   // ── A股数据 ──────────────────────────────────────────────────────────
   {
@@ -398,10 +442,14 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["price.history", "financials.income", "valuation.pe"],
     priorityRank: 2,
     confidenceWeight: 0.80,
+    costClass: "free",
+    fieldPriority: "important",
   },
   // ── 港股公告 ──────────────────────────────────────────────────────────────────
   {
     id: "hkex",
+    costClass: "free",
+    fieldPriority: "important",
     displayName: "HKEXnews",
     category: "港股公告",
     icon: "📢",
@@ -430,6 +478,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["legal.court_cases", "legal.rulings"],
     priorityRank: 3,
     confidenceWeight: 0.88,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   {
     id: "congress",
@@ -445,6 +495,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["legal.bills", "legal.legislation_status"],
     priorityRank: 3,
     confidenceWeight: 0.85,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
   {
     id: "eur_lex",
@@ -460,6 +512,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["legal.eu_regulations", "legal.directives"],
     priorityRank: 3,
     confidenceWeight: 0.88,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   // ── 公司信息 ──────────────────────────────────────────────────────────────────
   {
@@ -476,6 +530,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["company.lei", "company.parent_child", "company.legal_name"],
     priorityRank: 3,
     confidenceWeight: 0.82,
+    costClass: "free",
+    fieldPriority: "optional",
   },
   // ── 网页搜索 ──────────────────────────────────────────────────────────────────
   {
@@ -492,6 +548,8 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     supportsFields: ["web.search_results", "web.article_content"],
     priorityRank: 2,
     confidenceWeight: 0.65,
+    costClass: "freemium",
+    fieldPriority: "optional",
   },
 ];
 
@@ -687,4 +745,267 @@ export function citationToApiSources(summary: CitationSummary): Array<{
       description: c.description + (c.dataTimestamp ? ` · ${c.dataTimestamp}` : ""),
       latencyMs: c.latencyMs,
     }));
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// FIELD_FALLBACK_MAP — 字段级降级链
+// ════════════════════════════════════════════════════════════════════════
+// 每个字段定义一条有序的数据源降级链（按 priorityRank 排列）。
+// Step2 检索引擎按此链逐源尝试，命中即停，不再浪费后续 API 调用。
+// priority: blocking=必须有（无则整体降级）| important=重要（无则降信）| optional=可选
+// ════════════════════════════════════════════════════════════════════════
+
+export type FieldPriority = "blocking" | "important" | "optional";
+
+export interface FieldFallbackEntry {
+  /** 字段标识（与 supportsFields 中的值对应） */
+  field: string;
+  /** 字段优先级 */
+  priority: FieldPriority;
+  /** 有序降级链：按优先级排列的数据源 ID 列表 */
+  sources: string[];
+}
+
+export const FIELD_FALLBACK_MAP: FieldFallbackEntry[] = [
+  // ── Blocking 字段（缺失则整体降级为 framework_only）──────────────
+  {
+    field: "price.current",
+    priority: "blocking",
+    sources: ["yahoo_finance", "finnhub", "polygon", "tiingo", "fmp"],
+  },
+  {
+    field: "valuation.pe",
+    priority: "blocking",
+    sources: ["fmp", "tiingo", "simfin", "yahoo_finance"],
+  },
+  {
+    field: "financials.income",
+    priority: "blocking",
+    sources: ["fmp", "sec_edgar", "simfin"],
+  },
+
+  // ── Important 字段（缺失则降低 evidenceScore）──────────────────
+  {
+    field: "valuation.pb",
+    priority: "important",
+    sources: ["fmp", "tiingo", "simfin"],
+  },
+  {
+    field: "valuation.ev",
+    priority: "important",
+    sources: ["fmp", "tiingo"],
+  },
+  {
+    field: "valuation.peg",
+    priority: "important",
+    sources: ["fmp", "tiingo"],
+  },
+  {
+    field: "analyst.rating",
+    priority: "important",
+    sources: ["finnhub", "fmp"],
+  },
+  {
+    field: "analyst.target_price",
+    priority: "important",
+    sources: ["finnhub", "fmp"],
+  },
+  {
+    field: "earnings.eps",
+    priority: "important",
+    sources: ["finnhub", "fmp", "simfin"],
+  },
+  {
+    field: "financials.balance",
+    priority: "important",
+    sources: ["fmp", "sec_edgar", "simfin"],
+  },
+  {
+    field: "financials.cashflow",
+    priority: "important",
+    sources: ["fmp", "sec_edgar", "simfin"],
+  },
+  {
+    field: "market_cap",
+    priority: "important",
+    sources: ["yahoo_finance", "fmp", "polygon"],
+  },
+  {
+    field: "news.sentiment",
+    priority: "important",
+    sources: ["news_api", "marketaux", "gdelt", "polygon"],
+  },
+  {
+    field: "macro.gdp",
+    priority: "important",
+    sources: ["fred", "world_bank", "imf_weo"],
+  },
+  {
+    field: "macro.cpi",
+    priority: "important",
+    sources: ["fred", "world_bank", "ecb"],
+  },
+  {
+    field: "macro.interest_rate",
+    priority: "important",
+    sources: ["fred", "ecb", "boe", "hkma"],
+  },
+
+  // ── Optional 字段（缺失不影响结论）──────────────────────────────
+  {
+    field: "insider_trading",
+    priority: "optional",
+    sources: ["finnhub"],
+  },
+  {
+    field: "volume",
+    priority: "optional",
+    sources: ["yahoo_finance", "polygon"],
+  },
+  {
+    field: "52w_high",
+    priority: "optional",
+    sources: ["yahoo_finance"],
+  },
+  {
+    field: "52w_low",
+    priority: "optional",
+    sources: ["yahoo_finance"],
+  },
+  {
+    field: "price.history",
+    priority: "optional",
+    sources: ["yahoo_finance", "polygon", "tiingo"],
+  },
+  {
+    field: "dcf",
+    priority: "optional",
+    sources: ["fmp"],
+  },
+  {
+    field: "options.put_call_ratio",
+    priority: "optional",
+    sources: ["polygon_options"],
+  },
+  {
+    field: "technical.rsi",
+    priority: "optional",
+    sources: ["alpha_vantage_tech"],
+  },
+  {
+    field: "technical.ema",
+    priority: "optional",
+    sources: ["alpha_vantage_tech"],
+  },
+  {
+    field: "technical.bollinger",
+    priority: "optional",
+    sources: ["alpha_vantage_tech"],
+  },
+  {
+    field: "filings.10k",
+    priority: "optional",
+    sources: ["sec_edgar"],
+  },
+  {
+    field: "filings.10q",
+    priority: "optional",
+    sources: ["sec_edgar"],
+  },
+  {
+    field: "filings.8k",
+    priority: "optional",
+    sources: ["sec_edgar"],
+  },
+  {
+    field: "crypto.price",
+    priority: "blocking",
+    sources: ["coingecko"],
+  },
+  {
+    field: "crypto.market_cap",
+    priority: "important",
+    sources: ["coingecko"],
+  },
+  {
+    field: "macro.employment",
+    priority: "optional",
+    sources: ["fred", "world_bank"],
+  },
+  {
+    field: "legal.cases",
+    priority: "optional",
+    sources: ["court_listener"],
+  },
+  {
+    field: "legal.legislation",
+    priority: "optional",
+    sources: ["congress", "eur_lex"],
+  },
+];
+
+/**
+ * 根据 required_fields 列表，返回需要调用的数据源 ID 集合（去重）。
+ * 按 FIELD_FALLBACK_MAP 的降级链，只取每个字段链中第一个可用的源。
+ * @param requiredFields Step1 输出的 required_fields 列表
+ * @param availableSources 当前可用的数据源 ID 集合（健康检测 active/degraded 的源）
+ * @returns 需要调用的数据源 ID 集合 + 字段覆盖情况
+ */
+export function resolveFieldSources(
+  requiredFields: string[],
+  availableSources: Set<string>
+): {
+  sourcesToCall: Set<string>;
+  fieldCoverage: Array<{ field: string; priority: FieldPriority; resolvedSource: string | null }>;
+} {
+  const sourcesToCall = new Set<string>();
+  const fieldCoverage: Array<{ field: string; priority: FieldPriority; resolvedSource: string | null }> = [];
+
+  for (const fieldName of requiredFields) {
+    const entry = FIELD_FALLBACK_MAP.find(f => f.field === fieldName);
+    if (!entry) {
+      // 未在 fallback map 中注册的字段，跳过
+      fieldCoverage.push({ field: fieldName, priority: "optional", resolvedSource: null });
+      continue;
+    }
+
+    let resolved: string | null = null;
+    for (const sourceId of entry.sources) {
+      if (availableSources.has(sourceId)) {
+        sourcesToCall.add(sourceId);
+        resolved = sourceId;
+        break; // 命中即停
+      }
+    }
+    fieldCoverage.push({ field: fieldName, priority: entry.priority, resolvedSource: resolved });
+  }
+
+  return { sourcesToCall, fieldCoverage };
+}
+
+/**
+ * 从 fieldCoverage 中提取缺失字段分层统计
+ */
+export function classifyMissingFields(
+  fieldCoverage: Array<{ field: string; priority: FieldPriority; resolvedSource: string | null }>
+): {
+  missingBlocking: string[];
+  missingImportant: string[];
+  missingOptional: string[];
+} {
+  const missingBlocking: string[] = [];
+  const missingImportant: string[] = [];
+  const missingOptional: string[] = [];
+
+  for (const fc of fieldCoverage) {
+    if (fc.resolvedSource !== null) continue;
+    switch (fc.priority) {
+      case "blocking": missingBlocking.push(fc.field); break;
+      case "important": missingImportant.push(fc.field); break;
+      case "optional": missingOptional.push(fc.field); break;
+    }
+  }
+
+  return { missingBlocking, missingImportant, missingOptional };
 }

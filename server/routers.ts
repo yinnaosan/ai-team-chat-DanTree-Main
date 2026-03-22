@@ -86,8 +86,9 @@ import { getCompanyLitigationHistory, formatLitigationAsMarkdown, shouldFetchCou
 import { getRelatedLegislation, formatLegislationAsMarkdown, shouldFetchCongress, checkHealth as checkCongressHealth } from "./congressApi";
 import { searchEuRegulations, formatEuRegulationsAsMarkdown, shouldFetchEurLex, checkHealth as checkEurLexHealth } from "./eurLexApi";
 import { getCompanyLeiInfo, formatGleifAsMarkdown, shouldFetchGleif, checkGleifHealth } from "./gleifApi";
-import { buildCitationSummary, citationToApiSources } from "./dataSourceRegistry";
+import { buildCitationSummary, citationToApiSources, resolveFieldSources, classifyMissingFields, FIELD_FALLBACK_MAP } from "./dataSourceRegistry";
 import { buildEvidencePacket } from "./evidenceValidator";
+import { createBudgetTracker, removeBudgetTracker, getCachedSearch, setCachedSearch, type BudgetProfile } from "./resourceBudget";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -103,7 +104,7 @@ async function requireAccess(userId: number, openId: string) {
 // ── 数据源状态缓存（服务端内存缓存，避免每次请求都并行测试所有 API）──────────────────────
 // 完全屁平化结构，避免 SuperJSON 深度截断（[Max Depth]）
 // 五态健康状态：unknown=未检测 | checking=检测中 | active=正常 | degraded=降级 | error=失败
-type ApiHealthStatus = "unknown" | "checking" | "active" | "degraded" | "error" | "warning" | "timeout";
+type ApiHealthStatus = "unknown" | "checking" | "active" | "degraded" | "error" | "not_configured" | "warning" | "timeout";
 type DataSourceStatusResult = {
   // Tavily 汇总（避免嵌套数组）
   tavilyConfigured: boolean;
@@ -145,39 +146,48 @@ let dataSourceStatusCache: DataSourceStatusResult | null = null;
 let dataSourceStatusCacheTime = 0;
 let dataSourceStatusRefreshing = false;
 
-// 返回一个所有状态为 "error" 的默认值（扁平化结构，用于缓存未就绪时的占位）
+// 缓存 TTL：高成本 API Key 源 30 分钟，免费公开源 6 小时
+const CACHE_TTL_KEYED = 30 * 60 * 1000;   // 30 min
+const CACHE_TTL_FREE = 6 * 60 * 60 * 1000; // 6 hours
+let lastKeyedCheckTime = 0;
+let lastFreeCheckTime = 0;
+
+// 智能默认状态：有 Key → unknown（待检测），无 Key → not_configured
+function smartDefault(hasKey: boolean, isFreePublic: boolean): ApiHealthStatus {
+  if (isFreePublic) return "active"; // 免费公开源默认 active
+  return hasKey ? "unknown" : "not_configured";
+}
+
 function buildDefaultDataSourceStatus(): DataSourceStatusResult {
   const tavilyKeys = getTavilyKeyStatuses();
-  // 默认状态为 "unknown"（未检测），而非 "error"（检测失败）
-  // 这样页面加载时不会显示红色，等用户点击「刷新」后才触发真正的健康检测
   return {
     tavilyConfigured: isTavilyConfigured(),
     tavilyActiveCount: tavilyKeys.filter(k => k.configured && k.status === "active").length,
     tavilyTotal: tavilyKeys.filter(k => k.configured).length,
-    fredStatus: "unknown", fredConfigured: !!ENV.FRED_API_KEY,
-    yahooStatus: "unknown", yahooConfigured: true,
-    worldBankStatus: "unknown", worldBankConfigured: true,
-    imfStatus: "unknown", imfConfigured: true,
-    finnhubStatus: "unknown", finnhubConfigured: !!ENV.FINNHUB_API_KEY,
-    fmpStatus: "unknown", fmpConfigured: !!ENV.FMP_API_KEY,
-    polygonStatus: "unknown", polygonConfigured: !!ENV.POLYGON_API_KEY,
-    secEdgarStatus: "unknown", secEdgarConfigured: true,
-    alphaVantageStatus: "unknown", alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
-    coinGeckoStatus: "unknown", coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
-    baostockStatus: "unknown", baostockConfigured: true,
-    gdeltStatus: "unknown", gdeltConfigured: true,
-    newsApiStatus: "unknown", newsApiConfigured: !!ENV.NEWS_API_KEY,
-    marketauxStatus: "unknown", marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
-    simfinStatus: "unknown", simfinConfigured: !!ENV.SIMFIN_API_KEY,
-    tiingoStatus: "unknown", tiingoConfigured: !!ENV.TIINGO_API_KEY,
-    ecbStatus: "unknown", ecbConfigured: true,
-    hkexStatus: "unknown", hkexConfigured: true,
-    boeStatus: "unknown", boeConfigured: true,
-    hkmaStatus: "unknown", hkmaConfigured: true,
-    courtListenerStatus: "unknown", courtListenerConfigured: true,
-    congressStatus: "unknown", congressConfigured: !!ENV.CONGRESS_API_KEY,
-    eurLexStatus: "unknown", eurLexConfigured: true,
-    gleifStatus: "unknown", gleifConfigured: true,
+    fredStatus: smartDefault(!!ENV.FRED_API_KEY, false), fredConfigured: !!ENV.FRED_API_KEY,
+    yahooStatus: "active", yahooConfigured: true,
+    worldBankStatus: "active", worldBankConfigured: true,
+    imfStatus: "active", imfConfigured: true,
+    finnhubStatus: smartDefault(!!ENV.FINNHUB_API_KEY, false), finnhubConfigured: !!ENV.FINNHUB_API_KEY,
+    fmpStatus: smartDefault(!!ENV.FMP_API_KEY, false), fmpConfigured: !!ENV.FMP_API_KEY,
+    polygonStatus: smartDefault(!!ENV.POLYGON_API_KEY, false), polygonConfigured: !!ENV.POLYGON_API_KEY,
+    secEdgarStatus: "active", secEdgarConfigured: true,
+    alphaVantageStatus: smartDefault(!!ENV.ALPHA_VANTAGE_API_KEY, false), alphaVantageConfigured: !!ENV.ALPHA_VANTAGE_API_KEY,
+    coinGeckoStatus: smartDefault(!!ENV.COINGECKO_API_KEY, false), coinGeckoConfigured: !!ENV.COINGECKO_API_KEY,
+    baostockStatus: "active", baostockConfigured: true,
+    gdeltStatus: "active", gdeltConfigured: true,
+    newsApiStatus: smartDefault(!!ENV.NEWS_API_KEY, false), newsApiConfigured: !!ENV.NEWS_API_KEY,
+    marketauxStatus: smartDefault(!!ENV.MARKETAUX_API_KEY, false), marketauxConfigured: !!ENV.MARKETAUX_API_KEY,
+    simfinStatus: smartDefault(!!ENV.SIMFIN_API_KEY, false), simfinConfigured: !!ENV.SIMFIN_API_KEY,
+    tiingoStatus: smartDefault(!!ENV.TIINGO_API_KEY, false), tiingoConfigured: !!ENV.TIINGO_API_KEY,
+    ecbStatus: "active", ecbConfigured: true,
+    hkexStatus: "active", hkexConfigured: true,
+    boeStatus: "active", boeConfigured: true,
+    hkmaStatus: "active", hkmaConfigured: true,
+    courtListenerStatus: "active", courtListenerConfigured: true,
+    congressStatus: smartDefault(!!ENV.CONGRESS_API_KEY, false), congressConfigured: !!ENV.CONGRESS_API_KEY,
+    eurLexStatus: "active", eurLexConfigured: true,
+    gleifStatus: "active", gleifConfigured: true,
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -221,18 +231,19 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
 
   // 阶段 2：需要 API Key 的数据源（分批检测，每批 5 个）
   const keyedChecks: Array<{ key: string; check: () => Promise<ApiHealthStatus> }> = [
-    { key: "finnhub",       check: () => withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "fmp",           check: () => withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "polygon",       check: () => withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "alphaVantage",  check: () => withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")) : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "coinGecko",     check: () => withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "newsApi",       check: () => withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "marketaux",     check: () => withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "simfin",        check: () => withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")).catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "tiingo",        check: () => withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "hkex",          check: () => withTimeout(checkHKEXHealth().then(r => r.ok ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "courtListener", check: () => withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "congress",      check: () => withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    // 无 Key 的源直接标 not_configured，不发真实请求
+    { key: "finnhub",       check: () => withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" : "degraded") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "fmp",           check: () => withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" : "degraded") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "polygon",       check: () => withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" : "degraded") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "alphaVantage",  check: () => withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")) : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "coinGecko",     check: () => withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" : "degraded") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "newsApi",       check: () => withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "marketaux",     check: () => withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "simfin",        check: () => withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")).catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "tiingo",        check: () => withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "hkex",          check: () => withTimeout(checkHKEXHealth().then(r => r.ok ? "active" : "degraded").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "courtListener", check: () => withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" : "degraded").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "congress",      check: () => withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
   ];
 
   const keyedResults = await runBatched(keyedChecks.map(c => c.check), 5);
@@ -323,6 +334,11 @@ async function runCollaborationFlow(
   analysisMode: "quick" | "standard" | "deep" = "standard"  // 分析深度模式
 ) {
   const userConfig = await getRpaConfig(userId);
+
+  // ── Resource Budget Controller 初始化 ──
+  const budgetProfile: BudgetProfile = analysisMode === "deep" ? "deep" : "standard";
+  const budget = createBudgetTracker(String(taskId), budgetProfile);
+
   // ----------------------------------------------------------------------------
   // 用户核心规则（每次任务必须严格遵守）
   // ----------------------------------------------------------------------------
@@ -492,11 +508,15 @@ DATA_INTEGRITY[MAX]:
 - 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick；分析财务结构时使用 waterfall；给出综合评分时使用 gauge；分析营收趋势时使用 combo` + USER_CORE_RULES;
 
   // -- 历史记忆上下文 --------------------------------------------------------
+  // P2-12: 检测用户是否显式延续任务，决定是否注入 analysis 类型记忆
+  const continuationPatterns = /(延续|接着|继续|上次|上一次|之前的分析|上回|接上次|continue|follow.?up|last.?analysis|previous|recap)/i;
+  const isExplicitContinuation = continuationPatterns.test(taskDescription);
+  const memoryExcludeTypes = isExplicitContinuation ? [] : ["analysis"];
   // 语义相关性召回：对话级优先，全局兑底，关键词匹配 + 时间衰减双维度评分
   const relevantMemory = await getRelevantMemory(
     userId,
     taskDescription,
-    { topK: 6, minRecent: 2, conversationId: conversationId ?? undefined }
+    { topK: 6, minRecent: 2, conversationId: conversationId ?? undefined, excludeTypes: memoryExcludeTypes }
   );
   const memoryBlock = relevantMemory.length > 0
     ? `\n\n【历史任务记忆（按相关性排序，共${relevantMemory.length}条，用于跨任务连续跟进）】\n` +
@@ -580,6 +600,12 @@ DATA_INTEGRITY[MAX]:
 
     // 解析用户数据库链接（支持换行和逗号分隔）
     // userLibraryUrls 已在函数顶部定义
+    // P2-9: 将 trustedSourcesConfig 中的域名也合并到搜索域名列表中
+    const trustedSourceUrls: string[] = tsc?.sources
+      ?.filter((s: import('./db').TrustedSource) => s.enabled)
+      ?.map((s: import('./db').TrustedSource) => s.url)
+      ?.filter(Boolean) ?? [];
+    const allSearchUrls = Array.from(new Set([...userLibraryUrls, ...trustedSourceUrls]));
 
     // GPT Step1 prompt：任务拆分 + 精准资源指令（TASK_SPEC）+ 并行执行 GPT 自己的分析
     // ── 可用 API 目录（供 GPT 按需精确指定，不要全部调用）──────────────────────
@@ -591,8 +617,8 @@ DATA_INTEGRITY[MAX]:
 [地区专项] baostock(code,period) | hkex(code,doc_types)
 [加密货币] coingecko(coins,metrics)
 [新闻情绪] news_api(query,sources) | marketaux(ticker,sentiment) | gdelt(query,themes)
-[网页搜索] tavily_search(query) ← 限定在用户资源库域名内搜索
-资源库域名: ${userLibraryDomains.slice(0, 8).join(' | ')}${userLibraryDomains.length > 8 ? ' ...' : ''}`;
+[网页搜索] tavily_search(query) ← 限定在用户资源库 + Trusted Sources 域名内搜索
+资源库域名: ${(() => { const tsDomains = trustedSourceUrls.map(u => { try { return new URL(u).hostname; } catch { return u; } }); const allDomains = Array.from(new Set([...userLibraryDomains, ...tsDomains])); return allDomains.slice(0, 10).join(' | ') + (allDomains.length > 10 ? ' ...' : ''); })()}`;
 
     const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
@@ -683,7 +709,7 @@ ${"```"}`;
         : fetchStockDataForTask(taskDescription),
       // C. Tavily 初始搜索：用原始消息作初始 query（粗粒度，先跑起来）
       isTavilyConfigured()
-        ? searchForTask(taskDescription, userLibraryUrls)
+        ? searchForTask(taskDescription, allSearchUrls)
         : Promise.resolve(""),
     ]);
 
@@ -906,7 +932,7 @@ ${"```"}`;
         : Promise.resolve(""),
       // Tavily 精炼搜索
       () => resourcePlan.dataSources.webSearch && isTavilyConfigured() && refinedTavilyQuery !== taskDescription
-        ? timed("Tavily", searchForTask(refinedTavilyQuery, userLibraryUrls).then(r => typeof r === "string" ? r : (r?.content ?? "")))
+        ? timed("Tavily", searchForTask(refinedTavilyQuery, allSearchUrls).then(r => typeof r === "string" ? r : (r?.content ?? "")))
         : Promise.resolve(""),
       // Finnhub
       () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
@@ -1257,7 +1283,24 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     const apiSources = citationToApiSources(citationSummary);
 
     // ── Evidence Validator：构建证据包，计算 evidence_score，生成 Step3 指令 ────────────────
-    const evidencePacket = buildEvidencePacket(taskDescription, manusReport);
+    // P0-3: 字段级 fallback 覆盖检查 — 用 FIELD_FALLBACK_MAP 分析字段缺失分层
+    const hypothesisFields = resourcePlan.taskSpec?.hypotheses
+      ?.flatMap((h: { required_fields: string[] }) => h.required_fields) ?? [];
+    // 从 citationSummary 中提取实际命中的数据源 ID 集合
+    const hitSourceIds = new Set(
+      citationSummary.citations.filter(c => c.hit).map(c => c.sourceId)
+    );
+    const { fieldCoverage } = resolveFieldSources(
+      hypothesisFields.length > 0 ? hypothesisFields : ["price.current", "valuation.pe", "financials.income"],
+      hitSourceIds
+    );
+    const { missingBlocking, missingImportant, missingOptional } = classifyMissingFields(fieldCoverage);
+
+    const evidencePacket = buildEvidencePacket(taskDescription, manusReport, {
+      missingBlocking,
+      missingImportant,
+      missingOptional,
+    });
 
     // ------------------------------------------------------------------------
     // Step 3 - GPT 整合输出（两阶段渲染）
@@ -1439,6 +1482,22 @@ ${phaseABlock}
 - HARD_MISSING 字段必须在正文中标注「当前数据不可用」，不得用历史经验补全
 - 如果所有关键数据均为 HARD_MISSING，输出「当前证据不足，无法给出可靠判断」
 
+**输出强度门控（OUTPUT_MODE = ${outputMode}）：**
+${outputMode === "decisive" ? `- 当前为 DECISIVE 模式：允许写强判断（「高估30-40%」「明确买入/增持」）
+- 必须给出明确立场 + 幅度 + 反驳论点
+- 每个强结论必须有 ≥2 条独立证据支撑` : outputMode === "directional" ? `- 当前为 DIRECTIONAL 模式：只能写方向性判断（「偏高/偏低/中性」「方向性看好/谨慎」）
+- 禁止写具体幅度（不能写「高估30%」，只能写「可能存在高估」）
+- 必须明确标注「证据尚不充分，以下为方向性判断」
+- 列出缺失字段和补充建议` : `- 当前为 FRAMEWORK_ONLY 模式：只能输出研究框架
+- 禁止任何强判断和方向性结论
+- 必须明确写「当前证据不足，以下为研究框架而非投资建议」
+- 列出所有缺失的 blocking 字段和获取建议
+- 不得用训练记忆数据填充框架`}
+${(missingBlocking.length > 0 || missingImportant.length > 0) ? `
+**字段缺失报告：**
+${missingBlocking.length > 0 ? `- 阻断缺失（必须标注）：${missingBlocking.join(", ")}` : ""}
+${missingImportant.length > 0 ? `- 重要缺失（应标注）：${missingImportant.join(", ")}` : ""}` : ""}
+
 MANDATORY（不可省略）:
 ① CONCLUSION_FIRST: 每段第一句就是结论，格式「**[判断]**（数据→逻辑）」，禁止先铺垫再结论
 ② POSITION: 对核心问题给出明确立场+幅度（「高体7何30-40%」不是「偏高」；「建议减仓」不是「可以考虑」）
@@ -1568,11 +1627,17 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     // 将 evidenceScore 和 outputMode 写入 metadata（供前端展示证据强度指示）
     metadataToSave.evidenceScore = evidencePacket.evidenceScore;
     metadataToSave.outputMode = evidencePacket.outputMode;
+    if (missingBlocking.length > 0) metadataToSave.missingBlocking = missingBlocking;
+    if (missingImportant.length > 0) metadataToSave.missingImportant = missingImportant;
+    if (missingOptional.length > 0) metadataToSave.missingOptional = missingOptional;
+    // 将资源预算摘要写入 metadata
+    metadataToSave.resourceBudget = budget.getSummary().utilization;
     if (Object.keys(metadataToSave).length > 0) {
       await updateMessageContent(streamMsgId, finalReply, metadataToSave);
     }
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
     emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
+    removeBudgetTracker(String(taskId)); // 清理预算跟踪器
 
     // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {
@@ -1632,6 +1697,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     const errMsg = err instanceof Error ? err.message : String(err);
     await updateTaskStatus(taskId, "failed");
     emitTaskError(taskId, errMsg); // SSE 错误推送
+    removeBudgetTracker(String(taskId)); // 清理预算跟踪器
     await insertMessage({
       taskId,
       userId,

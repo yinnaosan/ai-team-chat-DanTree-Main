@@ -101,19 +101,19 @@ export default function Home() {
           {/* Feature Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12 text-left">
             <div className="p-4 rounded-xl bg-card border border-border space-y-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--manus-bg)", border: "1px solid var(--manus-color)" }}>
-                <Bot className="w-4 h-4" style={{ color: "var(--manus-color)" }} />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.20 0.02 25 / 0.5)", border: "1px solid oklch(0.65 0.18 25 / 0.3)" }}>
+                <Database className="w-4 h-4" style={{ color: "oklch(0.65 0.18 25)" }} />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">Manus 执行层</h3>
-              <p className="text-xs text-muted-foreground">数据收集、分析与统计，按价值投资视角筛选关键数据，精准高效地完成执行任务。</p>
+              <h3 className="text-sm font-semibold text-foreground">数据引擎</h3>
+              <p className="text-xs text-muted-foreground">对接 25+ 专业数据源，自动采集、交叉验证、结构化整理关键财务与市场数据。</p>
             </div>
 
             <div className="p-4 rounded-xl bg-card border border-border space-y-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--chatgpt-bg)", border: "1px solid var(--chatgpt-color)" }}>
-                <Brain className="w-4 h-4" style={{ color: "var(--chatgpt-color)" }} />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.20 0.02 25 / 0.5)", border: "1px solid oklch(0.65 0.18 25 / 0.3)" }}>
+                <Brain className="w-4 h-4" style={{ color: "oklch(0.65 0.18 25)" }} />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">ChatGPT 主管</h3>
-              <p className="text-xs text-muted-foreground">整合 Manus 数据报告，输出战略汇总与投资建议，并提出跟进问题引导深度分析。</p>
+              <h3 className="text-sm font-semibold text-foreground">分析引擎</h3>
+              <p className="text-xs text-muted-foreground">基于证据验证形成研究结论，根据数据强度自动调节输出置信度，拒绝无据强判断。</p>
             </div>
 
             <div className="p-4 rounded-xl bg-card border border-border space-y-2">

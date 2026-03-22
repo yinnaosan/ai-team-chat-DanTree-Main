@@ -648,6 +648,17 @@ export default function Settings() {
   const [invRiskPolicy, setInvRiskPolicy] = useState({ maxSinglePosition: 20, maxSectorPosition: 35, holdingPeriod: "medium" as "short" | "medium" | "long" });
   const [invFreeText, setInvFreeText] = useState("");
   const [invFormMode, setInvFormMode] = useState<"structured" | "freetext">("structured");
+  // 结构化全局任务指令
+  const [taskFormMode, setTaskFormMode] = useState<"structured" | "freetext">("structured");
+  const [taskSwitches, setTaskSwitches] = useState({
+    forceZhOutput: true,
+    declareRulesCompliance: false,
+    appendFollowupQs: true,
+    crossRefHistory: true,
+    showEvidenceScore: true,
+    citationRequired: true,
+  });
+  const [taskFreeText, setTaskFreeText] = useState("");
   const [trustedSourcesConfig, setTrustedSourcesConfig] = useState<TrustedSourcesConfig>({
     sources: [],
     routingRules: [],
@@ -727,6 +738,16 @@ export default function Settings() {
         // 旧数据展示为自由文本模式
         setInvFreeText((savedConfig as any).investmentRules || "");
         setInvFormMode("freetext");
+      }
+      // 解析结构化任务指令
+      const structuredTask = (savedConfig as any).structuredTaskInstruction;
+      if (structuredTask) {
+        setTaskSwitches(structuredTask.switches ?? { forceZhOutput: true, declareRulesCompliance: false, appendFollowupQs: true, crossRefHistory: true, showEvidenceScore: true, citationRequired: true });
+        setTaskFreeText(structuredTask.freeText ?? "");
+        setTaskFormMode("structured");
+      } else if ((savedConfig as any).taskInstruction) {
+        setTaskFreeText((savedConfig as any).taskInstruction || "");
+        setTaskFormMode("freetext");
       }
       const tsc = (savedConfig as any).trustedSourcesConfig;
       if (tsc?.sources) setTrustedSourcesConfig(tsc);
@@ -1316,19 +1337,98 @@ export default function Settings() {
               {activeRulesTab === "task" && (
                 <div className="p-4 rounded-xl space-y-3"
                   style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.65 0.18 25 / 0.2)" }}>
-                  <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
-                    每次执行任务时强制遵守的全局指令，优先级高于投资守则。GPT & Manus 均必遵守。
-                  </p>
-                  <Textarea
-                    value={taskInstruction}
-                    onChange={(e) => setTaskInstruction(e.target.value)}
-                    placeholder={"示例：\n- 每次回复必须以中文输出\n- 每次任务开头声明：已遵守投资守则 ✓\n- 每次回复末尾提供 2-3 个后续跟进问题\n- 任务之间主动引用历史结论进行对比"}
-                    className="min-h-[200px] text-sm font-mono resize-y"
-                    style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
-                  />
+                  {/* 模式切换 */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
+                      每次执行任务时强制遵守的全局指令，优先级高于投资守则。
+                    </p>
+                    <div className="flex gap-1 p-0.5 rounded-md" style={{ background: "oklch(0.13 0.004 270)" }}>
+                      <button onClick={() => setTaskFormMode("structured")}
+                        className={`px-2 py-0.5 rounded text-xs transition-colors ${taskFormMode === "structured" ? "font-semibold" : "opacity-60"}`}
+                        style={taskFormMode === "structured" ? { background: "oklch(0.65 0.18 25)", color: "oklch(0.13 0.005 270)" } : { color: "oklch(0.70 0.01 270)" }}>
+                        策略开关
+                      </button>
+                      <button onClick={() => setTaskFormMode("freetext")}
+                        className={`px-2 py-0.5 rounded text-xs transition-colors ${taskFormMode === "freetext" ? "font-semibold" : "opacity-60"}`}
+                        style={taskFormMode === "freetext" ? { background: "oklch(0.65 0.18 25)", color: "oklch(0.13 0.005 270)" } : { color: "oklch(0.70 0.01 270)" }}>
+                        自由文本
+                      </button>
+                    </div>
+                  </div>
+
+                  {taskFormMode === "structured" ? (
+                    <div className="space-y-2.5">
+                      {/* 策略开关列表 */}
+                      {([
+                        { key: "forceZhOutput" as const, label: "强制中文输出", desc: "所有回复必须以中文输出" },
+                        { key: "declareRulesCompliance" as const, label: "声明守则遵守", desc: "每次任务开头声明「已遵守投资守则 ✓」" },
+                        { key: "appendFollowupQs" as const, label: "追问建议", desc: "每次回复末尾提供 2-3 个后续跟进问题" },
+                        { key: "crossRefHistory" as const, label: "历史交叉引用", desc: "任务之间主动引用历史结论进行对比" },
+                        { key: "showEvidenceScore" as const, label: "显示证据评分", desc: "在回复头部展示 evidenceScore 和 outputMode" },
+                        { key: "citationRequired" as const, label: "强制引用来源", desc: "所有关键判断必须标注数据来源" },
+                      ]).map(item => (
+                        <div key={item.key} className="flex items-center justify-between py-1.5 px-2 rounded-lg"
+                          style={{ background: "oklch(0.14 0.004 270)" }}>
+                          <div>
+                            <p className="text-xs font-medium" style={{ color: "oklch(0.85 0.005 270)" }}>{item.label}</p>
+                            <p className="text-xs mt-0.5" style={{ color: "oklch(0.50 0.01 270)" }}>{item.desc}</p>
+                          </div>
+                          <button
+                            onClick={() => setTaskSwitches(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                            className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+                            style={{ background: taskSwitches[item.key] ? "oklch(0.55 0.15 150)" : "oklch(0.30 0.01 270)" }}>
+                            <div className="w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-all"
+                              style={{ left: taskSwitches[item.key] ? "18px" : "3px" }} />
+                          </button>
+                        </div>
+                      ))}
+                      {/* 补充文本 */}
+                      <div className="pt-1">
+                        <p className="text-xs mb-1" style={{ color: "oklch(0.55 0.01 270)" }}>补充指令（可选）</p>
+                        <Textarea
+                          value={taskFreeText}
+                          onChange={(e) => setTaskFreeText(e.target.value)}
+                          placeholder="在此添加策略开关未覆盖的自定义指令..."
+                          className="min-h-[80px] text-xs font-mono resize-y"
+                          style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={taskFreeText}
+                      onChange={(e) => setTaskFreeText(e.target.value)}
+                      placeholder={"示例：\n- 每次回复必须以中文输出\n- 每次任务开头声明：已遵守投资守则 ✓\n- 每次回复末尾提供 2-3 个后续跟进问题\n- 任务之间主动引用历史结论进行对比"}
+                      className="min-h-[200px] text-sm font-mono resize-y"
+                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                    />
+                  )}
+
                   <div className="flex justify-end">
                     <Button size="sm"
-                      onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, taskInstruction: taskInstruction.trim() || null } as any)}
+                      onClick={() => {
+                        const structuredTaskInstruction = {
+                          switches: taskSwitches,
+                          freeText: taskFreeText.trim(),
+                        };
+                        // 将结构化开关序列化为可读文本，供后端 prompt 注入
+                        const switchLines: string[] = [];
+                        if (taskSwitches.forceZhOutput) switchLines.push("- 所有回复必须以中文输出");
+                        if (taskSwitches.declareRulesCompliance) switchLines.push("- 每次任务开头声明：已遵守投资守则 ✓");
+                        if (taskSwitches.appendFollowupQs) switchLines.push("- 每次回复末尾提供 2-3 个后续跟进问题");
+                        if (taskSwitches.crossRefHistory) switchLines.push("- 任务之间主动引用历史结论进行对比");
+                        if (taskSwitches.showEvidenceScore) switchLines.push("- 在回复头部展示 evidenceScore 和 outputMode");
+                        if (taskSwitches.citationRequired) switchLines.push("- 所有关键判断必须标注数据来源");
+                        const taskInstructionText = [
+                          switchLines.length > 0 ? "[策略开关]\n" + switchLines.join("\n") : "",
+                          taskFreeText.trim() ? "[补充指令]\n" + taskFreeText.trim() : "",
+                        ].filter(Boolean).join("\n\n");
+                        saveConfigMutation.mutate({
+                          openaiModel: selectedModel,
+                          taskInstruction: taskInstructionText || null,
+                          structuredTaskInstruction,
+                        } as any);
+                      }}
                       disabled={saveConfigMutation.isPending}
                       className="gap-1.5 h-7 text-xs"
                       style={{ background: "oklch(0.65 0.18 25)", color: "oklch(0.13 0.005 270)" }}>
@@ -1338,6 +1438,7 @@ export default function Settings() {
                   </div>
                 </div>
               )}
+
 
               {/* 资料数据库 Tab */}
               {activeRulesTab === "data" && (

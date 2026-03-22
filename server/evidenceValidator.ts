@@ -58,18 +58,97 @@ export interface EvidencePacket {
   outputMode: "decisive" | "directional" | "framework_only";
   /** 已验证的事实白名单（可直接引用的 claim 列表） */
   claimWhitelist: string[];
+  /** P0-3: 字段级缺失分层统计 */
+  missingBlocking: string[];
+  missingImportant: string[];
+  missingOptional: string[];
+}
+
+/** P0-3: 字段级缺失分层输入 */
+export interface FieldMissingTiers {
+  missingBlocking: string[];
+  missingImportant: string[];
+  missingOptional: string[];
 }
 
 /**
  * 从 Manus DATA_REPORT 文本中提取结构化事实
- * DATA_REPORT 格式示例：
- * ```
- * [FACT] value=185.42 unit=USD timestamp=2026-03-21 source=Polygon.io claim=AAPL 收盘价
- * [FACT] value=28.5 unit=x timestamp=2026-03 source=FMP claim=AAPL 市盈率（TTM）
- * [HARD_MISSING] dataType=财务报表 reason=FMP API 无数据 blocking=true
- * ```
+ * 支持两种格式：
+ * 1. 行格式：[FACT] value=... unit=... timestamp=... source=... claim=...
+ * 2. JSON 格式：[EVIDENCE_PACKET] { "facts": {...}, "missing": [...], "source_status": [...] } [/EVIDENCE_PACKET]
  */
 export function parseDataReport(dataReport: string): {
+  facts: EvidenceFact[];
+  hardMissing: HardMissingItem[];
+} {
+  // 先尝试 JSON EVIDENCE_PACKET 解析
+  const jsonResult = parseJsonEvidencePacket(dataReport);
+  if (jsonResult) return jsonResult;
+
+  // 回退到行格式解析
+  return parseLineFormat(dataReport);
+}
+
+/**
+ * 解析 JSON 格式的 EVIDENCE_PACKET
+ * 格式：[EVIDENCE_PACKET] { "facts": {...}, "missing": [...], "source_status": [...] } [/EVIDENCE_PACKET]
+ */
+function parseJsonEvidencePacket(dataReport: string): {
+  facts: EvidenceFact[];
+  hardMissing: HardMissingItem[];
+} | null {
+  const packetMatch = dataReport.match(/\[EVIDENCE_PACKET\]\s*([\s\S]*?)\s*\[\/EVIDENCE_PACKET\]/);
+  if (!packetMatch) return null;
+
+  try {
+    const raw = JSON.parse(packetMatch[1]);
+    const facts: EvidenceFact[] = [];
+    const hardMissing: HardMissingItem[] = [];
+
+    // 解析 facts 对象（key-value 格式）
+    if (raw.facts && typeof raw.facts === "object") {
+      for (const [key, val] of Object.entries(raw.facts)) {
+        if (val && typeof val === "object") {
+          const v = val as Record<string, unknown>;
+          facts.push({
+            claim: key,
+            value: v.value != null ? String(v.value) : undefined,
+            unit: typeof v.unit === "string" ? v.unit : undefined,
+            timestamp: typeof v.timestamp === "string" ? v.timestamp : undefined,
+            source: typeof v.source === "string" ? v.source : "unknown",
+            freshness: computeFreshness(typeof v.timestamp === "string" ? v.timestamp : undefined),
+          });
+        }
+      }
+    }
+
+    // 解析 missing 数组
+    if (Array.isArray(raw.missing)) {
+      for (const m of raw.missing) {
+        if (m && typeof m === "object") {
+          hardMissing.push({
+            dataType: typeof m.field === "string" ? m.field : "unknown",
+            reason: typeof m.reason === "string" ? m.reason : "未知原因",
+            blocking: m.hard_missing === true,
+          });
+        }
+      }
+    }
+
+    // 至少解析出一些内容才算成功
+    if (facts.length > 0 || hardMissing.length > 0) {
+      return { facts, hardMissing };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 行格式解析（旧格式兼容）
+ */
+function parseLineFormat(dataReport: string): {
   facts: EvidenceFact[];
   hardMissing: HardMissingItem[];
 } {
@@ -124,6 +203,56 @@ export function parseDataReport(dataReport: string): {
     }
   }
 
+  // 额外：尝试从 DATA_REPORT 中的 field: value unit (date) [source] 格式提取
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // 匹配 field_name: value unit (YYYY-MM-DD) [source]
+    const fieldMatch = trimmed.match(/^([\w.]+):\s*(.+?)\s+(\w+)\s+\((\d{4}-\d{2}(?:-\d{2})?)\)\s+\[(.+?)\]$/);
+    if (fieldMatch) {
+      const [, field, value, unit, timestamp, source] = fieldMatch;
+      // 避免重复（如果已经从 [FACT] 解析过）
+      if (!facts.some(f => f.claim === field && f.source === source)) {
+        facts.push({
+          claim: field,
+          value,
+          unit,
+          timestamp,
+          source,
+          freshness: computeFreshness(timestamp),
+        });
+      }
+    }
+
+    // 匹配 field_name: [DATA_UNAVAILABLE] reason
+    const unavailMatch = trimmed.match(/^([\w.]+):\s*\[DATA_UNAVAILABLE\]\s*(.*)$/);
+    if (unavailMatch) {
+      const [, field, reason] = unavailMatch;
+      if (!hardMissing.some(h => h.dataType === field)) {
+        hardMissing.push({
+          dataType: field,
+          reason: reason || "数据不可用",
+          blocking: false,
+        });
+      }
+    }
+
+    // 匹配 field_name: [HARD_MISSING] 标记
+    const hardMissingMatch = trimmed.match(/^([\w.]+):\s*.*\[HARD_MISSING\]$/);
+    if (hardMissingMatch) {
+      const [, field] = hardMissingMatch;
+      const existing = hardMissing.find(h => h.dataType === field);
+      if (existing) {
+        existing.blocking = true;
+      } else {
+        hardMissing.push({
+          dataType: field,
+          reason: "标记为 HARD_MISSING",
+          blocking: true,
+        });
+      }
+    }
+  }
+
   return { facts, hardMissing };
 }
 
@@ -156,10 +285,12 @@ function computeFreshness(
  * - 有 blocking hardMissing：-30 分/项（下限 0）
  * - 有非 blocking hardMissing：-10 分/项
  * - 来源多样性加分：≥3 个不同来源 +10 分
+ * - P0-3 字段级缺失扣分：blocking -25/项, important -8/项, optional -2/项
  */
 export function computeEvidenceScore(
   facts: EvidenceFact[],
-  hardMissing: HardMissingItem[]
+  hardMissing: HardMissingItem[],
+  fieldMissing?: FieldMissingTiers
 ): number {
   let score = 0;
 
@@ -183,20 +314,32 @@ export function computeEvidenceScore(
   const uniqueSources = new Set(facts.map((f) => f.source)).size;
   if (uniqueSources >= 3) score += 10;
 
+  // P0-3: 字段级缺失扣分
+  if (fieldMissing) {
+    score -= fieldMissing.missingBlocking.length * 25;
+    score -= fieldMissing.missingImportant.length * 8;
+    score -= fieldMissing.missingOptional.length * 2;
+  }
+
   return Math.max(0, Math.min(100, score));
 }
 
 /**
  * 构建 EVIDENCE_PACKET
- * 输入：Manus 的 DATA_REPORT 文本 + 任务描述
+ * 输入：Manus 的 DATA_REPORT 文本 + 任务描述 + 可选字段级缺失分层
  * 输出：结构化证据包 + Step3 指令 + outputMode + claimWhitelist
  */
 export function buildEvidencePacket(
   taskDescription: string,
-  dataReport: string
+  dataReport: string,
+  fieldMissing?: FieldMissingTiers
 ): EvidencePacket {
   const { facts, hardMissing } = parseDataReport(dataReport);
-  const evidenceScore = computeEvidenceScore(facts, hardMissing);
+  const evidenceScore = computeEvidenceScore(facts, hardMissing, fieldMissing);
+
+  const mb = fieldMissing?.missingBlocking ?? [];
+  const mi = fieldMissing?.missingImportant ?? [];
+  const mo = fieldMissing?.missingOptional ?? [];
 
   let evidenceLevel: EvidencePacket["evidenceLevel"];
   let allowInvestmentAdvice: boolean;
@@ -208,6 +351,11 @@ export function buildEvidencePacket(
     .filter(f => f.freshness === "fresh" || f.freshness === "stale")
     .map(f => f.claim);
 
+  // 字段缺失摘要（注入 Step3 指令）
+  const fieldMissingSummary = mb.length > 0 || mi.length > 0
+    ? `\n字段覆盖缺口：${mb.length > 0 ? `[阻断] ${mb.join(", ")}` : ""}${mi.length > 0 ? ` [重要] ${mi.join(", ")}` : ""}${mo.length > 0 ? ` [可选] ${mo.join(", ")}` : ""}`
+    : "";
+
   if (evidenceScore >= 70) {
     evidenceLevel = "sufficient";
     allowInvestmentAdvice = true;
@@ -215,7 +363,7 @@ export function buildEvidencePacket(
     step3Instruction = `[EVIDENCE_LEVEL: SUFFICIENT | score=${evidenceScore} | outputMode=DECISIVE]
 证据充分，输出强判断：每个结论必须给出明确立场+幅度（如「高估30-40%」「建议减仓」），禁止模糊表述。
 每个数字/结论必须引用对应的 [FACT] 来源和时间戳。允许输出投资建议，但必须注明数据来源和时间。
-已验证事实（${claimWhitelist.length}条）可直接引用，其余数据标注来源后方可使用。`;
+已验证事实（${claimWhitelist.length}条）可直接引用，其余数据标注来源后方可使用。${fieldMissingSummary}`;
   } else if (evidenceScore >= 50) {
     evidenceLevel = "partial";
     allowInvestmentAdvice = false;
@@ -223,7 +371,7 @@ export function buildEvidencePacket(
     step3Instruction = `[EVIDENCE_LEVEL: PARTIAL | score=${evidenceScore} | outputMode=DIRECTIONAL]
 证据部分充分，输出方向性判断：可给出趋势方向（如「偏高」「谨慎」），但禁止给出具体目标价/买卖建议。
 每个结论后必须标注「（数据不完整，仅供参考）」。
-缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}`;
+缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}${fieldMissingSummary}`;
   } else if (evidenceScore >= 30) {
     evidenceLevel = "partial";
     allowInvestmentAdvice = false;
@@ -231,7 +379,7 @@ export function buildEvidencePacket(
     step3Instruction = `[EVIDENCE_LEVEL: PARTIAL_LOW | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
 证据不足，只能输出研究框架：列出需要收集的数据维度和分析思路，不得给出任何价格/方向判断。
 明确说明「当前数据不足以支撑判断，以下为研究框架供参考」。
-缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}`;
+缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}${fieldMissingSummary}`;
   } else {
     evidenceLevel = "insufficient";
     allowInvestmentAdvice = false;
@@ -239,8 +387,8 @@ export function buildEvidencePacket(
     const blockingItems = hardMissing.filter((h) => h.blocking);
     step3Instruction = `[EVIDENCE_LEVEL: INSUFFICIENT | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
 [HARD_MISSING] 证据严重不足，禁止进行分析或给出任何结论。
-必须输出：「当前无法获取足够的实时数据来回答此问题。缺失的关键数据：${blockingItems.map((h) => h.dataType).join("、") || "全部核心数据"}。请稍后重试或换一个可以获取实时数据的问题。」
-禁止使用训练记忆数据补充。`;
+必须输出：「当前无法获取足够的实时数据来回答此问题。缺失的关键数据：${blockingItems.map((h) => h.dataType).join("、") || mb.join("、") || "全部核心数据"}。请稍后重试或换一个可以获取实时数据的问题。」
+禁止使用训练记忆数据补充。${fieldMissingSummary}`;
   }
 
   return {
@@ -253,6 +401,9 @@ export function buildEvidencePacket(
     step3Instruction,
     outputMode,
     claimWhitelist,
+    missingBlocking: mb,
+    missingImportant: mi,
+    missingOptional: mo,
   };
 }
 

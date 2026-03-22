@@ -1209,3 +1209,12 @@
 - [ ] Alpaca — 模拟交易执行
 - [ ] Tushare — 强化 A 股数据
 - [ ] AlgorithmicTrading — 技术信号自动标注
+
+## GitHub 资源集成（第二批）
+- [x] 验证 Alpaca Paper Trading API 可达性（返回 401 = 需要真实 Key，API 本身正常）
+- [x] 创建 server/alpacaApi.ts（Alpaca 模拟交易接入框架：账户/持仓/下单/订单管理/市场时钟）
+- [x] 在 env.ts 中添加 ALPACA_API_KEY / ALPACA_API_SECRET 环境变量（默认空，需用户配置）
+- [x] 编写 alpacaApi.test.ts（21 个测试全部通过）
+- [x] 创建 server/technicalSignals.ts（技术信号自动标注模块：8 指标信号+交叉事件检测+关键价位+综合评分）
+- [x] 编写 technicalSignals.test.ts（22 个测试全部通过）
+- [x] 全部测试：20 个测试文件，257 个测试全部通过，TypeScript 0 错误

@@ -66,6 +66,7 @@ import { getMacroDataByKeywords } from "./fredApi";
 import { fetchWorldBankData } from "./worldBankApi";
 import { fetchImfData, formatImfDataAsMarkdown, checkImfApiHealth } from "./imfApi";
 import { isTavilyConfigured, getTavilyKeyStatuses, getSerperKeyStatuses, isSerperConfigured, getActiveSearchEngine } from "./tavilySearch";
+import { runMultiAgentAnalysis } from "./multiAgentAnalysis";
 import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
 import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth } from "./alphaVantageApi";
 import { getLocalTechnicalIndicators, formatLocalTechnicalIndicators } from "./localIndicators";
@@ -1306,6 +1307,25 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
     // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "gpt_reviewing");
 
+    // ── 并行多 Agent 分析（参考 TradingAgents/AutoHedge 架构）──────────────────────
+    // 仅在深度/标准模式且任务类型为 stock_analysis/macro_analysis 时激活
+    // 避免在快速模式下增加延迟
+    const multiAgentTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    let multiAgentBlock = "";
+    if (modeConfig.label !== "quick" && (multiAgentTaskType === "stock_analysis" || multiAgentTaskType === "macro_analysis")) {
+      try {
+        const multiAgentResult = await runMultiAgentAnalysis(
+          taskDescription,
+          manusReport.slice(0, 6000),
+          multiAgentTaskType,
+          modeConfig.label === "deep" ? 400 : 300,
+        );
+        multiAgentBlock = multiAgentResult.directorSummary;
+      } catch {
+        multiAgentBlock = "";
+      }
+    }
+
     // ── Phase A: 生成结构化 answer object ──────────────────────────────────────
     let answerObject: {
       verdict: string;
@@ -1328,8 +1348,9 @@ Q:${taskDescription.slice(0, 300)}
 ${manusReport.slice(0, 6000)}
 ${evidencePacket.step3Instruction}
 ${citationSummary.sourcingBlock}
+${multiAgentBlock ? '\n[MULTI_AGENT_PRE_ANALYSIS]\n' + multiAgentBlock : ''}
 
-请从上述数据中提取结构化分析结果。citations 数组必须只包含 MANUS_DATA_REPORT 中实际出现的数据点。data_gaps 列出所有 HARD_MISSING 字段。` },
+请从上述数据中提取结构化分析结果。citations 数组必须只包含 MANUS_DATA_REPORT 中实际出现的数据点。data_gaps 列出所有 HARD_MISSING 字段。${multiAgentBlock ? ' 参考 MULTI_AGENT_PRE_ANALYSIS 中各角色的信号和要点，但所有结论必须有 MANUS_DATA_REPORT 中的数据支撑。' : ''}` },
         ],
         response_format: {
           type: "json_schema",

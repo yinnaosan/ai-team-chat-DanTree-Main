@@ -41,4 +41,7 @@ export const ENV = {
   SERPER_API_KEY:          e("SERPER_API_KEY",          "fd00fed2c50e13d7e63979ad916c9bb52250af1d"),
   SERPER_API_KEY_2:        e("SERPER_API_KEY_2",        "7d5ec70b47c60ddd093515d7970fe68de1715ee2"),
   SERPER_API_KEY_3:        e("SERPER_API_KEY_3",        "58dbca508a4db758bf2d0c69f05c7c6204c93635"),
+  // ── Alpaca Paper Trading（模拟交易，需用户自行配置） ────────────────────────
+  ALPACA_API_KEY:          e("ALPACA_API_KEY",          ""),
+  ALPACA_API_SECRET:       e("ALPACA_API_SECRET",       ""),
 };

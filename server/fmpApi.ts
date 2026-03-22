@@ -5,6 +5,7 @@
  */
 
 import { ENV } from "./_core/env";
+import { formatFinancialMetrics } from "./financialMetrics";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
@@ -413,6 +414,19 @@ export function formatFmpData(data: FmpStockData): string {
     lines.push(`| 目标价（共识） | 目标价（中位） | 目标价（高） | 目标价（低） |`);
     lines.push(`|----------------|----------------|--------------|--------------|`);
     lines.push(`| $${pt.targetConsensus?.toFixed(2) ?? "N/A"} | $${pt.targetMedian?.toFixed(2) ?? "N/A"} | $${pt.targetHigh?.toFixed(2) ?? "N/A"} | $${pt.targetLow?.toFixed(2) ?? "N/A"} |`);
+  }
+
+  // 追加标准化财务指标分析（参考 FinanceToolkit 体系）
+  const metricsAnalysis = formatFinancialMetrics(
+    data.symbol,
+    data.incomeStatements,
+    data.balanceSheets,
+    data.cashFlows,
+    data.keyMetrics,
+    data.profile
+  );
+  if (metricsAnalysis) {
+    lines.push(`\n${metricsAnalysis}`);
   }
 
   return lines.join("\n");

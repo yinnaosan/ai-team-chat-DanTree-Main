@@ -73,7 +73,7 @@ async function startServer() {
       withTimeout(checkSecHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkNewsApiHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkMarketauxHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
-      withTimeout(checkSimFinHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkSimFinHealth().then(r => ({ ok: r.ok, detail: r.ok ? 'ok' : (r.isRateLimit ? 'rate_limited' : 'fail'), ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkTiingoHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkECBHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkHKEXHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),

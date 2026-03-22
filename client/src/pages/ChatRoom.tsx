@@ -1039,6 +1039,11 @@ export default function ChatRoom() {
     onError: (err) => toast.error(err.message || "操作失败"),
   });
 
+  const renameConvMutation = trpc.conversation.rename.useMutation({
+    onSuccess: () => { refetchGroups(); refetchConvs(); toast.success("标题已更新"); },
+    onError: (err) => toast.error(err.message || "重命名失败"),
+  });
+
   const retryTaskMutation = trpc.chat.retryTask.useMutation({
     onSuccess: (data) => {
       if (data?.taskId) {
@@ -1289,6 +1294,7 @@ export default function ChatRoom() {
                 if (activeConvId === convId) setActiveConvId(null);
               }}
               onPinConv={(convId, pinned) => pinConvMutation.mutate({ conversationId: convId, pinned })}
+              onRenameConv={(convId, title) => renameConvMutation.mutate({ conversationId: convId, title })}
             />
           ))}
 
@@ -1314,6 +1320,7 @@ export default function ChatRoom() {
                     if (activeConvId === id) setActiveConvId(null);
                   }}
                   onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
+                  onRename={(id, title) => renameConvMutation.mutate({ conversationId: id, title })}
                 />
               ))}
             </div>
@@ -1887,9 +1894,10 @@ interface GroupSectionProps {
   onMoveConv: (convId: number) => void;
   onDeleteConv: (convId: number) => void;
   onPinConv: (convId: number, pinned: boolean) => void;
+  onRenameConv: (convId: number, title: string) => void;
 }
 
-function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv, onDeleteConv, onPinConv }: GroupSectionProps) {
+function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, onMoveConv, onDeleteConv, onPinConv, onRenameConv }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(group.isCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const color = GROUP_COLORS[group.color] || GROUP_COLORS.blue;
@@ -1940,6 +1948,7 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
           onMove={() => onMoveConv(conv.id)}
           onDelete={onDeleteConv}
           onPin={onPinConv}
+          onRename={onRenameConv}
           indent
         />
       ))}
@@ -1955,77 +1964,119 @@ interface ConvItemProps {
   onMove: () => void;
   onDelete: (id: number) => void;
   onPin: (id: number, pinned: boolean) => void;
+  onRename: (id: number, newTitle: string) => void;
   indent?: boolean;
 }
 
-function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, indent }: ConvItemProps) {
+function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, indent }: ConvItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
   const isPinned = conv.isPinned ?? false;
+
+  const startEdit = () => {
+    setEditValue(conv.title || "");
+    setEditing(true);
+    setMenuOpen(false);
+    setTimeout(() => editInputRef.current?.select(), 50);
+  };
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== conv.title) onRename(conv.id, trimmed);
+    setEditing(false);
+  };
+
   return (
     <div className={`relative group/item ${indent ? "pl-4" : ""}`}>
-      <button onClick={onSelect}
-        className="w-full text-left rounded-xl px-3 py-3 flex items-center gap-2.5 text-sm font-semibold transition-colors"
-        style={{
-          background: active ? "oklch(0.72 0.18 250 / 0.14)" : "transparent",
-          color: active ? "oklch(0.85 0.15 250)" : "oklch(0.78 0.008 270)",
-        }}>
-        {isPinned
-          ? <Pin className="w-3 h-3 shrink-0" style={{ color: "oklch(0.82 0.18 75)" }} />
-          : <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />}
-        <span className="truncate flex-1 leading-snug">{conv.title || `对话 #${conv.id}`}</span>
-      </button>
-      <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"
-        style={{ color: "oklch(0.55 0.01 270)" }}>
-        <MoreHorizontal className="w-3 h-3" />
-      </button>
-      {menuOpen && (
+      {editing ? (
+        <div className="px-3 py-2">
+          <input
+            ref={editInputRef}
+            value={editValue}
+            onChange={e => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(false); }}
+            className="w-full rounded-lg px-2 py-1 text-sm outline-none"
+            style={{ background: "oklch(0.22 0.008 270)", color: "oklch(0.92 0.005 270)", border: "1px solid oklch(0.45 0.15 250 / 0.6)" }}
+            maxLength={100}
+            autoFocus
+          />
+        </div>
+      ) : (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[150px] shadow-xl"
-            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
-            <button onClick={() => { onPin(conv.id, !isPinned); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
-              style={{ color: isPinned ? "oklch(0.82 0.18 75)" : "oklch(0.82 0.005 270)" }}>
-              <Pin className="w-3.5 h-3.5" />{isPinned ? "取消置顶" : "置顶对话"}
-            </button>
-            <button onClick={() => { onMove(); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
-              style={{ color: "oklch(0.82 0.005 270)" }}>
-              <MoveRight className="w-3.5 h-3.5" />移入分组
-            </button>
-            <button onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
-              style={{ color: "oklch(0.65 0.18 25)" }}>
-              <Trash2 className="w-3.5 h-3.5" />删除对话
-            </button>
-          </div>
-        </>
-      )}
-      {/* 删除确认对话框 */}
-      {confirmDelete && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setConfirmDelete(false)} />
-          <div className="absolute right-0 top-8 z-50 rounded-xl p-3 shadow-xl"
-            style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.35 0.12 25 / 0.5)", minWidth: "180px" }}>
-            <p className="text-xs mb-2.5" style={{ color: "oklch(0.82 0.005 270)" }}>
-              确定删除「{conv.title || `对话 #${conv.id}`}」？
-            </p>
-            <p className="text-xs mb-3" style={{ color: "oklch(0.50 0.01 270)" }}>删除后无法恢复</p>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)}
-                className="flex-1 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
-                style={{ color: "oklch(0.65 0.01 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
-                取消
-              </button>
-              <button onClick={() => { onDelete(conv.id); setConfirmDelete(false); }}
-                className="flex-1 py-1.5 rounded-lg text-xs font-medium"
-                style={{ background: "oklch(0.55 0.18 25)", color: "white" }}>
-                删除
-              </button>
-            </div>
-          </div>
+          <button onClick={onSelect}
+            onDoubleClick={startEdit}
+            className="w-full text-left rounded-xl px-3 py-3 flex items-center gap-2.5 text-sm font-semibold transition-colors"
+            style={{
+              background: active ? "oklch(0.72 0.18 250 / 0.14)" : "transparent",
+              color: active ? "oklch(0.85 0.15 250)" : "oklch(0.78 0.008 270)",
+            }}>
+            {isPinned
+              ? <Pin className="w-3 h-3 shrink-0" style={{ color: "oklch(0.82 0.18 75)" }} />
+              : <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />}
+            <span className="truncate flex-1 leading-snug">{conv.title || `对话 #${conv.id}`}</span>
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"
+            style={{ color: "oklch(0.55 0.01 270)" }}>
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[150px] shadow-xl"
+                style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                <button onClick={startEdit}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: "oklch(0.82 0.005 270)" }}>
+                  <Pencil className="w-3.5 h-3.5" />重命名
+                </button>
+                <button onClick={() => { onPin(conv.id, !isPinned); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: isPinned ? "oklch(0.82 0.18 75)" : "oklch(0.82 0.005 270)" }}>
+                  <Pin className="w-3.5 h-3.5" />{isPinned ? "取消置顶" : "置顶对话"}
+                </button>
+                <button onClick={() => { onMove(); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: "oklch(0.82 0.005 270)" }}>
+                  <MoveRight className="w-3.5 h-3.5" />移入分组
+                </button>
+                <button onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                  style={{ color: "oklch(0.65 0.18 25)" }}>
+                  <Trash2 className="w-3.5 h-3.5" />删除对话
+                </button>
+              </div>
+            </>
+          )}
+          {/* 删除确认对话框 */}
+          {confirmDelete && (
+            <>
+              <div className="fixed inset-0 z-50" onClick={() => setConfirmDelete(false)} />
+              <div className="absolute right-0 top-8 z-50 rounded-xl p-3 shadow-xl"
+                style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.35 0.12 25 / 0.5)", minWidth: "180px" }}>
+                <p className="text-xs mb-2.5" style={{ color: "oklch(0.82 0.005 270)" }}>
+                  确定删除「{conv.title || `对话 #${conv.id}`}」？
+                </p>
+                <p className="text-xs mb-3" style={{ color: "oklch(0.50 0.01 270)" }}>删除后无法恢复</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDelete(false)}
+                    className="flex-1 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+                    style={{ color: "oklch(0.65 0.01 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                    取消
+                  </button>
+                  <button onClick={() => { onDelete(conv.id); setConfirmDelete(false); }}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: "oklch(0.55 0.18 25)", color: "white" }}>
+                    删除
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

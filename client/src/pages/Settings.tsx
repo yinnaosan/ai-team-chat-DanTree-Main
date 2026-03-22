@@ -12,7 +12,7 @@ import { getLoginUrl } from "@/const";
 import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
-  Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity,
+  Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity, Sparkles,
 } from "lucide-react";
 
 type SettingsTab = "api" | "database" | "access" | "logic";
@@ -612,6 +612,22 @@ export default function Settings() {
   });
   const [newSourceForm, setNewSourceForm] = useState({ name: "", url: "", category: "", routingKeys: "", trustLevel: "primary" as TrustedSource["trustLevel"] });
   const [showNewSourceForm, setShowNewSourceForm] = useState(false);
+  const [showQuickImport, setShowQuickImport] = useState(false);
+
+  const PRESET_SOURCES: Array<Omit<TrustedSource, "id">> = [
+    { name: "AQR Capital", url: "https://www.aqr.com/insights/research", category: "quant", routingKeys: ["AQR", "因子", "量化", "动量", "价值"], trustLevel: "primary", enabled: true },
+    { name: "SSRN", url: "https://www.ssrn.com", category: "academic", routingKeys: ["SSRN", "学术", "论文", "研究"], trustLevel: "primary", enabled: true },
+    { name: "NBER", url: "https://www.nber.org/papers", category: "macro", routingKeys: ["NBER", "宏观", "经济", "货币政策"], trustLevel: "primary", enabled: true },
+    { name: "Wind 资讯", url: "https://www.wind.com.cn", category: "data", routingKeys: ["Wind", "A股", "中国市场", "财务数据"], trustLevel: "primary", enabled: true },
+    { name: "Bloomberg", url: "https://www.bloomberg.com/markets", category: "market", routingKeys: ["Bloomberg", "市场", "债券", "外汇"], trustLevel: "primary", enabled: true },
+    { name: "Federal Reserve", url: "https://www.federalreserve.gov/releases", category: "macro", routingKeys: ["美联储", "Fed", "利率", "货币政策"], trustLevel: "primary", enabled: true },
+    { name: "IMF", url: "https://www.imf.org/en/Publications", category: "macro", routingKeys: ["IMF", "全球经济", "国际货币"], trustLevel: "secondary", enabled: true },
+    { name: "BIS", url: "https://www.bis.org/research", category: "macro", routingKeys: ["BIS", "国际清算", "金融稳定"], trustLevel: "secondary", enabled: true },
+    { name: "MSCI", url: "https://www.msci.com/research-and-insights", category: "index", routingKeys: ["MSCI", "指数", "ESG", "新兴市场"], trustLevel: "secondary", enabled: true },
+    { name: "S&P Global", url: "https://www.spglobal.com/ratings", category: "rating", routingKeys: ["标普", "S&P", "信用评级", "评级"], trustLevel: "secondary", enabled: true },
+    { name: "中证指数", url: "https://www.csindex.com.cn", category: "index", routingKeys: ["中证", "沪深", "A股指数"], trustLevel: "secondary", enabled: true },
+    { name: "Morningstar", url: "https://www.morningstar.com/research", category: "fundamentals", routingKeys: ["晨星", "Morningstar", "基金", "股票评级"], trustLevel: "secondary", enabled: true },
+  ];
   const [activeRulesTab, setActiveRulesTab] = useState<RulesTab>("investment");
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; model?: string } | null>(null);
 
@@ -1216,12 +1232,61 @@ export default function Settings() {
                         <p className="text-sm font-semibold" style={{ color: "oklch(0.88 0.005 270)" }}>可信来源层 (Trusted Sources)</p>
                         <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
                       </div>
-                      <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
-                        onClick={() => setShowNewSourceForm(v => !v)}
-                        style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
-                        <Plus className="w-3 h-3" />添加来源
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
+                          onClick={() => { setShowQuickImport(v => !v); setShowNewSourceForm(false); }}
+                          style={{ borderColor: "oklch(0.55 0.15 150 / 0.5)", color: "oklch(0.72 0.18 150)" }}>
+                          <Sparkles className="w-3 h-3" />快速导入
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
+                          onClick={() => { setShowNewSourceForm(v => !v); setShowQuickImport(false); }}
+                          style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
+                          <Plus className="w-3 h-3" />添加来源
+                        </Button>
+                      </div>
                     </div>
+
+                    {/* 快速导入面板 */}
+                    {showQuickImport && (
+                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.55 0.15 150 / 0.3)" }}>
+                        <p className="text-xs font-medium mb-2" style={{ color: "oklch(0.72 0.18 150)" }}>选择预置来源（已存在的来源会被跳过）</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {PRESET_SOURCES.map((src) => {
+                            const exists = trustedSourcesConfig.sources.some(s => s.name === src.name);
+                            return (
+                              <button key={src.name}
+                                disabled={exists}
+                                onClick={() => {
+                                  if (!exists) {
+                                    setTrustedSourcesConfig(prev => ({
+                                      ...prev,
+                                      sources: [...prev.sources, { ...src, id: `preset-${Date.now()}-${src.name}` }]
+                                    }));
+                                  }
+                                }}
+                                className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-left transition-all"
+                                style={{
+                                  background: exists ? "oklch(0.18 0.005 270)" : "oklch(0.17 0.005 270)",
+                                  border: `1px solid ${exists ? "oklch(0.28 0.008 270)" : "oklch(0.35 0.008 270)"}`,
+                                  color: exists ? "oklch(0.40 0.008 270)" : "oklch(0.82 0.005 270)",
+                                  cursor: exists ? "not-allowed" : "pointer",
+                                  opacity: exists ? 0.5 : 1,
+                                }}>
+                                <span className="truncate font-medium">{src.name}</span>
+                                <span className="ml-auto shrink-0 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>{src.category}</span>
+                                {exists && <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.15 150)" }} />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowQuickImport(false)}
+                            style={{ borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.55 0.01 270)" }}>
+                            关闭
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* 添加来源表单 */}
                     {showNewSourceForm && (

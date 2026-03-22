@@ -215,11 +215,11 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     { key: "finnhub",       check: () => withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "fmp",           check: () => withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "polygon",       check: () => withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "alphaVantage",  check: () => withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "alphaVantage",  check: () => withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")) : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "coinGecko",     check: () => withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" : "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "newsApi",       check: () => withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "marketaux",     check: () => withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
-    { key: "simfin",        check: () => withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "simfin",        check: () => withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(r => r.ok ? "active" : (r.isRateLimit ? "degraded" : "error")).catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "tiingo",        check: () => withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" : "error").catch(() => "error") : Promise.resolve("error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "hkex",          check: () => withTimeout(checkHKEXHealth().then(r => r.ok ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "courtListener", check: () => withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" : "error").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
@@ -1512,6 +1512,26 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       // memory save failure is non-critical, silently skip
     }
 
+    // -- 异步 LLM 生成精简对话框标题（3-5 字，类似 ChatGPT 风格）-----------
+    if (conversationId) {
+      (async () => {
+        try {
+          const titleResp = await invokeLLMWithRetry({
+            messages: [
+              { role: "system", content: "你是一个标题生成助手。根据用户的问题，生成一个3-5个汉字的精简标题，直接输出标题文字，不要任何标点、引号或解释。" },
+              { role: "user", content: taskDescription.slice(0, 150) },
+            ],
+          });
+          const newTitle = String(titleResp.choices?.[0]?.message?.content || "").trim().slice(0, 20);
+          if (newTitle && newTitle.length >= 2) {
+            await updateConversationTitle(conversationId!, newTitle);
+          }
+        } catch {
+          // title generation is non-critical, silently skip
+        }
+      })();
+    }
+
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     await updateTaskStatus(taskId, "failed");
@@ -1646,6 +1666,15 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         await deleteConversationAndMessages(input.conversationId, ctx.user.id);
+        return { success: true };
+      }),
+
+    // 重命名会话标题
+    rename: protectedProcedure
+      .input(z.object({ conversationId: z.number(), title: z.string().min(1).max(100) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await updateConversationTitle(input.conversationId, input.title.trim().slice(0, 100));
         return { success: true };
       }),
   }),
@@ -2265,7 +2294,7 @@ export const appRouter = router({
         // SimFin
         withTimeout(
           ENV.SIMFIN_API_KEY
-            ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+            ? checkSimFinHealth().then(r => r.ok ? "active" as const : (r.isRateLimit ? "degraded" as const : "error" as const)).catch(() => "error" as const)
             : Promise.resolve("error" as const),
           "timeout" as const
         ),

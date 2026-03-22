@@ -451,17 +451,20 @@ export function formatSimFinDataAsMarkdown(data: SimFinData): string {
 
 // ─── 健康检测 ────────────────────────────────────────────────────────────────
 
-export async function checkSimFinHealth(): Promise<boolean> {
+export async function checkSimFinHealth(): Promise<{ ok: boolean; isRateLimit?: boolean }> {
   try {
-    if (!ENV.SIMFIN_API_KEY) return false;
+    if (!ENV.SIMFIN_API_KEY) return { ok: false };
     // 用 AAPL 衍生指标做轻量探针（数据量小）
     const raw = await simfinFetch("/companies/statements/compact", {
       ticker: "AAPL",
       statements: "derived",
       period: "FY",
     }) as unknown[];
-    return Array.isArray(raw) && raw.length > 0;
-  } catch {
-    return false;
+    return { ok: Array.isArray(raw) && raw.length > 0 };
+  } catch (e) {
+    const detail = String(e);
+    // SimFin 免费 key 限流关键词：429 / Too Many / quota / rate limit
+    const isRateLimit = detail.includes("429") || detail.includes("Too Many") || detail.includes("quota") || detail.includes("rate limit") || detail.includes("Rate limit");
+    return { ok: false, isRateLimit };
   }
 }

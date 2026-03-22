@@ -157,7 +157,7 @@ export async function getUnemploymentRate(): Promise<AVEconomicDataPoint[]> {
 }
 
 /** 健康检测 */
-export async function checkHealth(): Promise<{ ok: boolean; latencyMs: number; detail: string }> {
+export async function checkHealth(): Promise<{ ok: boolean; latencyMs: number; detail: string; isRateLimit?: boolean }> {
   const t0 = Date.now();
   try {
     const q = await getGlobalQuote("AAPL");
@@ -168,7 +168,10 @@ export async function checkHealth(): Promise<{ ok: boolean; latencyMs: number; d
     }
     return { ok: false, latencyMs, detail: "返回数据异常" };
   } catch (e) {
-    return { ok: false, latencyMs: Date.now() - t0, detail: String(e) };
+    const detail = String(e);
+    // 免费 key 限流（包含 Note / Information / Thank you 关键词）应识别为 degraded 而非 error
+    const isRateLimit = detail.includes("限流") || detail.includes("Thank you") || detail.includes("rate limit") || detail.includes("Note") || detail.includes("Information");
+    return { ok: false, latencyMs: Date.now() - t0, detail, isRateLimit };
   }
 }
 

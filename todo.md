@@ -1071,9 +1071,15 @@
 
 ## Bug 修复（2026-03-22）
 - [x] 修复可信来源配置无法保存（getConfig 返回字段缺失，导致页面加载后配置消失）
-- [ ] 修复 Alpha Vantage / SimFin 健康检测误报「连接失败」（免费 key 限流导致，需降级为 degraded 而非 error）
+- [x] 修复 Alpha Vantage / SimFin 健康检测误报「连接失败」（免费 key 限流导致，需降级为 degraded 而非 error）
 - [x] 修复追问问题消失（finalReply 无 FOLLOWUP 标记时自动追加兜底追问）
 - [x] 恢复「滚动到底部」小尖头按鈕（居中，点击跳到最下面）
 - [x] 点进对话框时自动跳到最下面
 - [x] 不立项直接输入提问，自动创建对话框并根据关键词生成名称
 - [x] 追问问题兜底：finalReply 无 FOLLOWUP 标记时自动追加
+
+## 优化（2026-03-22 第二批）
+- [x] Alpha Vantage/SimFin 限流识别为 degraded（而非 error）
+- [x] 任务完成后 LLM 生成 3-5 字精简对话框标题
+- [x] 可信来源快速导入模板（AQR、SSRN、NBER、Wind 等预置来源）
+- [x] 支持手动编辑对话框标题（双击或点击编辑图标内联编辑）

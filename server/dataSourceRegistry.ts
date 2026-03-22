@@ -64,6 +64,12 @@ export interface DataSourceDefinition {
   dataType: "structured" | "web";
   /** 官方文档/主页 URL（用于 Settings 页面链接） */
   homepageUrl?: string;
+  /** 支持的数据字段（用于 Step2 路由和 Step3 Source Gating） */
+  supportsFields?: string[];
+  /** 优先级：1=最高优先级（必调），5=最低优先级（备用） */
+  priorityRank?: number;
+  /** 置信权重：0.0-1.0，越高表示该来源数据对 evidenceScore 贡献越大 */
+  confidenceWeight?: number;
 }
 
 /**

@@ -1083,3 +1083,25 @@
 - [x] 任务完成后 LLM 生成 3-5 字精简对话框标题
 - [x] 可信来源快速导入模板（AQR、SSRN、NBER、Wind 等预置来源）
 - [x] 支持手动编辑对话框标题（双击或点击编辑图标内联编辑）
+
+## GPT 重构指令：升级为持续型投资研究系统（2026-03-22）
+
+### 高优先级（第一批）
+- [ ] ① 前端 Answer Header：正文顶部展示 verdict / confidence / evidenceScore / outputMode
+- [ ] ② 阶段文案改为能力型（「正在理解你的问题」「正在验证关键证据」「正在形成研究结论」）
+- [ ] ③ 记忆注入默认排除 analysis 类型（只注入 preference/workflow/watchlist）
+- [ ] ④ evidenceScore 真实控制输出强度（>=80 decisive / 50-79 directional / <50 framework_only）
+- [ ] ⑤ FOLLOWUP 按任务类型和证据状态动态生成
+
+### 中优先级（第二批）
+- [ ] ⑥ evidenceValidator 输出 outputMode + claim whitelist + continuitySafetyCheck
+- [ ] ⑦ dataSourceRegistry 增加 supportsFields / priorityRank / confidenceWeight / latencyClass
+
+### 低优先级（第三批）
+- [ ] ⑧ assistantState 统一对象（贯穿 Step1-3）
+- [ ] ⑨ Step2 补检节点（interimEvidenceCheck → optionalStep2Extra）
+- [ ] ⑩ Settings 投资守则/任务指令改为结构化表单 + 自由补充文本
+
+## PWA 安装功能（2026-03-22）
+- [x] 侧边栏底部添加「安装到桌面」按钮（监听 beforeinstallprompt 事件）
+- [x] 安装引导弹窗（说明安装步骤，区分 Chrome/Safari/Edge）

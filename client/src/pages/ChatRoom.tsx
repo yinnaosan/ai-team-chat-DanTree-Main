@@ -742,17 +742,20 @@ export default function ChatRoom() {
   // ─── Memory panel state ────────────────────────────────────────────────
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
 
-  // ─── PWA Install ──────────────────────────────────────────────────────────
+  // ─── PWA Install ──────────────────────────────────────────────────────────────────────────────
   const [pwaInstallPrompt, setPwaInstallPrompt] = useState<any>(null);
   const [pwaInstalled, setPwaInstalled] = useState(() =>
     window.matchMedia("(display-mode: standalone)").matches
   );
+  const [pwaGuideOpen, setPwaGuideOpen] = useState(false);
+  const pwaIsIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const pwaIsSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) && !pwaIsIOS;
+  const pwaIsEdge = /edg\//i.test(navigator.userAgent);
   useEffect(() => {
     const handler = (e: Event) => { e.preventDefault(); setPwaInstallPrompt(e); };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
-
   // ─── Queries ────────────────────────────────────────────────
   const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -1369,7 +1372,7 @@ export default function ChatRoom() {
               </span>
             </div>
           </div>
-          {/* 安装App按钮 */}
+          {/* 安装App按鈕 */}
           {!pwaInstalled && (
             <button
               onClick={async () => {
@@ -1378,14 +1381,15 @@ export default function ChatRoom() {
                   const { outcome } = await pwaInstallPrompt.userChoice;
                   if (outcome === "accepted") { setPwaInstalled(true); setPwaInstallPrompt(null); }
                 } else {
-                  toast.info("请在浏览器菜单中选择「安装应用」或「添加到主屏幕」");
+                  setPwaGuideOpen(true);
                 }
               }}
-              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors mb-0.5"
+              className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors mb-0.5 hover:bg-white/5"
               style={{ color: "oklch(0.75 0.15 250)", background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}
             >
               <Download className="w-3.5 h-3.5" />
               <span>安装桌面 App</span>
+              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(0.72 0.18 250)" }}>NEW</span>
             </button>
           )}
           {[
@@ -1845,6 +1849,67 @@ export default function ChatRoom() {
               disabled={!renameGroupName.trim() || renameGroupMutation.isPending}
               style={{ background: "oklch(0.72 0.18 250)", color: "white", border: "none" }}>
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PWA Install Guide Dialog ── */}
+      <Dialog open={pwaGuideOpen} onOpenChange={setPwaGuideOpen}>
+        <DialogContent className="sm:max-w-md" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.27 0.008 270)" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: "oklch(0.92 0.005 270)" }}>安装桌面 App</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <p className="text-sm" style={{ color: "oklch(0.65 0.01 270)" }}>
+              将此平台安装为桌面应用，无需浏览器即可直接打开，支持离线访问。
+            </p>
+            {pwaIsIOS ? (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🌐</span>
+                  <span className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>Safari（iPhone / iPad）</span>
+                </div>
+                <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>1</span>点击底部工具栏中的 「分享」 按鈕 📤</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>2</span>向下滚动，选择 「添加到主屏幕」</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>3</span>点击 「添加」 即完成安装</li>
+                </ol>
+              </div>
+            ) : pwaIsSafari ? (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🌐</span>
+                  <span className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>Safari（Mac）</span>
+                </div>
+                <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>1</span>点击地址栏右侧的 「分享」 图标</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>2</span>选择 「添加到扣接栏」</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(0.20 0.007 270)", border: "1px solid oklch(0.28 0.008 270)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🖥️</span>
+                    <span className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>Chrome / {pwaIsEdge ? "Edge" : "Edge / Arc"}</span>
+                  </div>
+                  <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>1</span>点击地址栏右侧的 「安装」图标 💻（或菜单→安装应用）</li>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>2</span>在弹出的确认框中点击 「安装」</li>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.72 0.18 250)" }}>3</span>应用将出现在桌面和应用程序列表中</li>
+                  </ol>
+                </div>
+                <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                  提示：如果地址栏没有安装图标，请点击浏览器菜单 (…) → 「将此站点安装为应用程序」
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setPwaGuideOpen(false)}
+              style={{ background: "oklch(0.72 0.18 250)", color: "white", border: "none" }}>
+              明白了
             </Button>
           </DialogFooter>
         </DialogContent>

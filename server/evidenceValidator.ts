@@ -8,10 +8,11 @@
  * 2. validateEvidence()     — 检测数字/当前表述/估值结论是否绑定了证据
  * 3. computeEvidenceScore() — 计算 0-100 的证据充分度得分
  *
- * evidence_score 控制 Step3 输出强度：
- *   ≥ 70 → 正常分析 + 投资建议
- *   40-69 → 分析 + 明确标注不确定性，不给具体建议
- *   < 40  → 仅输出 HARD_MISSING 说明，拒绝分析
+ * evidence_score 控制 Step3 输出强度（outputMode）：
+ *   ≥ 70 → DECISIVE：强判断 + 投资建议（明确立场+幅度）
+ *   50-69 → DIRECTIONAL：方向性判断（偏高/谨慎），禁止具体目标价
+ *   30-49 → FRAMEWORK_ONLY：仅输出研究框架，不得给出任何价格/方向判断
+ *   < 30  → BLOCKED：证据严重不足，拒绝分析
  */
 
 export interface EvidenceFact {
@@ -53,6 +54,10 @@ export interface EvidencePacket {
   allowInvestmentAdvice: boolean;
   /** 给 Step3 GPT 的指令 */
   step3Instruction: string;
+  /** 输出强度模式：decisive=强判断 | directional=方向性 | framework_only=仅框架 */
+  outputMode: "decisive" | "directional" | "framework_only";
+  /** 已验证的事实白名单（可直接引用的 claim 列表） */
+  claimWhitelist: string[];
 }
 
 /**
@@ -184,7 +189,7 @@ export function computeEvidenceScore(
 /**
  * 构建 EVIDENCE_PACKET
  * 输入：Manus 的 DATA_REPORT 文本 + 任务描述
- * 输出：结构化证据包 + Step3 指令
+ * 输出：结构化证据包 + Step3 指令 + outputMode + claimWhitelist
  */
 export function buildEvidencePacket(
   taskDescription: string,
@@ -196,25 +201,43 @@ export function buildEvidencePacket(
   let evidenceLevel: EvidencePacket["evidenceLevel"];
   let allowInvestmentAdvice: boolean;
   let step3Instruction: string;
+  let outputMode: EvidencePacket["outputMode"];
+
+  // 构建 claim 白名单（fresh/stale 事实可直接引用）
+  const claimWhitelist = facts
+    .filter(f => f.freshness === "fresh" || f.freshness === "stale")
+    .map(f => f.claim);
 
   if (evidenceScore >= 70) {
     evidenceLevel = "sufficient";
     allowInvestmentAdvice = true;
-    step3Instruction = `[EVIDENCE_LEVEL: SUFFICIENT | score=${evidenceScore}]
-证据充分，可进行完整分析。每个数字/结论必须引用对应的 [FACT] 来源和时间戳。
-允许输出投资建议，但必须注明数据来源和时间。`;
-  } else if (evidenceScore >= 40) {
+    outputMode = "decisive";
+    step3Instruction = `[EVIDENCE_LEVEL: SUFFICIENT | score=${evidenceScore} | outputMode=DECISIVE]
+证据充分，输出强判断：每个结论必须给出明确立场+幅度（如「高估30-40%」「建议减仓」），禁止模糊表述。
+每个数字/结论必须引用对应的 [FACT] 来源和时间戳。允许输出投资建议，但必须注明数据来源和时间。
+已验证事实（${claimWhitelist.length}条）可直接引用，其余数据标注来源后方可使用。`;
+  } else if (evidenceScore >= 50) {
     evidenceLevel = "partial";
     allowInvestmentAdvice = false;
-    step3Instruction = `[EVIDENCE_LEVEL: PARTIAL | score=${evidenceScore}]
-证据部分充分，可进行有限分析，但必须在每个结论后标注"（数据不完整，仅供参考）"。
-禁止输出具体投资建议（买入/卖出/目标价）。
+    outputMode = "directional";
+    step3Instruction = `[EVIDENCE_LEVEL: PARTIAL | score=${evidenceScore} | outputMode=DIRECTIONAL]
+证据部分充分，输出方向性判断：可给出趋势方向（如「偏高」「谨慎」），但禁止给出具体目标价/买卖建议。
+每个结论后必须标注「（数据不完整，仅供参考）」。
+缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}`;
+  } else if (evidenceScore >= 30) {
+    evidenceLevel = "partial";
+    allowInvestmentAdvice = false;
+    outputMode = "framework_only";
+    step3Instruction = `[EVIDENCE_LEVEL: PARTIAL_LOW | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
+证据不足，只能输出研究框架：列出需要收集的数据维度和分析思路，不得给出任何价格/方向判断。
+明确说明「当前数据不足以支撑判断，以下为研究框架供参考」。
 缺失数据：${hardMissing.map((h) => h.dataType).join("、") || "无"}`;
   } else {
     evidenceLevel = "insufficient";
     allowInvestmentAdvice = false;
+    outputMode = "framework_only";
     const blockingItems = hardMissing.filter((h) => h.blocking);
-    step3Instruction = `[EVIDENCE_LEVEL: INSUFFICIENT | score=${evidenceScore}]
+    step3Instruction = `[EVIDENCE_LEVEL: INSUFFICIENT | score=${evidenceScore} | outputMode=FRAMEWORK_ONLY]
 [HARD_MISSING] 证据严重不足，禁止进行分析或给出任何结论。
 必须输出：「当前无法获取足够的实时数据来回答此问题。缺失的关键数据：${blockingItems.map((h) => h.dataType).join("、") || "全部核心数据"}。请稍后重试或换一个可以获取实时数据的问题。」
 禁止使用训练记忆数据补充。`;
@@ -228,6 +251,8 @@ export function buildEvidencePacket(
     evidenceLevel,
     allowInvestmentAdvice,
     step3Instruction,
+    outputMode,
+    claimWhitelist,
   };
 }
 
@@ -265,20 +290,31 @@ export function validateGptResponse(
     }
   }
 
-  // 规则 2：partial 级别时，不允许具体投资建议
-  if (packet.evidenceLevel === "partial" && !packet.allowInvestmentAdvice) {
+  // 规则 2：framework_only 模式时，不允许具体价格/方向判断
+  if (packet.outputMode === "framework_only") {
+    const judgmentKeywords = ["买入", "卖出", "目标价", "强烈推荐", "强烈建议", "高估", "低估"];
+    const hasJudgment = judgmentKeywords.some((kw) => response.includes(kw));
+    if (hasJudgment) {
+      violations.push(
+        "framework_only 模式下不允许输出具体投资判断（买入/卖出/目标价/高估/低估）"
+      );
+    }
+  }
+
+  // 规则 3：directional 模式时，不允许具体投资建议
+  if (packet.outputMode === "directional" && !packet.allowInvestmentAdvice) {
     const investmentKeywords = ["买入", "卖出", "目标价", "强烈推荐", "强烈建议"];
     const hasInvestment = investmentKeywords.some((kw) =>
       response.includes(kw)
     );
     if (hasInvestment) {
       violations.push(
-        "partial 证据级别下不允许输出具体投资建议（买入/卖出/目标价）"
+        "directional 模式下不允许输出具体投资建议（买入/卖出/目标价）"
       );
     }
   }
 
-  // 规则 3：检测训练记忆数据特征（年份与当前年份差距过大的数字）
+  // 规则 4：检测训练记忆数据特征（年份与当前年份差距过大的数字）
   const currentYear = new Date().getFullYear();
   const oldYearPattern = new RegExp(
     `\\b(${currentYear - 3}|${currentYear - 4}|${currentYear - 5})\\b`,

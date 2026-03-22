@@ -10,6 +10,16 @@ import { serveStatic, setupVite } from "./vite";
 import { uploadRouter } from "../upload";
 import { chatgptProxyRouter } from "../chatgptProxy";
 import { taskStreamRouter } from "../taskStream";
+import { checkHealth as checkFinnhubHealth } from "../finnhubApi";
+import { checkHealth as checkFmpHealth } from "../fmpApi";
+import { checkHealth as checkPolygonHealth } from "../polygonApi";
+import { checkHealth as checkAVHealth } from "../alphaVantageApi";
+import { checkHealth as checkSecHealth } from "../secEdgarApi";
+import { checkNewsApiHealth } from "../newsApi";
+import { checkMarketauxHealth } from "../marketauxApi";
+import { checkSimFinHealth } from "../simfinApi";
+import { checkTiingoHealth } from "../tiingoApi";
+import { ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,6 +54,50 @@ async function startServer() {
   app.use(chatgptProxyRouter);
   // SSE task stream (real-time push, replaces polling)
   app.use(taskStreamRouter);
+  // 健康检测诊断端点（直接调用 checkHealth 函数，无需认证）
+  app.get("/api/health-diag", async (_req, res) => {
+    const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 10000): Promise<T> =>
+      Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
+    const t0 = Date.now();
+    const [finnhub, fmp, polygon, av, sec, newsApi, marketaux, simfin, tiingo] = await Promise.allSettled([
+      withTimeout(checkFinnhubHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkFmpHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkPolygonHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkAVHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkSecHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkNewsApiHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkMarketauxHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkSimFinHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkTiingoHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+    ]);
+    const fmt = (r: PromiseSettledResult<{ok:boolean;detail:string;ms:number}>) =>
+      r.status === 'fulfilled' ? r.value : { ok: false, detail: String((r as PromiseRejectedResult).reason), ms: -1 };
+    res.json({
+      env: process.env.NODE_ENV,
+      totalMs: Date.now() - t0,
+      envKeys: {
+        FINNHUB: !!ENV.FINNHUB_API_KEY,
+        FMP: !!ENV.FMP_API_KEY,
+        POLYGON: !!ENV.POLYGON_API_KEY,
+        AV: !!ENV.ALPHA_VANTAGE_API_KEY,
+        NEWS_API: !!ENV.NEWS_API_KEY,
+        MARKETAUX: !!ENV.MARKETAUX_API_KEY,
+        SIMFIN: !!ENV.SIMFIN_API_KEY,
+        TIINGO: !!ENV.TIINGO_API_KEY,
+      },
+      results: {
+        finnhub: fmt(finnhub),
+        fmp: fmt(fmp),
+        polygon: fmt(polygon),
+        alphaVantage: fmt(av),
+        secEdgar: fmt(sec),
+        newsApi: fmt(newsApi),
+        marketaux: fmt(marketaux),
+        simfin: fmt(simfin),
+        tiingo: fmt(tiingo),
+      },
+    });
+  });
   // 网络连通性测试端点（用于诊断生产环境是否能访问外部 API）
   app.get("/api/net-test", async (_req, res) => {
     const tests = [

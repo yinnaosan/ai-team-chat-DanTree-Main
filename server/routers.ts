@@ -1680,6 +1680,9 @@ export const appRouter = router({
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!ENV.FRED_API_KEY;
 
+      // 超时包装：每个 checkHealth 最多等待 8 秒，防止慢 API 拖垮整个健康检测
+      const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 8000): Promise<T> =>
+        Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
       // 并行健康检测：World Bank + IMF + Finnhub + FMP + Polygon + SEC EDGAR + Alpha Vantage + CoinGecko + Baostock + GDELT + NewsAPI + Marketaux + SimFin + Tiingo + ECB + HKEXnews
       const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth, courtListenerHealth, congressHealth, eurLexHealth, gleifHealth] = await Promise.allSettled([
         // World Bank

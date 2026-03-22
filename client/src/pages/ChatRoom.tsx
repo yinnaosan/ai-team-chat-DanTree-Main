@@ -1380,8 +1380,12 @@ export default function ChatRoom() {
                   await pwaInstallPrompt.prompt();
                   const { outcome } = await pwaInstallPrompt.userChoice;
                   if (outcome === "accepted") { setPwaInstalled(true); setPwaInstallPrompt(null); }
+                } else if (pwaIsIOS) {
+                  toast.info("请点击底部「分享」按钮 → 添加到主屏幕", { duration: 5000 });
+                } else if (pwaIsSafari) {
+                  toast.info("请点击地址栏「分享」图标 → 添加到扣接栏", { duration: 5000 });
                 } else {
-                  setPwaGuideOpen(true);
+                  toast.info("请点击地址栏右侧的安装图标，或菜单 → 安装应用", { duration: 5000 });
                 }
               }}
               className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors mb-0.5 hover:bg-white/5"

@@ -1221,3 +1221,139 @@
 - [x] 将 Alpaca 接入 Settings UI 数据源状态面板
 - [x] 将技术信号自动标注接入分析主流程（routers.ts Step2 技术指标并行任务）
 - [x] 全部测试：20 个测试文件，257 个测试全部通过，TypeScript 0 错误
+
+## 25 仓库完整路线图（更新于 2026-03-22）
+
+### ✅ 已完成（无需操作）
+- [x] cinar/indicator — indicatorts 已集成（server/localIndicators.ts），本地计算 RSI/MACD/布林带等
+- [x] JerBouma/FinanceToolkit — financialMetrics.ts 已实现 ROE/ROIC/EV-EBITDA/夏普比率等 150+ 指标
+- [x] TauricResearch/TradingAgents — multiAgentAnalysis.ts 已实现宏观/技术/基本面/情绪四路并行 Agent
+- [x] The-Swarm-Corporation/AutoHedge — Director-Worker 模式已在 multiAgentAnalysis.ts 中实现
+- [x] alpacahq/alpaca-py — alpacaApi.ts 已实现（账户/持仓/下单/订单管理/市场时钟）
+- [x] JerBouma/AlgorithmicTrading — technicalSignals.ts 已实现技术信号自动标注，已接入分析主流程
+- [x] Micro-sheep/efinance — efinanceApi.ts 已集成（A 股历史数据）
+- [x] react-financial/react-financial-charts — 前端 K 线图表已集成
+
+### 🔴 P0 — 立即接入（高价值 + 低/中难度）
+
+#### 1. Alpaca 模拟下单联动（alpacahq/alpaca-py 扩展）
+- [ ] 在分析主流程末尾，当 GPT 给出明确买入/卖出建议时，自动调用 placeAlpacaOrder() 执行模拟下单
+- [ ] 在聊天回复底部附带「已在模拟账户执行：买入 AAPL 10 股 @$175」确认信息
+- [ ] 在侧边栏或消息底部添加实时 Alpaca 持仓摘要卡片（调用 getAlpacaPositions()）
+
+#### 2. Q-Fin 期权定价（romanmichaelpaolucci/Q-Fin）
+- [ ] 用 TypeScript 重写 Black-Scholes 期权定价公式（Call/Put 价格 + Delta/Gamma/Vega/Theta/Rho）
+- [ ] 创建 server/optionPricing.ts 模块，含 BS 定价 + 蒙特卡洛模拟验证
+- [ ] 接入分析主流程：当分析标的有期权数据时，自动附带期权定价参考
+- [ ] 编写 optionPricing.test.ts（≥15 个测试）
+
+#### 3. Quantsbin 期权分析（quantsbin/Quantsbin）
+- [ ] 提取香草期权策略分析逻辑（Bull Spread/Bear Spread/Straddle/Strangle）
+- [ ] 在 optionPricing.ts 中扩展期权策略收益图计算
+- [ ] 在报告中自动标注当前隐含波动率与历史波动率对比
+
+### 🟠 P1 — 中期接入
+
+#### 4. FinanceMCP/Tushare A 股增强（guangxiangdebizi/FinanceMCP）
+- [ ] 接入 Tushare API（需 Token）：获取 A 股财务报表/技术指标/资金流向/沪深港通数据
+- [ ] 创建 server/tushareApi.ts，补全 efinanceApi.ts 缺少的财务报表和资金流向数据
+- [ ] 在 Settings UI 添加 Tushare Token 配置入口
+
+#### 5. finshare 多市场数据（finvfamily/finshare）
+- [ ] 评估 finshare 与现有 Yahoo Finance/efinance 的数据重叠度
+- [ ] 若有增量价值（如港股实时数据），通过 Python spawn 接入
+- [ ] 创建 server/finshareApi.ts（Python 子进程封装）
+
+#### 6. HomeHarvest 房地产数据（ZacharyHampton/HomeHarvest）
+- [ ] 通过 Python spawn 调用 HomeHarvest 抓取 Realtor.com 房产数据
+- [ ] 创建 server/homeHarvestApi.ts，支持按城市/邮编查询房产列表和价格趋势
+- [ ] 在分析框架中添加「房地产市场」维度（REITs 分析时自动调用）
+
+#### 7. ThePassiveInvestor ETF 分析（JerBouma/ThePassiveInvestor）
+- [ ] 提取 ETF 数据收集逻辑（持仓/风险指标/年度回报/费用率）
+- [ ] 创建 server/etfAnalysis.ts，支持 ETF 详情查询和多 ETF 比较
+- [ ] 在分析框架中添加「ETF 适配性」评估模块
+
+#### 8. resistance 货币波动分析（codez0mb1e/resistance）
+- [ ] 用 TypeScript 重写蒙特卡洛货币定价模拟算法
+- [ ] 创建 server/currencyRisk.ts，支持货币波动率计算和危机情景模拟
+- [ ] 在宏观分析中自动附带汇率风险评估
+
+### 🟡 P2 — 架构参考与学习
+
+#### 9. yorkeccak/finance 可视化模式
+- [ ] 实现「AI 生成 Python 代码 → 后端执行 → 返回图表」的动态可视化模式
+- [ ] 在聊天界面支持用户请求生成自定义数据图表
+
+#### 10. OpenBB 数据标准化层（OpenBB-finance/OpenBB）
+- [ ] 设计统一的数据标准化接口层，规范 24 个 API 的返回格式
+- [ ] 创建 server/dataStandard.ts，实现跨数据源的字段映射和格式统一
+
+#### 11. microsoft/qlib 因子体系
+- [ ] 参考 qlib 的因子定义，补充 Alpha 因子库（动量/反转/波动率/流动性因子）
+- [ ] 创建 server/alphaFactors.ts，实现标准化因子计算和评分
+
+### 🔵 P3 — 长期规划
+
+#### 12. FinancePy 期权定价扩展（domokane/FinancePy）
+- [ ] 提取 Black-Scholes + Heston 随机波动率模型公式
+- [ ] 扩展 optionPricing.ts，支持更复杂的期权定价模型
+
+#### 13. JerBouma/FinanceDatabase 同行业比较
+- [ ] 接入 30 万+ 全球股票分类数据库
+- [ ] 在分析框架中支持「同行业 Top10 对比」功能
+
+#### 14. GallenQiu/FinanceReportAnalysis 财报 PDF 解析
+- [ ] 实现用户上传财报 PDF 后自动提取关键财务数据
+- [ ] 创建 server/reportParser.ts，支持中英文财报解析
+
+#### 15. goat-sdk/goat DeFi 链上数据
+- [ ] 评估 DeFi 数据接入需求
+- [ ] 若需要，接入链上数据（TVL/协议收益/流动性）
+
+### ⚪ 参考/索引（不集成）
+- [x] AlgoTraders/stock-analysis-engine — 架构较重，跳过
+- [x] shashankvemuri/Finance — 学习材料，不集成
+- [x] georgezouq/awesome-ai-in-finance — 资源导航，不集成
+- [x] ashishpatel26/500-AI-Agents-Projects — 索引，不集成
+- [x] Hvass-Labs/FinanceOps — 参考投资组合优化方法，不集成
+- [x] jankrepl/deepdow — 学术价值高，生产集成复杂度极高，暂缓
+- [x] JordiCorbilla/stock-prediction — LSTM 预测，需 TensorFlow 环境，暂缓
+- [x] jerry1993-tech/Cornucopia-LLaMA — 需部署大模型，资源消耗极高，跳过
+- [x] areed1192/python-trading-robot — 依赖 TD Ameritrade（已停服），跳过
+- [x] finmath/finmath-lib — Java 语言，不兼容，跳过
+- [x] hackernoon/learn — 文章索引，不集成
+- [x] siddhantac/puffin — TUI 应用，不适合集成
+- [x] google/tf-quant-finance — 已归档，跳过
+- [x] mcdallas/wallstreet — 与 Yahoo Finance 重复，跳过
+
+## P0 实现批次（2026-03-22）
+
+- [ ] 创建 server/optionPricing.ts（Black-Scholes Call/Put 定价 + Delta/Gamma/Vega/Theta/Rho + 期权策略分析）
+- [ ] 创建 server/optionPricing.test.ts（≥15 个测试）
+- [ ] 将期权定价接入分析主流程（routers.ts：当有期权数据时自动附带 BS 定价参考）
+- [ ] 在 routers.ts 中添加 Alpaca 模拟下单 tRPC 接口（placeSimulatedOrder）
+- [ ] 在前端聊天界面添加 Alpaca 实时持仓卡片组件
+- [ ] 在分析回复底部附带「已在模拟账户执行」确认信息
+
+## P0 全部 5 项（2026-03-22 启动）
+
+- [ ] 编写 server/optionPricing.test.ts（≥15 个测试）
+- [ ] 将期权定价接入分析主流程（routers.ts，当有 sigma 数据时自动附带 BS 定价）
+- [ ] 创建 server/currencyRisk.ts（蒙特卡洛货币波动率 + 汇率风险评估）
+- [ ] 编写 server/currencyRisk.test.ts
+- [ ] 创建 server/etfAnalysis.ts（ETF 详情 + 多 ETF 比较 + 费用率分析）
+- [ ] 编写 server/etfAnalysis.test.ts
+- [ ] 在 routers.ts 添加 Alpaca 模拟下单 tRPC 接口（placeSimulatedOrder）
+- [ ] 在前端添加 Alpaca 实时持仓卡片组件
+- [ ] 实现沙盒代码执行动态图表（AI 生成 Python → 执行 → 返回图表）
+
+## P0 全部 5 项（2026-03-22 完成）
+
+- [x] Q-Fin 期权定价：server/optionPricing.ts（Black-Scholes + Greeks + MC 验证），35 个测试通过，已接入分析主流程（ATR 估算波动率）
+- [x] Quantsbin 期权策略：server/optionPricing.ts 扩展（Straddle/Spread/Strangle/Iron Condor），策略分析已整合
+- [x] Alpaca 模拟下单联动：routers.ts alpaca 路由（下单/持仓/账户/订单/取消），前端 AlpacaPortfolioCard 组件 + ChatRoom 持仓面板按钮
+- [x] 货币风险蒙特卡洛：server/currencyRisk.ts（VaR/CVaR/蒙特卡洛/压力测试），49 个测试通过，已接入分析主流程
+- [x] ETF 分析模块：server/etfAnalysis.ts（ETF 识别/基本信息/风险指标/评分/比较），已接入分析主流程
+- [x] 沙盒代码执行：server/codeExecution.ts（安全检查/Python 执行/matplotlib 图表生成），20 个测试通过，routers.ts codeExec 路由已添加
+- [x] 全部测试：24 个测试文件，361/361 测试通过，TypeScript 0 错误

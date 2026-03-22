@@ -17,13 +17,14 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { InlineChart, parseChartBlocks } from "@/components/InlineChart";
+import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
   MessageSquare, Database, History, Download, Star, Pin,
   MoreHorizontal, ChevronRight, FileText, Table2, Copy, Check,
   Paperclip, Image, Film, Music, File, XCircle, Sparkles,
-  FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight, FileDown,
+  FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight, FileDown, BarChart3,
 } from "lucide-react";
 
 // ─── Markdown ErrorBoundary ─────────────────────────────────────────────────
@@ -947,6 +948,8 @@ export default function ChatRoom() {
 
   // ─── Memory panel state ────────────────────────────────────────────────
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
+  // ─── Alpaca Portfolio panel state ─────────────────────────────────────
+  const [portfolioPanelOpen, setPortfolioPanelOpen] = useState(false);
 
   // ─── PWA Install ──────────────────────────────────────────────────────────────────────────────
   const [pwaInstallPrompt, setPwaInstallPrompt] = useState<any>(null);
@@ -1633,6 +1636,15 @@ export default function ChatRoom() {
                 )}
               </button>
             )}
+            {/* Alpaca 持仓面板按鈕 */}
+            <button
+              onClick={() => { setPortfolioPanelOpen(o => !o); if (memoryPanelOpen) setMemoryPanelOpen(false); }}
+              title="模拟持仓"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all hover:bg-white/8"
+              style={{ background: portfolioPanelOpen ? "oklch(0.72 0.18 155 / 0.15)" : "transparent", border: `1px solid ${portfolioPanelOpen ? "oklch(0.72 0.18 155 / 0.4)" : "oklch(0.27 0.008 270)"}`, color: portfolioPanelOpen ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)" }}>
+              <BarChart3 className="w-3 h-3" />
+              <span>持仓</span>
+            </button>
             {/* AI 研究引擎状态标志（统一单助手） */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
               style={{ background: "oklch(0.20 0.02 25 / 0.5)", border: "1px solid oklch(0.65 0.18 25 / 0.3)", color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(0.60 0.10 25)" : "oklch(0.42 0.01 270)" }}>
@@ -1817,6 +1829,26 @@ export default function ChatRoom() {
               style={{ background: "oklch(0.22 0.015 250)", border: "1px solid oklch(0.45 0.12 250 / 0.6)", color: "oklch(0.72 0.18 250)", boxShadow: "0 4px 16px oklch(0.72 0.18 250 / 0.2)" }}>
               <ChevronDown className="w-4 h-4" />
             </button>
+          )}
+          {/* Portfolio Panel */}
+          {portfolioPanelOpen && (
+            <div className="w-80 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid oklch(0.20 0.007 270)", background: "oklch(0.14 0.005 270)" }}>
+              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid oklch(0.20 0.007 270)" }}>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 155)" }} />
+                  <span className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>模拟持仓</span>
+                </div>
+                <button onClick={() => setPortfolioPanelOpen(false)} className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/8" style={{ color: "oklch(0.50 0.01 270)" }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-3">
+                <AlpacaPortfolioCard />
+              </div>
+              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid oklch(0.20 0.007 270)" }}>
+                <p className="text-[10px] text-center" style={{ color: "oklch(0.38 0.007 270)" }}>Alpaca Paper Trading · 模拟账户 · 实时刷新</p>
+              </div>
+            </div>
           )}
           {/* Memory Panel */}
           {memoryPanelOpen && activeConvId && (

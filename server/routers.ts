@@ -90,8 +90,12 @@ import { getCompanyLeiInfo, formatGleifAsMarkdown, shouldFetchGleif, checkGleifH
 import { buildCitationSummary, citationToApiSources, resolveFieldSources, classifyMissingFields, FIELD_FALLBACK_MAP } from "./dataSourceRegistry";
 import { buildEvidencePacket } from "./evidenceValidator";
 import { createBudgetTracker, removeBudgetTracker, getCachedSearch, setCachedSearch, type BudgetProfile } from "./resourceBudget";
-import { isAlpacaConfigured, checkAlpacaHealth, getAlpacaAccount, getAlpacaPositions, getAlpacaClock, formatAlpacaAccount, formatAlpacaPositions, formatAlpacaClock } from "./alpacaApi";
+import { isAlpacaConfigured, checkAlpacaHealth, getAlpacaAccount, getAlpacaPositions, getAlpacaClock, formatAlpacaAccount, formatAlpacaPositions, formatAlpacaClock, placeAlpacaOrder, formatAlpacaOrder, getAlpacaOrders, cancelAlpacaOrder } from "./alpacaApi";
 import { generateTechnicalSignalReport, generateSignalBadge } from "./technicalSignals";
+import { generateOptionSummary } from "./optionPricing";
+import { generateRiskSummary, parametricVaR } from "./currencyRisk";
+import { isETFTask, extractETFTickers, getETFBasicInfo, calculateETFRiskMetrics, scoreETF, compareETFsSummary } from "./etfAnalysis";
+import { executeCode, validateCode, getPresetChartCode } from "./codeExecution";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1060,23 +1064,57 @@ ${"```"}`;
               if (!d) return "";
               const indicatorStr = formatLocalTechnicalIndicators(d);
               // 追加技术信号自动标注报告
+              let combined = indicatorStr;
               try {
                 const signalReport = generateTechnicalSignalReport(d);
-                return indicatorStr + "\n\n" + signalReport.detailedMarkdown;
-              } catch {
-                return indicatorStr;
-              }
+                combined += "\n\n" + signalReport.detailedMarkdown;
+              } catch { /* ignore */ }
+              // 追加期权定价摘要（Q-Fin + Quantsbin）
+              try {
+                const currentPrice = d.priceData?.current;
+                if (currentPrice && currentPrice > 0 && !primaryTicker!.includes(".")) {
+                  // 用 ATR14 估算年化波动率：ATR/Price * sqrt(252)
+                  const atr = d.atr14?.at(-1) ?? 0;
+                  const sigma = atr > 0 ? Math.min(Math.max((atr / currentPrice) * Math.sqrt(252), 0.05), 2.0) : 0.25;
+                  const optionSummary = generateOptionSummary(primaryTicker!, currentPrice, sigma);
+                  combined += "\n\n" + optionSummary;
+                }
+              } catch { /* ignore */ }
+              return combined;
             })
             .catch(() => ""))
         : Promise.resolve(""),
       // Polygon.io 期权链
       () => resourcePlan.dataSources.optionsChain && primaryTicker && !primaryTicker.includes(".") && ENV.POLYGON_API_KEY
-        ? timed("Polygon 期权链", getOptionsChain(primaryTicker)
+        ? timed("期权链", getOptionsChain(primaryTicker)
             .then((d: Awaited<ReturnType<typeof getOptionsChain>>) => d ? formatOptionsChain(d) : "")
             .catch(() => ""))
         : Promise.resolve(""),
+      // ETF 分析（ThePassiveInvestor 参考）
+      () => isETFTask(taskDescription) && primaryTicker
+        ? timed("ETF分析", (async () => {
+            try {
+              const etfTickers = extractETFTickers(taskDescription + " " + primaryTicker);
+              if (etfTickers.length === 0) return "";
+              const etfDataList = await Promise.all(
+                etfTickers.slice(0, 3).map(async (t) => {
+                  const info = await getETFBasicInfo(t).catch(() => null);
+                  return info;
+                })
+              );
+              const validETFs = etfDataList.filter(Boolean) as Awaited<ReturnType<typeof getETFBasicInfo>>[];
+              if (validETFs.length === 0) return "";
+              const etfResults = validETFs.map(info => {
+                const metrics = calculateETFRiskMetrics(info!.symbol, [], 0.05);
+                const score = scoreETF(info!, metrics);
+                return { info: info!, metrics, score };
+              });
+              return compareETFsSummary(etfResults);
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1155,6 +1193,7 @@ ${"```"}`;
       congressMarkdown,        // Congress.gov 美国立法动态/法案
       eurLexMarkdown,          // EUR-Lex 欧盟法规/监管文件
       gleifMarkdown,           // GLEIF 全球 LEI 法人识别码/法人结构/母子公司关系
+      etfResult?.status === "fulfilled" && etfResult.value ? etfResult.value : "",  // ETF 分析（ThePassiveInvestor）
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -2405,6 +2444,113 @@ export const appRouter = router({
       await requireAccess(ctx.user.id, ctx.user.openId);
       return dataSourceStatusCache ?? buildDefaultDataSourceStatus();
     }),
+  }),
+    // --- Alpaca Paper Trading 路由 -------------------------------------------
+  alpaca: router({
+    // 获取账户信息
+    getAccount: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      if (!isAlpacaConfigured()) return { configured: false, account: null };
+      const account = await getAlpacaAccount();
+      return { configured: true, account, formatted: formatAlpacaAccount(account) };
+    }),
+    // 获取持仓列表
+    getPositions: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      if (!isAlpacaConfigured()) return { configured: false, positions: [] };
+      const positions = await getAlpacaPositions();
+      return { configured: true, positions, formatted: formatAlpacaPositions(positions) };
+    }),
+    // 获取市场时钟
+    getClock: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      if (!isAlpacaConfigured()) return { configured: false, clock: null };
+      const clock = await getAlpacaClock();
+      return { configured: true, clock, formatted: formatAlpacaClock(clock) };
+    }),
+    // 模拟下单
+    placeOrder: protectedProcedure
+      .input(z.object({
+        symbol: z.string().min(1).max(10),
+        qty: z.number().positive(),
+        side: z.enum(["buy", "sell"]),
+        type: z.enum(["market", "limit", "stop", "stop_limit"]).default("market"),
+        limitPrice: z.number().positive().optional(),
+        stopPrice: z.number().positive().optional(),
+        timeInForce: z.enum(["day", "gtc", "ioc", "fok"]).default("day"),
+        note: z.string().max(200).optional(), // 下单备注（如何来自 GPT 建议）
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        if (!isAlpacaConfigured()) throw new Error("Alpaca API 未配置");
+        const order = await placeAlpacaOrder({
+          symbol: input.symbol.toUpperCase(),
+          qty: input.qty,
+          side: input.side,
+          type: input.type,
+          limit_price: input.limitPrice,
+          stop_price: input.stopPrice,
+          time_in_force: input.timeInForce,
+        });
+        return { success: true, order, formatted: formatAlpacaOrder(order), note: input.note };
+      }),
+    // 获取订单列表
+    getOrders: protectedProcedure
+      .input(z.object({
+        status: z.enum(["open", "closed", "all"]).default("open"),
+        limit: z.number().min(1).max(100).default(20),
+      }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        if (!isAlpacaConfigured()) return { configured: false, orders: [] };
+        const orders = await getAlpacaOrders(input.status, input.limit);
+        return { configured: true, orders };
+      }),
+    // 取消订单
+    cancelOrder: protectedProcedure
+      .input(z.object({ orderId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        if (!isAlpacaConfigured()) throw new Error("Alpaca API 未配置");
+        await cancelAlpacaOrder(input.orderId);
+        return { success: true };
+      }),
+  }),
+    // --- 沙箋代码执行路由 -------------------------------------------
+  codeExec: router({
+    // 执行 Python 代码（安全沙箋）
+    run: protectedProcedure
+      .input(z.object({
+        code: z.string().min(1).max(50000),
+        data: z.record(z.string(), z.unknown()).optional(),
+        timeout: z.number().min(1000).max(60000).default(30000),
+        outputType: z.enum(["image", "json", "text", "auto"]).default("auto"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        // 先进行安全检查
+        const validation = validateCode(input.code);
+        if (!validation.safe) {
+          return { success: false, outputType: "error" as const, error: validation.reason };
+        }
+        return executeCode({
+          code: input.code,
+          data: input.data,
+          timeout: input.timeout,
+          outputType: input.outputType,
+        });
+      }),
+    // 获取预设图表代码
+    getPreset: protectedProcedure
+      .input(z.object({
+        chartType: z.enum(["price_line", "candlestick", "portfolio_pie", "returns_bar"]),
+        data: z.record(z.string(), z.unknown()).default({}),
+      }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const code = getPresetChartCode(input.chartType, input.data);
+        return { code, available: code !== null };
+      }),
   }),
     // --- 数据库连接管理 -------------------------------------------------------
   dbConnect: router({

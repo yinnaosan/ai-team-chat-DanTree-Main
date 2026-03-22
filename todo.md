@@ -990,3 +990,12 @@
 - [x] 强化 manusSystemPrompt：API 无数据时输出 [DATA_UNAVAILABLE] 而非猜测
 - [x] 将 NOW/currentDateStr/currentYearStr 变量移到 manusSystemPrompt 之前（修复 TS 编译错误）
 - [x] 227 个测试全部通过，TypeScript 0 错误
+
+## Retrieval-Driven 架构改造（Source Gating + Citation Builder + 前端引用卡片）
+- [x] 创建 server/dataSourceRegistry.ts — 所有 API 的唯一注册表（新增数据源时只需添加一条）
+- [x] 后端：构建 CitationTracker — 收集每个 API 调用的来源名、时间戳、数据量、是否命中
+- [x] 后端：Step2 prompt 强化 Source Gating — 无 API 数据时明确输出"证据不足，无法回答"
+- [x] 后端：Step3 prompt 强化 Citation 约束 — GPT 回复必须引用具体来源+时间，不得使用训练记忆补全
+- [x] 后端：任务完成后将 citationSummary 写入 message metadata（来源列表+时间戳+白名单状态）
+- [x] 前端：AI 回复底部 DataSourcesFooter 展示 citationHits（来源名 | 数据时间 | 白名单状态）
+- [x] 测试：23 个注册表单元测试全部通过

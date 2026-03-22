@@ -459,6 +459,26 @@ function DataSourceStatusPanel() {
             }
           />
 
+          {/* Alpaca Paper Trading */}
+          <SourceRow
+            label="Alpaca Paper Trading"
+            desc="模拟交易账户 / 持仓管理 / 下单 / 市场时钟"
+            statusStr={status?.alpacaStatus ?? "unknown"}
+            badge={
+              !status?.alpacaConfigured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 145 / 0.1)", color: "oklch(0.60 0.12 145)", border: "1px solid oklch(0.72 0.18 145 / 0.2)" }}>
+                  模拟交易 | 美股
+                </span>
+              )
+            }
+          />
+
           {/* 网页搜索已关闭，纯 API 模式 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
           <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"

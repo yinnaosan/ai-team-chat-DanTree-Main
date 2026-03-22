@@ -1211,10 +1211,13 @@
 - [ ] AlgorithmicTrading — 技术信号自动标注
 
 ## GitHub 资源集成（第二批）
-- [x] 验证 Alpaca Paper Trading API 可达性（返回 401 = 需要真实 Key，API 本身正常）
-- [x] 创建 server/alpacaApi.ts（Alpaca 模拟交易接入框架：账户/持仓/下单/订单管理/市场时钟）
-- [x] 在 env.ts 中添加 ALPACA_API_KEY / ALPACA_API_SECRET 环境变量（默认空，需用户配置）
+- [x] 验证 Alpaca- [x] 验证 Alpaca Paper Trading API 可达性（返回 401 = 需要真实 Key，API 本身正常）
+- [x] 创建 server/alpacaApi.ts（Alpaca 模拟交易接入框架：账户/持仓/下单/订单管理/市场时钟），21 个测试通过；env.ts 添加 ALPACA_API_KEY/SECRET 环境变量
 - [x] 编写 alpacaApi.test.ts（21 个测试全部通过）
-- [x] 创建 server/technicalSignals.ts（技术信号自动标注模块：8 指标信号+交叉事件检测+关键价位+综合评分）
+- [x] 创建 server/technicalSignals.ts（技术信号自动标注模块：8 指标信号+交叉事件检测+关键价位+综合评分），22 个测试通过
 - [x] 编写 technicalSignals.test.ts（22 个测试全部通过）
+- [x] 配置 ALPACA_API_KEY + ALPACA_API_SECRET 环境变量（账户 PA3IRMR7YHNH，$100,000 模拟资金）
+- [x] 将 Alpaca 接入健康检测（DataSourceStatusResult 类型 + refreshDataSourceStatusInBackground）
+- [x] 将 Alpaca 接入 Settings UI 数据源状态面板
+- [x] 将技术信号自动标注接入分析主流程（routers.ts Step2 技术指标并行任务）
 - [x] 全部测试：20 个测试文件，257 个测试全部通过，TypeScript 0 错误

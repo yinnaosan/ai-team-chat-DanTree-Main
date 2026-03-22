@@ -90,6 +90,8 @@ import { getCompanyLeiInfo, formatGleifAsMarkdown, shouldFetchGleif, checkGleifH
 import { buildCitationSummary, citationToApiSources, resolveFieldSources, classifyMissingFields, FIELD_FALLBACK_MAP } from "./dataSourceRegistry";
 import { buildEvidencePacket } from "./evidenceValidator";
 import { createBudgetTracker, removeBudgetTracker, getCachedSearch, setCachedSearch, type BudgetProfile } from "./resourceBudget";
+import { isAlpacaConfigured, checkAlpacaHealth, getAlpacaAccount, getAlpacaPositions, getAlpacaClock, formatAlpacaAccount, formatAlpacaPositions, formatAlpacaClock } from "./alpacaApi";
+import { generateTechnicalSignalReport, generateSignalBadge } from "./technicalSignals";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -138,6 +140,8 @@ type DataSourceStatusResult = {
   hkmaStatus: ApiHealthStatus; hkmaConfigured: boolean;
   congressStatus: ApiHealthStatus; congressConfigured: boolean;
   gleifStatus: ApiHealthStatus; gleifConfigured: boolean;
+  // Alpaca Paper Trading（模拟交易）
+  alpacaStatus: ApiHealthStatus; alpacaConfigured: boolean;
   // Serper（Tavily 备用搜索引擎）
   serperConfigured: boolean;
   serperActiveCount: number;
@@ -191,6 +195,7 @@ function buildDefaultDataSourceStatus(): DataSourceStatusResult {
     congressStatus: smartDefault(!!ENV.CONGRESS_API_KEY, false), congressConfigured: !!ENV.CONGRESS_API_KEY,
     eurLexStatus: "active", eurLexConfigured: true,
     gleifStatus: "active", gleifConfigured: true,
+    alpacaStatus: smartDefault(isAlpacaConfigured(), false), alpacaConfigured: isAlpacaConfigured(),
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -247,6 +252,7 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     { key: "hkex",          check: () => withTimeout(checkHKEXHealth().then(r => r.ok ? "active" : "degraded").catch(() => "error"), "timeout", 8000) as Promise<ApiHealthStatus> },
       // [已移除]
     { key: "congress",      check: () => withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "alpaca",        check: () => withTimeout(isAlpacaConfigured() ? checkAlpacaHealth().then(r => r.status === "active" ? "active" : "error").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
   ];
 
   const keyedResults = await runBatched(keyedChecks.map(c => c.check), 5);
@@ -285,6 +291,7 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     congressStatus: keyedMap["congress"] ?? "error", congressConfigured: !!ENV.CONGRESS_API_KEY,
     eurLexStatus: freePublicApis.eurLex, eurLexConfigured: true,
     gleifStatus: freePublicApis.gleif, gleifConfigured: true,
+    alpacaStatus: keyedMap["alpaca"] ?? "error", alpacaConfigured: isAlpacaConfigured(),
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -1046,10 +1053,20 @@ ${"```"}`;
       () => Promise.resolve(""),
       // [已移除 Tiingo]
       () => Promise.resolve(""),
-      // 本地技术指标（indicatorts 本地计算，无需 API 配额）
+      // 本地技术指标（indicatorts 本地计算，无需 API 配额）+ 技术信号自动标注
       () => resourcePlan.dataSources.technicalIndicators && primaryTicker
-        ? timed("本地技术指标", getLocalTechnicalIndicators(primaryTicker)
-            .then(d => d ? formatLocalTechnicalIndicators(d) : "")
+        ? timed("本地技术指标+信号标注", getLocalTechnicalIndicators(primaryTicker)
+            .then(d => {
+              if (!d) return "";
+              const indicatorStr = formatLocalTechnicalIndicators(d);
+              // 追加技术信号自动标注报告
+              try {
+                const signalReport = generateTechnicalSignalReport(d);
+                return indicatorStr + "\n\n" + signalReport.detailedMarkdown;
+              } catch {
+                return indicatorStr;
+              }
+            })
             .catch(() => ""))
         : Promise.resolve(""),
       // Polygon.io 期权链

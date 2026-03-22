@@ -1317,10 +1317,11 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>使用次数</Label>
+                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>使用次数（-1=无限）</Label>
                   <Input
                     type="number"
-                    min="1"
+                    min="-1"
+                    max="2147483647"
                     placeholder="1"
                     value={codeMaxUses}
                     onChange={(e) => setCodeMaxUses(e.target.value)}

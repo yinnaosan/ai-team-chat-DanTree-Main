@@ -98,6 +98,150 @@ async function requireAccess(userId: number, openId: string) {
 }
 
 // --- 带重试的 invokeLLM 包装（针对上游临时 500 错误）--------------------
+// ── 数据源状态缓存（服务端内存缓存，避免每次请求都并行测试所有 API）──────────────
+type DataSourceStatusResult = {
+  tavily: ReturnType<typeof getTavilyKeyStatuses>;
+  tavilyConfigured: boolean;
+  fred: { configured: boolean; status: "active" | "error" | "timeout" };
+  yahoo: { configured: boolean; status: "active" | "error" | "timeout" };
+  worldBank: { configured: boolean; status: "active" | "error" | "timeout" };
+  imf: { configured: boolean; status: "active" | "error" | "timeout" };
+  finnhub: { configured: boolean; status: "active" | "error" | "timeout" };
+  fmp: { configured: boolean; status: "active" | "error" | "timeout" };
+  polygon: { configured: boolean; status: "active" | "error" | "timeout" };
+  secEdgar: { configured: boolean; status: "active" | "error" | "timeout" };
+  alphaVantage: { configured: boolean; status: "active" | "error" | "timeout" };
+  coinGecko: { configured: boolean; status: "active" | "error" | "timeout" };
+  baostock: { configured: boolean; status: "active" | "error" | "timeout" | "warning" };
+  gdelt: { configured: boolean; status: "active" | "error" | "timeout" };
+  newsApi: { configured: boolean; status: "active" | "error" | "timeout" };
+  marketaux: { configured: boolean; status: "active" | "error" | "timeout" };
+  simfin: { configured: boolean; status: "active" | "error" | "timeout" };
+  tiingo: { configured: boolean; status: "active" | "error" | "timeout" };
+  ecb: { configured: boolean; status: "active" | "error" | "timeout" };
+  hkex: { configured: boolean; status: "active" | "error" | "timeout" };
+  boe: { configured: boolean; status: "active" | "error" | "timeout" };
+  hkma: { configured: boolean; status: "active" | "error" | "timeout" };
+  courtListener: { configured: boolean; status: "active" | "error" | "timeout" };
+  congress: { configured: boolean; status: "active" | "error" | "timeout" };
+  eurLex: { configured: boolean; status: "active" | "error" | "timeout" };
+  gleif: { configured: boolean; status: "active" | "error" | "timeout" };
+};
+let dataSourceStatusCache: DataSourceStatusResult | null = null;
+let dataSourceStatusCacheTime = 0;
+let dataSourceStatusRefreshing = false;
+
+// 返回一个所有状态为 "error" 的默认值（用于缓存未就绪时的占位）
+function buildDefaultDataSourceStatus(): DataSourceStatusResult {
+  const err = { configured: true, status: "error" as const };
+  return {
+    tavily: getTavilyKeyStatuses(),
+    tavilyConfigured: isTavilyConfigured(),
+    fred: { configured: !!ENV.FRED_API_KEY, status: "error" as const },
+    yahoo: { configured: true, status: "error" as const },
+    worldBank: err, imf: err,
+    finnhub: { configured: !!ENV.FINNHUB_API_KEY, status: "error" as const },
+    fmp: { configured: !!ENV.FMP_API_KEY, status: "error" as const },
+    polygon: { configured: !!ENV.POLYGON_API_KEY, status: "error" as const },
+    secEdgar: err,
+    alphaVantage: { configured: !!ENV.ALPHA_VANTAGE_API_KEY, status: "error" as const },
+    coinGecko: { configured: !!ENV.COINGECKO_API_KEY, status: "error" as const },
+    baostock: { configured: true, status: "warning" as const },
+    gdelt: { configured: true, status: "error" as const },
+    newsApi: { configured: !!ENV.NEWS_API_KEY, status: "error" as const },
+    marketaux: { configured: !!ENV.MARKETAUX_API_KEY, status: "error" as const },
+    simfin: { configured: !!ENV.SIMFIN_API_KEY, status: "error" as const },
+    tiingo: { configured: !!ENV.TIINGO_API_KEY, status: "error" as const },
+    ecb: err, hkex: err, boe: err, hkma: err,
+    courtListener: err,
+    congress: { configured: !!ENV.CONGRESS_API_KEY, status: "error" as const },
+    eurLex: err, gleif: err,
+  };
+}
+
+// 后台异步刷新数据源状态缓存
+async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusResult> {
+  const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 8000): Promise<T> =>
+    Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
+
+  const [wbHealth, imfHealth, finnhubHealth, fmpHealth, polygonHealth, secHealth, avHealth, cgHealth, bsHealth, gdeltHealth, newsApiHealth, marketauxHealth, simfinHealth, tiingoHealth, ecbHealth, hkexHealth, boeHealth, hkmaHealth, courtListenerHealth, congressHealth, eurLexHealth, gleifHealth] = await Promise.allSettled([
+    // World Bank
+    (async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      try {
+        const res = await fetch(
+          "https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.KD.ZG?format=json&mrv=1&per_page=1",
+          { signal: controller.signal }
+        );
+        clearTimeout(timer);
+        return res.ok ? "active" as const : "error" as const;
+      } catch (e: unknown) {
+        clearTimeout(timer);
+        const msg = e instanceof Error ? e.message : String(e);
+        return (msg.includes("abort") || msg.includes("timeout") ? "timeout" : "error") as "active" | "error" | "timeout";
+      }
+    })(),
+    withTimeout(checkImfApiHealth().then((r) => r.status as "active"|"error"|"timeout"), "timeout" as const),
+    withTimeout(ENV.FINNHUB_API_KEY ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.FMP_API_KEY ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.POLYGON_API_KEY ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(checkSecHealth().then(r => r.ok ? "active" as const : "error" as const), "timeout" as const),
+    withTimeout(ENV.ALPHA_VANTAGE_API_KEY ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.COINGECKO_API_KEY ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const), "warning" as const, 5000),
+    Promise.resolve("active" as const),
+    withTimeout(ENV.NEWS_API_KEY ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.MARKETAUX_API_KEY ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.SIMFIN_API_KEY ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(ENV.TIINGO_API_KEY ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    withTimeout(checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+    withTimeout(checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+    withTimeout(checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+    withTimeout(checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+    withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+    withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const) : Promise.resolve("error" as const), "timeout" as const),
+    Promise.resolve(checkEurLexHealth().status === "ok" ? "active" as const : "error" as const),
+    withTimeout(checkGleifHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
+  ]);
+
+  const tavilyKeys = getTavilyKeyStatuses();
+  const fredConfigured = !!ENV.FRED_API_KEY;
+
+  const result: DataSourceStatusResult = {
+    tavily: tavilyKeys,
+    tavilyConfigured: isTavilyConfigured(),
+    fred: { configured: fredConfigured, status: fredConfigured ? "active" as const : "error" as const },
+    yahoo: { configured: true, status: "active" as const },
+    worldBank: { configured: true, status: wbHealth.status === "fulfilled" ? wbHealth.value : "error" as const },
+    imf: { configured: true, status: imfHealth.status === "fulfilled" ? imfHealth.value : "error" as const },
+    finnhub: { configured: !!ENV.FINNHUB_API_KEY, status: finnhubHealth.status === "fulfilled" ? finnhubHealth.value : "error" as const },
+    fmp: { configured: !!ENV.FMP_API_KEY, status: fmpHealth.status === "fulfilled" ? fmpHealth.value : "error" as const },
+    polygon: { configured: !!ENV.POLYGON_API_KEY, status: polygonHealth.status === "fulfilled" ? polygonHealth.value : "error" as const },
+    secEdgar: { configured: true, status: secHealth.status === "fulfilled" ? secHealth.value : "error" as const },
+    alphaVantage: { configured: !!ENV.ALPHA_VANTAGE_API_KEY, status: avHealth.status === "fulfilled" ? avHealth.value : "error" as const },
+    coinGecko: { configured: !!ENV.COINGECKO_API_KEY, status: cgHealth.status === "fulfilled" ? cgHealth.value : "error" as const },
+    baostock: { configured: true, status: bsHealth.status === "fulfilled" ? bsHealth.value : "warning" as const },
+    gdelt: { configured: true, status: gdeltHealth.status === "fulfilled" ? gdeltHealth.value : "active" as const },
+    newsApi: { configured: !!ENV.NEWS_API_KEY, status: newsApiHealth.status === "fulfilled" ? newsApiHealth.value : "error" as const },
+    marketaux: { configured: !!ENV.MARKETAUX_API_KEY, status: marketauxHealth.status === "fulfilled" ? marketauxHealth.value : "error" as const },
+    simfin: { configured: !!ENV.SIMFIN_API_KEY, status: simfinHealth.status === "fulfilled" ? simfinHealth.value : "error" as const },
+    tiingo: { configured: !!ENV.TIINGO_API_KEY, status: tiingoHealth.status === "fulfilled" ? tiingoHealth.value : "error" as const },
+    ecb: { configured: true, status: ecbHealth.status === "fulfilled" ? ecbHealth.value : "error" as const },
+    hkex: { configured: true, status: hkexHealth.status === "fulfilled" ? hkexHealth.value : "error" as const },
+    boe: { configured: true, status: boeHealth.status === "fulfilled" ? boeHealth.value : "error" as const },
+    hkma: { configured: true, status: hkmaHealth.status === "fulfilled" ? hkmaHealth.value : "error" as const },
+    courtListener: { configured: true, status: courtListenerHealth.status === "fulfilled" ? courtListenerHealth.value : "error" as const },
+    congress: { configured: !!ENV.CONGRESS_API_KEY, status: congressHealth.status === "fulfilled" ? congressHealth.value : "error" as const },
+    eurLex: { configured: true, status: eurLexHealth.status === "fulfilled" ? eurLexHealth.value : "active" as const },
+    gleif: { configured: true, status: gleifHealth.status === "fulfilled" ? gleifHealth.value : "error" as const },
+  };
+
+  dataSourceStatusCache = result;
+  dataSourceStatusCacheTime = Date.now();
+  return result;
+}
+
 async function invokeLLMWithRetry(
   params: Parameters<typeof invokeLLM>[0],
   maxRetries = 3
@@ -1681,8 +1825,47 @@ export const appRouter = router({
         return results;
       }),
 
-    // 获取实时数据源状态
+    // 获取实时数据源状态（服务端缓存架构：前端请求立即返回缓存，后台每5分钟刷新）
     getDataSourceStatus: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+
+      // 如果缓存有效（5分钟内），直接返回缓存
+      const now = Date.now();
+      if (dataSourceStatusCache && (now - dataSourceStatusCacheTime) < 5 * 60 * 1000) {
+        return dataSourceStatusCache;
+      }
+
+      // 如果已有后台刷新任务在跑，返回旧缓存（或 null 触发前端 loading）
+      if (dataSourceStatusRefreshing) {
+        return dataSourceStatusCache ?? buildDefaultDataSourceStatus();
+      }
+
+      // 启动后台刷新，立即返回旧缓存（或默认值）
+      dataSourceStatusRefreshing = true;
+      refreshDataSourceStatusInBackground().finally(() => { dataSourceStatusRefreshing = false; });
+      return dataSourceStatusCache ?? buildDefaultDataSourceStatus();
+    }),
+
+    // 强制刷新数据源状态（忽略缓存）
+    refreshDataSourceStatus: protectedProcedure.mutation(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      dataSourceStatusCache = null;
+      dataSourceStatusCacheTime = 0;
+      dataSourceStatusRefreshing = true;
+      const result = await refreshDataSourceStatusInBackground().finally(() => { dataSourceStatusRefreshing = false; });
+      return result;
+    }),
+
+    // 内部实现（已移至顶部 refreshDataSourceStatusInBackground 函数）
+    _getDataSourceStatusImpl: protectedProcedure.query(async ({ ctx }) => {
+      await requireAccess(ctx.user.id, ctx.user.openId);
+      // 已将实际健康检测逻辑移至顶部 refreshDataSourceStatusInBackground 函数
+      // 此过程仅为兼容保留，直接返回当前缓存
+      return dataSourceStatusCache ?? buildDefaultDataSourceStatus();
+    }),
+
+    // 备用（不再使用）——下面是已删除的重复实现，保留为占位避免编译错误
+    _getDataSourceStatusImplDEPRECATED: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       const tavilyKeys = getTavilyKeyStatuses();
       const fredConfigured = !!ENV.FRED_API_KEY;

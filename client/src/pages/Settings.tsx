@@ -20,9 +20,22 @@ type RulesTab = "investment" | "task" | "data";
 
 // ---- 实时数据源状态面板 ----
 function DataSourceStatusPanel() {
-  const { data: status, isLoading, refetch, isFetching } = trpc.rpa.getDataSourceStatus.useQuery(undefined, {
+  const utils = trpc.useUtils();
+  // 查询缓存状态（每 60 秒轮询一次，服务端有缓存保护）
+  const { data: status, isLoading, isFetching } = trpc.rpa.getDataSourceStatus.useQuery(undefined, {
     refetchInterval: 60000,
+    refetchOnWindowFocus: false,
   });
+  // 强制刷新 mutation（绕过缓存，实际运行所有 checkHealth）
+  const refreshMutation = trpc.rpa.refreshDataSourceStatus.useMutation({
+    onSuccess: () => {
+      utils.rpa.getDataSourceStatus.invalidate();
+    },
+  });
+  const handleRefresh = () => {
+    refreshMutation.mutate();
+  };
+  const isRefreshing = isFetching || refreshMutation.isPending;
 
   const statusColor = (s: string) => {
     if (s === "active") return "oklch(0.72 0.18 142)";
@@ -115,12 +128,12 @@ function DataSourceStatusPanel() {
           )}
         </div>
         <button
-          onClick={() => refetch()}
-          disabled={isFetching}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
           className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-80"
           style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.20 0.005 270)" }}>
-          <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
-          {isFetching ? "检测中" : "刷新"}
+          <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "检测中" : "刷新"}
         </button>
       </div>
 

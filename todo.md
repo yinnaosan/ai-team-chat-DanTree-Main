@@ -1120,3 +1120,8 @@
 - [x] 设置页面展示 Serper 状态 + 当前活跃引擎指示
 - [x] DataSourceStatusResult 类型扩展（serperConfigured/serperActiveCount/serperTotal/activeSearchEngine）
 - [x] 运行测试：252/253 通过，3 个 Serper Key 验证全部通过
+
+## Tavily 403 封锁修复（2026-03-22）
+- [x] 诊断 403 根因：沙箱出口 IP 102.223.191.153 被 Tavily nginx 层 403 封锁，所有方式（标准 POST/Bearer/UA/SDK）均被拦截
+- [x] 解决方案：将 Serper 升级为主搜索引擎，Tavily 降为备用（以防将来 IP 解封后自动恢复）
+- [x] 验证：Serper 3 Key 全部测试通过，金融搜索 + 域名限定搜索均正常工作

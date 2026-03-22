@@ -1,8 +1,9 @@
 /**
- * Web Search Engine — Tavily + Serper 双引擎降级链
+ * Web Search Engine — Serper + Tavily 双引擎降级链
  *
- * 优先级：Tavily 4 Key 轮换 → Serper 3 Key 轮换
- * Tavily 全部失败（403/429/网络错误）时自动降级到 Serper
+ * 优先级：Serper 3 Key 轮换 → Tavily 4 Key 轮换
+ * Serper 作为主引擎（稳定可用），Tavily 作为备用（当前环境 IP 被 403 封锁）
+ * Serper 全部失败时自动降级到 Tavily（以防将来 IP 解封）
  * Serper 返回 Google 搜索结果，格式适配为 TavilyResult
  *
  * 数据获取策略（Step2数据引擎）：
@@ -45,8 +46,9 @@ const SERPER_KEYS = [
 type KeyStatus = "active" | "exhausted" | "error";
 const keyStatusMap = new Map<string, KeyStatus>();
 
-// 引擎级别状态：Tavily 是否全部不可用
+// 引擎级别状态
 let tavilyAllDown = false;
+let serperAllDown = false;
 let allKeysExhaustedNotified = false;
 
 export function isTavilyConfigured(): boolean {
@@ -57,13 +59,13 @@ export function isSerperConfigured(): boolean {
   return SERPER_KEYS.length > 0;
 }
 
-/** 获取当前使用的搜索引擎 */
+/** 获取当前使用的搜索引擎（Serper 优先） */
 export function getActiveSearchEngine(): "tavily" | "serper" | "none" {
+  if (!serperAllDown && SERPER_KEYS.some(k => (keyStatusMap.get(k) ?? "active") !== "exhausted")) {
+    return "serper";
+  }
   if (!tavilyAllDown && TAVILY_KEYS.some(k => (keyStatusMap.get(k) ?? "active") !== "exhausted")) {
     return "tavily";
-  }
-  if (SERPER_KEYS.some(k => (keyStatusMap.get(k) ?? "active") !== "exhausted")) {
-    return "serper";
   }
   return "none";
 }
@@ -277,31 +279,41 @@ async function serperSearchRequest(
 // ─────────────────────────────────────────────
 
 /**
- * 核心搜索请求：先尝试 Tavily，失败后降级到 Serper
+ * 核心搜索请求：先尝试 Serper（主引擎），失败后降级到 Tavily（备用）
  */
 async function unifiedSearchRequest(
   payload: Record<string, unknown>
 ): Promise<TavilyResult[]> {
-  // 如果 Tavily 之前已知全挂，直接走 Serper
-  if (!tavilyAllDown) {
-    const tavilyResults = await tavilySearchRequest(payload);
-    if (tavilyResults !== null) return tavilyResults;
-  }
-
-  // Tavily 失败或已知不可用 → Serper 降级
   const query = (payload.query as string) || "";
   const maxResults = (payload.max_results as number) || 5;
-
-  // Serper 不支持 include_domains，但我们可以在 query 中加入 site: 限定
   const includeDomains = payload.include_domains as string[] | undefined;
-  let serperQuery = query;
-  if (includeDomains && includeDomains.length > 0) {
-    // 最多取 3 个域名用 site: 限定（Google 搜索语法）
-    const siteFilter = includeDomains.slice(0, 3).map(d => `site:${d}`).join(" OR ");
-    serperQuery = `${query} (${siteFilter})`;
+
+  // ===== Serper 优先 =====
+  if (!serperAllDown && SERPER_KEYS.length > 0) {
+    let serperQuery = query;
+    if (includeDomains && includeDomains.length > 0) {
+      const siteFilter = includeDomains.slice(0, 3).map(d => `site:${d}`).join(" OR ");
+      serperQuery = `${query} (${siteFilter})`;
+    }
+    const serperResults = await serperSearchRequest(serperQuery, maxResults);
+    if (serperResults.length > 0) return serperResults;
+    // Serper 全部失败
+    serperAllDown = true;
+    console.warn("[Serper] All keys failed, falling back to Tavily");
   }
 
-  return serperSearchRequest(serperQuery, maxResults);
+  // ===== Tavily 备用 =====
+  if (!tavilyAllDown) {
+    const tavilyResults = await tavilySearchRequest(payload);
+    if (tavilyResults !== null) {
+      serperAllDown = false; // Tavily 成功，下次还是先试 Serper
+      return tavilyResults;
+    }
+  }
+
+  // 两个引擎都失败
+  await notifyAllKeysExhausted();
+  return [];
 }
 
 // ─────────────────────────────────────────────

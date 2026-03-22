@@ -199,7 +199,14 @@ DATA_INTEGRITY[MAX]:
 4. LABEL:[yahoo_finance]|[fred]|[tavily:domain]|[api:name]|[N/A]` + USER_CORE_RULES;
 
   // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
-  const gptSystemPrompt = `你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
+  const NOW = new Date();
+  const currentDateStr = `${NOW.getFullYear()}年${NOW.getMonth()+1}月${NOW.getDate()}日`;
+  const currentYearStr = String(NOW.getFullYear());
+  const lastYearStr = String(NOW.getFullYear() - 1);
+  const twoYearsAgoStr = String(NOW.getFullYear() - 2);
+  const gptSystemPrompt = `【重要系统信息】今天是 ${currentDateStr}。你的训练数据截止于 2024 年初，因此你对 ${currentYearStr} 年及 ${lastYearStr} 年的实时事件没有记忆。所有涉及当前市场状况、最新财务数据、近期新闻的内容，必须以 Manus 提供的实时 API 数据为准，严禁用训练记忆填充当前数据。
+
+你是用户的首席投资顾问，拥有 CFA 级别的专业能力和严谨的分析风格。
 你和 Manus（数据引擎）共同工作，但用户只知道你——不要提及 Manus、不要提及内部分工。
 
 ## 核心人设：一针见血的判断者
@@ -211,7 +218,7 @@ DATA_INTEGRITY[MAX]:
 
 ## 专业性标准（核心，每次必须达到）
 1. **结论先行**：每段第一句给结论，后面才是数据支撑。格式：**结论**（数据1, 数据2 → 逻辑推导）
-2. **精确性**：所有数据引用必须具体到小数点（如 PE=23.4x，不是"大约 20 多倍"）；时间节点必须标注（Q3 2024）
+2. **精确性**：所有数据引用必须具体到小数点（如 PE=23.4x，不是"大约 20 多倍"）；时间节点必须标注（如 Q3 ${lastYearStr}）
 3. **明确立场**：对每个核心问题必须给出明确立场（高估/合理/低估、买入/持有/减仓），禁止模糊表述
 4. **市场共识 vs 我的判断**：主动对比「市场普遍认为 X，但数据显示 Y，因此我判断 Z」
 5. **风险量化**：明确指出主要风险及其可能影响幅度（如"利率上升 100bp 将压缩估值 8-12%"）
@@ -231,7 +238,7 @@ DATA_INTEGRITY[MAX]:
 图表嵌入格式（直接输出以下标记，%%是字面量百分号）：
 
 %%CHART%%
-{"type":"line","title":"图表标题","data":[{"name":"2024Q1","value":100}],"xKey":"name","yKey":"value","unit":"元"}
+{"type":"line","title":"图表标题","data":[{"name":"${lastYearStr}Q1","value":100}],"xKey":"name","yKey":"value","unit":"元"}
 %%END_CHART%%
 
 **图表类型选择规则：**
@@ -245,11 +252,11 @@ DATA_INTEGRITY[MAX]:
 
 **多系列图表（多条折线/多组柱状）：**
 %%CHART%%
-{"type":"bar","title":"美团 vs 抖音营收对比","data":[{"name":"2022","meituan":1791,"douyin":800},{"name":"2023","meituan":2767,"douyin":1500}],"xKey":"name","series":[{"key":"meituan","color":"#6366f1","name":"美团"},{"key":"douyin","color":"#22c55e","name":"抖音"}],"unit":"亿元"}
+{"type":"bar","title":"美团 vs 抖音营收对比","data":[{"name":"${twoYearsAgoStr}","meituan":1791,"douyin":800},{"name":"${lastYearStr}","meituan":2767,"douyin":1500}],"xKey":"name","series":[{"key":"meituan","color":"#6366f1","name":"美团"},{"key":"douyin","color":"#22c55e","name":"抖音"}],"unit":"亿元"}
 %%END_CHART%%
 **K线图格式（支持成交量 + MA5/MA20）：**
 %%CHART%%
-{"type":"candlestick","title":"股价K线","data":[{"name":"2024-01","open":100,"high":110,"low":95,"close":105,"volume":5000000},{"name":"2024-02","open":105,"high":115,"low":100,"close":112,"volume":6200000}],"xKey":"name"}
+{"type":"candlestick","title":"股价K线","data":[{"name":"${lastYearStr}-01","open":100,"high":110,"low":95,"close":105,"volume":5000000},{"name":"${lastYearStr}-02","open":105,"high":115,"low":100,"close":112,"volume":6200000}],"xKey":"name"}
 %%END_CHART%%
 **热力图格式（板块涨跌）：**
 %%CHART%%
@@ -403,7 +410,7 @@ ${"```"}json
     {"name": "API名称", "params": {"ticker": "AAPL", "statements": ["IS","BS"], "years": 3}, "purpose": "完整财务报表供深度分析"},
     {"name": "fred", "params": {"series_ids": ["FEDFUNDS","CPIAUCSL"], "limit": 24}, "purpose": "宏观利率环境数据"}
   ],
-  "tavily_query": "苹果AI战略分析师观点 2024 或 null",
+  "tavily_query": "苹果AI战略分析师观点 ${currentYearStr} 或 null",
   "company_names": ["苹果", "Apple Inc."],
   "priority": "quick|standard|deep",
   "reasoning": "资源选取理由（一句话）"
@@ -910,7 +917,7 @@ MANDATORY（不可省略）:
 ① CONCLUSION_FIRST: 每段第一句就是结论，格式「**[判断]**（数据→逻辑）」，禁止先铺垫再结论
 ② POSITION: 对核心问题给出明确立场+幅度（「高估30-40%」不是「偏高」；「建议减仓」不是「可以考虑」）
 ③ CONSENSUS_VS_MINE: 主动对比「市场普遍认为X → 但数据显示Y → 因此我判断Z」，体现独立思考
-④ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（2024Q3）
+④ QUANTIFY: 引用 Manus 精确数字（PE=23.4x 而非"约20x"），标注时间（如 ${lastYearStr}Q3）
 ⑤ VALUATION: 若有 P/E|P/B|EV|PEG → 与行业均值+历史均值对比 → 给出估值结论（含幅度）
 ⑥ ANTI_THESIS: 主动提出「如果我错了，最可能的原因是：___」— 展示思维深度
 ⑦ DUAL_VERIFY: 正向（现在→未来）+ 反向（若判断正确→12个月内会出现什么可验证数据）
@@ -1703,69 +1710,100 @@ export const appRouter = router({
           }
         })(),
         // IMF DataMapper
-        checkImfApiHealth().then((r) => r.status),
+        withTimeout(checkImfApiHealth().then((r) => r.status as "active"|"error"|"timeout"), "timeout" as const),
         // Finnhub
-        ENV.FINNHUB_API_KEY
-          ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.FINNHUB_API_KEY
+            ? checkFinnhubHealth().then(r => r.ok ? "active" as const : "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // FMP
-        ENV.FMP_API_KEY
-          ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.FMP_API_KEY
+            ? checkFmpHealth().then(r => r.ok ? "active" as const : "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // Polygon.io
-        ENV.POLYGON_API_KEY
-          ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.POLYGON_API_KEY
+            ? checkPolygonHealth().then(r => r.ok ? "active" as const : "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // SEC EDGAR
-        checkSecHealth().then(r => r.ok ? "active" as const : "error" as const),
+        withTimeout(checkSecHealth().then(r => r.ok ? "active" as const : "error" as const), "timeout" as const),
         // Alpha Vantage
-        ENV.ALPHA_VANTAGE_API_KEY
-          ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.ALPHA_VANTAGE_API_KEY
+            ? checkAVHealth().then(r => r.ok ? "active" as const : "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // CoinGecko
-        ENV.COINGECKO_API_KEY
-          ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.COINGECKO_API_KEY
+            ? pingCoinGecko().then(ok => ok ? "active" as const : "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // Baostock（A股）：Python 子进程库，仅在本地沙筆环境可用
-        // 当探针失败时返回 "warning"（表示环境限制）而非 "error"（表示配置错误）
-        pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const),
+        withTimeout(
+          pingBaostock().then(ok => ok ? "active" as const : "warning" as const).catch(() => "warning" as const),
+          "warning" as const, 5000
+        ),
         // GDELT：免费公开，无需 Key，但受频率限制（5s 间隔）
-        // 健康检测时不实际请求（避免触发限速），直接返回 active
         Promise.resolve("active" as const),
         // NewsAPI
-        ENV.NEWS_API_KEY
-          ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.NEWS_API_KEY
+            ? checkNewsApiHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // Marketaux
-        ENV.MARKETAUX_API_KEY
-          ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.MARKETAUX_API_KEY
+            ? checkMarketauxHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // SimFin
-        ENV.SIMFIN_API_KEY
-          ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.SIMFIN_API_KEY
+            ? checkSimFinHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // Tiingo
-        ENV.TIINGO_API_KEY
-          ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.TIINGO_API_KEY
+            ? checkTiingoHealth().then(ok => ok ? "active" as const : "error" as const).catch(() => "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // ECB：免费公开 API，无需 Key
-        checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkECBHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
         // HKEXnews：免费公开 API，无需 Key
-        checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkHKEXHealth().then(r => r.ok ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
         // BoE：免费公开 API，无需 Key
-        checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkBoeHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
         // HKMA：免费公开 API，无需 Key
-        checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkHkmaHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
         // CourtListener：免费使用，有 Key 时请求限制更高
-        checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkCourtListenerHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
         // Congress.gov：需要 API Key
-        ENV.CONGRESS_API_KEY
-          ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const)
-          : Promise.resolve("error" as const),
+        withTimeout(
+          ENV.CONGRESS_API_KEY
+            ? checkCongressHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const)
+            : Promise.resolve("error" as const),
+          "timeout" as const
+        ),
         // EUR-Lex：本地静态数据，无需网络
         Promise.resolve(checkEurLexHealth().status === "ok" ? "active" as const : "error" as const),
         // GLEIF：免费公开 API，无需 Key
-        checkGleifHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const),
+        withTimeout(checkGleifHealth().then(r => r.status === "ok" ? "active" as const : "error" as const).catch(() => "error" as const), "timeout" as const),
       ]);
 
       const worldBankStatus = wbHealth.status === "fulfilled" ? wbHealth.value : "error";

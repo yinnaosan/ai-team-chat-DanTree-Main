@@ -19,6 +19,12 @@ import { checkNewsApiHealth } from "../newsApi";
 import { checkMarketauxHealth } from "../marketauxApi";
 import { checkSimFinHealth } from "../simfinApi";
 import { checkTiingoHealth } from "../tiingoApi";
+import { checkECBHealth } from "../ecbApi";
+import { checkHKEXHealth } from "../hkexApi";
+import { checkBoeHealth } from "../boeApi";
+import { checkHkmaHealth } from "../hkmaApi";
+import { checkGleifHealth } from "../gleifApi";
+import { checkImfApiHealth } from "../imfApi";
 import { ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -59,7 +65,7 @@ async function startServer() {
     const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 10000): Promise<T> =>
       Promise.race([p, new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))]);
     const t0 = Date.now();
-    const [finnhub, fmp, polygon, av, sec, newsApi, marketaux, simfin, tiingo] = await Promise.allSettled([
+    const [finnhub, fmp, polygon, av, sec, newsApi, marketaux, simfin, tiingo, ecb, hkex, boe, hkma, gleif, imf] = await Promise.allSettled([
       withTimeout(checkFinnhubHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkFmpHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkPolygonHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
@@ -69,6 +75,12 @@ async function startServer() {
       withTimeout(checkMarketauxHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkSimFinHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
       withTimeout(checkTiingoHealth().then(ok => ({ ok, detail: ok ? 'ok' : 'fail', ms: 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkECBHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkHKEXHealth().then(r => ({ ok: r.ok, detail: r.detail, ms: r.latencyMs })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkBoeHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
+      withTimeout(checkHkmaHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latency ?? 0 })), { ok: false, detail: 'error', ms: 10000 }),
+      withTimeout(checkGleifHealth().then(r => ({ ok: r.status === 'ok', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
+      withTimeout(checkImfApiHealth().then(r => ({ ok: r.status === 'active', detail: r.status, ms: r.latencyMs ?? 0 })), { ok: false, detail: 'TIMEOUT', ms: 10000 }),
     ]);
     const fmt = (r: PromiseSettledResult<{ok:boolean;detail:string;ms:number}>) =>
       r.status === 'fulfilled' ? r.value : { ok: false, detail: String((r as PromiseRejectedResult).reason), ms: -1 };
@@ -95,6 +107,12 @@ async function startServer() {
         marketaux: fmt(marketaux),
         simfin: fmt(simfin),
         tiingo: fmt(tiingo),
+        ecb: fmt(ecb),
+        hkex: fmt(hkex),
+        boe: fmt(boe),
+        hkma: fmt(hkma),
+        gleif: fmt(gleif),
+        imf: fmt(imf),
       },
     });
   });

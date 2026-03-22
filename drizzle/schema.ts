@@ -1,6 +1,6 @@
 import {
   int,
-  bigint,
+  bigint as bigintCol,
   mysqlEnum,
   mysqlTable,
   text,
@@ -158,8 +158,8 @@ export const accessCodes = mysqlTable("access_codes", {
   id: int("id").autoincrement().primaryKey(),
   code: varchar("code", { length: 64 }).notNull().unique(),
   label: varchar("label", { length: 128 }),       // 备注，如「给张三」
-  maxUses: bigint("maxUses", { mode: "number" }).default(1).notNull(),    // 最多可使用次数（-1 表示无限）
-  usedCount: bigint("usedCount", { mode: "number" }).default(0).notNull(),
+  maxUses: bigintCol("maxUses", { mode: "number" }).default(1).notNull(),    // 最多可使用次数（-1 表示无限）
+  usedCount: bigintCol("usedCount", { mode: "number" }).default(0).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   expiresAt: timestamp("expiresAt"),               // 可选过期时间
   createdAt: timestamp("createdAt").defaultNow().notNull(),

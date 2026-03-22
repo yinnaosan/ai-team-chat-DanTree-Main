@@ -450,10 +450,15 @@ print(json.dumps(rows[-${days}:] if len(rows) > ${days} else rows))
  * 获取 A 股盈利能力数据（最近 4 季）
  */
 export async function getAStockProfit(code: string): Promise<AStockProfitData[]> {
+  // 动态计算最近已发布的完整季度（当前季度-1，确保数据已发布）
+  const now = new Date();
+  const curQ = Math.floor(now.getMonth() / 3) + 1; // 1-4
+  const profitYear = curQ === 1 ? now.getFullYear() - 1 : now.getFullYear();
+  const profitQuarter = curQ === 1 ? 4 : curQ - 1;
   const script = `
 import baostock as bs, json
 bs.login()
-rs = bs.query_profit_data(code='${code}', year=2024, quarter=4)
+rs = bs.query_profit_data(code='${code}', year=${profitYear}, quarter=${profitQuarter})
 rows = []
 while rs.error_code == '0' and rs.next():
     r = rs.get_row_data()
@@ -472,10 +477,15 @@ print(json.dumps(rows))
  * 获取 A 股成长能力数据
  */
 export async function getAStockGrowth(code: string): Promise<AStockGrowthData[]> {
+  // 动态计算最近已发布的完整季度
+  const now = new Date();
+  const curQ = Math.floor(now.getMonth() / 3) + 1;
+  const growthYear = curQ === 1 ? now.getFullYear() - 1 : now.getFullYear();
+  const growthQuarter = curQ === 1 ? 4 : curQ - 1;
   const script = `
 import baostock as bs, json
 bs.login()
-rs = bs.query_growth_data(code='${code}', year=2024, quarter=4)
+rs = bs.query_growth_data(code='${code}', year=${growthYear}, quarter=${growthQuarter})
 rows = []
 while rs.error_code == '0' and rs.next():
     r = rs.get_row_data()

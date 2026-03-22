@@ -956,3 +956,9 @@
 - [x] 服务器正常运行确认
 - [x] 统一所有 API 文件使用 ENV 对象（清除冨余 process.env 引用）
 - [x] 保存 Checkpoint
+
+## 修复数据源健康检测「未配置」问题
+- [x] 定位根因：_core/env.ts 中 ENV 对象缺少硬编码回退，生产环境变量为空时 ENV.X 为空字符串导致健康检测跳过
+- [x] 修复：在 ENV 对象中为所有金融 API Key 添加第三级硬编码回退（环境变量 > local.config > 硬编码）
+- [x] TypeScript 0 错误，211 个测试全部通过
+- [x] 保存 Checkpoint

@@ -158,6 +158,12 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   userWatchlist: json("userWatchlist"),
   // 工作台列宽配置（JSON，如 {sidebar: 220, analysis: 320, discussion: 380, insight: 280}）
   columnWidths: json("columnWidths"),
+  // 最后访问的标的（用于跨 session 持久化 currentTicker）
+  lastTicker: varchar("lastTicker", { length: 32 }),
+  // 研究风格：输出风格 + 分析重点偏好
+  researchStyle: json("researchStyle"),
+  // AI 行为配置：responseStyle / initiativeLevel / decisionStyle
+  aiBehavior: json("aiBehavior"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

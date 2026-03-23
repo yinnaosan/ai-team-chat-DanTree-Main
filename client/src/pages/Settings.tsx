@@ -741,8 +741,10 @@ export default function Settings() {
     password: "",
     filePath: "",
   });
-
-  // ─── 数据查询 ───────────────────────────────────────────────────────────────
+  // ─── 研究风格状态 ─────────────────────────────────────────────────────────────────────────────
+  const [selectedOutputStyle, setSelectedOutputStyle] = useState<string>("decisive");
+  const [selectedEmphasis, setSelectedEmphasis] = useState<string[]>(["valuation", "business"]);
+  // ─── 数据查询 ─────────────────────────────────────────────────────────────────────────────
   const { data: savedConfig } = trpc.rpa.getConfig.useQuery(undefined, { enabled: isAuthenticated });
   const isUsingOwnerDefaults = (savedConfig as any)?.isUsingOwnerDefaults ?? false;
 
@@ -779,6 +781,10 @@ export default function Settings() {
       }
       const tsc = (savedConfig as any).trustedSourcesConfig;
       if (tsc?.sources) setTrustedSourcesConfig(tsc);
+      // 研究风格同步
+      const rs = (savedConfig as any).researchStyle;
+      if (rs?.outputStyle) setSelectedOutputStyle(rs.outputStyle);
+      if (rs?.analysisEmphasis?.length) setSelectedEmphasis(rs.analysisEmphasis);
     }
   }, [savedConfig]);
 
@@ -2127,12 +2133,23 @@ export default function Settings() {
         {/* ── Tab: 研究风格 ── */}
         {activeTab === "research_style" && (
           <div className="p-6 space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>研究风格配置</h3>
-              <p className="text-xs mb-4" style={{ color: "oklch(42% 0 0)" }}>自定义 AI 研究输出的风格、深度和展示偏好</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>研究风格配置</h3>
+                <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>自定义 AI 研究输出的风格、深度和展示偏好</p>
+              </div>
+              <Button size="sm" className="text-xs h-7 px-3"
+                style={{ background: "var(--bloomberg-gold)", color: "oklch(10% 0 0)" }}
+                disabled={saveConfigMutation.isPending}
+                onClick={() => saveConfigMutation.mutate({
+                  researchStyle: { outputStyle: selectedOutputStyle, analysisEmphasis: selectedEmphasis },
+                } as any)}>
+                {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                <span className="ml-1">保存</span>
+              </Button>
             </div>
             {/* 输出风格选择 */}
-            <div className="rounded-2xl p-4 space-y-4" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
               <div className="flex items-center gap-2">
                 <Sliders className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
                 <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>输出风格</span>
@@ -2142,42 +2159,55 @@ export default function Settings() {
                 { id: "directional", label: "方向性", desc: "给出倾向性判断，保留不确定性，适合研究场景", icon: "🧭" },
                 { id: "framework_only", label: "框架性", desc: "提供分析框架和多角度视角，适合学习场景", icon: "🗺" },
               ].map(({ id, label, desc, icon }) => (
-                <div key={id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all hover:opacity-90"
-                  style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+                <div key={id}
+                  onClick={() => setSelectedOutputStyle(id)}
+                  className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all hover:opacity-90"
+                  style={{
+                    background: selectedOutputStyle === id ? "oklch(0.72 0.18 75 / 0.1)" : "oklch(100% 0 0 / 0.04)",
+                    border: `1px solid ${selectedOutputStyle === id ? "var(--bloomberg-gold)" : "var(--bloomberg-border)"}`,
+                  }}>
                   <span className="text-lg">{icon}</span>
                   <div className="flex-1">
                     <div className="text-xs font-semibold" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
                     <div className="text-xs mt-0.5" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
                   </div>
-                  <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: id === "decisive" ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }} />
+                  <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: selectedOutputStyle === id ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }} />
                 </div>
               ))}
             </div>
-            {/* 分析深度设置 */}
+            {/* 分析重点偏好（多选） */}
             <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
-                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>分析重点偏好</span>
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>分析重点偏好（可多选）</span>
               </div>
               {[
                 { id: "valuation", label: "估値为主", desc: "重点分析 DCF、PE、PB 等估値指标" },
                 { id: "business", label: "业务为主", desc: "重点分析商业模式、护城河、竞争格局" },
                 { id: "risk", label: "风险为主", desc: "重点识别风险因素和下行场景" },
                 { id: "macro", label: "宏观为主", desc: "重点分析宏观环境对企业的影响" },
-              ].map(({ id, label, desc }) => (
-                <div key={id} className="flex items-center justify-between py-2 px-3 rounded-lg"
-                  style={{ background: "oklch(100% 0 0 / 0.03)", border: "1px solid var(--bloomberg-border)" }}>
-                  <div>
-                    <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
-                    <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+              ].map(({ id, label, desc }) => {
+                const isOn = selectedEmphasis.includes(id);
+                return (
+                  <div key={id}
+                    onClick={() => setSelectedEmphasis(prev =>
+                      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                    )}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer transition-all"
+                    style={{ background: isOn ? "oklch(0.72 0.18 75 / 0.07)" : "oklch(100% 0 0 / 0.03)", border: `1px solid ${isOn ? "var(--bloomberg-gold)" : "var(--bloomberg-border)"}` }}>
+                    <div>
+                      <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
+                      <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                    </div>
+                    <div className="w-8 h-4 rounded-full relative transition-all"
+                      style={{ background: isOn ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }}>
+                      <div className="w-3 h-3 rounded-full absolute top-0.5 transition-all"
+                        style={{ background: "white", left: isOn ? "calc(100% - 14px)" : "2px" }} />
+                    </div>
                   </div>
-                  <div className="w-8 h-4 rounded-full relative cursor-pointer"
-                    style={{ background: id === "valuation" || id === "business" ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }}>
-                    <div className="w-3 h-3 rounded-full absolute top-0.5 transition-all"
-                      style={{ background: "white", left: id === "valuation" || id === "business" ? "calc(100% - 14px)" : "2px" }} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

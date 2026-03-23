@@ -540,6 +540,7 @@ function CustomizeWorkspaceModal({ open, onClose, panelVisibility, onTogglePanel
   onColumnWidthsChange?: (key: string, value: number) => void;
   onSave?: () => void;
 }) {
+  const [activeTab, setActiveTab] = React.useState<"panels" | "layout">("panels");
   const panels = [
     { key: "verdict", label: "AI Verdict Card", desc: "主要决策输出" },
     { key: "keyAnalysis", label: "Key Analysis", desc: "Bull/Bear/Macro 三栏" },
@@ -549,7 +550,12 @@ function CustomizeWorkspaceModal({ open, onClose, panelVisibility, onTogglePanel
     { key: "recommendedActions", label: "Recommended Actions", desc: "建议行动步骤" },
     { key: "deepSections", label: "Deep Sections", desc: "高级分析模块" },
   ];
-
+  const colDefs: Array<{ key: keyof NonNullable<typeof columnWidths>; label: string; min: number; max: number }> = [
+    { key: "sidebar", label: "侧边栏", min: 160, max: 360 },
+    { key: "analysis", label: "分析列", min: 220, max: 560 },
+    { key: "discussion", label: "讨论列", min: 260, max: 560 },
+    { key: "insight", label: "Insight 列", min: 200, max: 480 },
+  ];
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-sm" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border-dim)" }}>
@@ -558,23 +564,70 @@ function CustomizeWorkspaceModal({ open, onClose, panelVisibility, onTogglePanel
             Customize Workspace
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          {panels.map(p => (
-            <div key={p.key} className="flex items-center justify-between p-2.5 rounded-lg"
-              style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border-dim)" }}>
-              <div>
-                <p className="text-xs font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{p.label}</p>
-                <p className="text-[10px]" style={{ color: "oklch(40% 0 0)" }}>{p.desc}</p>
-              </div>
-              <button
-                onClick={() => onTogglePanel(p.key)}
-                className="p-1.5 rounded transition-colors"
-                style={{ color: panelVisibility[p.key] ? "var(--bloomberg-gold)" : "oklch(35% 0 0)" }}>
-                {panelVisibility[p.key] ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </button>
-            </div>
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: "var(--bloomberg-surface-2)" }}>
+          {(["panels", "layout"] as const).map(t => (
+            <button key={t} onClick={() => setActiveTab(t)}
+              className="flex-1 py-1 text-[11px] font-medium rounded-md transition-all"
+              style={activeTab === t
+                ? { background: "var(--bloomberg-surface-3)", color: "var(--bloomberg-gold)" }
+                : { color: "oklch(45% 0 0)" }}>
+              {t === "panels" ? "卡片显示" : "列宽布局"}
+            </button>
           ))}
         </div>
+        {activeTab === "panels" ? (
+          <div className="space-y-2">
+            {panels.map(p => (
+              <div key={p.key} className="flex items-center justify-between p-2.5 rounded-lg"
+                style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border-dim)" }}>
+                <div>
+                  <p className="text-xs font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{p.label}</p>
+                  <p className="text-[10px]" style={{ color: "oklch(40% 0 0)" }}>{p.desc}</p>
+                </div>
+                <button
+                  onClick={() => onTogglePanel(p.key)}
+                  className="p-1.5 rounded transition-colors"
+                  style={{ color: panelVisibility[p.key] ? "var(--bloomberg-gold)" : "oklch(35% 0 0)" }}>
+                  {panelVisibility[p.key] ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {colDefs.map(col => (
+              <div key={col.key} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium" style={{ color: "var(--bloomberg-text-secondary)" }}>{col.label}</span>
+                  <span className="text-[11px] font-mono" style={{ color: "var(--bloomberg-gold)" }}>
+                    {columnWidths?.[col.key] ?? col.min}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={col.min}
+                  max={col.max}
+                  step={10}
+                  value={columnWidths?.[col.key] ?? col.min}
+                  onChange={e => onColumnWidthsChange?.(col.key, Number(e.target.value))}
+                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                  style={{ accentColor: "var(--bloomberg-gold)" }}
+                />
+                <div className="flex justify-between">
+                  <span className="text-[9px]" style={{ color: "oklch(30% 0 0)" }}>{col.min}</span>
+                  <span className="text-[9px]" style={{ color: "oklch(30% 0 0)" }}>{col.max}</span>
+                </div>
+              </div>
+            ))}
+            <Button
+              onClick={onSave}
+              className="w-full h-8 text-xs font-medium"
+              style={{ background: "var(--bloomberg-gold)", color: "oklch(10% 0 0)" }}>
+              保存列宽配置
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -662,6 +715,17 @@ export default function ResearchWorkspacePage() {
       insight: cw.insight ?? prev.insight,
     }));
   }, [rpaConfig?.columnWidths]);
+  // ── Sync lastTicker from rpaConfig (cross-session persistence) ──
+  const [tickerLoadedFromConfig, setTickerLoadedFromConfig] = useState(false);
+  useEffect(() => {
+    if (!rpaConfig || tickerLoadedFromConfig) return;
+    const last = (rpaConfig as any).lastTicker as string | null | undefined;
+    if (last && !currentTicker) {
+      setCurrentTicker(last);
+    }
+    setTickerLoadedFromConfig(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rpaConfig]);
 
   // ── Mutations ──
   const createConvMutation = trpc.chat.createConversation.useMutation({
@@ -692,9 +756,20 @@ export default function ResearchWorkspacePage() {
     },
   });
   const saveConfigMutation = trpc.rpa.setConfig.useMutation({
+    onError: (err) => toast.error("保存失败: " + err.message),
+  });
+  const saveConfigWithToastMutation = trpc.rpa.setConfig.useMutation({
     onSuccess: () => toast.success("工作台配置已保存"),
     onError: (err) => toast.error("保存失败: " + err.message),
   });
+  // ── Persist currentTicker when it changes ──
+  const prevTickerRef = useRef("");
+  useEffect(() => {
+    if (!currentTicker || currentTicker === prevTickerRef.current || !tickerLoadedFromConfig) return;
+    prevTickerRef.current = currentTicker;
+    saveConfigMutation.mutate({ lastTicker: currentTicker });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTicker, tickerLoadedFromConfig]);
   const pinConvMutation = trpc.conversation.pin.useMutation({ onSuccess: () => refetchConvs(), onError: (err) => toast.error(err.message) });
   const favoriteConvMutation = trpc.conversation.favorite.useMutation({ onSuccess: () => refetchConvs(), onError: (err) => toast.error(err.message) });
   const deleteConvMutation = trpc.conversation.delete.useMutation({
@@ -973,7 +1048,7 @@ export default function ResearchWorkspacePage() {
         panelVisibility={panelVisibility}
         columnWidths={columnWidths}
         onColumnWidthsChange={(key, value) => setColumnWidths(prev => ({ ...prev, [key]: value }))}
-        onSave={() => saveConfigMutation.mutate({ columnWidths })}
+        onSave={() => saveConfigWithToastMutation.mutate({ columnWidths })}
         onTogglePanel={(key) => setPanelVisibility(prev => ({ ...prev, [key]: !prev[key] }))}
       />
 
@@ -982,7 +1057,7 @@ export default function ResearchWorkspacePage() {
       ════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col shrink-0 transition-all duration-200"
         style={{
-          width: sidebarCollapsed ? "48px" : "220px",
+          width: sidebarCollapsed ? "48px" : `${columnWidths.sidebar}px`,
           background: "var(--bloomberg-surface-1)",
           borderRight: "1px solid var(--bloomberg-border-dim)",
         }}>
@@ -1294,29 +1369,37 @@ export default function ResearchWorkspacePage() {
       ════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col shrink-0 overflow-hidden"
         style={{
-          width: "380px",
+          width: `${columnWidths.discussion}px`,
           background: "var(--bloomberg-surface-0)",
           borderRight: "1px solid var(--bloomberg-border-dim)",
         }}>
         {/* Discussion Header */}
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0"
           style={{ background: "var(--bloomberg-surface-1)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>Discussion</span>
-            {/* Context header */}
+          <div className="flex items-center gap-2 overflow-hidden">
+            <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />
+            <span className="text-xs font-semibold shrink-0" style={{ color: "var(--bloomberg-text-primary)" }}>Discussion</span>
+            {/* Context chips */}
             {currentTicker && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0"
                 style={{ background: "oklch(0.72 0.18 75 / 0.12)", color: "var(--bloomberg-gold)", border: "1px solid oklch(0.72 0.18 75 / 0.3)" }}>
                 {currentTicker}
               </span>
             )}
-            {analysisMode && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded"
-                style={{ background: "var(--bloomberg-surface-2)", color: "oklch(40% 0 0)", border: "1px solid var(--bloomberg-border-dim)" }}>
-                Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
-              </span>
-            )}
+            <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+              style={{ background: "var(--bloomberg-surface-2)", color: "oklch(40% 0 0)", border: "1px solid var(--bloomberg-border-dim)" }}>
+              Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
+            </span>
+            {/* Active conversation title */}
+            {activeConvId && allConversations && (() => {
+              const conv = allConversations.find(c => c.id === activeConvId);
+              return conv?.title ? (
+                <span className="text-[10px] truncate max-w-[100px]" style={{ color: "oklch(35% 0 0)" }}
+                  title={conv.title}>
+                  · {conv.title}
+                </span>
+              ) : null;
+            })()}
           </div>
           {/* Pipeline indicator */}
           {isTyping && (
@@ -1428,7 +1511,7 @@ export default function ResearchWorkspacePage() {
       ════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col shrink-0 overflow-hidden transition-all duration-200"
         style={{
-          width: insightCollapsed ? "40px" : "260px",
+          width: insightCollapsed ? "40px" : `${columnWidths.insight}px`,
           background: "var(--bloomberg-surface-1)",
         }}>
         {/* Insight Header */}

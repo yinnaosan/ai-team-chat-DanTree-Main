@@ -1886,6 +1886,6 @@
 
 ## ResearchWorkspace 三大功能升级
 
-- [ ] 数据联动：发送消息后分析列 AIVerdictCard/RiskPanel 自动更新（SSE 状态驱动 + convMessages 响应式绑定）
-- [ ] Pinned Metrics 实时行情：顶部栏展示当前标的实时价格/涨跌幅/PE（后端 tRPC + Finnhub/Twelve Data API）
-- [ ] WorkspaceCustomizeModal：拖拽调整 4 列宽度比例并持久化到 rpaConfig（DB + API 全链路）
+- [x] 数据联动：发送消息后分析列 AIVerdictCard/RiskPanel 自动更新（SSE 状态驱动 + convMessages 响应式绑定）
+- [x] Pinned Metrics 实时行情：顶部栏展示当前标的实时价格/涨跌幅/PE（后端 tRPC + Finnhub/Twelve Data API）
+- [x] WorkspaceCustomizeModal：拖拽调整 4 列宽度比例并持久化到 rpaConfig（DB + API 全链路）

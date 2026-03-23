@@ -3142,6 +3142,12 @@ export const appRouter = router({
         userWatchlist: (config?.userWatchlist as string[] | null) ?? ["AAPL", "TSLA", "NVDA", "BTC"],
         // 工作台列宽配置
         columnWidths: (config?.columnWidths as {sidebar?: number; analysis?: number; discussion?: number; insight?: number} | null) ?? null,
+        // 最后访问的标的
+        lastTicker: config?.lastTicker ?? null,
+        // 研究风格
+        researchStyle: (config?.researchStyle as {outputStyle?: string; analysisEmphasis?: string[]} | null) ?? null,
+        // AI 行为配置
+        aiBehavior: (config?.aiBehavior as {responseStyle?: string; initiativeLevel?: string; decisionStyle?: string} | null) ?? null,
       };
     }),
     // 保存 API Key 和模型选择
@@ -3197,6 +3203,19 @@ export const appRouter = router({
           discussion: z.number().min(280).max(600).optional(),
           insight: z.number().min(200).max(500).optional(),
         }).optional().nullable(),
+        // 最后访问的标的
+        lastTicker: z.string().max(32).optional().nullable(),
+        // 研究风格
+        researchStyle: z.object({
+          outputStyle: z.string().optional(),
+          analysisEmphasis: z.array(z.string()).optional(),
+        }).optional().nullable(),
+        // AI 行为配置
+        aiBehavior: z.object({
+          responseStyle: z.string().optional(),
+          initiativeLevel: z.string().optional(),
+          decisionStyle: z.string().optional(),
+        }).optional().nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3219,6 +3238,12 @@ export const appRouter = router({
           userWatchlist: input.userWatchlist ?? undefined,
           // 工作台列宽配置
           columnWidths: input.columnWidths ?? undefined,
+          // 最后访问的标的
+          lastTicker: input.lastTicker ?? undefined,
+          // 研究风格
+          researchStyle: input.researchStyle ?? undefined,
+          // AI 行为配置
+          aiBehavior: input.aiBehavior ?? undefined,
         });
         return { success: true };
       }),

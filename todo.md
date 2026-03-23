@@ -1468,3 +1468,14 @@
 - [x] 编写 dataStandardizer.test.ts（15 个测试全部通过）
 - [x] 编写 alphaFactors.test.ts（8 个测试全部通过）
 - [x] 总计 388/389 测试通过（1 个失败为已知网络环境限制）
+
+## P2 架构集成：qlib 扩展 + FinanceDatabase + FinanceReportAnalysis + goat-sdk
+- [x] 扩展 alphaFactors.ts：7 个基本面 Alpha 因子（PE_MOM/EPS_REV/ROE_TREND/ANALYST_UPSIDE/ANALYST_CONSENSUS/FCF_TREND/PB_DISCOUNT）
+- [x] 创建 server/financeDatabaseApi.ts（JerBouma/FinanceDatabase：159,957 行股票分类数据，支持行业/市场/交易所/同业公司查询）
+- [x] 接入 FinanceDatabase 到 Step2 deepTasks（股票代码 → 行业分类 + 同业公司列表）
+- [x] 创建 server/financeReportParser.ts（GallenQiu/FinanceReportAnalysis：财报 PDF 解析 + 关键指标提取 + 风险因素分析）
+- [x] 创建 server/defiDataApi.ts（goat-sdk/goat：DeFiLlama 7213 个协议 + 436 条链 + 18168 个 Yield 池）
+- [x] 接入 DeFi 数据到 Step2 deepTasks（检测到 DeFi 关键词时自动触发）
+- [x] 接入 FinanceDatabase 到 Step2 deepTasks（股票代码 → 行业分类 + 同业公司）
+- [x] 编写测试：alphaFactors.test.ts(8) + financeReportParser.test.ts(14) + defiDataApi.test.ts(10) + financeDatabaseApi.test.ts(10) = 42 个测试全部通过
+- [x] 总计 422/423 测试通过（1 个失败为已知网络环境限制）

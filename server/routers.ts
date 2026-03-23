@@ -97,6 +97,8 @@ import { generateRiskSummary, parametricVaR } from "./currencyRisk";
 import { isETFTask, extractETFTickers, getETFBasicInfo, calculateETFRiskMetrics, scoreETF, compareETFsSummary } from "./etfAnalysis";
 import { executeCode, validateCode, getPresetChartCode, generateAutoChart } from "./codeExecution";
 import { calcAlphaFactors, convertToOHLCVSeries } from "./alphaFactors";
+import { getDeFiOverview, searchDeFiProtocols, formatDeFiOverview, needsDeFiData, extractDeFiProtocols } from "./defiDataApi";
+import { getEquityClassification, formatFinanceDatabaseReport, extractTickersForClassification } from "./financeDatabaseApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1183,8 +1185,43 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // DeFi 链上数据（goat-sdk/goat 架构：DeFiLlama TVL + Yield 池）
+      () => needsDeFiData(taskDescription)
+        ? timed("DeFi链上数据", (async () => {
+            try {
+              const protocols = extractDeFiProtocols(taskDescription);
+              if (protocols.length > 0) {
+                // 有特定协议 → 搜索协议详情
+                const results = await Promise.all(
+                  protocols.slice(0, 3).map(p => searchDeFiProtocols(p).catch(() => []))
+                );
+                const allProtocols = results.flat().slice(0, 10);
+                if (allProtocols.length === 0) {
+                  const overview = await getDeFiOverview();
+                  return formatDeFiOverview(overview);
+                }
+                return `## DeFi 协议数据（goat-sdk/goat · DeFiLlama）\n\n` +
+                  allProtocols.map(p => `**${p.name}** (${p.category}) TVL: $${(p.tvl/1e9).toFixed(2)}B | 24h: ${p.change1d !== undefined ? (p.change1d >= 0 ? '+' : '') + p.change1d.toFixed(1) + '%' : 'N/A'} | 链: ${p.chain}`).join('\n');
+              } else {
+                // 通用 DeFi 查询 → 总览数据
+                const overview = await getDeFiOverview();
+                return formatDeFiOverview(overview);
+              }
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
+      // 全球股票分类（JerBouma/FinanceDatabase：30万+ 股票分类 + 同业公司）
+      () => primaryTicker && !primaryTicker.includes(".")
+        ? timed("股票分类", (async () => {
+            try {
+              const result = await getEquityClassification(primaryTicker!);
+              if (!result.classification) return "";
+              return formatFinanceDatabaseReport(result);
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1265,6 +1302,8 @@ ${"```"}`;
       gleifMarkdown,           // GLEIF 全球 LEI 法人识别码/法人结构/母子公司关系
       etfResult?.status === "fulfilled" && etfResult.value ? etfResult.value : "",  // ETF 分析（ThePassiveInvestor）
       alphaResult?.status === "fulfilled" && alphaResult.value ? alphaResult.value : "",  // Alpha 因子（qlib Alpha101 + Alpha158）
+      defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "",  // DeFi 链上数据（goat-sdk/goat · DeFiLlama）
+      financeDbResult?.status === "fulfilled" && financeDbResult.value ? financeDbResult.value : "",  // 全球股票分类（JerBouma/FinanceDatabase）
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）

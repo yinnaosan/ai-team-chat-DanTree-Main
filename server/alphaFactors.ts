@@ -519,6 +519,382 @@ function calcHLSPREAD(data: OHLCVSeries): AlphaFactor {
   };
 }
 
+// ── 基本面 Alpha 因子（qlib Alpha158 扩展）────────────────────────────────────
+// 需要外部传入基本面数据（来自 FMP / Yahoo Finance / SimFin）
+
+export interface FundamentalData {
+  /** 历史 P/E 序列（最近 8 个季度，从旧到新） */
+  peHistory?: number[];
+  /** 历史 EPS 序列（最近 8 个季度，从旧到新） */
+  epsHistory?: number[];
+  /** 历史 ROE 序列（最近 8 个季度，从旧到新） */
+  roeHistory?: number[];
+  /** 历史营收增长率序列（最近 8 个季度，从旧到新） */
+  revenueGrowthHistory?: number[];
+  /** 分析师目标价（当前） */
+  analystTargetPrice?: number;
+  /** 当前股价 */
+  currentPrice?: number;
+  /** 分析师买入评级数量 */
+  analystBuyCount?: number;
+  /** 分析师卖出评级数量 */
+  analystSellCount?: number;
+  /** 分析师持有评级数量 */
+  analystHoldCount?: number;
+  /** 当前 P/E */
+  currentPE?: number;
+  /** 5年平均 P/E */
+  avgPE5Y?: number;
+  /** 当前 P/B */
+  currentPB?: number;
+  /** 净利润率历史序列 */
+  netMarginHistory?: number[];
+  /** 自由现金流历史序列（亿美元） */
+  fcfHistory?: number[];
+}
+
+/**
+ * 基本面因子 PE_MOM: P/E 动量（当前 P/E 相对历史均值的偏离）
+ * 低 P/E 相对历史 = 低估信号（价值因子）
+ * 分类：价值
+ */
+export function calcPE_MOM(fundamentals: FundamentalData): AlphaFactor {
+  const { peHistory, currentPE } = fundamentals;
+  if (!peHistory || peHistory.length < 4 || !currentPE || currentPE <= 0) {
+    return nullFactor("PE_MOM", "value", "P/E 动量因子");
+  }
+
+  const validPE = peHistory.filter(v => v > 0 && isFinite(v));
+  if (validPE.length < 3) return nullFactor("PE_MOM", "value", "P/E 动量因子");
+
+  const avgPE = mean(validPE);
+  const peMom = avgPE > 0 ? (currentPE - avgPE) / avgPE : 0;
+
+  const z = zScore(peMom, validPE.map(pe => (pe - avgPE) / avgPE));
+  const { signal, strength } = signalFromZ(-z); // 低于历史均值 = 低估 = 看多
+
+  return {
+    name: "PE_MOM",
+    value: peMom,
+    zScore: z,
+    signal,
+    strength,
+    category: "value",
+    description: `P/E 动量：当前 P/E ${currentPE.toFixed(1)} vs 历史均值 ${avgPE.toFixed(1)}（偏离 ${(peMom * 100).toFixed(1)}%）`,
+    historicalIC: 0.048,
+  };
+}
+
+/**
+ * 基本面因子 EPS_REV: EPS 修正动量（最近 2 季度 EPS 变化趋势）
+ * 连续上调 EPS = 盈利改善信号
+ * 分类：质量
+ */
+export function calcEPS_REV(fundamentals: FundamentalData): AlphaFactor {
+  const { epsHistory } = fundamentals;
+  if (!epsHistory || epsHistory.length < 4) {
+    return nullFactor("EPS_REV", "quality", "EPS 修正动量");
+  }
+
+  const valid = epsHistory.filter(v => isFinite(v));
+  if (valid.length < 4) return nullFactor("EPS_REV", "quality", "EPS 修正动量");
+
+  // 最近 2 季度 EPS 变化
+  const recent = valid.slice(-4);
+  const q1Change = recent[1] - recent[0];
+  const q2Change = recent[3] - recent[2];
+  const epsRev = q1Change + q2Change; // 合计修正幅度
+
+  const historical: number[] = [];
+  for (let i = 4; i <= valid.length; i++) {
+    const seg = valid.slice(i - 4, i);
+    historical.push((seg[1] - seg[0]) + (seg[3] - seg[2]));
+  }
+
+  const z = historical.length > 2 ? zScore(epsRev, historical) : null;
+  const { signal, strength } = signalFromZ(z);
+
+  return {
+    name: "EPS_REV",
+    value: epsRev,
+    zScore: z,
+    signal,
+    strength,
+    category: "quality",
+    description: `EPS 修正动量：近 2 季度 EPS 合计变化 ${epsRev > 0 ? "+" : ""}${epsRev.toFixed(3)}（正值 = 盈利改善）`,
+    historicalIC: 0.055,
+  };
+}
+
+/**
+ * 基本面因子 ROE_TREND: ROE 趋势（最近 4 季度 ROE 斜率）
+ * ROE 上升趋势 = 盈利能力改善信号
+ * 分类：质量
+ */
+export function calcROE_TREND(fundamentals: FundamentalData): AlphaFactor {
+  const { roeHistory } = fundamentals;
+  if (!roeHistory || roeHistory.length < 4) {
+    return nullFactor("ROE_TREND", "quality", "ROE 趋势因子");
+  }
+
+  const valid = roeHistory.filter(v => isFinite(v)).slice(-4);
+  if (valid.length < 4) return nullFactor("ROE_TREND", "quality", "ROE 趋势因子");
+
+  // 线性回归斜率（简化版）
+  const n = valid.length;
+  const xs = Array.from({ length: n }, (_, i) => i);
+  const xMean = mean(xs), yMean = mean(valid);
+  const slope = xs.reduce((s, x, i) => s + (x - xMean) * (valid[i] - yMean), 0) /
+    xs.reduce((s, x) => s + (x - xMean) ** 2, 0);
+
+  const z = zScore(slope, roeHistory.map((_, i) => {
+    if (i < 3) return 0;
+    const seg = roeHistory.slice(i - 3, i + 1);
+    const xm = 1.5, ym = mean(seg);
+    const num = [0,1,2,3].reduce((s, x, j) => s + (x - xm) * (seg[j] - ym), 0);
+    const den = [0,1,2,3].reduce((s, x) => s + (x - xm) ** 2, 0);
+    return den > 0 ? num / den : 0;
+  }));
+
+  const { signal, strength } = signalFromZ(z);
+
+  return {
+    name: "ROE_TREND",
+    value: slope,
+    zScore: z,
+    signal,
+    strength,
+    category: "quality",
+    description: `ROE 趋势：最近 4 季度斜率 ${slope > 0 ? "+" : ""}${slope.toFixed(3)}（正值 = ROE 持续改善）`,
+    historicalIC: 0.062,
+  };
+}
+
+/**
+ * 基本面因子 ANALYST_UPSIDE: 分析师目标价上涨空间
+ * 目标价 vs 当前价的差距
+ * 分类：价值
+ */
+export function calcANALYST_UPSIDE(fundamentals: FundamentalData): AlphaFactor {
+  const { analystTargetPrice, currentPrice } = fundamentals;
+  if (!analystTargetPrice || !currentPrice || currentPrice <= 0) {
+    return nullFactor("ANALYST_UPSIDE", "value", "分析师目标价上涨空间");
+  }
+
+  const upside = (analystTargetPrice - currentPrice) / currentPrice;
+
+  // 无历史序列，直接用 upside 作为信号
+  const signal: 1 | -1 | 0 = upside > 0.1 ? 1 : upside < -0.1 ? -1 : 0;
+  const strength = Math.min(100, Math.round(Math.abs(upside) * 200));
+
+  return {
+    name: "ANALYST_UPSIDE",
+    value: upside,
+    zScore: upside / 0.15, // 归一化：15% 上涨空间 ≈ 1 sigma
+    signal,
+    strength,
+    category: "value",
+    description: `分析师目标价上涨空间：${(upside * 100).toFixed(1)}%（目标价 $${analystTargetPrice.toFixed(2)} vs 当前 $${currentPrice.toFixed(2)}）`,
+    historicalIC: 0.043,
+  };
+}
+
+/**
+ * 基本面因子 ANALYST_CONSENSUS: 分析师评级共识
+ * 买入比例越高 = 机构共识越强
+ * 分类：质量
+ */
+export function calcANALYST_CONSENSUS(fundamentals: FundamentalData): AlphaFactor {
+  const { analystBuyCount, analystSellCount, analystHoldCount } = fundamentals;
+  const total = (analystBuyCount ?? 0) + (analystSellCount ?? 0) + (analystHoldCount ?? 0);
+  if (total < 3) return nullFactor("ANALYST_CONSENSUS", "quality", "分析师评级共识");
+
+  const buyRatio = (analystBuyCount ?? 0) / total;
+  const sellRatio = (analystSellCount ?? 0) / total;
+  const consensus = buyRatio - sellRatio; // -1 到 1
+
+  const signal: 1 | -1 | 0 = consensus > 0.3 ? 1 : consensus < -0.3 ? -1 : 0;
+  const strength = Math.min(100, Math.round(Math.abs(consensus) * 100));
+
+  return {
+    name: "ANALYST_CONSENSUS",
+    value: consensus,
+    zScore: consensus / 0.3, // 归一化
+    signal,
+    strength,
+    category: "quality",
+    description: `分析师评级共识：买入 ${analystBuyCount ?? 0} / 持有 ${analystHoldCount ?? 0} / 卖出 ${analystSellCount ?? 0}（共识分 ${consensus.toFixed(2)}）`,
+    historicalIC: 0.038,
+  };
+}
+
+/**
+ * 基本面因子 FCF_YIELD: 自由现金流收益率趋势
+ * FCF 持续增长 = 高质量盈利信号
+ * 分类：质量
+ */
+export function calcFCF_TREND(fundamentals: FundamentalData): AlphaFactor {
+  const { fcfHistory } = fundamentals;
+  if (!fcfHistory || fcfHistory.length < 3) {
+    return nullFactor("FCF_TREND", "quality", "自由现金流趋势");
+  }
+
+  const valid = fcfHistory.filter(v => isFinite(v));
+  if (valid.length < 3) return nullFactor("FCF_TREND", "quality", "自由现金流趋势");
+
+  // 最近 3 期 FCF 增长率均值
+  const growthRates: number[] = [];
+  for (let i = 1; i < valid.length; i++) {
+    if (valid[i - 1] !== 0) {
+      growthRates.push((valid[i] - valid[i - 1]) / Math.abs(valid[i - 1]));
+    }
+  }
+  if (growthRates.length === 0) return nullFactor("FCF_TREND", "quality", "自由现金流趋势");
+
+  const avgGrowth = mean(growthRates.slice(-3));
+  const z = growthRates.length > 3 ? zScore(avgGrowth, growthRates) : null;
+  const { signal, strength } = signalFromZ(z);
+
+  return {
+    name: "FCF_TREND",
+    value: avgGrowth,
+    zScore: z,
+    signal,
+    strength,
+    category: "quality",
+    description: `自由现金流趋势：近 3 期平均增长 ${(avgGrowth * 100).toFixed(1)}%（正值 = FCF 持续增长）`,
+    historicalIC: 0.058,
+  };
+}
+
+/**
+ * 基本面因子 PB_DISCOUNT: P/B 折价因子
+ * 当前 P/B 低于行业均值 = 低估信号
+ * 分类：价值
+ */
+export function calcPB_DISCOUNT(fundamentals: FundamentalData): AlphaFactor {
+  const { currentPB } = fundamentals;
+  if (!currentPB || currentPB <= 0) {
+    return nullFactor("PB_DISCOUNT", "value", "P/B 折价因子");
+  }
+
+  // 基于 P/B 绝对值判断（行业中位数约 2-4x）
+  // P/B < 1 = 极度低估，P/B 1-2 = 低估，P/B 2-4 = 合理，P/B > 4 = 高估
+  const pbSignal = 1 / currentPB; // 倒数：P/B 越低，信号越强
+  const z = Math.log(2 / currentPB); // 相对于 P/B=2 的对数偏离
+  const { signal, strength } = signalFromZ(z);
+
+  return {
+    name: "PB_DISCOUNT",
+    value: currentPB,
+    zScore: z,
+    signal,
+    strength,
+    category: "value",
+    description: `P/B 折价因子：当前 P/B ${currentPB.toFixed(2)}x（< 2x 偏低估，> 4x 偏高估）`,
+    historicalIC: 0.035,
+  };
+}
+
+/**
+ * 综合计算所有 Alpha 因子（OHLCV + 基本面）
+ */
+export function calcAlphaFactorsWithFundamentals(
+  ticker: string,
+  data: OHLCVSeries,
+  fundamentals?: FundamentalData
+): AlphaReport {
+  // 先计算纯技术因子
+  const baseReport = calcAlphaFactors(ticker, data);
+
+  if (!fundamentals) return baseReport;
+
+  // 计算基本面因子
+  const fundamentalFactors: AlphaFactor[] = [
+    calcPE_MOM(fundamentals),
+    calcEPS_REV(fundamentals),
+    calcROE_TREND(fundamentals),
+    calcANALYST_UPSIDE(fundamentals),
+    calcANALYST_CONSENSUS(fundamentals),
+    calcFCF_TREND(fundamentals),
+    calcPB_DISCOUNT(fundamentals),
+  ].filter(f => f.value !== null);
+
+  const allFactors = [...baseReport.factors, ...fundamentalFactors];
+
+  if (allFactors.length === 0) return baseReport;
+
+  // 重新计算综合评分（基本面因子权重更高）
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const f of allFactors) {
+    if (f.zScore === null) continue;
+    const ic = Math.abs(f.historicalIC ?? 0.03);
+    const directedZ = f.signal === -1 ? -Math.abs(f.zScore) : f.signal === 1 ? Math.abs(f.zScore) : f.zScore;
+    weightedSum += directedZ * ic;
+    weightTotal += ic;
+  }
+  const compositeZ = weightTotal > 0 ? weightedSum / weightTotal : 0;
+  const compositeScore = Math.max(-100, Math.min(100, Math.round(compositeZ * 33.3)));
+
+  let overallSignal: AlphaReport["overallSignal"];
+  if (compositeScore >= 60) overallSignal = "strong_long";
+  else if (compositeScore >= 25) overallSignal = "long";
+  else if (compositeScore <= -60) overallSignal = "strong_short";
+  else if (compositeScore <= -25) overallSignal = "short";
+  else overallSignal = "neutral";
+
+  const signalLabels: Record<AlphaReport["overallSignal"], string> = {
+    strong_long: "强烈看多", long: "偏多", neutral: "中性", short: "偏空", strong_short: "强烈看空",
+  };
+
+  const longFactors = allFactors.filter(f => f.signal === 1).map(f => f.name);
+  const shortFactors = allFactors.filter(f => f.signal === -1).map(f => f.name);
+  const techFactors = allFactors.filter(f => ["momentum","reversal","volatility","volume","technical"].includes(f.category));
+  const fundFactors = allFactors.filter(f => ["value","quality"].includes(f.category));
+
+  const summary = [
+    `## Alpha 因子分析 — ${ticker}（技术 + 基本面）`,
+    ``,
+    `**综合 Alpha 评分：${compositeScore}/100**  |  **整体信号：${signalLabels[overallSignal]}**`,
+    ``,
+    `有效因子：${allFactors.length} 个（技术 ${techFactors.length} 个 + 基本面 ${fundFactors.length} 个）`,
+    longFactors.length > 0 ? `看多因子：${longFactors.join(", ")}` : "",
+    shortFactors.length > 0 ? `看空因子：${shortFactors.join(", ")}` : "",
+    ``,
+    `### 技术因子`,
+    `| 因子 | 值 | Z-Score | 信号 | 强度 |`,
+    `|------|-----|---------|------|------|`,
+    ...techFactors.map(f => {
+      const val = f.value !== null ? f.value.toFixed(4) : "N/A";
+      const z = f.zScore !== null ? f.zScore.toFixed(2) : "N/A";
+      const sig = f.signal === 1 ? "▲ 看多" : f.signal === -1 ? "▼ 看空" : "→ 中性";
+      return `| ${f.name} | ${val} | ${z} | ${sig} | ${f.strength}% |`;
+    }),
+    ``,
+    `### 基本面因子（qlib Alpha158 扩展）`,
+    `| 因子 | 值 | Z-Score | 信号 | 强度 | 说明 |`,
+    `|------|-----|---------|------|------|------|`,
+    ...fundFactors.map(f => {
+      const val = f.value !== null ? f.value.toFixed(4) : "N/A";
+      const z = f.zScore !== null ? f.zScore.toFixed(2) : "N/A";
+      const sig = f.signal === 1 ? "▲ 看多" : f.signal === -1 ? "▼ 看空" : "→ 中性";
+      return `| ${f.name} | ${val} | ${z} | ${sig} | ${f.strength}% | ${f.description.split("：")[0]} |`;
+    }),
+    ``,
+    `> **注：** Alpha 因子基于 WorldQuant Alpha101、qlib Alpha158 因子集及分析师数据，仅供参考，不构成投资建议。`,
+  ].filter(l => l !== "").join("\n");
+
+  return {
+    ticker,
+    generatedAt: Date.now(),
+    factors: allFactors,
+    compositeScore,
+    overallSignal,
+    summary,
+  };
+}
+
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 function nullFactor(name: string, category: AlphaCategory, description: string): AlphaFactor {

@@ -1366,3 +1366,12 @@
 - [x] Yahoo Finance 支持 period 参数：getStockData/getMultipleStocksData/fetchStockDataForTask 全部支持 range 参数
 - [x] Step1 先执行后提取 period：先等待 Step1 完成，从 RESOURCE_SPEC JSON 提取 yahoo_finance.period，再并行调用 Yahoo Finance
 - [x] extractYahooPeriod 关键词兜底：Step1 无 JSON 时按任务描述关键词（技术分析/季报/年报/宏观）推断 period
+
+## UI 全面改造（FinRobot Pro 高级科技调性 + Perplexity Finance 交互）
+- [x] 全局主题：极致深黑背景、Inter + JetBrains Mono 字体、金属质感边框 token、精致 scrollbar
+- [x] 登录页 AccessGate：左侧 3D 机器人（SVG + 鼠标跟随眼睛/头部倾斜）+ 右侧登录面板（FinRobot Pro 风格）
+- [x] 侧边栏：Bot 图标品牌标识、AI Finance 副标题、精致分割线、对话项升级
+- [x] 聊天主区：AI 头像改为圆角方形 Bot 图标、AnswerHeader 深黑背景、用户气泡升级
+- [x] 顶部导航栏：深黑背景 + 精致边框
+- [x] 输入框：更深背景、精致边框、拖拽高亮效果
+- [x] 首页 Home：市场指数卡片（SPY/QQQ/BTC/沪深300）、快捷分析入口、Feature Cards、Stats 统计行、网格背景动效

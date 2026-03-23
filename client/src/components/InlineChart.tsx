@@ -46,10 +46,10 @@ const DEFAULT_COLORS = [
   "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
 ];
 
-const CHART_BG = "oklch(0.17 0.005 270)";
+const CHART_BG = "oklch(0.10 0.005 264)";
 const AXIS_COLOR = "oklch(0.52 0.01 270)";
 const GRID_COLOR = "oklch(0.24 0.007 270)";
-const TOOLTIP_BG = "oklch(0.20 0.007 270)";
+const TOOLTIP_BG = "oklch(0.13 0.006 264)";
 const TOOLTIP_BORDER = "oklch(0.30 0.008 270)";
 
 const axisStyle = { fill: AXIS_COLOR, fontSize: 11, fontFamily: "inherit" };
@@ -60,9 +60,9 @@ const tooltipStyle = {
     border: `1px solid ${TOOLTIP_BORDER}`,
     borderRadius: 8,
     fontSize: 12,
-    color: "oklch(0.82 0.005 270)",
+    color: "oklch(0.82 0.005 264)",
   },
-  labelStyle: { color: "oklch(0.82 0.005 270)", fontWeight: 600 },
+  labelStyle: { color: "oklch(0.82 0.005 264)", fontWeight: 600 },
   itemStyle: { color: "oklch(0.72 0.12 250)" },
   cursor: { fill: "oklch(0.25 0.007 270 / 0.5)" },
 };
@@ -180,7 +180,7 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
         ].map(item => (
           <div key={item.label} className="flex items-center gap-1">
             <div className="w-3 h-3 rounded-sm" style={{ background: item.bg }} />
-            <span className="text-[10px]" style={{ color: "oklch(0.55 0.01 270)" }}>{item.label}</span>
+            <span className="text-[10px]" style={{ color: "oklch(0.52 0.008 264)" }}>{item.label}</span>
           </div>
         ))}
       </div>
@@ -219,7 +219,7 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
           <span style={{ color: "#6b7280" }}>平盘 {data.filter(d => d.value === 0).length} 个</span>
           <span style={{ color: "#ef4444" }}>下跌 {data.filter(d => d.value < 0).length} 个</span>
         </div>
-        <span className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>共 {data.length} 个板块</span>
+        <span className="text-xs" style={{ color: "oklch(0.43 0.008 264)" }}>共 {data.length} 个板块</span>
       </div>
     </div>
   );
@@ -378,13 +378,13 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
         <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#f59e0b" }} /><span className="text-[10px]" style={{ color: "#f59e0b" }}>MA5</span></div>
         <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#a855f7" }} /><span className="text-[10px]" style={{ color: "#a855f7" }}>MA20</span></div>
         {data.length >= 60 && <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#06b6d4" }} /><span className="text-[10px]" style={{ color: "#06b6d4" }}>MA60</span></div>}
-        <span className="text-[10px] ml-auto" style={{ color: "oklch(0.45 0.01 270)" }}>可拖拽 · 滚轮缩放</span>
+        <span className="text-[10px] ml-auto" style={{ color: "oklch(0.43 0.008 264)" }}>可拖拽 · 滚轮缩放</span>
       </div>
       {/* lightweight-charts 容器 */}
       <div ref={containerRef} style={{ width: "100%", height: 300 }} />
       {/* 成交量副图 */}
       {hasVolume && (
-        <div style={{ borderTop: "1px solid oklch(0.22 0.007 270)", marginTop: 2 }}>
+        <div style={{ borderTop: "1px solid oklch(0.15 0.007 264)", marginTop: 2 }}>
           <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-0.5">
             <span className="text-[10px] font-medium" style={{ color: "oklch(0.50 0.01 270)" }}>成交量</span>
           </div>
@@ -400,7 +400,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
               <Tooltip
                 contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 6, fontSize: 11 }}
                 formatter={(v: unknown) => [`${((v as number) / 1e4).toFixed(0)}万`, "成交量"]}
-                labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
+                labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
               />
               <Bar dataKey="volume" shape={<VolumeBar />} minPointSize={1}>
                 {volumeData.map((entry, index) => (
@@ -464,7 +464,7 @@ function WaterfallChart({ data, unit = "" }: { data: WaterfallItem[]; unit?: str
     const d = payload[0].payload;
     return (
       <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
-        <div style={{ color: "oklch(0.82 0.005 270)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
+        <div style={{ color: "oklch(0.82 0.005 264)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
         <div style={{ color: d.isPositive ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
           {d.displayValue > 0 ? "+" : ""}{formatNumber(d.displayValue, unit)}
         </div>
@@ -560,7 +560,7 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
     <div className="flex flex-col items-center py-4">
       <svg width="200" height="130" viewBox="0 0 200 130">
         {/* 背景弧 */}
-        <path d={arcPath(-150, 150, r)} fill="none" stroke="oklch(0.25 0.007 270)" strokeWidth={14} strokeLinecap="round" />
+        <path d={arcPath(-150, 150, r)} fill="none" stroke="oklch(0.18 0.007 264)" strokeWidth={14} strokeLinecap="round" />
         {/* 颜色分段 */}
         {defaultThresholds.map((t, i) => {
           const prevVal = i === 0 ? min : defaultThresholds[i - 1].value;
@@ -594,7 +594,7 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
         {defaultThresholds.map((t, i) => (
           <div key={i} className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
-            <span className="text-[10px]" style={{ color: "oklch(0.55 0.01 270)" }}>{t.label}</span>
+            <span className="text-[10px]" style={{ color: "oklch(0.52 0.008 264)" }}>{t.label}</span>
           </div>
         ))}
       </div>
@@ -627,7 +627,7 @@ function DualAxisChart({ config }: { config: ChartConfig }) {
         />
         <Tooltip
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
+          labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
         />
         <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
         <Bar yAxisId="right" dataKey={rightKey} fill={colors[1] ?? "#22c55e"} opacity={0.6} radius={[2, 2, 0, 0]} name={rightKey} />
@@ -650,7 +650,7 @@ function ComboChart({ config }: { config: ChartConfig }) {
         {lines.length > 0 && <YAxis yAxisId="right" orientation="right" tick={axisStyle} width={45} />}
         <Tooltip
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: "oklch(0.82 0.005 270)", fontWeight: 600 }}
+          labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
         />
         <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
         {bars.map((b, i) => (
@@ -809,7 +809,7 @@ export function InlineChart({ raw }: InlineChartProps) {
     config = JSON.parse(raw.trim());
   } catch {
     return (
-      <div className="my-3 p-3 rounded-lg text-xs" style={{ background: "oklch(0.18 0.005 270)", color: "oklch(0.55 0.01 270)" }}>
+      <div className="my-3 p-3 rounded-lg text-xs" style={{ background: "oklch(0.11 0.005 264)", color: "oklch(0.52 0.008 264)" }}>
         [图表数据解析失败]
       </div>
     );
@@ -888,7 +888,7 @@ export function InlineChart({ raw }: InlineChartProps) {
       className="my-4 rounded-xl overflow-hidden transition-all"
       style={{
         background: CHART_BG,
-        border: "1px solid oklch(0.25 0.007 270)",
+        border: "1px solid oklch(0.18 0.007 264)",
         ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16 } : {}),
       }}
     >
@@ -940,7 +940,7 @@ export function InlineChart({ raw }: InlineChartProps) {
 
       {/* 注释 */}
       {config.annotations && (
-        <div className="px-4 pb-3 text-xs" style={{ color: "oklch(0.50 0.01 270)", borderTop: "1px solid oklch(0.22 0.007 270)", paddingTop: 8 }}>
+        <div className="px-4 pb-3 text-xs" style={{ color: "oklch(0.50 0.01 270)", borderTop: "1px solid oklch(0.15 0.007 264)", paddingTop: 8 }}>
           {config.annotations}
         </div>
       )}

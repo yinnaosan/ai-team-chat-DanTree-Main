@@ -65,7 +65,7 @@ function DataSourceStatusPanel() {
     if (s === "exhausted") return "oklch(0.72 0.18 50)";
     if (s === "timeout") return "oklch(0.72 0.18 50)";
     if (s === "warning") return "oklch(0.75 0.16 80)"; // 黄色：环境限制
-    if (s === "unknown") return "oklch(0.55 0.01 270)"; // 灰色：未检测
+    if (s === "unknown") return "oklch(0.52 0.008 264)"; // 灰色：未检测
     if (s === "checking") return "oklch(0.65 0.15 240)"; // 蓝色：检测中
     return "oklch(0.65 0.18 20)";
   };
@@ -106,7 +106,7 @@ function DataSourceStatusPanel() {
         <div className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ background: statusColor(statusStr), boxShadow: statusStr === "active" ? `0 0 5px ${statusColor(statusStr)}` : "none" }} />
         <div className="min-w-0">
-          <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>{label}</span>
+          <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</span>
           <span className="text-xs ml-1.5" style={{ color: "oklch(0.50 0.01 270)" }}>{desc}</span>
         </div>
         {badge}
@@ -124,7 +124,7 @@ function DataSourceStatusPanel() {
       {/* 标题行 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 250)" }} />
+          <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.63 0.20 258)" }} />
           <span className="text-xs font-semibold" style={{ color: "oklch(0.80 0.005 270)" }}>实时数据源状态</span>
           {status && (
             <span className="text-xs px-1.5 py-0.5 rounded-full"
@@ -161,7 +161,7 @@ function DataSourceStatusPanel() {
           onClick={handleRefresh}
           disabled={isRefreshing}
           className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-80"
-          style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.20 0.005 270)" }}>
+          style={{ color: "oklch(0.52 0.008 264)", background: "oklch(0.20 0.005 270)" }}>
           <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? "检测中" : "刷新"}
         </button>
@@ -169,13 +169,13 @@ function DataSourceStatusPanel() {
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-2">
-          <Loader2 className="w-3 h-3 animate-spin" style={{ color: "oklch(0.55 0.01 270)" }} />
-          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>检测中...</span>
+          <Loader2 className="w-3 h-3 animate-spin" style={{ color: "oklch(0.52 0.008 264)" }} />
+          <span className="text-xs" style={{ color: "oklch(0.52 0.008 264)" }}>检测中...</span>
         </div>
       ) : (
         <div className="space-y-1.5">
           {/* 分组标题：结构化数据源 */}
-          <p className="text-xs px-1 pt-1" style={{ color: "oklch(0.45 0.01 270)" }}>—— 结构化数据源</p>
+          <p className="text-xs px-1 pt-1" style={{ color: "oklch(0.43 0.008 264)" }}>—— 结构化数据源</p>
 
           {/* Yahoo Finance */}
           <SourceRow
@@ -206,7 +206,7 @@ function DataSourceStatusPanel() {
             statusStr={status?.worldBankStatus ?? "active"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                 免费公开
               </span>
             }
@@ -226,7 +226,7 @@ function DataSourceStatusPanel() {
           />
 
           {/* 分组标题：股票金融数据源 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 股票金融数据源</p>
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.43 0.008 264)" }}>—— 股票金融数据源</p>
 
           {/* Finnhub */}
           <SourceRow
@@ -295,7 +295,7 @@ function DataSourceStatusPanel() {
             statusStr={status?.secEdgarStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                 免费公开 | 美股专用
               </span>
             }
@@ -314,7 +314,7 @@ function DataSourceStatusPanel() {
                 </span>
               ) : (
                 <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                   Demo Key
                 </span>
               )
@@ -394,7 +394,7 @@ function DataSourceStatusPanel() {
           />
 
           {/* 分组标题：英国宏观 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 英国宏观</p>
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.43 0.008 264)" }}>—— 英国宏观</p>
 
           <SourceRow
             label="Bank of England"
@@ -409,7 +409,7 @@ function DataSourceStatusPanel() {
           />
 
           {/* 分组标题：香港宏观 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 香港宏观</p>
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.43 0.008 264)" }}>—— 香港宏观</p>
 
           <SourceRow
             label="HKMA"
@@ -437,7 +437,7 @@ function DataSourceStatusPanel() {
                 </span>
               ) : (
                 <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                   美国立法
                 </span>
               )
@@ -453,7 +453,7 @@ function DataSourceStatusPanel() {
             statusStr={status?.gleifStatus ?? "unknown"}
             badge={
               <span className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                 免费公开 | 跨国法人
               </span>
             }
@@ -480,17 +480,17 @@ function DataSourceStatusPanel() {
           />
 
           {/* 网页搜索已关闭，纯 API 模式 */}
-          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.45 0.01 270)" }}>—— 网页搜索</p>
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(0.43 0.008 264)" }}>—— 网页搜索</p>
           <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
-            style={{ background: "oklch(0.18 0.005 270)" }}>
+            style={{ background: "oklch(0.11 0.005 264)" }}>
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: "oklch(0.55 0.01 270)" }} />
-              <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 270)" }}>网页搜索</span>
-              <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>已关闭（纯 API 模式）</span>
+                style={{ background: "oklch(0.52 0.008 264)" }} />
+              <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>网页搜索</span>
+              <span className="text-xs" style={{ color: "oklch(0.52 0.008 264)" }}>已关闭（纯 API 模式）</span>
             </div>
             <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
-              style={{ color: "oklch(0.55 0.01 270)", background: "oklch(0.22 0.005 270)", border: "1px solid oklch(0.28 0.007 270)" }}>
+              style={{ color: "oklch(0.52 0.008 264)", background: "oklch(0.22 0.005 270)", border: "1px solid oklch(0.28 0.007 270)" }}>
               已禁用
             </span>
           </div>
@@ -708,7 +708,7 @@ export default function Settings() {
   if (loading || (isAuthenticated && accessCheckLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "oklch(0.13 0.005 270)" }}>
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.72 0.18 250)" }} />
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.63 0.20 258)" }} />
       </div>
     );
   }
@@ -803,18 +803,18 @@ export default function Settings() {
     <div className="min-h-screen" style={{ background: "oklch(0.13 0.005 270)" }}>
       {/* 顶部导航 */}
       <header className="flex items-center gap-3 px-4 py-3 shrink-0"
-        style={{ borderBottom: "1px solid oklch(0.20 0.007 270)", background: "oklch(0.15 0.005 270)" }}>
+        style={{ borderBottom: "1px solid oklch(0.13 0.006 264)", background: "oklch(0.15 0.005 270)" }}>
         <button
           onClick={() => navigate("/chat")}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/5"
           style={{ color: "oklch(0.65 0.008 270)" }}>
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)", fontFamily: "'Google Sans', sans-serif" }}>设置</h1>
+        <h1 className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)", fontFamily: "'Inter', sans-serif" }}>设置</h1>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
             style={{
-              background: hasApiKey ? "oklch(0.72 0.18 155 / 0.1)" : "oklch(0.18 0.005 270)",
+              background: hasApiKey ? "oklch(0.72 0.18 155 / 0.1)" : "oklch(0.11 0.005 264)",
               border: `1px solid ${hasApiKey ? "oklch(0.72 0.18 155 / 0.3)" : "oklch(0.28 0.008 270)"}`,
               color: hasApiKey ? "oklch(0.72 0.18 155)" : "oklch(0.50 0.01 270)",
             }}>
@@ -828,7 +828,7 @@ export default function Settings() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         {/* 标签页导航 */}
         <div className="flex gap-1 mb-6 p-1 rounded-xl"
-          style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.22 0.007 270)" }}>
+          style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.15 0.007 264)" }}>
           {tabs.map(({ id, label, icon: Icon, badge }) => (
             <button
               key={id}
@@ -836,7 +836,7 @@ export default function Settings() {
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
               style={{
                 background: activeTab === id ? "oklch(0.22 0.008 270)" : "transparent",
-                color: activeTab === id ? "oklch(0.92 0.005 270)" : "oklch(0.55 0.01 270)",
+                color: activeTab === id ? "oklch(0.93 0.005 264)" : "oklch(0.52 0.008 264)",
                 boxShadow: activeTab === id ? "0 1px 3px oklch(0 0 0 / 0.3)" : "none",
               }}>
               <Icon className="w-3.5 h-3.5" />
@@ -863,20 +863,20 @@ export default function Settings() {
             {/* 当前状态 */}
             <div className="p-4 rounded-xl flex items-center gap-4"
               style={{
-                background: hasApiKey ? "oklch(0.72 0.18 155 / 0.06)" : "oklch(0.17 0.005 270)",
+                background: hasApiKey ? "oklch(0.72 0.18 155 / 0.06)" : "oklch(0.10 0.005 264)",
                 border: `1px solid ${hasApiKey ? "oklch(0.72 0.18 155 / 0.25)" : "oklch(0.23 0.007 270)"}`,
               }}>
               <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: hasApiKey ? "oklch(0.72 0.18 155 / 0.15)" : "oklch(0.22 0.007 270)" }}>
+                style={{ background: hasApiKey ? "oklch(0.72 0.18 155 / 0.15)" : "oklch(0.15 0.007 264)" }}>
                 {hasApiKey
                   ? <CheckCircle2 className="w-5 h-5" style={{ color: "oklch(0.72 0.18 155)" }} />
                   : <Key className="w-5 h-5" style={{ color: "oklch(0.50 0.01 270)" }} />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>
+                <p className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)" }}>
                   {hasApiKey ? "OpenAI API Key 已配置" : "尚未配置 OpenAI API Key"}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>
+                <p className="text-xs mt-0.5" style={{ color: "oklch(0.52 0.008 264)" }}>
                   {hasApiKey
                     ? `当前模型：${savedConfig?.openaiModel || "gpt-4o-mini"} · ${savedConfig?.openaiApiKey}`
                     : "配置后，GPT 将作为主大脑主导每次投资分析任务"}
@@ -887,14 +887,14 @@ export default function Settings() {
             {/* API Key 输入 */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <Key className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>OpenAI API Key</h2>
+                <Key className="w-4 h-4" style={{ color: "oklch(0.63 0.20 258)" }} />
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)" }}>OpenAI API Key</h2>
               </div>
               <div className="p-4 rounded-xl space-y-4"
-                style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+                style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>
-                    API Key <span style={{ color: "oklch(0.55 0.01 270)" }}>（格式：sk-proj-...）</span>
+                    API Key <span style={{ color: "oklch(0.52 0.008 264)" }}>（格式：sk-proj-...）</span>
                   </Label>
                   <div className="relative">
                     <Input
@@ -903,7 +903,7 @@ export default function Settings() {
                       onChange={(e) => { setApiKeyInput(e.target.value); setTestResult(null); }}
                       placeholder={hasApiKey ? "输入新 Key 以替换现有配置" : "sk-proj-..."}
                       className="pr-10 text-sm font-mono"
-                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)", color: "oklch(0.88 0.005 264)" }}
                     />
                     <button
                       type="button"
@@ -913,10 +913,10 @@ export default function Settings() {
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                  <p className="text-xs" style={{ color: "oklch(0.43 0.008 264)" }}>
                     前往{" "}
                     <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
-                      className="underline" style={{ color: "oklch(0.72 0.18 250)" }}>
+                      className="underline" style={{ color: "oklch(0.63 0.20 258)" }}>
                       platform.openai.com/api-keys
                     </a>{" "}
                     创建 API Key
@@ -928,17 +928,17 @@ export default function Settings() {
                   <Label className="text-xs font-medium" style={{ color: "oklch(0.75 0.01 270)" }}>选择模型</Label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
                     <SelectTrigger className="text-sm"
-                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}>
+                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)", color: "oklch(0.88 0.005 264)" }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent style={{ background: "oklch(0.18 0.005 270)", borderColor: "oklch(0.28 0.008 270)" }}>
+                    <SelectContent style={{ background: "oklch(0.11 0.005 264)", borderColor: "oklch(0.28 0.008 270)" }}>
                       {MODELS.map((m) => (
                         <SelectItem key={m.value} value={m.value}>
                           <div className="flex items-center gap-2">
                             <span>{m.label}</span>
                             {m.badge && (
                               <span className="text-xs px-1.5 py-0.5 rounded-full"
-                                style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(0.72 0.18 250)", fontSize: "10px" }}>
+                                style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(0.63 0.20 258)", fontSize: "10px" }}>
                                 {m.badge}
                               </span>
                             )}
@@ -947,7 +947,7 @@ export default function Settings() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>
+                  <p className="text-xs" style={{ color: "oklch(0.43 0.008 264)" }}>
                     {MODELS.find(m => m.value === selectedModel)?.desc}
                   </p>
                 </div>
@@ -977,7 +977,7 @@ export default function Settings() {
                     disabled={testConnectionMutation.isPending || !apiKeyInput.trim()}
                     variant="outline"
                     className="flex-1 gap-2 text-sm"
-                    style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.75 0.01 270)", background: "oklch(0.18 0.005 270)" }}>
+                    style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.75 0.01 270)", background: "oklch(0.11 0.005 264)" }}>
                     {testConnectionMutation.isPending
                       ? <><Loader2 className="w-4 h-4 animate-spin" />测试中...</>
                       : <><Zap className="w-4 h-4" />测试连接</>}
@@ -990,7 +990,7 @@ export default function Settings() {
                     })}
                     disabled={saveConfigMutation.isPending}
                     className="flex-1 gap-2 text-sm"
-                    style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                    style={{ background: "oklch(0.63 0.20 258)", color: "oklch(0.13 0.005 270)" }}>
                     {saveConfigMutation.isPending
                       ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
                       : <><Save className="w-4 h-4" />保存配置</>}
@@ -1002,8 +1002,8 @@ export default function Settings() {
             {/* 投资理念 & 任务守则（三部分独立 Tab） */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>投资理念 & 任务守则</h2>
+                <Brain className="w-4 h-4" style={{ color: "oklch(0.63 0.20 258)" }} />
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)" }}>投资理念 & 任务守则</h2>
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full"
                   style={{ background: "oklch(0.65 0.18 25 / 0.15)", color: "oklch(0.75 0.18 25)", border: "1px solid oklch(0.65 0.18 25 / 0.4)" }}>
                   GPT & Manus 最高优先级，强制遵守
@@ -1014,21 +1014,21 @@ export default function Settings() {
               {isUsingOwnerDefaults && (
                 <div className="flex items-start gap-2 p-3 rounded-lg text-xs"
                   style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.25)" }}>
-                  <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }} />
+                  <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "oklch(0.63 0.20 258)" }} />
                   <div>
                     <span className="font-medium" style={{ color: "oklch(0.80 0.01 270)" }}>当前显示的是平台默认配置</span>
-                    <span style={{ color: "oklch(0.55 0.01 270)" }}>，可直接使用。如需自定义，修改后点「保存」即可覆盖为个人配置。</span>
+                    <span style={{ color: "oklch(0.52 0.008 264)" }}>，可直接使用。如需自定义，修改后点「保存」即可覆盖为个人配置。</span>
                   </div>
                 </div>
               )}
 
               {/* 三部分内部 Tab 导航 */}
               <div className="flex gap-1 p-1 rounded-lg"
-                style={{ background: "oklch(0.15 0.005 270)", border: "1px solid oklch(0.22 0.007 270)" }}>
+                style={{ background: "oklch(0.15 0.005 270)", border: "1px solid oklch(0.15 0.007 264)" }}>
                 {([
                   { id: "investment" as RulesTab, label: "投资守则", color: "oklch(0.72 0.18 155)" },
                   { id: "task" as RulesTab, label: "全局任务指令", color: "oklch(0.75 0.18 25)" },
-                  { id: "data" as RulesTab, label: "资料数据库", color: "oklch(0.72 0.18 250)" },
+                  { id: "data" as RulesTab, label: "资料数据库", color: "oklch(0.63 0.20 258)" },
                 ] as const).map(({ id, label, color }) => (
                   <button key={id}
                     onClick={() => setActiveRulesTab(id)}
@@ -1046,7 +1046,7 @@ export default function Settings() {
               {/* 投资守则 Tab - 结构化表单 */}
               {activeRulesTab === "investment" && (
                 <div className="p-4 rounded-xl space-y-4"
-                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 155 / 0.2)" }}>
+                  style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.72 0.18 155 / 0.2)" }}>
                   {/* 模式切换 */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
@@ -1058,7 +1058,7 @@ export default function Settings() {
                           className="text-xs px-2.5 py-1 rounded-md transition-all"
                           style={{
                             background: invFormMode === m ? "oklch(0.22 0.008 270)" : "transparent",
-                            color: invFormMode === m ? "oklch(0.88 0.005 270)" : "oklch(0.50 0.01 270)",
+                            color: invFormMode === m ? "oklch(0.88 0.005 264)" : "oklch(0.50 0.01 270)",
                           }}>
                           {m === "structured" ? "结构化" : "自由文本"}
                         </button>
@@ -1081,7 +1081,7 @@ export default function Settings() {
                               style={{
                                 background: invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155 / 0.15)" : "oklch(0.14 0.004 270)",
                                 border: `1px solid ${invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155 / 0.4)" : "oklch(0.28 0.008 270)"}`,
-                                color: invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155)" : "oklch(0.55 0.01 270)",
+                                color: invPhilosophy.includes(tag) ? "oklch(0.72 0.18 155)" : "oklch(0.52 0.008 264)",
                               }}>
                               {tag}
                             </button>
@@ -1091,7 +1091,7 @@ export default function Settings() {
 
                       {/* 重点市场 */}
                       <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.72 0.18 250)" }}>重点关注市场</p>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.63 0.20 258)" }}>重点关注市场</p>
                         <div className="flex flex-wrap gap-2">
                           {["美股", "港股", "A股", "欧股", "英股", "加密货币", "债券", "大宗商品"].map(m => (
                             <button key={m} onClick={() => setInvMarketPriority(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m])}
@@ -1099,7 +1099,7 @@ export default function Settings() {
                               style={{
                                 background: invMarketPriority.includes(m) ? "oklch(0.72 0.18 250 / 0.15)" : "oklch(0.14 0.004 270)",
                                 border: `1px solid ${invMarketPriority.includes(m) ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.28 0.008 270)"}`,
-                                color: invMarketPriority.includes(m) ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)",
+                                color: invMarketPriority.includes(m) ? "oklch(0.63 0.20 258)" : "oklch(0.52 0.008 264)",
                               }}>
                               {m}
                             </button>
@@ -1112,27 +1112,27 @@ export default function Settings() {
                         <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.72 0.18 25)" }}>风险策略</p>
                         <div className="grid grid-cols-3 gap-3">
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>单仓上限 %</label>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.52 0.008 264)" }}>单仓上限 %</label>
                             <input type="number" min={5} max={100} step={5}
                               value={invRiskPolicy.maxSinglePosition}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, maxSinglePosition: Number(e.target.value) }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 264)" }} />
                           </div>
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>行业上限 %</label>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.52 0.008 264)" }}>行业上限 %</label>
                             <input type="number" min={10} max={100} step={5}
                               value={invRiskPolicy.maxSectorPosition}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, maxSectorPosition: Number(e.target.value) }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 264)" }} />
                           </div>
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.55 0.01 270)" }}>持仓周期</label>
+                            <label className="text-xs mb-1 block" style={{ color: "oklch(0.52 0.008 264)" }}>持仓周期</label>
                             <select value={invRiskPolicy.holdingPeriod}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, holdingPeriod: e.target.value as any }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }}>
+                              style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 264)" }}>
                               <option value="short">短期(&lt;1年)</option>
                               <option value="medium">中期(1-3年)</option>
                               <option value="long">长期(3年+)</option>
@@ -1143,11 +1143,11 @@ export default function Settings() {
 
                       {/* 自由补充 */}
                       <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.55 0.01 270)" }}>补充说明（可选）</p>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(0.52 0.008 264)" }}>补充说明（可选）</p>
                         <Textarea value={invFreeText} onChange={e => setInvFreeText(e.target.value)}
                           placeholder="其他特殊约束、禁止行业、个人情况等..."
                           className="min-h-[80px] text-xs resize-y"
-                          style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 270)" }} />
+                          style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.88 0.005 264)" }} />
                       </div>
 
                       {/* 保存按钮 */}
@@ -1183,7 +1183,7 @@ export default function Settings() {
                         onChange={(e) => { setInvFreeText(e.target.value); setInvestmentRules(e.target.value); }}
                         placeholder={"示例：\n我的投资理念基于段永平价値投资体系。\n我关注美股和港股，尤其是科技和消费行业。\n我的风险承受能力中等，希望长期持有。"}
                         className="min-h-[280px] text-sm font-mono resize-y"
-                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.72 0.18 155 / 0.3)", color: "oklch(0.88 0.005 264)" }}
                       />
                       <div className="flex justify-between items-center">
                         <button type="button"
@@ -1209,7 +1209,7 @@ export default function Settings() {
               {/* 全局任务指令 Tab */}
               {activeRulesTab === "task" && (
                 <div className="p-4 rounded-xl space-y-3"
-                  style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.65 0.18 25 / 0.2)" }}>
+                  style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.65 0.18 25 / 0.2)" }}>
                   {/* 模式切换 */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
@@ -1243,7 +1243,7 @@ export default function Settings() {
                         <div key={item.key} className="flex items-center justify-between py-1.5 px-2 rounded-lg"
                           style={{ background: "oklch(0.14 0.004 270)" }}>
                           <div>
-                            <p className="text-xs font-medium" style={{ color: "oklch(0.85 0.005 270)" }}>{item.label}</p>
+                            <p className="text-xs font-medium" style={{ color: "oklch(0.85 0.005 264)" }}>{item.label}</p>
                             <p className="text-xs mt-0.5" style={{ color: "oklch(0.50 0.01 270)" }}>{item.desc}</p>
                           </div>
                           <button
@@ -1257,13 +1257,13 @@ export default function Settings() {
                       ))}
                       {/* 补充文本 */}
                       <div className="pt-1">
-                        <p className="text-xs mb-1" style={{ color: "oklch(0.55 0.01 270)" }}>补充指令（可选）</p>
+                        <p className="text-xs mb-1" style={{ color: "oklch(0.52 0.008 264)" }}>补充指令（可选）</p>
                         <Textarea
                           value={taskFreeText}
                           onChange={(e) => setTaskFreeText(e.target.value)}
                           placeholder="在此添加策略开关未覆盖的自定义指令..."
                           className="min-h-[80px] text-xs font-mono resize-y"
-                          style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                          style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 264)" }}
                         />
                       </div>
                     </div>
@@ -1273,7 +1273,7 @@ export default function Settings() {
                       onChange={(e) => setTaskFreeText(e.target.value)}
                       placeholder={"示例：\n- 每次回复必须以中文输出\n- 每次任务开头声明：已遵守投资守则 ✓\n- 每次回复末尾提供 2-3 个后续跟进问题\n- 任务之间主动引用历史结论进行对比"}
                       className="min-h-[200px] text-sm font-mono resize-y"
-                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 270)" }}
+                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.88 0.005 264)" }}
                     />
                   )}
 
@@ -1320,11 +1320,11 @@ export default function Settings() {
                   <DataSourceStatusPanel />
 
                   {/* ---- 结构化 Trusted Sources ---- */}
-                  <div className="p-4 rounded-xl space-y-3" style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.2)" }}>
+                  <div className="p-4 rounded-xl space-y-3" style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold" style={{ color: "oklch(0.88 0.005 270)" }}>可信来源层 (Trusted Sources)</p>
-                        <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
+                        <p className="text-sm font-semibold" style={{ color: "oklch(0.88 0.005 264)" }}>可信来源层 (Trusted Sources)</p>
+                        <p className="text-xs mt-0.5" style={{ color: "oklch(0.52 0.008 264)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
                       </div>
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
@@ -1334,7 +1334,7 @@ export default function Settings() {
                         </Button>
                         <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
                           onClick={() => { setShowNewSourceForm(v => !v); setShowQuickImport(false); }}
-                          style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.72 0.18 250)" }}>
+                          style={{ borderColor: "oklch(0.72 0.18 250 / 0.4)", color: "oklch(0.63 0.20 258)" }}>
                           <Plus className="w-3 h-3" />添加来源
                         </Button>
                       </div>
@@ -1360,14 +1360,14 @@ export default function Settings() {
                                 }}
                                 className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-left transition-all"
                                 style={{
-                                  background: exists ? "oklch(0.18 0.005 270)" : "oklch(0.17 0.005 270)",
+                                  background: exists ? "oklch(0.11 0.005 264)" : "oklch(0.10 0.005 264)",
                                   border: `1px solid ${exists ? "oklch(0.28 0.008 270)" : "oklch(0.35 0.008 270)"}`,
-                                  color: exists ? "oklch(0.40 0.008 270)" : "oklch(0.82 0.005 270)",
+                                  color: exists ? "oklch(0.40 0.008 270)" : "oklch(0.82 0.005 264)",
                                   cursor: exists ? "not-allowed" : "pointer",
                                   opacity: exists ? 0.5 : 1,
                                 }}>
                                 <span className="truncate font-medium">{src.name}</span>
-                                <span className="ml-auto shrink-0 text-xs" style={{ color: "oklch(0.45 0.01 270)" }}>{src.category}</span>
+                                <span className="ml-auto shrink-0 text-xs" style={{ color: "oklch(0.43 0.008 264)" }}>{src.category}</span>
                                 {exists && <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.15 150)" }} />}
                               </button>
                             );
@@ -1375,7 +1375,7 @@ export default function Settings() {
                         </div>
                         <div className="flex justify-end pt-1">
                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowQuickImport(false)}
-                            style={{ borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.55 0.01 270)" }}>
+                            style={{ borderColor: "oklch(0.28 0.008 270)", color: "oklch(0.52 0.008 264)" }}>
                             关闭
                           </Button>
                         </div>
@@ -1384,38 +1384,38 @@ export default function Settings() {
 
                     {/* 添加来源表单 */}
                     {showNewSourceForm && (
-                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.72 0.18 250 / 0.3)" }}>
+                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.63 0.20 258 / 0.25)" }}>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>来源名称</Label>
                             <Input value={newSourceForm.name} onChange={e => setNewSourceForm(f => ({ ...f, name: e.target.value }))}
                               placeholder="AQR Capital" className="h-8 text-xs"
-                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>分类</Label>
                             <Input value={newSourceForm.category} onChange={e => setNewSourceForm(f => ({ ...f, category: e.target.value }))}
                               placeholder="quant / macro / fundamentals" className="h-8 text-xs"
-                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                           </div>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>URL</Label>
                           <Input value={newSourceForm.url} onChange={e => setNewSourceForm(f => ({ ...f, url: e.target.value }))}
                             placeholder="https://www.aqr.com/insights" className="h-8 text-xs font-mono"
-                            style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                            style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>路由关键词（逗号分隔）</Label>
                             <Input value={newSourceForm.routingKeys} onChange={e => setNewSourceForm(f => ({ ...f, routingKeys: e.target.value }))}
                               placeholder="\u91cf化,因子,小市値" className="h-8 text-xs"
-                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                              style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>信任等级</Label>
                             <Select value={newSourceForm.trustLevel} onValueChange={v => setNewSourceForm(f => ({ ...f, trustLevel: v as TrustedSource["trustLevel"] }))}>
-                              <SelectTrigger className="h-8 text-xs" style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.25 0.007 270)" }}>
+                              <SelectTrigger className="h-8 text-xs" style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(0.18 0.007 264)" }}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1430,7 +1430,7 @@ export default function Settings() {
                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowNewSourceForm(false)}
                             style={{ borderColor: "oklch(0.30 0.008 270)", color: "oklch(0.60 0.01 270)" }}>取消</Button>
                           <Button size="sm" className="h-7 text-xs gap-1"
-                            style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}
+                            style={{ background: "oklch(0.63 0.20 258)", color: "oklch(0.13 0.005 270)" }}
                             onClick={() => {
                               if (!newSourceForm.name || !newSourceForm.url) { toast.error("请填写名称和 URL"); return; }
                               const newSrc: TrustedSource = {
@@ -1457,7 +1457,7 @@ export default function Settings() {
                       <div className="space-y-1.5">
                         {trustedSourcesConfig.sources.map(src => (
                           <div key={src.id} className="flex items-center gap-2 p-2.5 rounded-lg"
-                            style={{ background: "oklch(0.13 0.004 270)", border: `1px solid ${src.enabled ? "oklch(0.72 0.18 250 / 0.25)" : "oklch(0.25 0.007 270)"}` }}>
+                            style={{ background: "oklch(0.13 0.004 270)", border: `1px solid ${src.enabled ? "oklch(0.72 0.18 250 / 0.25)" : "oklch(0.18 0.007 264)"}` }}>
                             <button onClick={() => setTrustedSourcesConfig(c => ({ ...c, sources: c.sources.map(s => s.id === src.id ? { ...s, enabled: !s.enabled } : s) }))}
                               className="flex-shrink-0">
                               {src.enabled
@@ -1466,31 +1466,31 @@ export default function Settings() {
                             </button>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>{src.name}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: src.trustLevel === "primary" ? "oklch(0.72 0.18 250 / 0.2)" : "oklch(0.25 0.007 270)", color: src.trustLevel === "primary" ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}>
+                                <span className="text-xs font-medium" style={{ color: "oklch(0.88 0.005 264)" }}>{src.name}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: src.trustLevel === "primary" ? "oklch(0.63 0.20 258 / 0.15)" : "oklch(0.18 0.007 264)", color: src.trustLevel === "primary" ? "oklch(0.63 0.20 258)" : "oklch(0.52 0.008 264)" }}>
                                   {src.trustLevel === "primary" ? "主要" : src.trustLevel === "secondary" ? "次要" : "补充"}
                                 </span>
                                 {src.category && <span className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>{src.category}</span>}
                               </div>
-                              <p className="text-xs truncate mt-0.5" style={{ color: "oklch(0.45 0.01 270)" }}>{src.url}</p>
+                              <p className="text-xs truncate mt-0.5" style={{ color: "oklch(0.43 0.008 264)" }}>{src.url}</p>
                               {src.routingKeys.length > 0 && (
                                 <p className="text-xs mt-0.5" style={{ color: "oklch(0.55 0.15 250)" }}>路由: {src.routingKeys.join(" · ")}</p>
                               )}
                             </div>
                             <button onClick={() => setTrustedSourcesConfig(c => ({ ...c, sources: c.sources.filter(s => s.id !== src.id) }))}
                               className="flex-shrink-0 p-1 rounded hover:bg-white/5"
-                              style={{ color: "oklch(0.45 0.01 270)" }}>
+                              style={{ color: "oklch(0.43 0.008 264)" }}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-center py-4" style={{ color: "oklch(0.45 0.01 270)" }}>暂无可信来源，点击「添加来源」进行配置</p>
+                      <p className="text-xs text-center py-4" style={{ color: "oklch(0.43 0.008 264)" }}>暂无可信来源，点击「添加来源」进行配置</p>
                     )}
 
                     {/* Policy 配置 */}
-                    <div className="pt-2 border-t" style={{ borderColor: "oklch(0.25 0.007 270)" }}>
+                    <div className="pt-2 border-t" style={{ borderColor: "oklch(0.18 0.007 264)" }}>
                       <p className="text-xs font-medium mb-2" style={{ color: "oklch(0.65 0.008 270)" }}>Policy 配置</p>
                       <div className="grid grid-cols-2 gap-2">
                         {([
@@ -1501,25 +1501,25 @@ export default function Settings() {
                           <button key={key}
                             onClick={() => setTrustedSourcesConfig(c => ({ ...c, policy: { ...c.policy, [key]: !c.policy[key] } }))}
                             className="flex items-center gap-2 p-2 rounded-lg text-xs"
-                            style={{ background: trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.15)" : "oklch(0.14 0.004 270)", border: `1px solid ${trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.25 0.007 270)"}`, color: trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250)" : "oklch(0.55 0.01 270)" }}>
+                            style={{ background: trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.15)" : "oklch(0.14 0.004 270)", border: `1px solid ${trustedSourcesConfig.policy[key] ? "oklch(0.72 0.18 250 / 0.4)" : "oklch(0.18 0.007 264)"}`, color: trustedSourcesConfig.policy[key] ? "oklch(0.63 0.20 258)" : "oklch(0.52 0.008 264)" }}>
                             {trustedSourcesConfig.policy[key] ? <CheckCircle2 className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border" style={{ borderColor: "oklch(0.35 0.008 270)" }} />}
                             {label}
                           </button>
                         ))}
-                        <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.25 0.007 270)" }}>
-                          <span className="text-xs" style={{ color: "oklch(0.55 0.01 270)" }}>最低证据分</span>
+                        <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "oklch(0.14 0.004 270)", border: "1px solid oklch(0.18 0.007 264)" }}>
+                          <span className="text-xs" style={{ color: "oklch(0.52 0.008 264)" }}>最低证据分</span>
                           <input type="range" min="0" max="1" step="0.1"
                             value={trustedSourcesConfig.policy.minEvidenceScore}
                             onChange={e => setTrustedSourcesConfig(c => ({ ...c, policy: { ...c.policy, minEvidenceScore: parseFloat(e.target.value) } }))}
                             className="flex-1 h-1 accent-blue-400" />
-                          <span className="text-xs font-mono w-6" style={{ color: "oklch(0.72 0.18 250)" }}>{trustedSourcesConfig.policy.minEvidenceScore}</span>
+                          <span className="text-xs font-mono w-6" style={{ color: "oklch(0.63 0.20 258)" }}>{trustedSourcesConfig.policy.minEvidenceScore}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex justify-end">
                       <Button size="sm" className="gap-1.5 h-7 text-xs"
-                        style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}
+                        style={{ background: "oklch(0.63 0.20 258)", color: "oklch(0.13 0.005 270)" }}
                         onClick={() => saveConfigMutation.mutate({ trustedSourcesConfig } as any)}
                         disabled={saveConfigMutation.isPending}>
                         {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
@@ -1530,7 +1530,7 @@ export default function Settings() {
 
                   {/* ---- 传统资料库文本输入（兼容旧模式）---- */}
                   <div className="p-4 rounded-xl space-y-3"
-                    style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+                    style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
                     <p className="text-xs font-medium" style={{ color: "oklch(0.65 0.008 270)" }}>传统模式：直接输入 URL 列表</p>
                     <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>如果上方已配置结构化来源，优先使用结构化配置。</p>
                     <Textarea
@@ -1538,14 +1538,14 @@ export default function Settings() {
                       onChange={(e) => setDataLibrary(e.target.value)}
                       placeholder={"\u793a\u4f8b\uff1a\n## \u6743\u5a01\u6570\u636e\u6e90\n- \u4e2d\u56fd\u8bc1\u76d1\u4f1a\u516c\u544a\uff1ahttps://www.csrc.gov.cn\n- \u7f8e\u8054\u50a8\u5229\u7387\u51b3\u8bae\uff1ahttps://www.federalreserve.gov"}
                       className="min-h-[160px] text-sm font-mono resize-y"
-                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.88 0.005 270)" }}
+                      style={{ background: "oklch(0.13 0.004 270)", borderColor: "oklch(0.63 0.20 258 / 0.15)", color: "oklch(0.88 0.005 264)" }}
                     />
                     <div className="flex justify-end">
                       <Button size="sm"
                         onClick={() => saveConfigMutation.mutate({ openaiModel: selectedModel, dataLibrary: dataLibrary.trim() || null } as any)}
                         disabled={saveConfigMutation.isPending}
                         className="gap-1.5 h-7 text-xs"
-                        style={{ background: "oklch(0.72 0.18 250)", color: "oklch(0.13 0.005 270)" }}>
+                        style={{ background: "oklch(0.63 0.20 258)", color: "oklch(0.13 0.005 270)" }}>
                         {saveConfigMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                         保存资料库
                       </Button>
@@ -1562,14 +1562,14 @@ export default function Settings() {
           <div className="space-y-6">
             <section className="space-y-3">
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>金融数据库连接</h2>
+                <Database className="w-4 h-4" style={{ color: "oklch(0.63 0.20 258)" }} />
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)" }}>金融数据库连接</h2>
               </div>
               {dbConnections.length > 0 && (
                 <div className="space-y-2">
                   {dbConnections.map((conn) => (
                     <div key={conn.id} className="flex items-center justify-between p-3 rounded-xl"
-                      style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+                      style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
                       <div className="flex items-center gap-3">
                         <button onClick={() => setActiveMutation.mutate({ connId: conn.id })} className="flex-shrink-0">
                           {conn.isActive
@@ -1577,7 +1577,7 @@ export default function Settings() {
                             : <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: "oklch(0.35 0.008 270)" }} />}
                         </button>
                         <div>
-                          <p className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 270)" }}>{conn.name}</p>
+                          <p className="text-sm font-medium" style={{ color: "oklch(0.88 0.005 264)" }}>{conn.name}</p>
                           <p className="text-xs" style={{ color: "oklch(0.50 0.01 270)" }}>
                             {conn.dbType}{conn.host ? ` · ${conn.host}` : ""}{conn.database ? ` · ${conn.database}` : ""}
                           </p>
@@ -1593,20 +1593,20 @@ export default function Settings() {
                 </div>
               )}
               <div className="p-4 rounded-xl space-y-3"
-                style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+                style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>连接名称</Label>
                     <Input placeholder="我的金融数据库" value={dbForm.name}
                       onChange={(e) => setDbForm(f => ({ ...f, name: e.target.value }))}
                       className="h-9 text-sm"
-                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs" style={{ color: "oklch(0.65 0.008 270)" }}>数据库类型</Label>
                     <Select value={dbForm.dbType} onValueChange={(v) => setDbForm(f => ({ ...f, dbType: v as any }))}>
                       <SelectTrigger className="h-9 text-sm"
-                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)" }}>
+                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)" }}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1623,7 +1623,7 @@ export default function Settings() {
                     <Input placeholder="/path/to/finance.db" value={dbForm.filePath}
                       onChange={(e) => setDbForm(f => ({ ...f, filePath: e.target.value }))}
                       className="h-9 text-sm font-mono"
-                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                      style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -1638,7 +1638,7 @@ export default function Settings() {
                         <Input placeholder={placeholder} value={(dbForm as any)[key]}
                           onChange={(e) => setDbForm(f => ({ ...f, [key]: e.target.value }))}
                           className="h-9 text-sm"
-                          style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                          style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                       </div>
                     ))}
                     <div className="col-span-2 space-y-1.5">
@@ -1646,7 +1646,7 @@ export default function Settings() {
                       <Input type="password" placeholder="••••••••" value={dbForm.password}
                         onChange={(e) => setDbForm(f => ({ ...f, password: e.target.value }))}
                         className="h-9 text-sm"
-                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.25 0.007 270)" }} />
+                        style={{ background: "oklch(0.14 0.004 270)", borderColor: "oklch(0.18 0.007 264)" }} />
                     </div>
                   </div>
                 )}
@@ -1667,9 +1667,9 @@ export default function Settings() {
           <div className="space-y-4">
             {/* 生成新密码 */}
             <div className="p-4 rounded-xl space-y-3"
-              style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.92 0.005 270)" }}>
-                <Plus className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+              style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
+              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.93 0.005 264)" }}>
+                <Plus className="w-4 h-4" style={{ color: "oklch(0.63 0.20 258)" }} />
                 生成访客密码
               </h2>
               <div className="grid grid-cols-3 gap-2">
@@ -1680,7 +1680,7 @@ export default function Settings() {
                     value={codeLabel}
                     onChange={(e) => setCodeLabel(e.target.value)}
                     className="h-8 text-sm"
-                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.18 0.007 264)", color: "oklch(0.88 0.005 264)" }}
                   />
                 </div>
                 <div>
@@ -1693,7 +1693,7 @@ export default function Settings() {
                     value={codeMaxUses}
                     onChange={(e) => setCodeMaxUses(e.target.value)}
                     className="h-8 text-sm"
-                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.18 0.007 264)", color: "oklch(0.88 0.005 264)" }}
                   />
                 </div>
                 <div className="col-span-2">
@@ -1705,13 +1705,13 @@ export default function Settings() {
                     value={codeExpireDays}
                     onChange={(e) => setCodeExpireDays(e.target.value)}
                     className="h-8 text-sm"
-                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.25 0.007 270)", color: "oklch(0.88 0.005 270)" }}
+                    style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.18 0.007 264)", color: "oklch(0.88 0.005 264)" }}
                   />
                 </div>
               </div>
               <Button
                 className="w-full h-8 text-sm font-medium"
-                style={{ background: "oklch(0.72 0.18 250)", color: "white" }}
+                style={{ background: "oklch(0.63 0.20 258)", color: "white" }}
                 disabled={generateCodeMutation.isPending}
                 onClick={() => generateCodeMutation.mutate({
                   label: codeLabel || undefined,
@@ -1728,7 +1728,7 @@ export default function Settings() {
                 <div className="p-3 rounded-lg flex items-center justify-between gap-2"
                   style={{ background: "oklch(0.72 0.18 155 / 0.12)", border: "1px solid oklch(0.72 0.18 155 / 0.4)" }}>
                   <div>
-                    <div className="text-xs mb-0.5" style={{ color: "oklch(0.55 0.01 270)" }}>新密码（请立即复制）</div>
+                    <div className="text-xs mb-0.5" style={{ color: "oklch(0.52 0.008 264)" }}>新密码（请立即复制）</div>
                     <div className="font-mono text-base font-bold tracking-widest" style={{ color: "oklch(0.72 0.18 155)" }}>{generatedCode}</div>
                   </div>
                   <Button
@@ -1745,30 +1745,30 @@ export default function Settings() {
 
             {/* 密码列表 */}
             <div className="p-4 rounded-xl space-y-2"
-              style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
+              style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.92 0.005 270)" }}>
-                  <Shield className="w-4 h-4" style={{ color: "oklch(0.72 0.18 250)" }} />
+                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(0.93 0.005 264)" }}>
+                  <Shield className="w-4 h-4" style={{ color: "oklch(0.63 0.20 258)" }} />
                   已生成密码 ({accessCodes.length})
                 </h2>
                 <Button size="icon" variant="ghost" onClick={() => refetchCodes()} className="w-6 h-6">
-                  <RefreshCw className="w-3 h-3" style={{ color: "oklch(0.55 0.01 270)" }} />
+                  <RefreshCw className="w-3 h-3" style={{ color: "oklch(0.52 0.008 264)" }} />
                 </Button>
               </div>
               {accessCodes.length === 0 ? (
-                <div className="text-xs text-center py-4" style={{ color: "oklch(0.42 0.01 270)" }}>暂无密码，点击上方「生成密码」创建</div>
+                <div className="text-xs text-center py-4" style={{ color: "oklch(0.40 0.008 264)" }}>暂无密码，点击上方「生成密码」创建</div>
               ) : (
                 <div className="space-y-2">
                   {accessCodes.map((c: any) => (
                     <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg"
-                      style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.20 0.007 270)" }}>
+                      style={{ background: "oklch(0.13 0.005 270)", border: "1px solid oklch(0.13 0.006 264)" }}>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-semibold" style={{ color: c.isRevoked ? "oklch(0.40 0.01 270)" : "oklch(0.88 0.005 270)" }}>{c.code}</span>
+                          <span className="font-mono text-sm font-semibold" style={{ color: c.isRevoked ? "oklch(0.40 0.01 270)" : "oklch(0.88 0.005 264)" }}>{c.code}</span>
                           {c.isRevoked && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 25 / 0.2)", color: "oklch(0.60 0.12 25)" }}>已撤销</span>}
                           {!c.isRevoked && c.usedCount >= c.maxUses && c.maxUses !== -1 && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 60 / 0.2)", color: "oklch(0.65 0.12 60)" }}>已用完</span>}
                         </div>
-                        <div className="text-xs mt-0.5" style={{ color: "oklch(0.45 0.01 270)" }}>
+                        <div className="text-xs mt-0.5" style={{ color: "oklch(0.43 0.008 264)" }}>
                           {c.label && <span className="mr-2">{c.label}</span>}
                           已用 {c.usedCount}/{c.maxUses === -1 ? "∞" : c.maxUses} 次
                           {c.expiresAt && <span className="ml-2">· 到期 {new Date(c.expiresAt).toLocaleDateString()}</span>}
@@ -1777,7 +1777,7 @@ export default function Settings() {
                       <div className="flex items-center gap-1 shrink-0">
                         <Button size="icon" variant="ghost" className="w-7 h-7"
                           onClick={() => { navigator.clipboard.writeText(c.code); toast.success("已复制密码"); }}>
-                          <Copy className="w-3.5 h-3.5" style={{ color: "oklch(0.55 0.01 270)" }} />
+                          <Copy className="w-3.5 h-3.5" style={{ color: "oklch(0.52 0.008 264)" }} />
                         </Button>
                         {!c.isRevoked && (
                           <Button size="icon" variant="ghost" className="w-7 h-7"
@@ -1794,8 +1794,8 @@ export default function Settings() {
             </div>
 
             {/* 说明 */}
-            <div className="p-3 rounded-xl text-xs" style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.72 0.18 250 / 0.2)", color: "oklch(0.60 0.01 270)" }}>
-              <p className="font-medium mb-1" style={{ color: "oklch(0.72 0.18 250)" }}>使用说明</p>
+            <div className="p-3 rounded-xl text-xs" style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.63 0.20 258 / 0.15)", color: "oklch(0.60 0.01 270)" }}>
+              <p className="font-medium mb-1" style={{ color: "oklch(0.63 0.20 258)" }}>使用说明</p>
               <p>· 将密码发给访客，访客登录后输入密码即可访问</p>
               <p>· 使用次数为 1 时，密码使用后立即失效（防止分享）</p>
               <p>· 点击撤销可立即禁止该密码的后续使用</p>
@@ -1806,8 +1806,8 @@ export default function Settings() {
         {activeTab === "logic" && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl space-y-4"
-              style={{ background: "oklch(0.17 0.005 270)", border: "1px solid oklch(0.23 0.007 270)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.92 0.005 270)" }}>三步并行协作架构</h2>
+              style={{ background: "oklch(0.10 0.005 264)", border: "1px solid oklch(0.23 0.007 270)" }}>
+              <h2 className="text-sm font-semibold" style={{ color: "oklch(0.93 0.005 264)" }}>三步并行协作架构</h2>
               {[
                 {
                   step: "Step 1 · GPT", label: "GPT 主导规划 + 初步分析",
@@ -1817,7 +1817,7 @@ export default function Settings() {
                 {
                   step: "Step 2 · Manus", label: "Manus 完善任务 + 数据收集",
                   desc: "Manus 接收 GPT 的 TASK_SPEC 后，先做资源审查（可补漏/去冗余），再并行调动 21+ 个 API 模块收集数据，整理为结构化报告交回 GPT",
-                  color: "oklch(0.72 0.18 250)", icon: Bot,
+                  color: "oklch(0.63 0.20 258)", icon: Bot,
                 },
                 {
                   step: "Step 3 · GPT", label: "GPT 深度整合，输出最终回复",
@@ -1833,16 +1833,16 @@ export default function Settings() {
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <Icon className="w-3 h-3" style={{ color }} />
-                      <span className="text-xs font-semibold" style={{ color: "oklch(0.88 0.005 270)" }}>{label}</span>
+                      <span className="text-xs font-semibold" style={{ color: "oklch(0.88 0.005 264)" }}>{label}</span>
                       <span className="text-xs px-1.5 py-0.5 rounded"
-                        style={{ background: "oklch(0.20 0.007 270)", color: "oklch(0.50 0.01 270)" }}>{step}</span>
+                        style={{ background: "oklch(0.13 0.006 264)", color: "oklch(0.50 0.01 270)" }}>{step}</span>
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: "oklch(0.55 0.01 270)" }}>{desc}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: "oklch(0.52 0.008 264)" }}>{desc}</p>
                   </div>
                 </div>
               ))}
               <div className="pt-2 mt-2 text-xs text-center"
-                style={{ borderTop: "1px solid oklch(0.22 0.007 270)", color: "oklch(0.42 0.01 270)" }}>
+                style={{ borderTop: "1px solid oklch(0.15 0.007 264)", color: "oklch(0.40 0.008 264)" }}>
                 全程静默内部流转，用户只看到最终回复 · 同对话框内新消息默认延续上一任务
               </div>
             </div>

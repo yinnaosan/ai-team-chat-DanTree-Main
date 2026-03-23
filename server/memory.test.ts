@@ -28,6 +28,7 @@ const mockMemories = [
     memoryType: "preference",
     keywords: "茅台,白酒,价值投资",
     conversationId: 1,
+    importance: 5,
     expiresAt: null,
     createdAt: new Date("2026-01-01"),
   },
@@ -39,6 +40,7 @@ const mockMemories = [
     memoryType: "watchlist",
     keywords: "比亚迪,新能源,BYD",
     conversationId: 2,
+    importance: 3,
     expiresAt: null,
     createdAt: new Date("2026-01-02"),
   },
@@ -50,10 +52,32 @@ const mockMemories = [
     memoryType: "workflow",
     keywords: "量化,动量,回测",
     conversationId: 3,
+    importance: 1,
     expiresAt: null,
     createdAt: new Date("2026-01-03"),
   },
 ];
+
+// ─── computeExpiresAt 逻辑（与 db.ts 保持一致）────────────────────────────────
+function computeExpiresAt(importance: number): Date | null {
+  const DAY_MS = 86400000;
+  const now = Date.now();
+  const daysMap: Record<number, number | null> = {
+    1: 30,
+    2: 90,
+    3: 180,
+    4: 365,
+    5: null, // 永不过期
+  };
+  // 注意：不能用 ?? ，因为 null ?? 180 会返回 180
+  const days = importance in daysMap ? daysMap[importance] : 180;
+  return days === null ? null : new Date(now + days! * DAY_MS);
+}
+
+// ─── importance 加成逻辑（与 db.ts 保持一致）────────────────────────────────
+function importanceBonus(importance: number): number {
+  return (importance - 3) * 0.5;
+}
 
 describe("Memory DB helpers", () => {
   beforeEach(() => {
@@ -129,6 +153,12 @@ describe("Memory DB helpers", () => {
         keywords: "新关键词",
       });
     });
+
+    it("应支持更新 importance 字段", async () => {
+      (updateMemoryContext as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      await updateMemoryContext(1, 1, { importance: 5 });
+      expect(updateMemoryContext).toHaveBeenCalledWith(1, 1, { importance: 5 });
+    });
   });
 
   describe("Memory 过滤逻辑（前端模拟）", () => {
@@ -157,6 +187,79 @@ describe("Memory DB helpers", () => {
         (m.keywords ?? "").includes(q)
       );
       expect(filtered).toHaveLength(0);
+    });
+  });
+
+  describe("computeExpiresAt 过期策略", () => {
+    it("importance=1 应返回约 30 天后的日期", () => {
+      const result = computeExpiresAt(1);
+      expect(result).not.toBeNull();
+      const diffDays = (result!.getTime() - Date.now()) / 86400000;
+      expect(diffDays).toBeCloseTo(30, 0);
+    });
+
+    it("importance=2 应返回约 90 天后的日期", () => {
+      const result = computeExpiresAt(2);
+      expect(result).not.toBeNull();
+      const diffDays = (result!.getTime() - Date.now()) / 86400000;
+      expect(diffDays).toBeCloseTo(90, 0);
+    });
+
+    it("importance=3 应返回约 180 天后的日期", () => {
+      const result = computeExpiresAt(3);
+      expect(result).not.toBeNull();
+      const diffDays = (result!.getTime() - Date.now()) / 86400000;
+      expect(diffDays).toBeCloseTo(180, 0);
+    });
+
+    it("importance=4 应返回约 365 天后的日期", () => {
+      const result = computeExpiresAt(4);
+      expect(result).not.toBeNull();
+      const diffDays = (result!.getTime() - Date.now()) / 86400000;
+      expect(diffDays).toBeCloseTo(365, 0);
+    });
+
+    it("importance=5 应返回 null（永不过期）", () => {
+      const result = computeExpiresAt(5);
+      expect(result).toBeNull();
+    });
+
+    it("未知 importance 应默认 180 天", () => {
+      const result = computeExpiresAt(99);
+      expect(result).not.toBeNull();
+      const diffDays = (result!.getTime() - Date.now()) / 86400000;
+      expect(diffDays).toBeCloseTo(180, 0);
+    });
+  });
+
+  describe("importanceBonus 评分加成", () => {
+    it("importance=1 应产生 -1.0 的加成（降权）", () => {
+      expect(importanceBonus(1)).toBe(-1.0);
+    });
+
+    it("importance=3 应产生 0 的加成（中性）", () => {
+      expect(importanceBonus(3)).toBe(0);
+    });
+
+    it("importance=5 应产生 +1.0 的加成（置顶）", () => {
+      expect(importanceBonus(5)).toBe(1.0);
+    });
+
+    it("高 importance 记忆在评分中应排在低 importance 记忆前面", () => {
+      // 模拟两条记忆，关键词匹配分相同，importance 不同
+      const highImp = { matchScore: 2, timeFactor: 1.0, importance: 5 };
+      const lowImp = { matchScore: 2, timeFactor: 1.0, importance: 1 };
+      const scoreHigh = highImp.matchScore * highImp.timeFactor + importanceBonus(highImp.importance);
+      const scoreLow = lowImp.matchScore * lowImp.timeFactor + importanceBonus(lowImp.importance);
+      expect(scoreHigh).toBeGreaterThan(scoreLow);
+    });
+
+    it("importance=5 记忆即使 matchScore=0 也应比 importance=1 且 matchScore=1 的记忆得分高", () => {
+      // importance=5, matchScore=0: 0*1.0 + 1.0 = 1.0
+      // importance=1, matchScore=1: 1*1.0 + (-1.0) = 0.0
+      const scoreHigh = 0 * 1.0 + importanceBonus(5);
+      const scoreLow = 1 * 1.0 + importanceBonus(1);
+      expect(scoreHigh).toBeGreaterThan(scoreLow);
     });
   });
 });

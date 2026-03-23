@@ -1818,3 +1818,8 @@
 - [ ] AI 写入记忆时自动评估 importance 分数
 - [ ] Settings 前端：显示重要性星级，支持按重要性排序
 - [ ] 编写测试，运行全套测试，保存 checkpoint
+
+## AI 记忆系统优化 Round 3（2026-03-23）
+
+- [x] 高重要性记忆置顶：getRelevantMemory 评分中加入 importance 权重，importance≥4 优先注入
+- [x] 记忆自动过期策略：saveMemoryContext 根据 importance 计算 expiresAt（1→30天，5→永不过期）

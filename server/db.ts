@@ -668,7 +668,12 @@ export async function getRelevantMemory(
       if (memoryText.toUpperCase().includes(ticker)) matchScore += 3;
     }
 
-    return { memory: m, score: matchScore * timeFactor, matchScore, timeFactor };
+    // 重要性加成：importance 影响最终得分，确保高价値记忆在相同匹配度下优先被选取
+    // importance=1 → -1.0（轻微降权）， importance=3 → 0（中性）， importance=5 → +1.0（显著提升）
+    const imp = m.importance ?? 3;
+    const importanceBonus = (imp - 3) * 0.5;
+
+    return { memory: m, score: matchScore * timeFactor + importanceBonus, matchScore, timeFactor, importanceBonus };
   });
 
   // 按分数降序排序
@@ -688,6 +693,27 @@ export async function getRelevantMemory(
   return merged;
 }
 
+/**
+ * 根据 importance 计算记忆过期时间
+ * importance=1 → 30天， importance=2 → 90天， importance=3 → 180天
+ * importance=4 → 365天， importance=5 → 永不过期（null）
+ */
+function computeExpiresAt(importance: number): Date | null {
+  const DAY_MS = 86400000;
+  const now = Date.now();
+  // importance=5 映射到 null（永不过期），其他映射到天数
+  const daysMap: Record<number, number | null> = {
+    1: 30,
+    2: 90,
+    3: 180,
+    4: 365,
+    5: null, // 永不过期
+  };
+  // 注意：不能用 ?? ，因为 null ?? 180 会返回 180
+  const days = importance in daysMap ? daysMap[importance] : 180;
+  return days === null ? null : new Date(now + days! * DAY_MS);
+}
+
 export async function saveMemoryContext(data: {
   userId: number;
   taskId: number;
@@ -702,10 +728,14 @@ export async function saveMemoryContext(data: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const imp = Math.min(5, Math.max(1, Math.round(data.importance ?? 3)));
+  // 如果调用方没有显式传入 expiresAt，则根据 importance 自动计算
+  const expiresAt = data.expiresAt !== undefined ? data.expiresAt : (computeExpiresAt(imp) ?? undefined);
   await db.insert(memoryContext).values({
     ...data,
     memoryType: data.memoryType ?? "analysis",
-    importance: Math.min(5, Math.max(1, Math.round(data.importance ?? 3))),
+    importance: imp,
+    expiresAt,
   });
 }
 

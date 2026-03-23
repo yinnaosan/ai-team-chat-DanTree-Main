@@ -696,6 +696,7 @@ export async function saveMemoryContext(data: {
   summary: string;
   keywords?: string;
   memoryType?: "preference" | "workflow" | "watchlist" | "analysis";
+  importance?: number; // 1-5 重要性评分，默认 3
   expiresAt?: Date;
   agentSignals?: string; // JSON 字符串，存储多 Agent 分析信号
 }) {
@@ -704,6 +705,7 @@ export async function saveMemoryContext(data: {
   await db.insert(memoryContext).values({
     ...data,
     memoryType: data.memoryType ?? "analysis",
+    importance: Math.min(5, Math.max(1, Math.round(data.importance ?? 3))),
   });
 }
 
@@ -964,13 +966,14 @@ export async function deleteMemoryContextBatch(ids: number[], userId: number): P
 export async function updateMemoryContext(
   id: number,
   userId: number,
-  data: { summary?: string; keywords?: string }
+  data: { summary?: string; keywords?: string; importance?: number }
 ): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const updates: Record<string, unknown> = {};
   if (data.summary !== undefined) updates.summary = data.summary;
   if (data.keywords !== undefined) updates.keywords = data.keywords;
+  if (data.importance !== undefined) updates.importance = Math.min(5, Math.max(1, Math.round(data.importance)));
   if (Object.keys(updates).length === 0) return;
   await db.update(memoryContext)
     .set(updates)

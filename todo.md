@@ -1811,3 +1811,10 @@
 - [x] 语义化搜索：后端 memory.search tRPC 路由（基于 keywords 相似度匹配）+ 前端搜索框接入
 - [x] 记忆导出：AI 记忆 Tab 添加「导出 JSON」和「导出 CSV」按钮
 - [x] 编写测试，运行全套测试，保存 checkpoint
+
+## AI 记忆系统两项优化（2026-03-23 第二轮）
+- [ ] 中文化分类 prompt：添加 A股/港股/价值投资场景示例，提升分类准确率
+- [ ] 添加 importance 字段（1-5分）到 memory_context 表：schema 迁移 + db 函数更新
+- [ ] AI 写入记忆时自动评估 importance 分数
+- [ ] Settings 前端：显示重要性星级，支持按重要性排序
+- [ ] 编写测试，运行全套测试，保存 checkpoint

@@ -2021,6 +2021,7 @@ interface MemoryItem {
   summary: string | null;
   memoryType: string | null;
   keywords: string | null;
+  importance: number | null;
   conversationId: number | null;
   expiresAt: Date | null;
   createdAt: Date | null;
@@ -2041,6 +2042,8 @@ function MemoryManager() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSummary, setEditSummary] = useState("");
   const [editKeywords, setEditKeywords] = useState("");
+  const [editImportance, setEditImportance] = useState(3);
+  const [sortBy, setSortBy] = useState<"time" | "importance">("time"); // 排序方式
   const utils = trpc.useUtils();
   const { data: memories = [], isLoading } = trpc.memory.list.useQuery(
     { limit: 100, memoryType: filterType },
@@ -2052,9 +2055,21 @@ function MemoryManager() {
     { refetchOnWindowFocus: false, enabled: !!semanticQuery }
   );
   // 当前展示的记忆列表：语义搜索结果 or 普通列表
-  const displayMemories = semanticQuery
+  const rawMemories = semanticQuery
     ? (semanticResults as unknown as MemoryItem[])
     : (memories as MemoryItem[]);
+  // 按时间或重要性排序
+  const displayMemories = [...rawMemories].sort((a, b) => {
+    if (sortBy === "importance") {
+      const ia = a.importance ?? 3;
+      const ib = b.importance ?? 3;
+      if (ib !== ia) return ib - ia; // 重要性降序
+    }
+    // 默认按时间降序
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
   // 导出功能
   const handleExportJSON = () => {
     const data = displayMemories.map(m => ({
@@ -2063,6 +2078,7 @@ function MemoryManager() {
       summary: m.summary,
       keywords: m.keywords,
       memoryType: m.memoryType,
+      importance: m.importance,
       createdAt: m.createdAt,
       expiresAt: m.expiresAt,
     }));
@@ -2155,16 +2171,18 @@ function MemoryManager() {
     setEditingId(m.id);
     setEditSummary(m.summary ?? "");
     setEditKeywords(m.keywords ?? "");
+    setEditImportance(m.importance ?? 3);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditSummary("");
     setEditKeywords("");
+    setEditImportance(3);
   };
 
   const saveEdit = (id: number) => {
-    updateMutation.mutate({ id, summary: editSummary, keywords: editKeywords });
+    updateMutation.mutate({ id, summary: editSummary, keywords: editKeywords, importance: editImportance });
   };
 
   const typeFilters: { id: MemoryType; label: string }[] = [
@@ -2242,7 +2260,31 @@ function MemoryManager() {
             </button>
           )}
         </div>
-        {/* 导出按钮 */}
+        {/* 排序按鈕 */}
+        <div className="flex items-center gap-1 p-1 rounded-xl"
+          style={{ background: "oklch(100% 0 0 / 0.05)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+          <button
+            onClick={() => setSortBy("time")}
+            className="text-xs px-2.5 py-1 rounded-lg transition-all"
+            style={{
+              background: sortBy === "time" ? "oklch(0.65 0.15 250 / 0.2)" : "transparent",
+              color: sortBy === "time" ? "oklch(0.75 0.15 250)" : "oklch(42% 0 0)",
+              fontWeight: sortBy === "time" ? 600 : 400,
+            }}>
+            最新
+          </button>
+          <button
+            onClick={() => setSortBy("importance")}
+            className="text-xs px-2.5 py-1 rounded-lg transition-all"
+            style={{
+              background: sortBy === "importance" ? "oklch(0.72 0.18 50 / 0.2)" : "transparent",
+              color: sortBy === "importance" ? "oklch(0.80 0.18 50)" : "oklch(42% 0 0)",
+              fontWeight: sortBy === "importance" ? 600 : 400,
+            }}>
+            重要性
+          </button>
+        </div>
+        {/* 导出按鈕 */}
         <div className="flex items-center gap-1">
           <button
             onClick={handleExportJSON}
@@ -2332,6 +2374,17 @@ function MemoryManager() {
                           {typeInfo.label}
                         </span>
                       )}
+                      {/* 重要性星级 */}
+                      {m.importance != null && (
+                        <span className="flex items-center gap-0.5 flex-shrink-0" title={`重要性 ${m.importance}/5`}>
+                          {[1,2,3,4,5].map(i => (
+                            <span key={i} className="text-xs"
+                              style={{ color: i <= (m.importance ?? 0) ? "oklch(0.80 0.18 50)" : "oklch(25% 0 0)" }}>
+                              ★
+                            </span>
+                          ))}
+                        </span>
+                      )}
                       <span className="text-xs font-medium truncate" style={{ color: "oklch(85% 0 0)" }}>
                         {m.taskTitle ?? "未命名任务"}
                       </span>
@@ -2369,6 +2422,23 @@ function MemoryManager() {
                               color: "oklch(85% 0 0)",
                             }}
                           />
+                        </div>
+                        <div>
+                          <label className="text-xs mb-1 block" style={{ color: "oklch(55% 0 0)" }}>重要性（1-5）</label>
+                          <div className="flex items-center gap-2">
+                            {[1,2,3,4,5].map(i => (
+                              <button key={i}
+                                type="button"
+                                onClick={() => setEditImportance(i)}
+                                className="text-base transition-all"
+                                style={{ color: i <= editImportance ? "oklch(0.80 0.18 50)" : "oklch(30% 0 0)" }}>
+                                ★
+                              </button>
+                            ))}
+                            <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+                              {["",'\u4e00般','\u6709用','\u91cd要','\u5f88重要','\u6838心'][editImportance]}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button

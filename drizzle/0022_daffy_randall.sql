@@ -1,0 +1,1 @@
+ALTER TABLE `memory_context` ADD `importance` int DEFAULT 3 NOT NULL;

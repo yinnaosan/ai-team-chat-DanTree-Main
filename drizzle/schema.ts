@@ -220,6 +220,8 @@ export const memoryContext = mysqlTable("memory_context", {
   keywords: text("keywords"),
   // 记忆分层：preference=用户偏好/workflow=工作流程/watchlist=监控列表/analysis=分析结果
   memoryType: mysqlEnum("memoryType", ["preference", "workflow", "watchlist", "analysis"]).default("analysis").notNull(),
+  // 记忆重要性评分（1=一般信息, 2=有用, 3=重要, 4=很重要, 5=核心记忆）
+  importance: int("importance").default(3).notNull(),
   // 记忆过期时间（null 表示永不过期）
   expiresAt: timestamp("expiresAt"),
   // 多 Agent 分析信号（JSON 字符串）

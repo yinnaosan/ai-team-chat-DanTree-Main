@@ -1752,3 +1752,15 @@
 - [ ] 更新 Step2 新闻处理：叠加权重排序 + 过滤
 - [ ] 更新 Step3 AI 提示词：升级为 TrendRadar 六板块结构化分析格式
 - [ ] 编写测试，运行全套测试，保存 checkpoint
+
+## SYSTEM_REBUILD_V2_1_FULL ROUND_2_PATCH (OPTION_B)
+- [x] server/routers.ts: Step3 prompt 末尾注入 DELIVERABLE + DISCUSSION 标记块指令（严格 JSON，无 trailing comma）
+- [x] server/routers.ts: post-stream 解析器 — 提取 %%DELIVERABLE%% 和 %%DISCUSSION%% 块，验证 required keys
+- [x] server/routers.ts: 写入 metadataToSave.answerObject 和 metadataToSave.discussionObject
+- [x] server/routers.ts: 从 finalReply 中剥离 marker 块（visible reply 不含标记）
+- [x] server/routers.ts: graceful degradation — parse 失败不 abort 任务，metadata 设为 null，添加日志
+- [x] client/src/pages/ChatRoom.tsx: 扩展 Msg.metadata 类型，加入 discussionObject 字段
+- [x] client/src/pages/ChatRoom.tsx: 更新 AnswerHeader 渲染 key_evidence/reasoning/counterarguments/next_steps
+- [x] client/src/pages/ChatRoom.tsx: 新增 DiscussionPanel 组件（key_uncertainty/weakest_point/alternative_view/follow_up_questions/exploration_paths）
+- [x] client/src/pages/ChatRoom.tsx: 前端 fallback-safe — 两个对象均可为 null，不 crash
+- [x] vitest: 覆盖 marker 解析、JSON 验证、graceful degradation 三个场景

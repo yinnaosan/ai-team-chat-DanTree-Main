@@ -78,17 +78,23 @@ interface Msg {
     dataSources?: DataSource[];
     apiSources?: ApiSource[];
     citationHits?: ApiSource[];
+    // V2.1 DELIVERABLE schema (Option B, marker-based extraction)
     answerObject?: {
       verdict: string;
       confidence: "high" | "medium" | "low";
-      key_findings?: Array<{ claim: string; source: string; value?: string; citations?: string[] }>;
-      risks?: Array<{ description: string; magnitude?: string; citations?: string[] }>;
-      anti_thesis?: string;
-      data_gaps?: Array<{ field: string; reason?: string; hard_missing?: boolean }> | string[];
-      gaps?: Array<{ text: string; citations: string[] }>;
-      citations_count?: number;
-      hard_missing_count?: number;
-      citations?: Array<{ source_id: string; display_name: string; data_point: string; timestamp?: string }>;
+      key_evidence?: string[];
+      reasoning?: string[];
+      counterarguments?: string[];
+      risks?: Array<{ description: string; magnitude?: "high" | "medium" | "low" }>;
+      next_steps?: string[];
+    };
+    // V2.1 DISCUSSION schema
+    discussionObject?: {
+      key_uncertainty: string;
+      weakest_point: string;
+      alternative_view: string;
+      follow_up_questions: string[];
+      exploration_paths: string[];
     };
     evidenceScore?: number;
     outputMode?: "decisive" | "directional" | "framework_only";
@@ -457,6 +463,78 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
   );
 }
 
+// ─── V2.1 DiscussionPanel ─────────────────────────────────────────────────────
+function DiscussionPanel({ discussionObject }: {
+  discussionObject: NonNullable<NonNullable<Msg["metadata"]>["discussionObject"]>;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
+      style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(0.72 0.18 250 / 0.15)", boxShadow: "0 1px 8px oklch(0 0 0 / 0.2)" }}>
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold" style={{ color: "oklch(0.72 0.18 250)" }}>深度讨论</span>
+          {discussionObject.key_uncertainty && (
+            <span className="text-xs px-2 py-0.5 rounded-full truncate max-w-[240px]"
+              style={{ background: "oklch(0.72 0.18 250 / 0.08)", color: "oklch(0.62 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+              {discussionObject.key_uncertainty.slice(0, 50)}{discussionObject.key_uncertainty.length > 50 ? "…" : ""}
+            </span>
+          )}
+        </div>
+        <button onClick={() => setExpanded(e => !e)}
+          className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors hover:opacity-80"
+          style={{ color: "oklch(50% 0 0)", background: "oklch(100% 0 0 / 0.1)" }}>
+          {expanded ? "收起" : "展开"}
+        </button>
+      </div>
+      {/* Expanded content */}
+      {expanded && (
+        <div className="mt-1 flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid oklch(100% 0 0 / 0.08)" }}>
+          {discussionObject.weakest_point && (
+            <div>
+              <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.78 0.18 75)" }}>最薄弱环节</p>
+              <p className="text-xs" style={{ color: "oklch(78% 0 0)" }}>{discussionObject.weakest_point}</p>
+            </div>
+          )}
+          {discussionObject.alternative_view && (
+            <div>
+              <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.72 0.18 25)" }}>对立观点</p>
+              <p className="text-xs" style={{ color: "oklch(78% 0 0)" }}>{discussionObject.alternative_view}</p>
+            </div>
+          )}
+          {(discussionObject.follow_up_questions?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>深度追问</p>
+              <div className="flex flex-col gap-1">
+                {discussionObject.follow_up_questions.map((q, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }}>Q{i + 1}.</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{q}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(discussionObject.exploration_paths?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>延伸研究方向</p>
+              <div className="flex flex-col gap-1">
+                {discussionObject.exploration_paths.map((p, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 155)" }}>→</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnswerHeader({ answerObject, outputMode }: {
   answerObject: NonNullable<NonNullable<Msg["metadata"]>["answerObject"]>;
   evidenceScore?: number;
@@ -477,8 +555,11 @@ function AnswerHeader({ answerObject, outputMode }: {
     : outputMode === "directional" ? "oklch(0.78 0.18 75 / 0.5)"
     : "oklch(0.45 0.01 270 / 0.5)";
   const conf = confidenceMap[answerObject.confidence] ?? confidenceMap.medium;
-  const hasDetails = (answerObject.key_findings?.length ?? 0) > 0 ||
-    (answerObject.risks?.length ?? 0) > 0;
+  const hasDetails = (answerObject.key_evidence?.length ?? 0) > 0 ||
+    (answerObject.reasoning?.length ?? 0) > 0 ||
+    (answerObject.counterarguments?.length ?? 0) > 0 ||
+    (answerObject.risks?.length ?? 0) > 0 ||
+    (answerObject.next_steps?.length ?? 0) > 0;
   return (
     <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
       style={{ background: "oklch(10% 0 0)", borderLeft: `3px solid ${modeAccent}`, border: "1px solid oklch(18% 0 0)", borderLeftWidth: "3px", boxShadow: "0 1px 8px oklch(0 0 0 / 0.3)" }}>
@@ -499,30 +580,50 @@ function AnswerHeader({ answerObject, outputMode }: {
           style={{ background: conf.bg, border: `1px solid ${conf.border}`, color: conf.color }}>
           {conf.label}
         </span>
-        {answerObject.citations_count !== undefined && answerObject.citations_count > 0 && (
+        {(answerObject.key_evidence?.length ?? 0) > 0 && (
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
             style={{ background: "oklch(15% 0 0)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
-            {answerObject.citations_count} 条引用
+            {answerObject.key_evidence!.length} 条证据
           </span>
         )}
       </div>
-      {/* 展开详情：主要发现 + 风险 */}
+      {/* 展开详情：关键证据 + 推理链 + 反驳论点 + 风险 + 下一步 */}
       {expanded && hasDetails && (
         <div className="mt-1 flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid oklch(100% 0 0 / 0.1)" }}>
-          {(answerObject.key_findings?.length ?? 0) > 0 && (
+          {(answerObject.key_evidence?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>主要发现</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>关键证据</p>
               <div className="flex flex-col gap-1">
-                {answerObject.key_findings!.map((f, i) => (
+                {answerObject.key_evidence!.map((e, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(75% 0 0)" }}>✓</span>
-                    <span style={{ color: "oklch(82% 0 0)" }}>{f.claim}</span>
-                    {(f.citations?.length ?? 0) > 0 && (
-                      <span className="shrink-0 ml-auto text-xs px-1.5 py-0.5 rounded"
-                        style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.62 0.12 250)" }}>
-                        {f.citations!.length}条证据
-                      </span>
-                    )}
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 155)" }}>✓</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{e}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(answerObject.reasoning?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>推理链</p>
+              <div className="flex flex-col gap-1">
+                {answerObject.reasoning!.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }}>→</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{r}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(answerObject.counterarguments?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.78 0.18 75)" }}>反驳论点</p>
+              <div className="flex flex-col gap-1">
+                {answerObject.counterarguments!.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.78 0.18 75)" }}>↔</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{c}</span>
                   </div>
                 ))}
               </div>
@@ -536,6 +637,25 @@ function AnswerHeader({ answerObject, outputMode }: {
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 25)" }}>⚠</span>
                     <span style={{ color: "oklch(82% 0 0)" }}>{r.description}</span>
+                    {r.magnitude && (
+                      <span className="shrink-0 ml-auto text-xs px-1.5 py-0.5 rounded"
+                        style={{ background: r.magnitude === "high" ? "oklch(0.72 0.18 25 / 0.15)" : r.magnitude === "medium" ? "oklch(0.78 0.18 75 / 0.15)" : "oklch(0.72 0.18 155 / 0.15)", color: r.magnitude === "high" ? "oklch(0.72 0.18 25)" : r.magnitude === "medium" ? "oklch(0.78 0.18 75)" : "oklch(0.72 0.18 155)" }}>
+                        {r.magnitude === "high" ? "高" : r.magnitude === "medium" ? "中" : "低"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(answerObject.next_steps?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(0.72 0.18 250)" }}>建议行动</p>
+              <div className="flex flex-col gap-1">
+                {answerObject.next_steps!.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }}>{i + 1}.</span>
+                    <span style={{ color: "oklch(82% 0 0)" }}>{s}</span>
                   </div>
                 ))}
               </div>
@@ -608,7 +728,7 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        {/* Answer Header：展示 verdict / confidence / outputMode / evidenceScore / citations_count / data_gaps */}
+        {/* Answer Header：展示 verdict / confidence / outputMode / evidenceScore / key_evidence */}
         {isAssistant && answerObject && (
           <AnswerHeader
             answerObject={answerObject}
@@ -618,6 +738,10 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             missingImportant={msg.metadata?.missingImportant}
             missingOptional={msg.metadata?.missingOptional}
           />
+        )}
+        {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}
+        {isAssistant && msg.metadata?.discussionObject && (
+          <DiscussionPanel discussionObject={msg.metadata.discussionObject} />
         )}
         <div className="prose-chat w-full" ref={msgRef}>
           {/* Alpha 因子可视化卡片 */}

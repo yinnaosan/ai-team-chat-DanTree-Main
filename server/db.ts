@@ -489,7 +489,7 @@ export async function getOwnerRpaConfig() {
 
 export async function upsertRpaConfig(
   userId: number,
-  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null; trustedSourcesConfig?: TrustedSourcesConfig | null; defaultCostMode?: "A" | "B" | "C" | null }
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null; trustedSourcesConfig?: TrustedSourcesConfig | null; defaultCostMode?: "A" | "B" | "C" | null; pinnedMetrics?: Array<{label: string; value: string; change?: string; color?: string}> | null; userWatchlist?: string[] | null }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

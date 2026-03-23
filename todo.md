@@ -1859,3 +1859,27 @@
 - [ ] Settings UI v1：添加成本控制模式（Mode A/B/C）设置面板
 - [ ] Developer Access：AdminPanel 完善（开发者工具、系统状态、日志查看）
 - [ ] 推理引擎 Pipeline 可视化：在分析进度条中显示完整 9 步 pipeline
+
+## DANTREE FRONTEND FINAL REBUILD
+
+- [ ] Phase 1: 创建 ResearchWorkspacePage (/research 路由，4列布局骨架)
+- [ ] Phase 1: 更新 App.tsx 添加 /research 路由
+- [ ] Phase 1: 更新 DashboardLayout 导航（添加 Research Workspace 入口）
+- [ ] Phase 2: AIVerdictCard 组件（verdict/confidence/suggested_action/primary_driver/key_risk）
+- [ ] Phase 2: KeyAnalysisCard 组件（Bull Case / Bear Case / Macro Impact 三栏结构）
+- [ ] Phase 2: RiskPanel 组件（独立视觉处理，红/橙危险语义）
+- [ ] Phase 2: DecisionSignalsCard 组件（Hold/Wait/Monitor 信号）
+- [ ] Phase 2: WhyItMattersNowCard 组件（时效性上下文，Earnings/Yield/Volatility）
+- [ ] Phase 2: PriceTargetsCard / AnalystRatingsCard / KeyForecastsCard / RecommendedActionsCard
+- [ ] Phase 3: DiscussionHeader（Discussing: {ticker} · {mode} 上下文标识）
+- [ ] Phase 3: ConversationToolbar（pin/favorite/group/delete/rename 工具栏）
+- [ ] Phase 3: QuickPromptBar（分析相关的快速追问芯片）
+- [ ] Phase 3: ResearchWorkspace 中完整的 DiscussionColumn 集成
+- [ ] Phase 4: Settings Monitoring Tab（watchlist signals/earnings/macro/volatility）
+- [ ] Phase 4: Settings Research Style Tab（Valuation/Growth/Risk/Balanced）
+- [ ] Phase 4: defaultCostMode → analysisMode 自动联动修复
+- [ ] Phase 4: Developer Access Presets（Basic Demo/Read-only/Research Viewer/Custom）
+- [ ] Phase 5: pinnedMetrics 持久化（DB schema + API + 前端）
+- [ ] Phase 5: InstrumentSelectorModal（搜索 ticker，添加到 watchlist，直接打开研究）
+- [ ] Phase 5: CustomizeWorkspaceModal（面板可见性切换，pinned metrics 选择）
+- [ ] Phase 6: DeepSectionsTabs（集成 HealthScoreCard/BacktestCard/SentimentNLPCard 等）

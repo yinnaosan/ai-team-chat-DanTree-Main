@@ -3136,6 +3136,10 @@ export const appRouter = router({
         trustedSourcesConfig: config?.trustedSourcesConfig ?? null,
         // 成本控制模式
         defaultCostMode: (config?.defaultCostMode as "A" | "B" | "C" | null) ?? "B",
+        // Pinned Metrics 持久化
+        pinnedMetrics: (config?.pinnedMetrics as Array<{label: string; value: string; change?: string; color?: string}> | null) ?? [],
+        // 用户自选股列表
+        userWatchlist: (config?.userWatchlist as string[] | null) ?? ["AAPL", "TSLA", "NVDA", "BTC"],
       };
     }),
     // 保存 API Key 和模型选择
@@ -3175,6 +3179,15 @@ export const appRouter = router({
         }).optional().nullable(),
         // 成本控制模式：A=minimal, B=standard, C=restricted
         defaultCostMode: z.enum(["A", "B", "C"]).optional(),
+        // Pinned Metrics 持久化
+        pinnedMetrics: z.array(z.object({
+          label: z.string(),
+          value: z.string(),
+          change: z.string().optional(),
+          color: z.string().optional(),
+        })).optional().nullable(),
+        // 用户自选股列表
+        userWatchlist: z.array(z.string()).optional().nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3191,6 +3204,10 @@ export const appRouter = router({
           trustedSourcesConfig: input.trustedSourcesConfig ?? undefined,
           // 成本控制模式
           defaultCostMode: input.defaultCostMode,
+          // Pinned Metrics 持久化
+          pinnedMetrics: input.pinnedMetrics ?? undefined,
+          // 用户自选股列表
+          userWatchlist: input.userWatchlist ?? undefined,
         });
         return { success: true };
       }),

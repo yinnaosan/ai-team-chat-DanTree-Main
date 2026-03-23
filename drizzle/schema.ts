@@ -152,6 +152,10 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   userCoreRules: text("userCoreRules"),
   // 成本控制模式：A=minimal(quick), B=standard, C=restricted(deep with limits)
   defaultCostMode: mysqlEnum("defaultCostMode", ["A", "B", "C"]).default("B").notNull(),
+  // Pinned Metrics 持久化：存储用户固定的关键指标配置（JSON 数组）
+  pinnedMetrics: json("pinnedMetrics"),
+  // 用户自选股列表（JSON 数组，如 ["AAPL", "TSLA", "BTC"]）
+  userWatchlist: json("userWatchlist"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

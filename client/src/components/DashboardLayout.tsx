@@ -24,7 +24,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen,
   Settings, Wallet, FlaskConical, Command, ChevronRight,
-  Activity, Zap, Bell
+  Activity, Zap, Bell, Microscope
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -34,6 +34,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: LayoutDashboard, label: "首页总览", path: "/", shortcut: "⌘0", group: "main" },
   { icon: MessageSquare, label: "AI 分析对话", path: "/chat", shortcut: "⌘1", group: "main" },
+  { icon: Microscope, label: "研究工作台", path: "/research", shortcut: "⌘R", group: "main" },
   { icon: FlaskConical, label: "因子回测", path: "/backtest", shortcut: "⌘2", group: "main" },
   { icon: Wallet, label: "资产负债表", path: "/networth", shortcut: "⌘3", group: "main" },
   { icon: BookOpen, label: "投资知识库", path: "/library", shortcut: "⌘4", group: "main" },

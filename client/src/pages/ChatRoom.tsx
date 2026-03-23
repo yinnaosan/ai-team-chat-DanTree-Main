@@ -303,10 +303,12 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   "港股公告": { bg: "oklch(0.72 0.18 25 / 0.08)", text: "oklch(0.60 0.15 25)", border: "oklch(0.72 0.18 25 / 0.2)" },
   "期权数据": { bg: "oklch(0.72 0.18 280 / 0.1)", text: "oklch(0.60 0.12 280)", border: "oklch(0.72 0.18 280 / 0.25)" },
   "技术分析": { bg: "oklch(0.72 0.18 170 / 0.1)", text: "oklch(0.55 0.12 170)", border: "oklch(0.72 0.18 170 / 0.25)" },
+  "网页搜索": { bg: "oklch(0.55 0.01 270 / 0.1)", text: "oklch(45% 0 0)", border: "oklch(0.55 0.01 270 / 0.25)" },
+  "其他": { bg: "oklch(0.55 0.01 270 / 0.1)", text: "oklch(45% 0 0)", border: "oklch(0.55 0.01 270 / 0.25)" },
 };
 
 function ApiSourceBadge({ src }: { src: ApiSource }) {
-  const colors = CATEGORY_COLORS[src.category] ?? CATEGORY_COLORS["网页搜索"];
+  const colors = CATEGORY_COLORS[src.category] ?? CATEGORY_COLORS["其他"] ?? { bg: "oklch(0.15 0.01 270)", text: "oklch(50% 0 0)", border: "oklch(0.25 0.01 270)" };
   return (
     <span
       className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
@@ -1180,8 +1182,17 @@ export default function ChatRoom() {
   const { data: rpaConfig } = trpc.rpa.getConfig.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
   });
-  const rpaConnected = rpaConfig?.hasApiKey === true;
-
+   const rpaConnected = rpaConfig?.hasApiKey === true;
+  // 同步 defaultCostMode 设置到 analysisMode
+  const [costModeSynced, setCostModeSynced] = useState(false);
+  useEffect(() => {
+    if (costModeSynced || !rpaConfig?.defaultCostMode) return;
+    const modeMap: Record<string, "quick" | "standard" | "deep"> = {
+      A: "quick", B: "standard", C: "deep",
+    };
+    const mapped = modeMap[rpaConfig.defaultCostMode];
+    if (mapped) { setAnalysisMode(mapped); setCostModeSynced(true); }
+  }, [rpaConfig?.defaultCostMode, costModeSynced]);
   // 对话记忆查询
   const { data: memoryData, refetch: refetchMemory } = trpc.chat.getMemory.useQuery(
     { limit: 20, conversationId: activeConvId ?? undefined },

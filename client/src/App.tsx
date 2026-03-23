@@ -12,6 +12,7 @@ import AdminPanel from "./pages/AdminPanel";
 import InvestmentLibrary from "./pages/InvestmentLibrary";
 import NetWorthDashboard from "./pages/NetWorthDashboard";
 import FactorBacktest from "./pages/FactorBacktest";
+import ResearchWorkspace from "./pages/ResearchWorkspace";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
 
@@ -26,6 +27,7 @@ function Router() {
       <Route path={"/library"} component={InvestmentLibrary} />
       <Route path={"/networth"} component={NetWorthDashboard} />
       <Route path={"/backtest"} component={FactorBacktest} />
+      <Route path={"/research"} component={ResearchWorkspace} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

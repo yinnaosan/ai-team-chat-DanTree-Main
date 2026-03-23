@@ -13,10 +13,10 @@ import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
   Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity, Sparkles,
-  BookOpen, Edit3, X, Filter, Search, Download,
+  BookOpen, Edit3, X, Filter, Search, Download, TrendingUp, Sliders, BarChart2, Clock, CheckCircle,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "access" | "logic" | "memory";
+type SettingsTab = "api" | "database" | "access" | "logic" | "memory" | "monitoring" | "research_style";
 type RulesTab = "investment" | "task" | "data";
 
 // ---- TrustedSource 类型（与后端 db.ts 一致）----
@@ -895,6 +895,8 @@ export default function Settings() {
     ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield, ownerOnly: true }] : []),
     { id: "logic", label: "逻辑", icon: Brain },
     { id: "memory", label: "AI 记忆", icon: BookOpen },
+    { id: "monitoring", label: "监控", icon: BarChart2 },
+    { id: "research_style", label: "研究风格", icon: Sliders },
   ];
 
   const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
@@ -2051,6 +2053,134 @@ export default function Settings() {
 
         {/* ── Tab: AI 记忆管理 ── */}
         {activeTab === "memory" && <MemoryManager />}
+
+        {/* ── Tab: 监控 ── */}
+        {activeTab === "monitoring" && (
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>Pipeline 执行监控</h3>
+              <p className="text-xs mb-4" style={{ color: "oklch(42% 0 0)" }}>9 步推理引擎实时状态、数据源健康、成本消耗监控</p>
+            </div>
+            {/* Pipeline 步骤状态卡片 */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>9步推理引擎 Pipeline</span>
+              </div>
+              {[
+                { step: 1, label: "Intent Parsing", desc: "意图解析与分类", status: "active" },
+                { step: 2, label: "Research Planning", desc: "研究计划生成", status: "active" },
+                { step: 3, label: "Field Requirements", desc: "字段优先级分层", status: "active" },
+                { step: 4, label: "Source Selection", desc: "数据源智能选择", status: "active" },
+                { step: 5, label: "Data Fetching", desc: "并行数据检索", status: "active" },
+                { step: 6, label: "Evidence Evaluation", desc: "证据质量评分", status: "active" },
+                { step: 7, label: "Multi-Agent Analysis", desc: "4个专家 Agent 协作", status: "active" },
+                { step: 8, label: "Synthesis Engine", desc: "结构化综合输出", status: "active" },
+                { step: 9, label: "Discussion Engine", desc: "深度讨论生成", status: "active" },
+              ].map(({ step, label, desc, status }) => (
+                <div key={step} className="flex items-center gap-3 py-1.5 px-2 rounded-lg"
+                  style={{ background: "oklch(100% 0 0 / 0.03)" }}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    style={{ background: "var(--bloomberg-gold)", color: "oklch(8% 0.02 264)" }}>{step}</div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</span>
+                    <span className="text-xs ml-2" style={{ color: "oklch(40% 0 0)" }}>{desc}</span>
+                  </div>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: "oklch(0.72 0.18 142)", boxShadow: "0 0 5px oklch(0.72 0.18 142)" }} />
+                </div>
+              ))}
+            </div>
+            {/* 数据源健康卡片 */}
+            <div className="rounded-2xl p-4" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.60 0.15 250)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>数据源健康实时监控</span>
+              </div>
+              <DataSourceStatusPanel />
+            </div>
+            {/* 成本模式卡片 */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+              <div className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>成本模式监控</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { mode: "A", label: "精简模式", desc: "Quick", tokens: "~2K", color: "oklch(0.72 0.18 142)" },
+                  { mode: "B", label: "标准模式", desc: "Standard", tokens: "~8K", color: "var(--bloomberg-gold)" },
+                  { mode: "C", label: "深度模式", desc: "Deep", tokens: "~20K", color: "oklch(0.72 0.18 250)" },
+                ].map(({ mode, label, desc, tokens, color }) => (
+                  <div key={mode} className="rounded-xl p-3 text-center"
+                    style={{ background: "oklch(100% 0 0 / 0.04)", border: `1px solid ${color}33` }}>
+                    <div className="text-lg font-bold mb-1" style={{ color }}>{mode}</div>
+                    <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
+                    <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                    <div className="text-xs mt-1 font-mono" style={{ color }}>{tokens} tokens</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab: 研究风格 ── */}
+        {activeTab === "research_style" && (
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>研究风格配置</h3>
+              <p className="text-xs mb-4" style={{ color: "oklch(42% 0 0)" }}>自定义 AI 研究输出的风格、深度和展示偏好</p>
+            </div>
+            {/* 输出风格选择 */}
+            <div className="rounded-2xl p-4 space-y-4" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+              <div className="flex items-center gap-2">
+                <Sliders className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>输出风格</span>
+              </div>
+              {[
+                { id: "decisive", label: "决断性", desc: "直接给出明确结论和行动建议，适合决策场景", icon: "⚡" },
+                { id: "directional", label: "方向性", desc: "给出倾向性判断，保留不确定性，适合研究场景", icon: "🧭" },
+                { id: "framework_only", label: "框架性", desc: "提供分析框架和多角度视角，适合学习场景", icon: "🗺" },
+              ].map(({ id, label, desc, icon }) => (
+                <div key={id} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all hover:opacity-90"
+                  style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+                  <span className="text-lg">{icon}</span>
+                  <div className="flex-1">
+                    <div className="text-xs font-semibold" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                  </div>
+                  <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: id === "decisive" ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }} />
+                </div>
+              ))}
+            </div>
+            {/* 分析深度设置 */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>分析重点偏好</span>
+              </div>
+              {[
+                { id: "valuation", label: "估値为主", desc: "重点分析 DCF、PE、PB 等估値指标" },
+                { id: "business", label: "业务为主", desc: "重点分析商业模式、护城河、竞争格局" },
+                { id: "risk", label: "风险为主", desc: "重点识别风险因素和下行场景" },
+                { id: "macro", label: "宏观为主", desc: "重点分析宏观环境对企业的影响" },
+              ].map(({ id, label, desc }) => (
+                <div key={id} className="flex items-center justify-between py-2 px-3 rounded-lg"
+                  style={{ background: "oklch(100% 0 0 / 0.03)", border: "1px solid var(--bloomberg-border)" }}>
+                  <div>
+                    <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
+                    <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                  </div>
+                  <div className="w-8 h-4 rounded-full relative cursor-pointer"
+                    style={{ background: id === "valuation" || id === "business" ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }}>
+                    <div className="w-3 h-3 rounded-full absolute top-0.5 transition-all"
+                      style={{ background: "white", left: id === "valuation" || id === "business" ? "calc(100% - 14px)" : "2px" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

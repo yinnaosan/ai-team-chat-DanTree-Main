@@ -189,16 +189,16 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" opacity={0.5} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => `${v}%`}
@@ -210,11 +210,11 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
           }
           wrapperStyle={{ fontSize: 12 }}
         />
-        <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 4" />
+        <ReferenceLine y={0} stroke="var(--bloomberg-border-dim)" strokeDasharray="4 4" />
         <Line
           type="monotone"
           dataKey="strategy"
-          stroke="hsl(var(--primary))"
+          stroke="oklch(78% 0.18 75)"
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 4 }}
@@ -223,7 +223,7 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
         <Line
           type="monotone"
           dataKey="benchmark"
-          stroke="hsl(var(--muted-foreground))"
+          stroke="var(--bloomberg-text-tertiary)"
           strokeWidth={1.5}
           strokeDasharray="5 3"
           dot={false}
@@ -712,16 +712,16 @@ function DrawdownChart({ dailyResults }: { dailyResults: BacktestDailyResult[] }
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" opacity={0.5} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => `${v}%`}
@@ -729,8 +729,8 @@ function DrawdownChart({ dailyResults }: { dailyResults: BacktestDailyResult[] }
         <Tooltip
           formatter={(v: number) => [`${v.toFixed(2)}%`, "回撤"]}
           contentStyle={{
-            background: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
+            background: "var(--bloomberg-surface-2)",
+            border: "1px solid var(--bloomberg-border)",
             borderRadius: "8px",
             fontSize: "12px",
           }}
@@ -739,7 +739,7 @@ function DrawdownChart({ dailyResults }: { dailyResults: BacktestDailyResult[] }
           {data.map((entry, index) => (
             <Cell
               key={index}
-              fill={entry.drawdown < -10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
+              fill={entry.drawdown < -10 ? "oklch(62% 0.22 25)" : "oklch(65% 0.20 155)"}
               opacity={0.7}
             />
           ))}

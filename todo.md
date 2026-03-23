@@ -1834,3 +1834,17 @@
 - [x] Phase 3: 增强 DISCUSSION_ENGINE prompt（thesis-specific 追问 + 4 种输出类型强制）
 - [x] Phase 4: 添加 DATA_PACKET_WRAPPER（field_sources / field_timestamps / freshness_labels / missing_fields / field_route_trace）
 - [x] Phase 5: 验证无新增 LLM 调用、快速模式无回归、输出更具体
+
+## Bloomberg Terminal UI 全面升级（2026-03-23）
+- [x] 全局设计系统升级：Bloomberg Terminal 风格 CSS token（深蓝黑背景、琥珀金 accent、等宽数字字体）
+- [x] index.html：引入 Space Grotesk + IBM Plex Mono 专业金融字体
+- [x] index.css：bloomberg-card、bloomberg-btn-primary/secondary、bloomberg-badge、bloomberg-ticker、bloomberg-section-label、bloomberg-command-kbd 等专业组件类
+- [x] Home.tsx：重构为 Bloomberg Terminal 风格欢迎界面（行情滚动条、专业特性卡片、系统状态、快速入口）
+- [x] DashboardLayout.tsx：升级为 Bloomberg 风格侧边栏（专业导航、状态指示器、命令面板提示、键盘快捷键）
+- [x] ChatRoom.tsx：统一颜色 token 为 Bloomberg 设计变量
+- [x] Settings.tsx：升级顶部 header 和 tab 导航为 Bloomberg 风格
+- [x] NetWorthDashboard.tsx：升级图表颜色为 Bloomberg 专业配色
+- [x] FactorBacktest.tsx：升级图表颜色为 Bloomberg 专业配色
+- [x] InvestmentLibrary.tsx：统一颜色 token
+- [x] CommandPalette.tsx：新增全局命令面板组件（⌘K 触发、键盘导航、分组命令）
+- [x] App.tsx：集成全局命令面板（GlobalCommandPalette）

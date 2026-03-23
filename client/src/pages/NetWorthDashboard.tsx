@@ -17,21 +17,21 @@ import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, DollarSign, CreditCard,
 
 // ── 颜色配置 ─────────────────────────────────────────────────────────────────
 const ASSET_COLORS: Record<string, string> = {
-  stocks: "#6366f1",
-  crypto: "#f59e0b",
-  cash: "#10b981",
-  real_estate: "#3b82f6",
-  bonds: "#8b5cf6",
-  other: "#6b7280",
+  stocks: "oklch(68% 0.18 250)",
+  crypto: "oklch(78% 0.18 75)",
+  cash: "oklch(65% 0.20 155)",
+  real_estate: "oklch(68% 0.18 220)",
+  bonds: "oklch(68% 0.18 290)",
+  other: "oklch(55% 0.02 240)",
 };
 
 const LIABILITY_COLORS: Record<string, string> = {
-  mortgage: "#ef4444",
-  car_loan: "#f97316",
-  credit_card: "#ec4899",
-  student_loan: "#14b8a6",
-  personal_loan: "#a855f7",
-  other: "#6b7280",
+  mortgage: "oklch(62% 0.22 25)",
+  car_loan: "oklch(68% 0.20 45)",
+  credit_card: "oklch(65% 0.22 340)",
+  student_loan: "oklch(65% 0.18 185)",
+  personal_loan: "oklch(65% 0.22 300)",
+  other: "oklch(55% 0.02 240)",
 };
 
 const ASSET_LABELS: Record<string, string> = {
@@ -324,7 +324,7 @@ export default function NetWorthDashboard() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? "border-indigo-500 text-indigo-400" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? "border-[var(--bloomberg-gold)] text-[var(--bloomberg-gold)]" : "border-transparent text-[var(--bloomberg-text-tertiary)] hover:text-[var(--bloomberg-text-primary)]"}`}
           >
             {tab === "overview" ? "概览" : tab === "assets" ? `资产 (${assets.length})` : `负债 (${liabilities.length})`}
           </button>
@@ -347,15 +347,15 @@ export default function NetWorthDashboard() {
                   <AreaChart data={historyChartData}>
                     <defs>
                       <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                        <stop offset="5%" stopColor="oklch(68% 0.18 250)" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="oklch(68% 0.18 250)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} />
                     <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                    <Tooltip formatter={(v: number) => [fmt(v), "净资产"]} contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "8px" }} />
-                    <Area type="monotone" dataKey="netWorth" stroke="#6366f1" fill="url(#nwGrad)" strokeWidth={2} />
+                    <Tooltip formatter={(v: number) => [fmt(v), "净资产"]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11px" }} />
+                    <Area type="monotone" dataKey="netWorth" stroke="oklch(68% 0.18 250)" fill="url(#nwGrad)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -376,7 +376,7 @@ export default function NetWorthDashboard() {
                     <Pie data={assetPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
                       {assetPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => [fmt(v)]} contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: "8px" }} />
+                    <Tooltip formatter={(v: number) => [fmt(v)]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11px" }} />
                     <Legend formatter={(v) => <span style={{ color: "#9ca3af", fontSize: 11 }}>{v}</span>} />
                   </PieChart>
                 </ResponsiveContainer>

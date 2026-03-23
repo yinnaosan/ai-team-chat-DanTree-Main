@@ -43,95 +43,113 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GROK DESIGN SYSTEM — 纯黑极简，零蓝色 accent，白色三级文字分级
-   参考：grok.com 官方 web 界面
-   背景: #0C0C0C  侧边栏: #0C0C0C  卡片: #1A1A1A  边框: #2A2A2A
-   文字: white → zinc-300 → zinc-500 → zinc-700
+   BLOOMBERG TERMINAL DESIGN SYSTEM V2
+   深蓝黑背景 + 琥珀金 accent + 专业金融终端风格
+   背景: #080C10  面板: #0D1117  卡片: #131920  边框: #1E2733
+   文字: #E8EDF2 → #8B9BB4 → #4A5568
+   Accent: 琥珀金 #F59E0B / 涨绿 #22C55E / 跌红 #EF4444
 ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
-  /* ── 背景层级 ── */
-  /* 主背景 #0C0C0C — Grok 标志性纯黑 */
-  --background: oklch(8% 0 0);
-  /* 前景 white */
-  --foreground: oklch(98% 0 0);
+  /* ── 背景层级 — 深蓝黑 Bloomberg 风格 ── */
+  --background: oklch(8.5% 0.015 240);
+  --foreground: oklch(92% 0.008 220);
 
-  /* 卡片/面板 #1A1A1A */
-  --card: oklch(13% 0 0);
-  --card-foreground: oklch(98% 0 0);
+  /* 卡片/面板 */
+  --card: oklch(11% 0.018 240);
+  --card-foreground: oklch(92% 0.008 220);
 
-  /* 弹出层 #1A1A1A */
-  --popover: oklch(13% 0 0);
-  --popover-foreground: oklch(98% 0 0);
+  /* 弹出层 */
+  --popover: oklch(11% 0.018 240);
+  --popover-foreground: oklch(92% 0.008 220);
 
-  /* 主色 — Grok 使用白色作为主 accent，无蓝色 */
-  --primary: oklch(98% 0 0);
-  --primary-foreground: oklch(8% 0 0);
+  /* 主色 — 琥珀金 Bloomberg accent */
+  --primary: oklch(78% 0.18 75);
+  --primary-foreground: oklch(10% 0.015 240);
 
-  /* 次级 #2A2A2A */
-  --secondary: oklch(18% 0 0);
-  --secondary-foreground: oklch(85% 0 0);
+  /* 次级 */
+  --secondary: oklch(16% 0.02 240);
+  --secondary-foreground: oklch(80% 0.01 220);
 
-  /* 静音 #1A1A1A */
-  --muted: oklch(13% 0 0);
-  /* 静音文字 zinc-500 #71717A */
-  --muted-foreground: oklch(50% 0 0);
+  /* 静音 */
+  --muted: oklch(13% 0.018 240);
+  --muted-foreground: oklch(52% 0.012 230);
 
-  /* 强调 hover #2A2A2A */
-  --accent: oklch(18% 0 0);
-  --accent-foreground: oklch(98% 0 0);
+  /* 强调 hover */
+  --accent: oklch(16% 0.02 240);
+  --accent-foreground: oklch(92% 0.008 220);
 
   /* 危险红 */
   --destructive: oklch(60% 0.22 25);
   --destructive-foreground: oklch(98% 0 0);
 
-  /* 边框 #2A2A2A — Grok 极细分割线 */
-  --border: oklch(20% 0 0);
-  /* 输入框 #1A1A1A */
-  --input: oklch(13% 0 0);
-  /* focus ring — 白色 */
-  --ring: oklch(98% 0 0);
+  /* 边框 — 深蓝灰 */
+  --border: oklch(20% 0.022 240);
+  /* 输入框 */
+  --input: oklch(13% 0.018 240);
+  /* focus ring — 琥珀金 */
+  --ring: oklch(78% 0.18 75);
 
-  /* ── 侧边栏 #0C0C0C（与背景同色，无视觉分割） ── */
-  --sidebar: oklch(8% 0 0);
-  --sidebar-foreground: oklch(98% 0 0);
-  --sidebar-primary: oklch(98% 0 0);
-  --sidebar-primary-foreground: oklch(8% 0 0);
-  --sidebar-accent: oklch(18% 0 0);
-  --sidebar-accent-foreground: oklch(98% 0 0);
-  --sidebar-border: oklch(20% 0 0);
-  --sidebar-ring: oklch(98% 0 0);
+  /* ── 侧边栏 ── */
+  --sidebar: oklch(7.5% 0.012 240);
+  --sidebar-foreground: oklch(92% 0.008 220);
+  --sidebar-primary: oklch(78% 0.18 75);
+  --sidebar-primary-foreground: oklch(10% 0.015 240);
+  --sidebar-accent: oklch(16% 0.02 240);
+  --sidebar-accent-foreground: oklch(92% 0.008 220);
+  --sidebar-border: oklch(18% 0.02 240);
+  --sidebar-ring: oklch(78% 0.18 75);
 
-  /* ── 图表色 — 金融专业配色（保留功能性颜色） ── */
-  --chart-1: oklch(75% 0 0);     /* 主白 */
-  --chart-2: oklch(65% 0.18 155); /* 涨绿 */
-  --chart-3: oklch(70% 0.20 55);  /* 琥珀金 */
-  --chart-4: oklch(62% 0.20 300); /* 紫 */
-  --chart-5: oklch(62% 0.22 25);  /* 跌红 */
+  /* ── 图表色 — 金融专业配色 ── */
+  --chart-1: oklch(78% 0.18 75);   /* 琥珀金 — 主 accent */
+  --chart-2: oklch(65% 0.20 155);  /* 涨绿 */
+  --chart-3: oklch(72% 0.18 250);  /* 蓝色 */
+  --chart-4: oklch(65% 0.20 300);  /* 紫 */
+  --chart-5: oklch(62% 0.22 25);   /* 跌红 */
 
-  /* ── AI 角色专属色（Grok 风格：无色差，统一白色系） ── */
-  --manus-color: oklch(90% 0 0);
-  --manus-bg: oklch(18% 0 0);
-  --manus-border: oklch(25% 0 0);
-  --chatgpt-color: oklch(85% 0 0);
-  --chatgpt-bg: oklch(16% 0 0);
-  --chatgpt-border: oklch(22% 0 0);
-  --user-color: oklch(98% 0 0);
-  --user-bg: oklch(18% 0 0);
-  --user-border: oklch(28% 0 0);
-  --system-color: oklch(45% 0 0);
+  /* ── Bloomberg 专属设计 token ── */
+  --bloomberg-gold: oklch(78% 0.18 75);
+  --bloomberg-gold-dim: oklch(68% 0.15 75);
+  --bloomberg-gold-glow: oklch(78% 0.18 75 / 0.15);
+  --bloomberg-green: oklch(65% 0.20 155);
+  --bloomberg-red: oklch(62% 0.22 25);
+  --bloomberg-blue: oklch(68% 0.18 250);
+  --bloomberg-surface-0: oklch(8.5% 0.015 240);   /* 最底层 */
+  --bloomberg-surface-1: oklch(10.5% 0.018 240);  /* 面板 */
+  --bloomberg-surface-2: oklch(13% 0.018 240);    /* 卡片 */
+  --bloomberg-surface-3: oklch(16% 0.02 240);     /* hover */
+  --bloomberg-border-dim: oklch(18% 0.02 240);
+  --bloomberg-border: oklch(22% 0.022 240);
+  --bloomberg-border-bright: oklch(30% 0.025 240);
+  --bloomberg-text-primary: oklch(92% 0.008 220);
+  --bloomberg-text-secondary: oklch(68% 0.012 230);
+  --bloomberg-text-tertiary: oklch(45% 0.01 235);
+  --bloomberg-text-dim: oklch(32% 0.01 240);
 
-  /* ── 功能性颜色（保留金融数据用） ── */
-  --color-up: oklch(65% 0.18 155);
+  /* ── AI 角色专属色 ── */
+  --manus-color: oklch(78% 0.18 75);   /* 琥珀金 — Manus */
+  --manus-bg: oklch(14% 0.025 75);
+  --manus-border: oklch(22% 0.04 75);
+  --chatgpt-color: oklch(72% 0.18 250); /* 蓝色 — GPT */
+  --chatgpt-bg: oklch(12% 0.025 250);
+  --chatgpt-border: oklch(20% 0.04 250);
+  --user-color: oklch(92% 0.008 220);
+  --user-bg: oklch(16% 0.02 240);
+  --user-border: oklch(28% 0.025 240);
+  --system-color: oklch(45% 0.01 235);
+
+  /* ── 功能性颜色 ── */
+  --color-up: oklch(65% 0.20 155);
   --color-down: oklch(62% 0.22 25);
+  --color-neutral: oklch(68% 0.012 230);
 }
 
 /* Dark class kept for compatibility */
 .dark {
-  --background: oklch(8% 0 0);
-  --foreground: oklch(98% 0 0);
+  --background: oklch(8.5% 0.015 240);
+  --foreground: oklch(92% 0.008 220);
 }
 
 @layer base {
@@ -140,14 +158,19 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', 'Space Grotesk', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.6;
   }
   code, pre {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  /* 数字等宽显示 */
+  .font-mono, .tabular-nums {
+    font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -193,11 +216,371 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GROK SIDEBAR — 极简图标竖栏，与背景同色
+   BLOOMBERG TERMINAL SIDEBAR
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-sidebar {
+  background: var(--bloomberg-surface-0);
+  border-right: 1px solid var(--bloomberg-border-dim);
+}
+
+.bloomberg-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  color: var(--bloomberg-text-tertiary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.bloomberg-nav-item:hover {
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
+}
+.bloomberg-nav-item.active {
+  background: oklch(14% 0.025 75);
+  color: var(--bloomberg-gold);
+  border-left: 2px solid var(--bloomberg-gold);
+  padding-left: calc(0.75rem - 2px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG TICKER TAPE — 顶部滚动行情
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-ticker {
+  background: var(--bloomberg-surface-1);
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.bloomberg-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+  border-right: 1px solid var(--bloomberg-border-dim);
+}
+.bloomberg-ticker-symbol {
+  font-weight: 600;
+  color: var(--bloomberg-text-primary);
+  letter-spacing: 0.02em;
+}
+.bloomberg-ticker-price {
+  font-weight: 500;
+  color: var(--bloomberg-text-secondary);
+}
+.bloomberg-ticker-change.up { color: var(--bloomberg-green); }
+.bloomberg-ticker-change.down { color: var(--bloomberg-red); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG DATA CARD — 数据展示卡片
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-card {
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border-dim);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.bloomberg-card:hover {
+  border-color: var(--bloomberg-border);
+}
+.bloomberg-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+  background: var(--bloomberg-surface-2);
+}
+.bloomberg-card-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bloomberg-text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG STAT DISPLAY — 数字指标展示
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.bloomberg-stat-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bloomberg-text-tertiary);
+}
+.bloomberg-stat-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--bloomberg-text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.bloomberg-stat-value.lg {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.bloomberg-stat-value.xl {
+  font-size: 2rem;
+  font-weight: 700;
+}
+.bloomberg-stat-change {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.bloomberg-stat-change.up { color: var(--bloomberg-green); }
+.bloomberg-stat-change.down { color: var(--bloomberg-red); }
+.bloomberg-stat-change.neutral { color: var(--bloomberg-text-tertiary); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG TABLE — 数据表格
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-table {
+  width: 100%;
+  font-size: 0.75rem;
+  font-family: 'IBM Plex Mono', monospace;
+  border-collapse: collapse;
+}
+.bloomberg-table th {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bloomberg-text-tertiary);
+  padding: 0.375rem 0.625rem;
+  text-align: right;
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+  background: var(--bloomberg-surface-2);
+}
+.bloomberg-table th:first-child { text-align: left; }
+.bloomberg-table td {
+  padding: 0.375rem 0.625rem;
+  text-align: right;
+  color: var(--bloomberg-text-secondary);
+  border-bottom: 1px solid oklch(18% 0.02 240 / 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.bloomberg-table td:first-child {
+  text-align: left;
+  color: var(--bloomberg-text-primary);
+  font-weight: 500;
+}
+.bloomberg-table tr:hover td {
+  background: var(--bloomberg-surface-3);
+}
+.bloomberg-table td.up { color: var(--bloomberg-green); }
+.bloomberg-table td.down { color: var(--bloomberg-red); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG BADGE — 状态标签
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bloomberg-badge.gold {
+  background: oklch(78% 0.18 75 / 0.12);
+  color: var(--bloomberg-gold);
+  border: 1px solid oklch(78% 0.18 75 / 0.25);
+}
+.bloomberg-badge.green {
+  background: oklch(65% 0.20 155 / 0.12);
+  color: var(--bloomberg-green);
+  border: 1px solid oklch(65% 0.20 155 / 0.25);
+}
+.bloomberg-badge.red {
+  background: oklch(62% 0.22 25 / 0.12);
+  color: var(--bloomberg-red);
+  border: 1px solid oklch(62% 0.22 25 / 0.25);
+}
+.bloomberg-badge.blue {
+  background: oklch(68% 0.18 250 / 0.12);
+  color: var(--bloomberg-blue);
+  border: 1px solid oklch(68% 0.18 250 / 0.25);
+}
+.bloomberg-badge.neutral {
+  background: oklch(20% 0.022 240);
+  color: var(--bloomberg-text-tertiary);
+  border: 1px solid var(--bloomberg-border-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG PANEL SYSTEM — 多面板布局
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-panel {
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border-dim);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bloomberg-panel-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.75rem;
+  background: var(--bloomberg-surface-2);
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+  min-height: 2rem;
+}
+.bloomberg-panel-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bloomberg-gold);
+}
+.bloomberg-panel-content {
+  flex: 1;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG INPUT — 专业输入框
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-input-wrap {
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.375rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bloomberg-input-wrap:focus-within {
+  border-color: var(--bloomberg-gold);
+  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG BUTTON — 专业按钮
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--bloomberg-gold);
+  color: oklch(10% 0.015 240);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.bloomberg-btn-primary:hover { opacity: 0.9; }
+.bloomberg-btn-primary:active { transform: scale(0.97); }
+
+.bloomberg-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--bloomberg-text-secondary);
+  border: 1px solid var(--bloomberg-border);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.bloomberg-btn-secondary:hover {
+  background: var(--bloomberg-surface-3);
+  border-color: var(--bloomberg-border-bright);
+  color: var(--bloomberg-text-primary);
+}
+
+.bloomberg-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--bloomberg-text-tertiary);
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.bloomberg-btn-ghost:hover {
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG DIVIDER — 分割线
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-divider {
+  height: 1px;
+  background: var(--bloomberg-border-dim);
+  margin: 0;
+}
+.bloomberg-divider-v {
+  width: 1px;
+  background: var(--bloomberg-border-dim);
+  align-self: stretch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG SECTION LABEL — 分组标题
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-section-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bloomberg-text-dim);
+  padding: 0 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG GLOW EFFECTS — 发光效果
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-gold-glow {
+  box-shadow: 0 0 12px oklch(78% 0.18 75 / 0.2),
+              0 0 24px oklch(78% 0.18 75 / 0.08);
+}
+.bloomberg-green-glow {
+  box-shadow: 0 0 8px oklch(65% 0.20 155 / 0.25);
+}
+.bloomberg-red-glow {
+  box-shadow: 0 0 8px oklch(62% 0.22 25 / 0.25);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEGACY GROK COMPATIBILITY — 保持旧类名兼容
 ═══════════════════════════════════════════════════════════════════════════ */
 .grok-sidebar {
-  background: oklch(8% 0 0);
-  border-right: 1px solid oklch(20% 0 0);
+  background: var(--bloomberg-surface-0);
+  border-right: 1px solid var(--bloomberg-border-dim);
 }
 
 .grok-sidebar-icon {
@@ -207,30 +590,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: oklch(50% 0 0);
+  color: var(--bloomberg-text-tertiary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .grok-sidebar-icon:hover {
-  background: oklch(18% 0 0);
-  color: oklch(90% 0 0);
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
 }
 .grok-sidebar-icon.active {
-  color: oklch(98% 0 0);
+  color: var(--bloomberg-gold);
 }
 
-/* 历史面板（展开后） */
 .grok-history-panel {
-  background: oklch(8% 0 0);
-  border-right: 1px solid oklch(20% 0 0);
+  background: var(--bloomberg-surface-0);
+  border-right: 1px solid var(--bloomberg-border-dim);
 }
 
 .grok-history-item {
   padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   cursor: pointer;
   transition: background 0.12s;
-  color: oklch(65% 0 0);
+  color: var(--bloomberg-text-tertiary);
   font-size: 0.8125rem;
   line-height: 1.4;
   white-space: nowrap;
@@ -238,36 +620,34 @@
   text-overflow: ellipsis;
 }
 .grok-history-item:hover {
-  background: oklch(15% 0 0);
-  color: oklch(90% 0 0);
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
 }
 .grok-history-item.active {
-  background: oklch(18% 0 0);
-  color: oklch(98% 0 0);
+  background: oklch(14% 0.025 75);
+  color: var(--bloomberg-gold);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GROK MESSAGE FLOW — 无气泡，AI 消息无背景，用户消息圆角胶囊
+   MESSAGE FLOW — 消息流样式
 ═══════════════════════════════════════════════════════════════════════════ */
-
-/* 用户消息 — 右对齐深灰圆角胶囊 */
 .grok-user-msg {
   display: flex;
   justify-content: flex-end;
   padding: 0.25rem 0;
 }
 .grok-user-bubble {
-  background: oklch(18% 0 0);
-  border-radius: 1.25rem;
+  background: oklch(16% 0.02 240);
+  border: 1px solid oklch(24% 0.025 240);
+  border-radius: 1.125rem;
   padding: 0.625rem 1rem;
-  max-width: 70%;
-  font-size: 0.9375rem;
+  max-width: 72%;
+  font-size: 0.9rem;
   line-height: 1.6;
-  color: oklch(95% 0 0);
+  color: var(--bloomberg-text-primary);
   word-break: break-word;
 }
 
-/* AI 消息 — 左对齐，无背景，无边框 */
 .grok-ai-msg {
   display: flex;
   gap: 0.75rem;
@@ -278,8 +658,8 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 50%;
-  background: oklch(18% 0 0);
-  border: 1px solid oklch(28% 0 0);
+  background: oklch(14% 0.025 75);
+  border: 1px solid oklch(22% 0.04 75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,22 +669,23 @@
 .grok-ai-content {
   flex: 1;
   min-width: 0;
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   line-height: 1.7;
-  color: oklch(90% 0 0);
+  color: var(--bloomberg-text-primary);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GROK INPUT BOX — 大圆角，深灰背景，底部功能标签
+   INPUT BOX
 ═══════════════════════════════════════════════════════════════════════════ */
 .grok-input-wrap {
-  background: oklch(13% 0 0);
-  border: 1px solid oklch(25% 0 0);
-  border-radius: 1rem;
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.625rem;
   transition: border-color 0.15s;
 }
 .grok-input-wrap:focus-within {
-  border-color: oklch(40% 0 0);
+  border-color: var(--bloomberg-gold);
+  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.1);
 }
 
 .grok-input-tag {
@@ -313,37 +694,37 @@
   gap: 0.375rem;
   padding: 0.3rem 0.625rem;
   border-radius: 999px;
-  background: oklch(20% 0 0);
-  border: 1px solid oklch(28% 0 0);
-  color: oklch(65% 0 0);
+  background: var(--bloomberg-surface-2);
+  border: 1px solid var(--bloomberg-border);
+  color: var(--bloomberg-text-tertiary);
   font-size: 0.8125rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 .grok-input-tag:hover {
-  background: oklch(25% 0 0);
-  color: oklch(85% 0 0);
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
 }
 .grok-input-tag.active {
-  background: oklch(25% 0 0);
-  color: oklch(95% 0 0);
-  border-color: oklch(40% 0 0);
+  background: oklch(14% 0.025 75);
+  color: var(--bloomberg-gold);
+  border-color: oklch(22% 0.04 75);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GROK PROSE — Markdown 内容渲染
+   PROSE — Markdown 内容渲染
 ═══════════════════════════════════════════════════════════════════════════ */
 .prose-chat {
-  font-size: 0.9375rem;
-  line-height: 1.7;
-  color: oklch(88% 0 0);
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--bloomberg-text-primary);
 }
 .prose-chat h1 {
   font-size: 1.25rem;
   font-weight: 700;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
-  color: oklch(98% 0 0);
+  color: var(--bloomberg-text-primary);
   letter-spacing: -0.02em;
 }
 .prose-chat h2 {
@@ -351,15 +732,17 @@
   font-weight: 600;
   margin-top: 1.25rem;
   margin-bottom: 0.4rem;
-  color: oklch(95% 0 0);
+  color: var(--bloomberg-text-primary);
   letter-spacing: -0.015em;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--bloomberg-border-dim);
 }
 .prose-chat h3 {
   font-size: 0.9375rem;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.3rem;
-  color: oklch(92% 0 0);
+  color: var(--bloomberg-gold);
 }
 .prose-chat p { margin-bottom: 0.75rem; }
 .prose-chat ul {
@@ -374,171 +757,206 @@
 }
 .prose-chat li { margin-bottom: 0.35rem; }
 .prose-chat code {
-  background: oklch(18% 0 0);
+  background: var(--bloomberg-surface-2);
   padding: 0.1em 0.4em;
-  border-radius: 0.3rem;
+  border-radius: 0.25rem;
   font-size: 0.85em;
-  font-family: 'JetBrains Mono', monospace;
-  color: oklch(85% 0 0);
-  border: 1px solid oklch(25% 0 0);
+  color: var(--bloomberg-gold);
+  font-family: 'IBM Plex Mono', monospace;
 }
 .prose-chat pre {
-  background: oklch(11% 0 0);
-  padding: 1rem;
-  border-radius: 0.75rem;
+  background: var(--bloomberg-surface-2);
+  border: 1px solid var(--bloomberg-border-dim);
+  border-radius: 0.375rem;
+  padding: 0.875rem 1rem;
+  margin: 0.75rem 0;
   overflow-x: auto;
-  margin-bottom: 0.75rem;
-  border: 1px solid oklch(22% 0 0);
 }
 .prose-chat pre code {
-  background: transparent;
+  background: none;
   padding: 0;
-  color: oklch(82% 0 0);
-  border: none;
-}
-.prose-chat strong {
-  font-weight: 600;
-  color: oklch(98% 0 0);
-}
-.prose-chat em {
-  font-style: italic;
-  color: oklch(80% 0 0);
+  color: var(--bloomberg-text-secondary);
 }
 .prose-chat blockquote {
-  border-left: 2px solid oklch(35% 0 0);
-  padding: 0.3rem 0 0.3rem 0.9rem;
-  margin: 0.6rem 0;
-  color: oklch(60% 0 0);
-  background: oklch(13% 0 0);
-  border-radius: 0 0.4rem 0.4rem 0;
+  border-left: 3px solid var(--bloomberg-gold);
+  padding-left: 0.875rem;
+  margin: 0.75rem 0;
+  color: var(--bloomberg-text-secondary);
+  font-style: italic;
 }
 .prose-chat table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.75rem 0;
-  font-size: 0.875rem;
-  overflow-x: auto;
-  display: block;
-}
-.prose-chat thead tr {
-  background: oklch(15% 0 0);
-  border-bottom: 1px solid oklch(25% 0 0);
+  font-size: 0.85rem;
+  font-family: 'IBM Plex Mono', monospace;
 }
 .prose-chat th {
-  padding: 0.5rem 0.75rem;
+  background: var(--bloomberg-surface-2);
+  padding: 0.375rem 0.75rem;
   text-align: left;
-  font-weight: 600;
-  color: oklch(90% 0 0);
-  white-space: nowrap;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--bloomberg-text-tertiary);
+  border-bottom: 1px solid var(--bloomberg-border);
 }
 .prose-chat td {
-  padding: 0.45rem 0.75rem;
-  border-bottom: 1px solid oklch(18% 0 0);
-  color: oklch(78% 0 0);
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+  color: var(--bloomberg-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
-.prose-chat tbody tr:hover { background: oklch(13% 0 0); }
-.prose-chat tbody tr:last-child td { border-bottom: none; }
+.prose-chat tr:hover td {
+  background: var(--bloomberg-surface-3);
+}
+.prose-chat a {
+  color: var(--bloomberg-gold);
+  text-decoration: none;
+  border-bottom: 1px solid oklch(78% 0.18 75 / 0.3);
+  transition: border-color 0.12s;
+}
+.prose-chat a:hover {
+  border-bottom-color: var(--bloomberg-gold);
+}
+.prose-chat strong {
+  font-weight: 600;
+  color: var(--bloomberg-text-primary);
+}
 .prose-chat hr {
   border: none;
-  border-top: 1px solid oklch(20% 0 0);
-  margin: 1rem 0;
+  border-top: 1px solid var(--bloomberg-border-dim);
+  margin: 1.25rem 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SCROLLBAR — 极细，Grok 风格
+   BLOOMBERG SCROLLBAR — 专业滚动条
 ═══════════════════════════════════════════════════════════════════════════ */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
-  background: oklch(25% 0 0);
-  border-radius: 999px;
+  background: oklch(28% 0.022 240);
+  border-radius: 2px;
 }
-::-webkit-scrollbar-thumb:hover { background: oklch(35% 0 0); }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   TYPING INDICATOR
-═══════════════════════════════════════════════════════════════════════════ */
-.typing-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.4;
-  animation: typing-bounce 1.4s infinite ease-in-out;
-}
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes typing-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 0.9; }
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(38% 0.025 240);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PROGRESS BAR
+   GLASS MORPHISM — 玻璃质感（保留兼容）
 ═══════════════════════════════════════════════════════════════════════════ */
-@keyframes progressPulse {
-  0%   { opacity: 0.3; transform: scaleX(0.90); }
-  50%  { opacity: 1;   transform: scaleX(1); }
-  100% { opacity: 0.3; transform: scaleX(0.90); }
+.glass-panel {
+  background: oklch(10% 0.018 240 / 0.85);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid oklch(100% 0 0 / 0.06);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   FINANCIAL BADGES — 保留功能性颜色
-═══════════════════════════════════════════════════════════════════════════ */
-.badge-up {
-  color: oklch(0.68 0.18 155);
-  background: oklch(0.65 0.17 155 / 0.10);
-  border: 1px solid oklch(0.65 0.17 155 / 0.20);
-}
-.badge-down {
-  color: oklch(0.65 0.22 25);
-  background: oklch(0.62 0.22 25 / 0.10);
-  border: 1px solid oklch(0.62 0.22 25 / 0.20);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   GROK SECTION LABEL — 侧边栏分组标题
-═══════════════════════════════════════════════════════════════════════════ */
-.grok-section-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: oklch(40% 0 0);
-  padding: 0 0.75rem;
-  margin-bottom: 0.25rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   BACKWARD COMPAT — 旧类名映射到 Grok 风格
-═══════════════════════════════════════════════════════════════════════════ */
-.gemini-sidebar { background: oklch(8% 0 0); border-right: 1px solid oklch(20% 0 0); }
-.gemini-sidebar-item {
+.glass-card-v2 {
+  background: oklch(11% 0.018 240 / 0.80);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid oklch(100% 0 0 / 0.07);
   border-radius: 0.5rem;
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.04) inset,
+              0 8px 32px oklch(0% 0 0 / 0.3);
+}
+
+.glass-input-v2 {
+  background: var(--bloomberg-surface-1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.04) inset;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.glass-input-v2:focus-within {
+  border-color: var(--bloomberg-gold);
+  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.1),
+              0 1px 0 oklch(100% 0 0 / 0.06) inset;
+}
+
+.glass-btn-v2 {
+  background: oklch(100% 0 0 / 0.04);
+  border: 1px solid oklch(100% 0 0 / 0.08);
+  border-radius: 0.375rem;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.glass-btn-v2:hover {
+  background: oklch(100% 0 0 / 0.08);
+  border-color: oklch(100% 0 0 / 0.14);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.2);
+}
+
+.glass-navbar {
+  background: oklch(8% 0.015 240 / 0.92);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+}
+
+.glass-sidebar {
+  background: oklch(7.5% 0.012 240 / 0.90);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border-right: 1px solid var(--bloomberg-border-dim);
+}
+
+.inner-glow {
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.06) inset,
+              0 -1px 0 oklch(0% 0 0 / 0.15) inset;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 0 1px oklch(78% 0.18 75 / 0.2),
+              0 4px 16px oklch(0% 0 0 / 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEGACY COMPAT — 旧类名映射
+═══════════════════════════════════════════════════════════════════════════ */
+.gemini-sidebar {
+  background: var(--bloomberg-surface-0);
+  border-right: 1px solid var(--bloomberg-border-dim);
+}
+.gemini-sidebar-item {
+  border-radius: 0.375rem;
   padding: 0.5rem 0.75rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  color: oklch(55% 0 0);
+  color: var(--bloomberg-text-tertiary);
   font-size: 0.8125rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-.gemini-sidebar-item:hover { background: oklch(15% 0 0); color: oklch(88% 0 0); }
-.gemini-sidebar-item.active { background: oklch(18% 0 0); color: oklch(98% 0 0); }
+.gemini-sidebar-item:hover {
+  background: var(--bloomberg-surface-3);
+  color: var(--bloomberg-text-primary);
+}
+.gemini-sidebar-item.active {
+  background: oklch(14% 0.025 75);
+  color: var(--bloomberg-gold);
+}
 .gemini-input-wrap {
-  background: oklch(13% 0 0);
-  border: 1px solid oklch(25% 0 0);
-  border-radius: 1rem;
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.625rem;
   transition: border-color 0.15s;
 }
-.gemini-input-wrap:focus-within { border-color: oklch(40% 0 0); }
+.gemini-input-wrap:focus-within {
+  border-color: var(--bloomberg-gold);
+}
 .glass-card {
-  background: oklch(13% 0 0 / 0.9);
-  border: 1px solid oklch(22% 0 0);
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border-dim);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -552,173 +970,203 @@
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
-.msg-avatar.manus  { background: oklch(18% 0 0); color: oklch(90% 0 0); border: 1px solid oklch(28% 0 0); }
-.msg-avatar.chatgpt{ background: oklch(16% 0 0); color: oklch(85% 0 0); border: 1px solid oklch(25% 0 0); }
-.msg-avatar.user   { background: oklch(18% 0 0); color: oklch(98% 0 0); border: 1px solid oklch(30% 0 0); }
+.msg-avatar.manus  { background: oklch(14% 0.025 75); color: var(--bloomberg-gold); border: 1px solid oklch(22% 0.04 75); }
+.msg-avatar.chatgpt{ background: oklch(12% 0.025 250); color: var(--bloomberg-blue); border: 1px solid oklch(20% 0.04 250); }
+.msg-avatar.user   { background: oklch(16% 0.02 240); color: var(--bloomberg-text-primary); border: 1px solid var(--bloomberg-border); }
 .msg-bubble {
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   padding: 0.625rem 1rem;
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   line-height: 1.65;
   max-width: 78%;
   word-break: break-word;
 }
 .msg-bubble.user {
-  background: oklch(18% 0 0);
-  border: 1px solid oklch(28% 0 0);
-  color: oklch(95% 0 0);
+  background: oklch(16% 0.02 240);
+  border: 1px solid var(--bloomberg-border);
+  color: var(--bloomberg-text-primary);
 }
 .msg-bubble.manus {
   background: transparent;
   border: none;
-  color: oklch(88% 0 0);
+  color: var(--bloomberg-text-primary);
   padding-left: 0;
 }
 .msg-bubble.chatgpt {
   background: transparent;
   border: none;
-  color: oklch(88% 0 0);
+  color: var(--bloomberg-text-primary);
   padding-left: 0;
 }
 .msg-bubble.system {
-  background: oklch(13% 0 0);
-  border: 1px solid oklch(22% 0 0);
-  color: oklch(45% 0 0);
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border-dim);
+  color: var(--bloomberg-text-tertiary);
   font-size: 0.75rem;
   text-align: center;
   margin: 0.5rem auto;
   max-width: 85%;
-  border-radius: 0.625rem;
+  border-radius: 0.5rem;
 }
 .glow-blue { box-shadow: none; }
 .glow-blue-sm { box-shadow: none; }
-.metal-border { border: 1px solid oklch(22% 0 0); }
+.metal-border { border: 1px solid var(--bloomberg-border); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   APPLE GLASS MORPHISM — 玻璃质感层（叠加在 Grok 纯黑基础上）
-   参考：visionOS / macOS Sonoma 毛玻璃效果
+   SETTINGS — Apple 风格分组
 ═══════════════════════════════════════════════════════════════════════════ */
-
-/* 玻璃面板 — 侧边栏、模态框 */
-.glass-panel {
-  background: oklch(8% 0.003 264 / 0.82);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid oklch(100% 0 0 / 0.07);
-}
-
-/* 玻璃卡片 — 消息卡片、数据卡片 */
-.glass-card-v2 {
-  background: oklch(11% 0.004 264 / 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid oklch(100% 0 0 / 0.08);
-  border-radius: 14px;
-  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.05) inset,
-              0 8px 32px oklch(0% 0 0 / 0.25);
-}
-
-/* 玻璃输入框 */
-.glass-input-v2 {
-  background: oklch(9% 0.003 264 / 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid oklch(100% 0 0 / 0.10);
-  border-radius: 16px;
-  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.06) inset;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.glass-input-v2:focus-within {
-  border-color: oklch(100% 0 0 / 0.22);
-  box-shadow: 0 0 0 3px oklch(100% 0 0 / 0.04),
-              0 1px 0 oklch(100% 0 0 / 0.08) inset;
-}
-
-/* 玻璃按钮 */
-.glass-btn-v2 {
-  background: oklch(100% 0 0 / 0.05);
-  border: 1px solid oklch(100% 0 0 / 0.09);
-  border-radius: 10px;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-.glass-btn-v2:hover {
-  background: oklch(100% 0 0 / 0.09);
-  border-color: oklch(100% 0 0 / 0.15);
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.2);
-}
-
-/* 玻璃导航栏 — 顶部 header */
-.glass-navbar {
-  background: oklch(6% 0.002 264 / 0.90);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-bottom: 1px solid oklch(100% 0 0 / 0.07);
-}
-
-/* 玻璃侧边栏 */
-.glass-sidebar {
-  background: oklch(7% 0.002 264 / 0.88);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border-right: 1px solid oklch(100% 0 0 / 0.07);
-}
-
-/* 内发光效果 — 高亮边框 */
-.inner-glow {
-  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.08) inset,
-              0 -1px 0 oklch(0% 0 0 / 0.15) inset;
-}
-
-/* 微妙白色 glow — hover 状态 */
-.hover-glow:hover {
-  box-shadow: 0 0 0 1px oklch(100% 0 0 / 0.12),
-              0 4px 16px oklch(0% 0 0 / 0.3);
-}
-
-/* 设置页面 — Apple 风格分组 */
 .settings-group {
-  background: oklch(10% 0.003 264 / 0.80);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid oklch(100% 0 0 / 0.08);
-  border-radius: 14px;
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border-dim);
+  border-radius: 0.5rem;
   overflow: hidden;
 }
 .settings-row {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid oklch(100% 0 0 / 0.05);
+  border-bottom: 1px solid var(--bloomberg-border-dim);
   transition: background 0.12s;
 }
 .settings-row:last-child { border-bottom: none; }
-.settings-row:hover { background: oklch(100% 0 0 / 0.03); }
+.settings-row:hover { background: var(--bloomberg-surface-3); }
 .settings-label {
   font-size: 0.875rem;
-  color: oklch(88% 0 0);
+  color: var(--bloomberg-text-primary);
   font-weight: 450;
 }
 .settings-desc {
   font-size: 0.75rem;
-  color: oklch(45% 0 0);
+  color: var(--bloomberg-text-tertiary);
   margin-top: 2px;
 }
 .settings-section-title {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: oklch(40% 0 0);
+  color: var(--bloomberg-text-dim);
   padding: 0 4px;
   margin-bottom: 8px;
   margin-top: 20px;
 }
 .settings-section-title:first-child { margin-top: 0; }
 
-/* ─── Animations ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG COMMAND PALETTE — 命令面板
+═══════════════════════════════════════════════════════════════════════════ */
+.bloomberg-command-overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+}
+.bloomberg-command-panel {
+  width: 100%;
+  max-width: 580px;
+  background: var(--bloomberg-surface-1);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.625rem;
+  box-shadow: 0 24px 80px oklch(0% 0 0 / 0.6),
+              0 0 0 1px oklch(78% 0.18 75 / 0.08);
+  overflow: hidden;
+}
+.bloomberg-command-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--bloomberg-text-primary);
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  border-bottom: 1px solid var(--bloomberg-border-dim);
+}
+.bloomberg-command-input::placeholder {
+  color: var(--bloomberg-text-dim);
+}
+.bloomberg-command-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.bloomberg-command-item:hover,
+.bloomberg-command-item.selected {
+  background: var(--bloomberg-surface-3);
+}
+.bloomberg-command-item-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  background: var(--bloomberg-surface-2);
+  border: 1px solid var(--bloomberg-border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--bloomberg-text-tertiary);
+}
+.bloomberg-command-item-label {
+  font-size: 0.875rem;
+  color: var(--bloomberg-text-primary);
+  font-weight: 500;
+}
+.bloomberg-command-item-desc {
+  font-size: 0.75rem;
+  color: var(--bloomberg-text-tertiary);
+  margin-left: auto;
+}
+.bloomberg-command-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--bloomberg-surface-2);
+  border: 1px solid var(--bloomberg-border);
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--bloomberg-text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG TICKER SCROLL ANIMATION
+═══════════════════════════════════════════════════════════════════════════ */
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.bloomberg-ticker-track {
+  display: inline-flex;
+  animation: tickerScroll 60s linear infinite;
+}
+.bloomberg-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLOOMBERG PROGRESS INDICATOR
+═══════════════════════════════════════════════════════════════════════════ */
+@keyframes progressPulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes robotFloat {
   0%, 100% { transform: translateY(0px); }
@@ -738,21 +1186,14 @@
   0%, 100% { opacity: 0.03; }
   50%       { opacity: 0.06; }
 }
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(78% 0.18 75 / 0.4); }
+  50%       { box-shadow: 0 0 0 4px oklch(78% 0.18 75 / 0); }
+}
 
 .animate-fade-in-up  { animation: fadeInUp 0.3s ease-out both; }
 .animate-robot-float { animation: robotFloat 5s ease-in-out infinite; }
 .animate-robot-glow  { animation: robotGlow 3s ease-in-out infinite; }
 .animate-scan-line   { animation: scanLine 5s linear infinite; }
 .animate-grid-pulse  { animation: gridPulse 4s ease-in-out infinite; }
-
-/* TrendRadar 联动：WorldMonitorCard 从右侧滑入动画 */
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(32px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+.animate-gold-pulse  { animation: goldPulse 2s ease-in-out infinite; }

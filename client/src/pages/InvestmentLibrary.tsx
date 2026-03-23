@@ -479,11 +479,11 @@ function NewsNowPanel() {
                   <stop offset="95%" stopColor={marketSentiment && marketSentiment.score > 20 ? "#10b981" : marketSentiment && marketSentiment.score < -20 ? "#ef4444" : "#f59e0b"} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "oklch(50% 0 0)" }} axisLine={false} tickLine={false} />
-              <YAxis domain={[-100, 100]} tick={{ fontSize: 9, fill: "oklch(50% 0 0)" }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--bloomberg-text-tertiary)" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[-100, 100]} tick={{ fontSize: 9, fill: "var(--bloomberg-text-tertiary)" }} axisLine={false} tickLine={false} />
               <ReferenceLine y={0} stroke="oklch(40% 0 0)" strokeDasharray="3 3" />
               <Tooltip
-                contentStyle={{ background: "oklch(15% 0 0)", border: "1px solid oklch(25% 0 0)", borderRadius: 6, fontSize: 10 }}
+                contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(25% 0 0)", borderRadius: 6, fontSize: 10 }}
                 labelStyle={{ color: "oklch(70% 0 0)" }}
                 formatter={(v: number) => [`${v > 0 ? "+" : ""}${v}`, "情绪分数"]}
               />

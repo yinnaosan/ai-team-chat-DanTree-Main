@@ -21,25 +21,29 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen, Settings, Wallet, FlaskConical } from "lucide-react";
+import {
+  LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen,
+  Settings, Wallet, FlaskConical, Command, ChevronRight,
+  Activity, Zap, Bell
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "首页总览", path: "/" },
-  { icon: MessageSquare, label: "AI 分析对话", path: "/chat" },
-  { icon: BookOpen, label: "投资知识库", path: "/library" },
-  { icon: Wallet, label: "资产负债表", path: "/networth" },
-  { icon: FlaskConical, label: "因子回测", path: "/backtest" },
-  { icon: Settings, label: "设置", path: "/settings" },
+  { icon: LayoutDashboard, label: "首页总览", path: "/", shortcut: "⌘0", group: "main" },
+  { icon: MessageSquare, label: "AI 分析对话", path: "/chat", shortcut: "⌘1", group: "main" },
+  { icon: FlaskConical, label: "因子回测", path: "/backtest", shortcut: "⌘2", group: "main" },
+  { icon: Wallet, label: "资产负债表", path: "/networth", shortcut: "⌘3", group: "main" },
+  { icon: BookOpen, label: "投资知识库", path: "/library", shortcut: "⌘4", group: "main" },
+  { icon: Settings, label: "设置", path: "/settings", shortcut: "⌘,", group: "system" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
-const DEFAULT_WIDTH = 280;
+const DEFAULT_WIDTH = 240;
 const MIN_WIDTH = 200;
-const MAX_WIDTH = 480;
+const MAX_WIDTH = 380;
 
 export default function DashboardLayout({
   children,
@@ -57,30 +61,32 @@ export default function DashboardLayout({
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
+      <div className="flex items-center justify-center min-h-screen"
+        style={{ background: "var(--bloomberg-surface-0)" }}>
+        <div className="flex flex-col items-center gap-6 p-8 max-w-sm w-full">
+          <div className="w-12 h-12 rounded flex items-center justify-center"
+            style={{ background: "oklch(78% 0.18 75 / 0.1)", border: "1px solid oklch(78% 0.18 75 / 0.2)" }}>
+            <Zap className="w-6 h-6" style={{ color: "var(--bloomberg-gold)" }} />
+          </div>
+          <div className="text-center">
+            <h1 className="text-lg font-bold mb-2"
+              style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Space Grotesk', sans-serif" }}>
+              需要登录
             </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+            <p className="text-sm" style={{ color: "var(--bloomberg-text-tertiary)" }}>
+              访问 DanTree Terminal 需要身份验证
             </p>
           </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Sign in
-          </Button>
+          <button
+            onClick={() => { window.location.href = getLoginUrl(); }}
+            className="bloomberg-btn-primary w-full justify-center py-2.5">
+            登录访问
+          </button>
         </div>
       </div>
     );
@@ -88,11 +94,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider
-      style={
-        {
-          "--sidebar-width": `${sidebarWidth}px`,
-        } as CSSProperties
-      }
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
         {children}
@@ -119,34 +121,42 @@ function DashboardLayoutContent({
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
 
+  // 键盘快捷键
   useEffect(() => {
-    if (isCollapsed) {
-      setIsResizing(false);
-    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        const key = e.key;
+        const item = menuItems.find(m => m.shortcut === `⌘${key}` || m.shortcut === `⌘${key.toUpperCase()}`);
+        if (item) {
+          e.preventDefault();
+          setLocation(item.path);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [setLocation]);
+
+  useEffect(() => {
+    if (isCollapsed) setIsResizing(false);
   }, [isCollapsed]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-
       const sidebarLeft = sidebarRef.current?.getBoundingClientRect().left ?? 0;
       const newWidth = e.clientX - sidebarLeft;
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setSidebarWidth(newWidth);
       }
     };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
+    const handleMouseUp = () => setIsResizing(false);
     if (isResizing) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     }
-
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -155,6 +165,9 @@ function DashboardLayoutContent({
     };
   }, [isResizing, setSidebarWidth]);
 
+  const mainItems = menuItems.filter(m => m.group === "main");
+  const systemItems = menuItems.filter(m => m.group === "system");
+
   return (
     <>
       <div className="relative" ref={sidebarRef}>
@@ -162,42 +175,56 @@ function DashboardLayoutContent({
           collapsible="icon"
           className="border-r-0"
           disableTransition={isResizing}
+          style={{ background: "var(--bloomberg-surface-0)", borderRight: "1px solid var(--bloomberg-border-dim)" } as CSSProperties}
         >
-          <SidebarHeader className="h-16 justify-center">
-            <div className="flex items-center gap-3 px-2 transition-all w-full">
+          {/* ── 侧边栏头部 ── */}
+          <SidebarHeader className="h-14 justify-center px-3"
+            style={{ borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
+            <div className="flex items-center gap-2.5 w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-7 w-7 flex items-center justify-center rounded transition-colors focus:outline-none shrink-0"
+                style={{ color: "var(--bloomberg-text-tertiary)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--bloomberg-text-primary)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "var(--bloomberg-text-tertiary)")}
                 aria-label="Toggle navigation"
               >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
+                <PanelLeft className="h-4 w-4" />
               </button>
-              {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
+              {!isCollapsed && (
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <img
                     src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
                     alt="DanTree"
-                    className="w-6 h-6 rounded-md shrink-0 object-cover"
+                    className="w-5 h-5 rounded object-cover shrink-0"
                   />
-                  <span className="font-semibold tracking-tight truncate">
+                  <span className="font-bold tracking-tight truncate text-sm"
+                    style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Space Grotesk', sans-serif" }}>
                     DanTree
                   </span>
+                  <span className="bloomberg-badge gold shrink-0" style={{ fontSize: "0.5625rem" }}>TERM</span>
                 </div>
-              ) : (
+              )}
+              {isCollapsed && (
                 <div className="flex items-center justify-center w-full">
                   <img
                     src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
                     alt="DanTree"
-                    className="w-6 h-6 rounded-md object-cover"
+                    className="w-5 h-5 rounded object-cover"
                   />
                 </div>
               )}
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+          {/* ── 导航菜单 ── */}
+          <SidebarContent className="gap-0 py-2">
+            {/* 主导航分组 */}
+            {!isCollapsed && (
+              <div className="bloomberg-section-label px-3 mb-1 mt-1">导航</div>
+            )}
+            <SidebarMenu className="px-2">
+              {mainItems.map(item => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -205,76 +232,154 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
+                      className="h-9 transition-all font-normal rounded"
+                      style={{
+                        background: isActive ? "oklch(14% 0.025 75)" : "transparent",
+                        color: isActive ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)",
+                        borderLeft: isActive ? "2px solid var(--bloomberg-gold)" : "2px solid transparent",
+                        paddingLeft: "calc(0.625rem - 2px)",
+                      } as CSSProperties}
                     >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
+                      <item.icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                      {!isCollapsed && (
+                        <span className="ml-auto bloomberg-command-kbd text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                          {item.shortcut}
+                        </span>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
             </SidebarMenu>
+
+            {/* 系统分组 */}
+            {!isCollapsed && (
+              <div className="bloomberg-section-label px-3 mb-1 mt-3">系统</div>
+            )}
+            {isCollapsed && <div className="mt-2" />}
+            <SidebarMenu className="px-2">
+              {systemItems.map(item => {
+                const isActive = location === item.path;
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-9 transition-all font-normal rounded"
+                      style={{
+                        background: isActive ? "oklch(14% 0.025 75)" : "transparent",
+                        color: isActive ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)",
+                        borderLeft: isActive ? "2px solid var(--bloomberg-gold)" : "2px solid transparent",
+                        paddingLeft: "calc(0.625rem - 2px)",
+                      } as CSSProperties}
+                    >
+                      <item.icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+
+            {/* 命令面板提示 */}
+            {!isCollapsed && (
+              <div className="px-3 mt-4">
+                <div className="rounded p-2.5 cursor-pointer transition-all"
+                  style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border-dim)" }}
+                  onClick={() => {
+                    const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true });
+                    document.dispatchEvent(event);
+                  }}>
+                  <div className="flex items-center gap-2">
+                    <Command className="w-3 h-3 shrink-0" style={{ color: "var(--bloomberg-text-dim)" }} />
+                    <span className="text-[10px]" style={{ color: "var(--bloomberg-text-dim)" }}>命令面板</span>
+                    <span className="ml-auto bloomberg-command-kbd text-[10px]">⌘K</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          {/* ── 用户信息 ── */}
+          <SidebarFooter className="p-2"
+            style={{ borderTop: "1px solid var(--bloomberg-border-dim)" }}>
+            {/* 系统状态指示器 */}
+            {!isCollapsed && (
+              <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--bloomberg-green)" }} />
+                  <span className="text-[10px] font-mono" style={{ color: "var(--bloomberg-text-dim)" }}>SYSTEM ONLINE</span>
+                </div>
+              </div>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
+                <button className="flex items-center gap-2.5 rounded px-2 py-2 w-full text-left transition-colors focus:outline-none"
+                  style={{ color: "var(--bloomberg-text-secondary)" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bloomberg-surface-2)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <Avatar className="h-7 w-7 shrink-0" style={{ border: "1px solid var(--bloomberg-border)" }}>
+                    <AvatarFallback className="text-xs font-bold"
+                      style={{ background: "oklch(14% 0.025 75)", color: "var(--bloomberg-gold)", fontSize: "0.625rem" }}>
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
-                      {user?.name || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
-                      {user?.email || "-"}
-                    </p>
-                  </div>
+                  {!isCollapsed && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate leading-none"
+                        style={{ color: "var(--bloomberg-text-primary)" }}>
+                        {user?.name || "-"}
+                      </p>
+                      <p className="text-[10px] truncate mt-0.5"
+                        style={{ color: "var(--bloomberg-text-dim)" }}>
+                        {user?.email || "-"}
+                      </p>
+                    </div>
+                  )}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-44"
+                style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
                 <DropdownMenuItem
                   onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
+                  className="cursor-pointer text-xs"
+                  style={{ color: "var(--bloomberg-red)" }}>
+                  <LogOut className="mr-2 h-3.5 w-3.5" />
+                  <span>退出登录</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarFooter>
         </Sidebar>
+
+        {/* 拖拽调整宽度手柄 */}
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
-          onMouseDown={() => {
-            if (isCollapsed) return;
-            setIsResizing(true);
-          }}
-          style={{ zIndex: 50 }}
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize transition-colors ${isCollapsed ? "hidden" : ""}`}
+          onMouseDown={() => { if (!isCollapsed) setIsResizing(true); }}
+          style={{ zIndex: 50, background: isResizing ? "var(--bloomberg-gold)" : "transparent" }}
+          onMouseEnter={e => { if (!isCollapsed) e.currentTarget.style.background = "var(--bloomberg-border)"; }}
+          onMouseLeave={e => { if (!isResizing) e.currentTarget.style.background = "transparent"; }}
         />
       </div>
 
-      <SidebarInset>
+      <SidebarInset style={{ background: "var(--bloomberg-surface-0)" }}>
+        {/* 移动端顶部栏 */}
         {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
+          <div className="flex h-12 items-center justify-between px-3 sticky top-0 z-40"
+            style={{ background: "oklch(8.5% 0.015 240 / 0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
-              </div>
+              <SidebarTrigger className="h-8 w-8 rounded"
+                style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border-dim)", color: "var(--bloomberg-text-secondary)" }} />
+              <span className="text-sm font-semibold"
+                style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Space Grotesk', sans-serif" }}>
+                {activeMenuItem?.label ?? "DanTree"}
+              </span>
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1">{children}</main>
       </SidebarInset>
     </>
   );

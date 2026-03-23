@@ -137,24 +137,24 @@ function FileCard({ pf, onRemove }: { pf: PendingFile; onRemove: () => void }) {
   const isImage = pf.file.type.startsWith("image/");
   return (
     <div className="relative flex items-center gap-2 px-2.5 py-2 rounded-xl group/card"
-      style={{ background: "oklch(12% 0 0)", border: "1px solid oklch(20% 0 0)", minWidth: "140px", maxWidth: "180px" }}>
+      style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", minWidth: "140px", maxWidth: "180px" }}>
       {isImage && pf.preview ? (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
           <img src={pf.preview} alt={pf.file.name} className="w-full h-full object-cover" />
         </div>
       ) : (
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(22% 0 0)" }}>
-          <Icon className="w-4 h-4" style={{ color: "oklch(75% 0 0)" }} />
+          style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid var(--bloomberg-border)" }}>
+          <Icon className="w-4 h-4" style={{ color: "var(--bloomberg-gold)" }} />
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate" style={{ color: "oklch(88% 0 0)" }}>{pf.file.name}</p>
+        <p className="text-xs font-medium truncate" style={{ color: "var(--bloomberg-text-primary)" }}>{pf.file.name}</p>
         <p className="text-xs" style={{ color: "oklch(45% 0 0)" }}>{formatFileSize(pf.file.size)}</p>
       </div>
-      {pf.uploading && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: "oklch(75% 0 0)" }} />}
+      {pf.uploading && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: "var(--bloomberg-gold)" }} />}
       {pf.error && <span className="text-xs shrink-0" style={{ color: "oklch(0.65 0.18 25)" }}>失败</span>}
-      {pf.uploadedUrl && !pf.uploading && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "oklch(75% 0 0)" }} />}
+      {pf.uploadedUrl && !pf.uploading && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--bloomberg-gold)" }} />}
       <button onClick={onRemove}
         className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity"
         style={{ background: "oklch(55% 0.18 25)", color: "white" }}>
@@ -205,8 +205,8 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button onClick={() => { navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
       className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all hover:bg-white/8"
-      style={{ color: "oklch(50% 0 0)" }}>
-      {copied ? <Check className="w-3 h-3" style={{ color: "oklch(75% 0 0)" }} /> : <Copy className="w-3 h-3" />}
+      style={{ color: "var(--bloomberg-text-tertiary)" }}>
+      {copied ? <Check className="w-3 h-3" style={{ color: "var(--bloomberg-gold)" }} /> : <Copy className="w-3 h-3" />}
       {copied ? "已复制" : "复制"}
     </button>
   );
@@ -241,7 +241,7 @@ function DownloadMenu({ content, taskTitle, msgRef }: { content: string; taskTit
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all hover:bg-white/8"
-        style={{ color: pdfLoading ? "oklch(75% 0 0)" : "oklch(50% 0 0)" }}
+        style={{ color: pdfLoading ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)" }}
         disabled={pdfLoading}>
         {pdfLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
         {pdfLoading ? "导出中..." : "导出"}
@@ -250,11 +250,11 @@ function DownloadMenu({ content, taskTitle, msgRef }: { content: string; taskTit
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-7 z-50 rounded-xl py-1 min-w-[170px] shadow-xl"
-            style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+            style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
             <button onClick={() => { downloadText(content, `${slug}.md`, "text/markdown"); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
               style={{ color: "oklch(82% 0 0)" }}>
-              <FileText className="w-3.5 h-3.5" style={{ color: "oklch(75% 0 0)" }} />Markdown (.md)
+              <FileText className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />Markdown (.md)
             </button>
             <button onClick={() => { downloadText(content, `${slug}.txt`, "text/plain"); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
@@ -356,7 +356,7 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
           <button
             onClick={() => setApiExpanded(e => !e)}
             className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80 mb-1.5"
-            style={{ color: "oklch(38% 0 0)" }}
+            style={{ color: "var(--bloomberg-text-dim)" }}
           >
             <Database className="w-3 h-3" />
             <span>数据来源：{apiSources!.length} 个 API</span>
@@ -426,7 +426,7 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
           <button
             onClick={() => setExpanded(e => !e)}
             className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
-            style={{ color: "oklch(38% 0 0)" }}
+            style={{ color: "var(--bloomberg-text-dim)" }}
           >
             <span>网页搜索：{successCount}/{totalCount} 个来源</span>
             <ChevronDown
@@ -440,7 +440,7 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
                 <div key={i} className="flex items-center gap-2">
                   <div
                     className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: src.success ? "oklch(75% 0 0)" : "oklch(0.65 0.18 25)" }}
+                    style={{ background: src.success ? "var(--bloomberg-gold)" : "oklch(0.65 0.18 25)" }}
                   />
                   <a
                     href={src.url}
@@ -472,7 +472,7 @@ function DiscussionPanel({ discussionObject }: {
   const [expanded, setExpanded] = React.useState(false);
   return (
     <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
-      style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(0.72 0.18 250 / 0.15)", boxShadow: "0 1px 8px oklch(0 0 0 / 0.2)" }}>
+      style={{ background: "var(--bloomberg-surface-1)", border: "1px solid oklch(0.72 0.18 250 / 0.15)", boxShadow: "0 1px 8px oklch(0 0 0 / 0.2)" }}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -486,7 +486,7 @@ function DiscussionPanel({ discussionObject }: {
         </div>
         <button onClick={() => setExpanded(e => !e)}
           className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors hover:opacity-80"
-          style={{ color: "oklch(50% 0 0)", background: "oklch(100% 0 0 / 0.1)" }}>
+          style={{ color: "var(--bloomberg-text-tertiary)", background: "oklch(100% 0 0 / 0.1)" }}>
           {expanded ? "收起" : "展开"}
         </button>
       </div>
@@ -496,18 +496,18 @@ function DiscussionPanel({ discussionObject }: {
           {discussionObject.weakest_point && (
             <div>
               <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.78 0.18 75)" }}>最薄弱环节</p>
-              <p className="text-xs" style={{ color: "oklch(78% 0 0)" }}>{discussionObject.weakest_point}</p>
+              <p className="text-xs" style={{ color: "var(--bloomberg-gold)" }}>{discussionObject.weakest_point}</p>
             </div>
           )}
           {discussionObject.alternative_view && (
             <div>
               <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.72 0.18 25)" }}>对立观点</p>
-              <p className="text-xs" style={{ color: "oklch(78% 0 0)" }}>{discussionObject.alternative_view}</p>
+              <p className="text-xs" style={{ color: "var(--bloomberg-gold)" }}>{discussionObject.alternative_view}</p>
             </div>
           )}
           {(discussionObject.follow_up_questions?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>深度追问</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>深度追问</p>
               <div className="flex flex-col gap-1">
                 {discussionObject.follow_up_questions.map((q, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -520,7 +520,7 @@ function DiscussionPanel({ discussionObject }: {
           )}
           {(discussionObject.exploration_paths?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>延伸研究方向</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>延伸研究方向</p>
               <div className="flex flex-col gap-1">
                 {discussionObject.exploration_paths.map((p, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -548,7 +548,7 @@ function AnswerHeader({ answerObject, outputMode }: {
   const [expanded, setExpanded] = React.useState(false);
   // 置信度映射 — 仅展示置信度和引用数
   const confidenceMap = {
-    high: { label: "高置信", color: "oklch(75% 0 0)", bg: "oklch(68% 0.18 155 / 0.1)", border: "oklch(0.72 0.18 155 / 0.2)" },
+    high: { label: "高置信", color: "var(--bloomberg-gold)", bg: "oklch(68% 0.18 155 / 0.1)", border: "oklch(0.72 0.18 155 / 0.2)" },
     medium: { label: "中置信", color: "oklch(0.78 0.18 75)", bg: "oklch(0.78 0.18 75 / 0.1)", border: "oklch(0.78 0.18 75 / 0.2)" },
     low: { label: "低置信", color: "oklch(0.72 0.18 25)", bg: "oklch(0.72 0.18 25 / 0.1)", border: "oklch(0.72 0.18 25 / 0.2)" },
   };
@@ -564,14 +564,14 @@ function AnswerHeader({ answerObject, outputMode }: {
     (answerObject.next_steps?.length ?? 0) > 0;
   return (
     <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
-      style={{ background: "oklch(10% 0 0)", borderLeft: `3px solid ${modeAccent}`, border: "1px solid oklch(18% 0 0)", borderLeftWidth: "3px", boxShadow: "0 1px 8px oklch(0 0 0 / 0.3)" }}>
+      style={{ background: "var(--bloomberg-surface-1)", borderLeft: `3px solid ${modeAccent}`, border: "1px solid var(--bloomberg-surface-3)", borderLeftWidth: "3px", boxShadow: "0 1px 8px oklch(0 0 0 / 0.3)" }}>
       {/* Verdict */}
       <div className="flex items-start gap-2">
-        <span className="text-sm font-medium leading-snug flex-1" style={{ color: "oklch(93% 0 0)" }}>{answerObject.verdict}</span>
+        <span className="text-sm font-medium leading-snug flex-1" style={{ color: "var(--bloomberg-text-primary)" }}>{answerObject.verdict}</span>
         {hasDetails && (
           <button onClick={() => setExpanded(e => !e)}
             className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors hover:opacity-80"
-            style={{ color: "oklch(50% 0 0)", background: "oklch(100% 0 0 / 0.1)" }}>
+            style={{ color: "var(--bloomberg-text-tertiary)", background: "oklch(100% 0 0 / 0.1)" }}>
             {expanded ? "收起" : "详情"}
           </button>
         )}
@@ -584,7 +584,7 @@ function AnswerHeader({ answerObject, outputMode }: {
         </span>
         {(answerObject.key_evidence?.length ?? 0) > 0 && (
           <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "oklch(15% 0 0)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
+            style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(0.72 0.18 250 / 0.18)", color: "oklch(0.62 0.12 250)" }}>
             {answerObject.key_evidence!.length} 条证据
           </span>
         )}
@@ -594,7 +594,7 @@ function AnswerHeader({ answerObject, outputMode }: {
         <div className="mt-1 flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid oklch(100% 0 0 / 0.1)" }}>
           {(answerObject.key_evidence?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>关键证据</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>关键证据</p>
               <div className="flex flex-col gap-1">
                 {answerObject.key_evidence!.map((e, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -607,7 +607,7 @@ function AnswerHeader({ answerObject, outputMode }: {
           )}
           {(answerObject.reasoning?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "oklch(75% 0 0)" }}>推理链</p>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>推理链</p>
               <div className="flex flex-col gap-1">
                 {answerObject.reasoning!.map((r, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -720,13 +720,13 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
     <div className="flex gap-4 items-start py-4 group" data-pdf-message="ai">
       {/* FinRobot-style AI avatar */}
       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold mt-0.5 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, oklch(0.63 0.20 258 / 0.3), oklch(18% 0 0))", border: "1px solid oklch(0.63 0.20 258 / 0.4)", color: "oklch(80% 0 0)" }}>
+        style={{ background: "linear-gradient(135deg, oklch(0.63 0.20 258 / 0.3), var(--bloomberg-surface-3))", border: "1px solid oklch(0.63 0.20 258 / 0.4)", color: "var(--bloomberg-text-primary)" }}>
         <Bot className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm font-semibold" style={{ color: `var(--${colorVar}-color)` }}>{label}</span>
-          <span className="text-xs" style={{ color: "oklch(38% 0 0)" }}>
+          <span className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
@@ -838,13 +838,13 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
                       );
                     },
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-4 pl-3 my-2 italic" style={{ borderColor: "oklch(0.55 0.18 250)", color: "oklch(60% 0 0)" }}>{children}</blockquote>
+                      <blockquote className="border-l-4 pl-3 my-2 italic" style={{ borderColor: "oklch(0.55 0.18 250)", color: "var(--bloomberg-text-secondary)" }}>{children}</blockquote>
                     ),
                     h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
                     h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-1.5">{children}</h2>,
                     h3: ({ children }) => <h3 className="text-base font-semibold mt-2 mb-1">{children}</h3>,
-                    strong: ({ children }) => <strong className="font-bold" style={{ color: "oklch(93% 0 0)" }}>{children}</strong>,
-                    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "oklch(75% 0 0)" }}>{children}</a>,
+                    strong: ({ children }) => <strong className="font-bold" style={{ color: "var(--bloomberg-text-primary)" }}>{children}</strong>,
+                    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--bloomberg-gold)" }}>{children}</a>,
                     ul: ({ children }) => <ul className="list-disc pl-5 my-1.5 space-y-0.5">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5">{children}</ol>,
                     li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
@@ -903,12 +903,12 @@ function UserMessage({ msg }: { msg: Msg }) {
   return (
     <div className="flex gap-4 items-start py-4 flex-row-reverse">
       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
-        style={{ background: "oklch(20% 0 0)", border: "1px solid oklch(0.28 0.010 264)", color: "oklch(60% 0 0)" }}>
+        style={{ background: "var(--bloomberg-border)", border: "1px solid oklch(0.28 0.010 264)", color: "var(--bloomberg-text-secondary)" }}>
         <User className="w-4 h-4" />
       </div>
       <div className="flex flex-col items-end gap-1" style={{ maxWidth: "72%" }}>
         <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: "oklch(38% 0 0)" }}>
+          <span className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>
             {new Date(msg.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
           </span>
           <span className="text-sm font-semibold" style={{ color: "oklch(82% 0 0)" }}>你</span>
@@ -925,7 +925,7 @@ function UserMessage({ msg }: { msg: Msg }) {
               return (
                 <a key={i} href={att.s3Url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs hover:opacity-80 transition-opacity"
-                  style={{ background: "oklch(0.10 0.006 264)", border: "1px solid oklch(22% 0 0)", color: "oklch(75% 0 0)", maxWidth: "180px" }}>
+                  style={{ background: "oklch(0.10 0.006 264)", border: "1px solid var(--bloomberg-border)", color: "var(--bloomberg-gold)", maxWidth: "180px" }}>
                   <span>{icon}</span>
                   <span className="truncate" style={{ maxWidth: "110px" }}>{att.filename}</span>
                   <span style={{ color: "oklch(45% 0 0)", flexShrink: 0 }}>{sizeStr}</span>
@@ -935,12 +935,12 @@ function UserMessage({ msg }: { msg: Msg }) {
           </div>
         )}
         <div className="group relative px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed"
-          style={{ background: "oklch(0.12 0.006 264)", border: "1px solid oklch(20% 0 0)", color: "oklch(90% 0 0)", wordBreak: "break-word" }}>
+          style={{ background: "oklch(0.12 0.006 264)", border: "1px solid var(--bloomberg-border)", color: "oklch(90% 0 0)", wordBreak: "break-word" }}>
           {msg.content}
           <button
             onClick={handleCopy}
             className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
-            style={{ background: "oklch(100% 0 0 / 0.1)", border: "1px solid oklch(0.28 0.01 270)", color: "oklch(60% 0 0)" }}
+            style={{ background: "oklch(100% 0 0 / 0.1)", border: "1px solid oklch(0.28 0.01 270)", color: "var(--bloomberg-text-secondary)" }}
             title="复制消息"
           >
             {copied ? <Check className="w-3 h-3" style={{ color: "oklch(0.75 0.15 145)" }} /> : <Copy className="w-3 h-3" />}
@@ -955,7 +955,7 @@ function SystemMessage({ msg }: { msg: Msg }) {
   return (
     <div className="flex justify-center my-2">
       <div className="px-3 py-1.5 rounded-full text-xs text-center max-w-[85%]"
-        style={{ background: "oklch(12% 0 0)", border: "1px solid oklch(18% 0 0)", color: "oklch(50% 0 0)" }}>
+        style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-surface-3)", color: "var(--bloomberg-text-tertiary)" }}>
         {msg.content}
       </div>
     </div>
@@ -999,9 +999,9 @@ function TypingIndicator({ phase }: { phase?: string }) {
                 {isActive ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: step.color }} />
                 ) : (
-                  <step.Icon className="w-3.5 h-3.5" style={{ color: isDone ? "oklch(75% 0 0)" : "oklch(0.33 0.007 264)" }} />
+                  <step.Icon className="w-3.5 h-3.5" style={{ color: isDone ? "var(--bloomberg-gold)" : "oklch(0.33 0.007 264)" }} />
                 )}
-                <span className="text-xs" style={{ color: isActive ? step.color : isDone ? "oklch(75% 0 0)" : "oklch(0.33 0.007 264)" }}>
+                <span className="text-xs" style={{ color: isActive ? step.color : isDone ? "var(--bloomberg-gold)" : "oklch(0.33 0.007 264)" }}>
                   {step.label}
                 </span>
                 {i < steps.length - 1 && (
@@ -1043,7 +1043,7 @@ function ExportReportButton({ title }: { title: string }) {
       disabled={loading}
       data-export-ignore
       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:bg-white/8 disabled:opacity-60"
-      style={{ color: loading ? "oklch(75% 0 0)" : "oklch(50% 0 0)", border: "1px solid oklch(18% 0 0)" }}
+      style={{ color: loading ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)", border: "1px solid var(--bloomberg-surface-3)" }}
       title="导出完整报告为 PDF"
     >
       {loading ? (
@@ -1063,8 +1063,8 @@ function ExportReportButton({ title }: { title: string }) {
 
 // ─── Color map for groups ─────────────────────────────────────────────────────
 const GROUP_COLORS: Record<string, string> = {
-  blue: "oklch(75% 0 0)",
-  green: "oklch(75% 0 0)",
+  blue: "var(--bloomberg-gold)",
+  green: "var(--bloomberg-gold)",
   orange: "oklch(0.78 0.18 55)",
   red: "oklch(0.65 0.18 25)",
   purple: "oklch(0.72 0.18 300)",
@@ -1526,14 +1526,14 @@ export default function ChatRoom() {
 
   if (authLoading || accessLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "oklch(8% 0 0)" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bloomberg-surface-0)" }}>
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex overflow-hidden" style={{ background: "oklch(8% 0 0)" }}
+    <div className="h-screen flex overflow-hidden" style={{ background: "var(--bloomberg-surface-0)" }}
       onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
       onDrop={handleDrop}>
@@ -1541,10 +1541,10 @@ export default function ChatRoom() {
       {/* Drag overlay */}
       {isDragOver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-          style={{ background: "oklch(15% 0 0)", border: "2px dashed oklch(0.72 0.18 250 / 0.5)" }}>
+          style={{ background: "var(--bloomberg-surface-2)", border: "2px dashed oklch(0.72 0.18 250 / 0.5)" }}>
           <div className="text-center space-y-2">
-            <Paperclip className="w-10 h-10 mx-auto" style={{ color: "oklch(75% 0 0)" }} />
-            <p className="text-sm font-medium" style={{ color: "oklch(75% 0 0)" }}>拖放文件到此处上传</p>
+            <Paperclip className="w-10 h-10 mx-auto" style={{ color: "var(--bloomberg-gold)" }} />
+            <p className="text-sm font-medium" style={{ color: "var(--bloomberg-gold)" }}>拖放文件到此处上传</p>
           </div>
         </div>
       )}
@@ -1562,7 +1562,7 @@ export default function ChatRoom() {
               className="w-7 h-7 rounded-xl object-cover shrink-0"
             />
             <div>
-              <span className="text-sm font-semibold" style={{ color: "oklch(95% 0 0)", fontFamily: "'Inter', sans-serif", letterSpacing: "-0.01em" }}>DanTree</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Inter', sans-serif", letterSpacing: "-0.01em" }}>DanTree</span>
               <div className="text-[9px] font-medium tracking-widest uppercase" style={{ color: "oklch(40% 0 0)", letterSpacing: "0.10em" }}>AI Finance</div>
             </div>
           </div>
@@ -1575,12 +1575,12 @@ export default function ChatRoom() {
         <div className="px-3 mb-3 shrink-0 flex gap-2">
           <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
             className="flex-1 h-9 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all hover:scale-[1.01] active:scale-[0.99] glass-btn-v2"
-            style={{ color: "oklch(78% 0 0)" }}>
+            style={{ color: "var(--bloomberg-gold)" }}>
             <Plus className="w-4 h-4" />新任务
           </button>
           <button onClick={() => { setNewGroupName(""); setNewGroupColor("blue"); setNewGroupDialogOpen(true); }}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-[1.01] active:scale-[0.99] glass-btn-v2"
-            style={{ color: "oklch(55% 0 0)" }}
+            style={{ color: "var(--bloomberg-text-tertiary)" }}
             title="新建分组">
             <FolderPlus className="w-4 h-4" />
           </button>
@@ -1590,7 +1590,7 @@ export default function ChatRoom() {
         {searchOpen ? (
           <div className="px-3 mb-2 shrink-0">
             <div className="flex items-center gap-2 h-9 rounded-xl px-3 glass-input-v2">
-              <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(50% 0 0)" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+              <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--bloomberg-text-tertiary)" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
               <input
                 ref={searchInputRef}
                 value={searchQuery}
@@ -1598,15 +1598,15 @@ export default function ChatRoom() {
                 onKeyDown={e => { if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); } }}
                 placeholder="搜索任务名称或内容..."
                 className="flex-1 bg-transparent text-xs outline-none"
-                style={{ color: "oklch(82% 0 0)", caretColor: "oklch(75% 0 0)" }}
+                style={{ color: "oklch(82% 0 0)", caretColor: "var(--bloomberg-gold)" }}
                 autoFocus
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="shrink-0 hover:opacity-70" style={{ color: "oklch(50% 0 0)" }}>
+                <button onClick={() => setSearchQuery("")} className="shrink-0 hover:opacity-70" style={{ color: "var(--bloomberg-text-tertiary)" }}>
                   <X className="w-3 h-3" />
                 </button>
               )}
-              <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="shrink-0 text-xs hover:opacity-70" style={{ color: "oklch(50% 0 0)" }}>取消</button>
+              <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="shrink-0 text-xs hover:opacity-70" style={{ color: "var(--bloomberg-text-tertiary)" }}>取消</button>
             </div>
           </div>
         ) : (
@@ -1614,7 +1614,7 @@ export default function ChatRoom() {
             <button
               onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
               className="w-full h-8 rounded-xl flex items-center gap-2 px-3 text-xs transition-all glass-btn-v2"
-              style={{ color: "oklch(38% 0 0)" }}
+              style={{ color: "var(--bloomberg-text-dim)" }}
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
               搜索任务...
@@ -1629,7 +1629,7 @@ export default function ChatRoom() {
           {/* Search results */}
           {searchOpen && searchQuery.trim() && (
             <div>
-              <div className="flex items-center gap-1.5 px-2 py-1 text-xs mb-1" style={{ color: "oklch(38% 0 0)" }}>
+              <div className="flex items-center gap-1.5 px-2 py-1 text-xs mb-1" style={{ color: "var(--bloomberg-text-dim)" }}>
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
                 <span>搜索结果</span>
                 {searchResults && <span className="ml-auto opacity-60">{searchResults.length} 条</span>}
@@ -1642,14 +1642,14 @@ export default function ChatRoom() {
                     key={conv.id}
                     onClick={() => { setActiveConvId(conv.id); setSearchOpen(false); setSearchQuery(""); }}
                     className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors hover:bg-white/5"
-                    style={{ background: activeConvId === conv.id ? "oklch(18% 0 0)" : "transparent" }}
+                    style={{ background: activeConvId === conv.id ? "var(--bloomberg-surface-3)" : "transparent" }}
                   >
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(50% 0 0)" }} />
-                    <span className="text-sm font-semibold truncate" style={{ color: "oklch(78% 0 0)" }}>
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--bloomberg-text-tertiary)" }} />
+                    <span className="text-sm font-semibold truncate" style={{ color: "var(--bloomberg-gold)" }}>
                       {idx >= 0 ? (
                         <>
                           {title.slice(0, idx)}
-                          <mark className="rounded px-0.5" style={{ background: "oklch(30% 0 0)", color: "oklch(93% 0 0)" }}>
+                          <mark className="rounded px-0.5" style={{ background: "oklch(30% 0 0)", color: "var(--bloomberg-text-primary)" }}>
                             {title.slice(idx, idx + searchQuery.length)}
                           </mark>
                           {title.slice(idx + searchQuery.length)}
@@ -1660,7 +1660,7 @@ export default function ChatRoom() {
                 );
               }) : (
                 <div className="px-3 py-6 text-center">
-                  <p className="text-xs" style={{ color: "oklch(38% 0 0)" }}>未找到匹配的任务</p>
+                  <p className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>未找到匹配的任务</p>
                 </div>
               )}
             </div>
@@ -1692,7 +1692,7 @@ export default function ChatRoom() {
           {ungroupedConvs.length > 0 && (
             <div>
               {groups && groups.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-2" style={{ color: "oklch(38% 0 0)" }}>
+                <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-2" style={{ color: "var(--bloomberg-text-dim)" }}>
                   <History className="w-3 h-3" />
                   <span>未分组</span>
                   <span className="ml-auto opacity-60">{ungroupedConvs.length}</span>
@@ -1719,8 +1719,8 @@ export default function ChatRoom() {
           {/* Empty state */}
           {(!allConversations || allConversations.length === 0) && (
             <div className="px-3 py-8 text-center">
-              <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: "oklch(50% 0 0)" }} />
-              <p className="text-xs" style={{ color: "oklch(38% 0 0)" }}>点击「新任务」开始</p>
+              <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" style={{ color: "var(--bloomberg-text-tertiary)" }} />
+              <p className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>点击「新任务」开始</p>
             </div>
           )}
           </>
@@ -1728,8 +1728,8 @@ export default function ChatRoom() {
         </div>
 
         {/* Footer */}
-        <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid oklch(16% 0 0)" }}>
-          <div className="px-2 py-2 rounded-xl mb-2 space-y-1.5" style={{ background: "oklch(12% 0 0)" }}>
+        <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid var(--bloomberg-border-dim)" }}>
+          <div className="px-2 py-2 rounded-xl mb-2 space-y-1.5" style={{ background: "var(--bloomberg-surface-2)" }}>
             {/* AI 引擎状态（统一单助手） */}
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -1737,7 +1737,7 @@ export default function ChatRoom() {
                   ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "oklch(0.65 0.18 25)" }} /><span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "oklch(0.65 0.18 25)" }} /></>
                   : <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: rpaConnected ? "oklch(0.55 0.15 150)" : "oklch(30% 0 0)" }} />}
               </span>
-              <span className="text-xs" style={{ color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(60% 0 0)" : "oklch(38% 0 0)" }}>
+              <span className="text-xs" style={{ color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "var(--bloomberg-text-secondary)" : "var(--bloomberg-text-dim)" }}>
                 AI 研究引擎
               </span>
               <span className="text-xs ml-auto" style={{ color: isTyping ? "oklch(0.65 0.18 25)" : "oklch(0.4 0.01 270)" }}>
@@ -1762,11 +1762,11 @@ export default function ChatRoom() {
                 }
               }}
               className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors mb-0.5 hover:bg-white/5"
-              style={{ color: "oklch(80% 0 0)", background: "oklch(15% 0 0)", border: "1px solid oklch(18% 0 0)" }}
+              style={{ color: "var(--bloomberg-text-primary)", background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-surface-3)" }}
             >
               <Download className="w-3.5 h-3.5" />
               <span>安装桌面 App</span>
-              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ background: "oklch(18% 0 0)", color: "oklch(75% 0 0)" }}>NEW</span>
+              <span className="ml-auto text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--bloomberg-surface-3)", color: "var(--bloomberg-gold)" }}>NEW</span>
             </button>
           )}
           {[
@@ -1775,7 +1775,7 @@ export default function ChatRoom() {
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
               className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors hover:bg-white/5"
-              style={{ color: "oklch(60% 0 0)" }}>
+              style={{ color: "var(--bloomberg-text-secondary)" }}>
               <Icon className="w-3.5 h-3.5" />{label}
             </button>
           ))}
@@ -1788,11 +1788,11 @@ export default function ChatRoom() {
         {/* Top bar */}
         <header className="h-12 flex items-center gap-3 px-4 shrink-0 glass-navbar">
           {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all glass-btn-v2" style={{ color: "oklch(50% 0 0)" }}>
+            <button onClick={() => setSidebarOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all glass-btn-v2" style={{ color: "var(--bloomberg-text-tertiary)" }}>
               <Menu className="w-4 h-4" />
             </button>
           )}
-          <span className="text-sm font-medium truncate" style={{ color: "oklch(85% 0 0)", fontFamily: "'Inter', sans-serif" }}>
+          <span className="text-sm font-medium truncate" style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Inter', sans-serif" }}>
             {activeConvTitle || "选择或新建任务"}
           </span>
           <div className="ml-auto hidden sm:flex items-center gap-2">
@@ -1806,11 +1806,11 @@ export default function ChatRoom() {
                 onClick={() => { setMemoryPanelOpen(o => !o); }}
                 title="对话记忆"
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all hover:bg-white/8"
-                style={{ background: memoryPanelOpen ? "oklch(18% 0 0)" : "transparent", border: `1px solid ${memoryPanelOpen ? "oklch(35% 0 0)" : "oklch(20% 0 0)"}`, color: memoryPanelOpen ? "oklch(75% 0 0)" : "oklch(50% 0 0)" }}>
+                style={{ background: memoryPanelOpen ? "var(--bloomberg-surface-3)" : "transparent", border: `1px solid ${memoryPanelOpen ? "oklch(35% 0 0)" : "var(--bloomberg-border)"}`, color: memoryPanelOpen ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)" }}>
                 <Brain className="w-3 h-3" />
                 <span>记忆</span>
                 {memoryData && memoryData.length > 0 && (
-                  <span className="ml-0.5 px-1 py-0.5 rounded text-[10px] font-bold" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>{memoryData.length}</span>
+                  <span className="ml-0.5 px-1 py-0.5 rounded text-[10px] font-bold" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>{memoryData.length}</span>
                 )}
               </button>
             )}
@@ -1819,13 +1819,13 @@ export default function ChatRoom() {
               onClick={() => { setPortfolioPanelOpen(o => !o); if (memoryPanelOpen) setMemoryPanelOpen(false); }}
               title="模拟持仓"
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all hover:bg-white/8"
-              style={{ background: portfolioPanelOpen ? "oklch(18% 0 0)" : "transparent", border: `1px solid ${portfolioPanelOpen ? "oklch(0.72 0.18 155 / 0.4)" : "oklch(20% 0 0)"}`, color: portfolioPanelOpen ? "oklch(75% 0 0)" : "oklch(50% 0 0)" }}>
+              style={{ background: portfolioPanelOpen ? "var(--bloomberg-surface-3)" : "transparent", border: `1px solid ${portfolioPanelOpen ? "oklch(0.72 0.18 155 / 0.4)" : "var(--bloomberg-border)"}`, color: portfolioPanelOpen ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)" }}>
               <BarChart3 className="w-3 h-3" />
               <span>持仓</span>
             </button>
             {/* AI 研究引擎状态标志（统一单助手） */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap shrink-0"
-              style={{ background: "oklch(15% 0 0)", border: "1px solid oklch(0.65 0.18 25 / 0.3)", color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(0.60 0.10 25)" : "oklch(38% 0 0)" }}>
+              style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(0.65 0.18 25 / 0.3)", color: isTyping ? "oklch(0.65 0.18 25)" : rpaConnected ? "oklch(0.60 0.10 25)" : "var(--bloomberg-text-dim)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 {isTyping
                   ? <><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "oklch(0.65 0.18 25)" }} /><span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "oklch(0.65 0.18 25)" }} /></>
@@ -1839,7 +1839,7 @@ export default function ChatRoom() {
 
         {/* Three-phase progress bar */}
         {isTyping && (
-          <div className="shrink-0 px-4 py-2" style={{ borderBottom: "1px solid oklch(18% 0 0)" }}>
+          <div className="shrink-0 px-4 py-2" style={{ borderBottom: "1px solid var(--bloomberg-surface-3)" }}>
             <div className="max-w-3xl mx-auto">
               {/* Stage labels */}
               <div className="flex items-center justify-between mb-1.5">
@@ -1857,21 +1857,21 @@ export default function ChatRoom() {
                     <div key={stage.key} className="flex items-center gap-1.5">
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
                         style={{
-                          background: isActive ? "oklch(18% 0 0)" : isDone ? "oklch(0.55 0.12 155 / 0.15)" : "oklch(10% 0 0)",
-                          color: isActive ? "oklch(75% 0 0)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)",
-                          border: `1px solid ${isActive ? "oklch(28% 0 0)" : isDone ? "oklch(0.55 0.12 155 / 0.3)" : "oklch(16% 0 0)"}`
+                          background: isActive ? "var(--bloomberg-surface-3)" : isDone ? "oklch(0.55 0.12 155 / 0.15)" : "var(--bloomberg-surface-1)",
+                          color: isActive ? "var(--bloomberg-gold)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)",
+                          border: `1px solid ${isActive ? "var(--bloomberg-border-bright)" : isDone ? "oklch(0.55 0.12 155 / 0.3)" : "var(--bloomberg-border-dim)"}`
                         }}>{stage.icon}</span>
-                      <span className="text-xs" style={{ color: isActive ? "oklch(85% 0 0)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)" }}>
+                      <span className="text-xs" style={{ color: isActive ? "var(--bloomberg-text-primary)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)" }}>
                         {stage.label}
                       </span>
                       {isDone && <span className="text-[10px]" style={{ color: "oklch(0.65 0.15 155)" }}>✓</span>}
-                      {isActive && <span className="text-[10px] animate-pulse" style={{ color: "oklch(75% 0 0)" }}>•••</span>}
+                      {isActive && <span className="text-[10px] animate-pulse" style={{ color: "var(--bloomberg-gold)" }}>•••</span>}
                     </div>
                   );
                 })}
               </div>
               {/* Progress track */}
-              <div className="relative h-0.5 rounded-full overflow-hidden" style={{ background: "oklch(18% 0 0)" }}>
+              <div className="relative h-0.5 rounded-full overflow-hidden" style={{ background: "var(--bloomberg-surface-3)" }}>
                 {/* Completed segments */}
                 <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
                   style={{
@@ -1881,7 +1881,7 @@ export default function ChatRoom() {
                 {/* Active animated segment */}
                 <div className="absolute inset-y-0 rounded-full"
                   style={{
-                    background: "linear-gradient(90deg, oklch(0.72 0.18 250 / 0.8), oklch(75% 0 0))",
+                    background: "linear-gradient(90deg, oklch(0.72 0.18 250 / 0.8), var(--bloomberg-gold))",
                     left: taskPhase === "manus_working" ? "0%" : taskPhase === "manus_analyzing" ? "33.3%" : taskPhase === "gpt_reviewing" ? "66.6%" : "100%",
                     width: "33.3%",
                     animation: "progressPulse 1.8s ease-in-out infinite"
@@ -1909,10 +1909,10 @@ export default function ChatRoom() {
                       alt="DanTree"
                       className="w-14 h-14 rounded-2xl object-cover mx-auto mb-4"
                     />
-                    <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "oklch(93% 0 0)", fontFamily: "'Inter', sans-serif" }}>
+                    <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Inter', sans-serif" }}>
                       今天想分析什么？
                     </h1>
-                    <p className="mt-2 text-sm" style={{ color: "oklch(48% 0 0)" }}>
+                    <p className="mt-2 text-sm" style={{ color: "var(--bloomberg-text-tertiary)" }}>
                       AI 团队实时调用 20+ 数据源，为您生成专业投资研究报告
                     </p>
                   </div>
@@ -1929,18 +1929,18 @@ export default function ChatRoom() {
                         key={label}
                         onClick={() => { setNewTaskName(label); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
                         className="group flex items-start gap-3 p-4 rounded-2xl text-left transition-all hover:scale-[1.01]"
-                        style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(18% 0 0)" }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = "oklch(28% 0 0)")}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = "oklch(18% 0 0)")}>
+                        style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-surface-3)" }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--bloomberg-border-bright)")}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--bloomberg-surface-3)")}>
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                          style={{ background: "oklch(16% 0 0)", color: "oklch(65% 0 0)" }}>
+                          style={{ background: "var(--bloomberg-border-dim)", color: "var(--bloomberg-text-secondary)" }}>
                           {icon}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>{label}</p>
+                          <p className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{label}</p>
                           <p className="text-xs mt-0.5" style={{ color: "oklch(45% 0 0)" }}>{desc}</p>
                         </div>
-                        <ArrowRight className="w-4 h-4 shrink-0 mt-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "oklch(55% 0 0)" }} />
+                        <ArrowRight className="w-4 h-4 shrink-0 mt-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--bloomberg-text-tertiary)" }} />
                       </button>
                     ))}
                   </div>
@@ -1948,36 +1948,36 @@ export default function ChatRoom() {
                   {/* New task CTA */}
                   <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
-                    style={{ background: "oklch(93% 0 0)", color: "oklch(8% 0 0)" }}>
+                    style={{ background: "var(--bloomberg-text-primary)", color: "var(--bloomberg-surface-0)" }}>
                     <Plus className="w-4 h-4" />新建任务
                   </button>
 
                   {/* Stats row */}
                   <div className="flex items-center gap-6 mt-8 text-xs" style={{ color: "oklch(35% 0 0)" }}>
                     <span>20+ 数据源</span>
-                    <span style={{ color: "oklch(22% 0 0)" }}>·</span>
+                    <span style={{ color: "var(--bloomberg-border)" }}>·</span>
                     <span>实时行情</span>
-                    <span style={{ color: "oklch(22% 0 0)" }}>·</span>
+                    <span style={{ color: "var(--bloomberg-border)" }}>·</span>
                     <span>GPT-4o 驱动</span>
                   </div>
                 </div>
               ) : msgsLoading ? (
                 <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "oklch(75% 0 0)" }} />
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--bloomberg-gold)" }} />
                 </div>
               ) : convMessages.length === 0 ? (
                 // Empty conversation
                 <div className="flex items-center justify-center min-h-[60vh]">
                   <div className="text-center space-y-4 max-w-sm">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto"
-                      style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(22% 0 0)" }}>
-                      <Sparkles className="w-6 h-6" style={{ color: "oklch(75% 0 0)" }} />
+                      style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid var(--bloomberg-border)" }}>
+                      <Sparkles className="w-6 h-6" style={{ color: "var(--bloomberg-gold)" }} />
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold mb-1" style={{ color: "oklch(93% 0 0)" }}>
+                      <h3 className="text-base font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>
                         {activeConvTitle || "新任务"}
                       </h3>
-                      <p className="text-sm" style={{ color: "oklch(50% 0 0)" }}>
+                      <p className="text-sm" style={{ color: "var(--bloomberg-text-tertiary)" }}>
                         输入你的任务，AI 团队将协作完成分析
                       </p>
                     </div>
@@ -1999,7 +1999,7 @@ export default function ChatRoom() {
                   {isTyping && <TypingIndicator phase={taskPhase} />}
                   {/* streaming 状态：显示打字光标动画 */}
                   {isStreaming && (
-                    <span className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse" style={{ background: "oklch(75% 0 0)", verticalAlign: "text-bottom" }} />
+                    <span className="inline-block w-0.5 h-4 ml-0.5 align-middle animate-pulse" style={{ background: "var(--bloomberg-gold)", verticalAlign: "text-bottom" }} />
                   )}
                   {/* 任务失败重试按钮：当最后一条是系统错误消息且任务已失败时显示 */}
                   {(() => {
@@ -2039,17 +2039,17 @@ export default function ChatRoom() {
           {showScrollBtn && (
             <button onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
               className="absolute bottom-5 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 z-10"
-              style={{ background: "oklch(0.16 0.010 258)", border: "1px solid oklch(0.50 0.18 258 / 0.55)", color: "oklch(75% 0 0)", boxShadow: "0 4px 16px oklch(22% 0 0)" }}>
+              style={{ background: "oklch(0.16 0.010 258)", border: "1px solid oklch(0.50 0.18 258 / 0.55)", color: "var(--bloomberg-gold)", boxShadow: "0 4px 16px var(--bloomberg-border)" }}>
               <ChevronDown className="w-4 h-4" />
             </button>
           )}
           {/* Portfolio Panel */}
           {portfolioPanelOpen && (
-            <div className="w-80 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid oklch(13% 0 0)", background: "oklch(10% 0 0)" }}>
-              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid oklch(13% 0 0)" }}>
+            <div className="w-80 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid var(--bloomberg-surface-2)", background: "var(--bloomberg-surface-1)" }}>
+              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--bloomberg-surface-2)" }}>
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="w-3.5 h-3.5" style={{ color: "oklch(75% 0 0)" }} />
-                  <span className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>模拟持仓</span>
+                  <BarChart3 className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                  <span className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>模拟持仓</span>
                 </div>
                 <button onClick={() => setPortfolioPanelOpen(false)} className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/8" style={{ color: "oklch(45% 0 0)" }}>
                   <X className="w-3.5 h-3.5" />
@@ -2058,18 +2058,18 @@ export default function ChatRoom() {
               <div className="flex-1 overflow-y-auto px-3 py-3">
                 <AlpacaPortfolioCard />
               </div>
-              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid oklch(13% 0 0)" }}>
+              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid var(--bloomberg-surface-2)" }}>
                 <p className="text-[10px] text-center" style={{ color: "oklch(30% 0 0)" }}>Alpaca Paper Trading · 模拟账户 · 实时刷新</p>
               </div>
             </div>
           )}
           {/* Memory Panel */}
           {memoryPanelOpen && activeConvId && (
-            <div className="w-72 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid oklch(13% 0 0)", background: "oklch(10% 0 0)" }}>
-              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid oklch(13% 0 0)" }}>
+            <div className="w-72 shrink-0 h-full overflow-y-auto flex flex-col" style={{ borderLeft: "1px solid var(--bloomberg-surface-2)", background: "var(--bloomberg-surface-1)" }}>
+              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--bloomberg-surface-2)" }}>
                 <div className="flex items-center gap-2">
-                  <Brain className="w-3.5 h-3.5" style={{ color: "oklch(75% 0 0)" }} />
-                  <span className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>对话记忆</span>
+                  <Brain className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                  <span className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>对话记忆</span>
                 </div>
                 <button onClick={() => setMemoryPanelOpen(false)} className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/8" style={{ color: "oklch(45% 0 0)" }}>
                   <X className="w-3.5 h-3.5" />
@@ -2078,17 +2078,17 @@ export default function ChatRoom() {
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
                 {!memoryData ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "oklch(50% 0 0)" }} />
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--bloomberg-text-tertiary)" }} />
                   </div>
                 ) : memoryData.length === 0 ? (
                   <div className="text-center py-8">
-                    <Brain className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "oklch(50% 0 0)" }} />
-                    <p className="text-xs" style={{ color: "oklch(38% 0 0)" }}>对话完成后会自动生成记忆</p>
+                    <Brain className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ color: "var(--bloomberg-text-tertiary)" }} />
+                    <p className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>对话完成后会自动生成记忆</p>
                     <p className="text-xs mt-1" style={{ color: "oklch(0.33 0.007 264)" }}>包含关注的股票、行业和分析结论</p>
                   </div>
                 ) : (
                   memoryData.map((m) => (
-                    <div key={m.id} className="rounded-xl p-3" style={{ background: "oklch(12% 0 0)", border: "1px solid oklch(18% 0 0)" }}>
+                    <div key={m.id} className="rounded-xl p-3" style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-surface-3)" }}>
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <span className="text-xs font-medium truncate flex-1" style={{ color: "oklch(82% 0 0)" }}>{m.taskTitle}</span>
                         <span className="text-[10px] shrink-0" style={{ color: "oklch(0.40 0.007 270)" }}>
@@ -2107,7 +2107,7 @@ export default function ChatRoom() {
                   ))
                 )}
               </div>
-              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid oklch(13% 0 0)" }}>
+              <div className="px-3 py-2.5 shrink-0" style={{ borderTop: "1px solid var(--bloomberg-surface-2)" }}>
                 <p className="text-[10px] text-center" style={{ color: "oklch(30% 0 0)" }}>每次任务完成后自动更新 · AI 下次将自动带入背景</p>
               </div>
             </div>
@@ -2135,7 +2135,7 @@ export default function ChatRoom() {
                 disabled={!activeConvId || sending}
                 rows={3}
                 className="resize-none border-0 bg-transparent px-4 pt-3 pb-1 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-                style={{ color: "oklch(88% 0 0)" }}
+                style={{ color: "var(--bloomberg-text-primary)" }}
               />
               <div className="flex items-center justify-between px-3 pb-2.5">
                 <div className="flex items-center gap-2">
@@ -2163,7 +2163,7 @@ export default function ChatRoom() {
                           background: analysisMode === value
                             ? value === "quick" ? "oklch(65% 0.15 145 / 0.9)" : value === "deep" ? "oklch(65% 0.18 30 / 0.9)" : "oklch(100% 0 0 / 0.12)"
                             : "transparent",
-                          color: analysisMode === value ? "oklch(95% 0 0)" : "oklch(40% 0 0)",
+                          color: analysisMode === value ? "var(--bloomberg-text-primary)" : "oklch(40% 0 0)",
                           boxShadow: analysisMode === value ? "0 1px 0 oklch(100% 0 0 / 0.08) inset" : "none",
                         }}
                       >
@@ -2176,9 +2176,9 @@ export default function ChatRoom() {
                   className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                   style={{
                     background: input.trim() && !sending
-                      ? "linear-gradient(135deg, oklch(80% 0 0), oklch(65% 0 0))"
+                      ? "linear-gradient(135deg, var(--bloomberg-text-primary), var(--bloomberg-text-secondary))"
                       : "oklch(100% 0 0 / 0.07)",
-                    color: input.trim() && !sending ? "oklch(8% 0 0)" : "oklch(35% 0 0)",
+                    color: input.trim() && !sending ? "var(--bloomberg-surface-0)" : "oklch(35% 0 0)",
                     boxShadow: input.trim() && !sending ? "0 2px 8px oklch(0% 0 0 / 0.3)" : "none",
                   }}>
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -2194,9 +2194,9 @@ export default function ChatRoom() {
 
       {/* ── New Task Dialog ── */}
       <Dialog open={newTaskDialogOpen} onOpenChange={setNewTaskDialogOpen}>
-        <DialogContent className="sm:max-w-md" style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(20% 0 0)" }}>
+        <DialogContent className="sm:max-w-md" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(93% 0 0)" }}>新建任务</DialogTitle>
+            <DialogTitle style={{ color: "var(--bloomberg-text-primary)" }}>新建任务</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <p className="text-sm mb-3" style={{ color: "oklch(0.60 0.008 264)" }}>
@@ -2209,14 +2209,14 @@ export default function ChatRoom() {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createConvMutation.mutate({ title: newTaskName.trim() || undefined }); } }}
               placeholder="任务名称（可选）"
               className="border-0 text-sm"
-              style={{ background: "oklch(16% 0 0)", color: "oklch(88% 0 0)" }}
+              style={{ background: "var(--bloomberg-border-dim)", color: "var(--bloomberg-text-primary)" }}
             />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNewTaskDialogOpen(false)} style={{ color: "oklch(0.60 0.008 264)" }}>取消</Button>
             <Button onClick={() => createConvMutation.mutate({ title: newTaskName.trim() || undefined })}
               disabled={createConvMutation.isPending}
-              style={{ background: "oklch(75% 0 0)", color: "white", border: "none" }}>
+              style={{ background: "var(--bloomberg-gold)", color: "white", border: "none" }}>
               {createConvMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "开始任务"}
             </Button>
           </DialogFooter>
@@ -2225,9 +2225,9 @@ export default function ChatRoom() {
 
       {/* ── New Group Dialog ── */}
       <Dialog open={newGroupDialogOpen} onOpenChange={setNewGroupDialogOpen}>
-        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(20% 0 0)" }}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(93% 0 0)" }}>新建分组</DialogTitle>
+            <DialogTitle style={{ color: "var(--bloomberg-text-primary)" }}>新建分组</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             <Input
@@ -2236,7 +2236,7 @@ export default function ChatRoom() {
               onKeyDown={(e) => { if (e.key === "Enter" && newGroupName.trim()) createGroupMutation.mutate({ name: newGroupName.trim(), color: newGroupColor }); }}
               placeholder="分组名称"
               className="border-0 text-sm"
-              style={{ background: "oklch(16% 0 0)", color: "oklch(88% 0 0)" }}
+              style={{ background: "var(--bloomberg-border-dim)", color: "var(--bloomberg-text-primary)" }}
             />
             <div className="flex items-center gap-2">
               <span className="text-xs" style={{ color: "oklch(0.60 0.008 264)" }}>颜色</span>
@@ -2253,7 +2253,7 @@ export default function ChatRoom() {
             <Button variant="ghost" onClick={() => setNewGroupDialogOpen(false)} style={{ color: "oklch(0.60 0.008 264)" }}>取消</Button>
             <Button onClick={() => createGroupMutation.mutate({ name: newGroupName.trim(), color: newGroupColor })}
               disabled={!newGroupName.trim() || createGroupMutation.isPending}
-              style={{ background: "oklch(75% 0 0)", color: "white", border: "none" }}>
+              style={{ background: "var(--bloomberg-gold)", color: "white", border: "none" }}>
               {createGroupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "创建"}
             </Button>
           </DialogFooter>
@@ -2262,9 +2262,9 @@ export default function ChatRoom() {
 
       {/* ── Rename Group Dialog ── */}
       <Dialog open={renameGroupId !== null} onOpenChange={(open) => { if (!open) setRenameGroupId(null); }}>
-        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(20% 0 0)" }}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(93% 0 0)" }}>重命名分组</DialogTitle>
+            <DialogTitle style={{ color: "var(--bloomberg-text-primary)" }}>重命名分组</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <Input
@@ -2273,14 +2273,14 @@ export default function ChatRoom() {
               onKeyDown={(e) => { if (e.key === "Enter" && renameGroupName.trim() && renameGroupId) renameGroupMutation.mutate({ groupId: renameGroupId, name: renameGroupName.trim() }); }}
               placeholder="新名称"
               className="border-0 text-sm"
-              style={{ background: "oklch(16% 0 0)", color: "oklch(88% 0 0)" }}
+              style={{ background: "var(--bloomberg-border-dim)", color: "var(--bloomberg-text-primary)" }}
             />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setRenameGroupId(null)} style={{ color: "oklch(0.60 0.008 264)" }}>取消</Button>
             <Button onClick={() => { if (renameGroupId && renameGroupName.trim()) renameGroupMutation.mutate({ groupId: renameGroupId, name: renameGroupName.trim() }); }}
               disabled={!renameGroupName.trim() || renameGroupMutation.isPending}
-              style={{ background: "oklch(75% 0 0)", color: "white", border: "none" }}>
+              style={{ background: "var(--bloomberg-gold)", color: "white", border: "none" }}>
               保存
             </Button>
           </DialogFooter>
@@ -2289,48 +2289,48 @@ export default function ChatRoom() {
 
       {/* ── PWA Install Guide Dialog ── */}
       <Dialog open={pwaGuideOpen} onOpenChange={setPwaGuideOpen}>
-        <DialogContent className="sm:max-w-md" style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(20% 0 0)" }}>
+        <DialogContent className="sm:max-w-md" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(93% 0 0)" }}>安装桌面 App</DialogTitle>
+            <DialogTitle style={{ color: "var(--bloomberg-text-primary)" }}>安装桌面 App</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-4">
-            <p className="text-sm" style={{ color: "oklch(60% 0 0)" }}>
+            <p className="text-sm" style={{ color: "var(--bloomberg-text-secondary)" }}>
               将此平台安装为桌面应用，无需浏览器即可直接打开，支持离线访问。
             </p>
             {pwaIsIOS ? (
-              <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+              <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-base">🌐</span>
-                  <span className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>Safari（iPhone / iPad）</span>
+                  <span className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>Safari（iPhone / iPad）</span>
                 </div>
                 <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
-                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>1</span>点击底部工具栏中的 「分享」 按鈕 📤</li>
-                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>2</span>向下滚动，选择 「添加到主屏幕」</li>
-                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>3</span>点击 「添加」 即完成安装</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>1</span>点击底部工具栏中的 「分享」 按鈕 📤</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>2</span>向下滚动，选择 「添加到主屏幕」</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>3</span>点击 「添加」 即完成安装</li>
                 </ol>
               </div>
             ) : pwaIsSafari ? (
-              <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+              <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-base">🌐</span>
-                  <span className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>Safari（Mac）</span>
+                  <span className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>Safari（Mac）</span>
                 </div>
                 <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
-                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>1</span>点击地址栏右侧的 「分享」 图标</li>
-                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>2</span>选择 「添加到扣接栏」</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>1</span>点击地址栏右侧的 「分享」 图标</li>
+                  <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>2</span>选择 「添加到扣接栏」</li>
                 </ol>
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="rounded-xl p-4 space-y-3" style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+                <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                   <div className="flex items-center gap-2">
                     <span className="text-base">🖥️</span>
-                    <span className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>Chrome / {pwaIsEdge ? "Edge" : "Edge / Arc"}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>Chrome / {pwaIsEdge ? "Edge" : "Edge / Arc"}</span>
                   </div>
                   <ol className="space-y-2 text-sm" style={{ color: "oklch(0.72 0.01 270)" }}>
-                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>1</span>点击地址栏右侧的 「安装」图标 💻（或菜单→安装应用）</li>
-                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>2</span>在弹出的确认框中点击 「安装」</li>
-                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "oklch(22% 0 0)", color: "oklch(75% 0 0)" }}>3</span>应用将出现在桌面和应用程序列表中</li>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>1</span>点击地址栏右侧的 「安装」图标 💻（或菜单→安装应用）</li>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>2</span>在弹出的确认框中点击 「安装」</li>
+                    <li className="flex items-start gap-2"><span className="shrink-0 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium" style={{ background: "var(--bloomberg-border)", color: "var(--bloomberg-gold)" }}>3</span>应用将出现在桌面和应用程序列表中</li>
                   </ol>
                 </div>
                 <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
@@ -2341,7 +2341,7 @@ export default function ChatRoom() {
           </div>
           <DialogFooter>
             <Button onClick={() => setPwaGuideOpen(false)}
-              style={{ background: "oklch(75% 0 0)", color: "white", border: "none" }}>
+              style={{ background: "var(--bloomberg-gold)", color: "white", border: "none" }}>
               明白了
             </Button>
           </DialogFooter>
@@ -2350,14 +2350,14 @@ export default function ChatRoom() {
 
       {/* ── Move to Group Dialog ── */}
       <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
-        <DialogContent className="sm:max-w-sm" style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(20% 0 0)" }}>
+        <DialogContent className="sm:max-w-sm" style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: "oklch(93% 0 0)" }}>移入分组</DialogTitle>
+            <DialogTitle style={{ color: "var(--bloomberg-text-primary)" }}>移入分组</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-1">
             <button onClick={() => { if (moveConvId) moveToGroupMutation.mutate({ conversationId: moveConvId, groupId: null }); }}
               className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-white/5 transition-colors"
-              style={{ color: "oklch(60% 0 0)" }}>
+              style={{ color: "var(--bloomberg-text-secondary)" }}>
               不属于任何分组
             </button>
             {groups && groups.map(g => (
@@ -2414,14 +2414,14 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
         <div className="relative">
           <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
             className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover/group:opacity-100 transition-opacity hover:bg-white/10"
-            style={{ color: "oklch(50% 0 0)" }}>
+            style={{ color: "var(--bloomberg-text-tertiary)" }}>
             <MoreHorizontal className="w-3 h-3" />
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-6 z-50 rounded-xl py-1 min-w-[140px] shadow-xl"
-                style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+                style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                 <button onClick={() => { onRename(group.id, group.name); setMenuOpen(false); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
                   style={{ color: "oklch(82% 0 0)" }}>
@@ -2498,7 +2498,7 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
             onBlur={commitEdit}
             onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(false); }}
             className="w-full rounded-lg px-2 py-1 text-sm outline-none"
-            style={{ background: "oklch(100% 0 0 / 0.1)", color: "oklch(93% 0 0)", border: "1px solid oklch(0.45 0.15 250 / 0.6)" }}
+            style={{ background: "oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)", border: "1px solid oklch(0.45 0.15 250 / 0.6)" }}
             maxLength={100}
             autoFocus
           />
@@ -2510,7 +2510,7 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
             className="w-full text-left rounded-xl px-3 py-3 flex items-center gap-2.5 text-sm font-semibold transition-colors"
             style={{
               background: active ? "oklch(0.72 0.18 250 / 0.14)" : "transparent",
-              color: active ? "oklch(0.85 0.15 250)" : "oklch(78% 0 0)",
+              color: active ? "oklch(0.85 0.15 250)" : "var(--bloomberg-gold)",
             }}>
             {isPinned
               ? <Pin className="w-3 h-3 shrink-0" style={{ color: "oklch(0.82 0.18 75)" }} />
@@ -2519,14 +2519,14 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
           </button>
           <button onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-white/10"
-            style={{ color: "oklch(50% 0 0)" }}>
+            style={{ color: "var(--bloomberg-text-tertiary)" }}>
             <MoreHorizontal className="w-3 h-3" />
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[150px] shadow-xl"
-                style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+                style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                 <button onClick={startEdit}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
                   style={{ color: "oklch(82% 0 0)" }}>
@@ -2555,7 +2555,7 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
             <>
               <div className="fixed inset-0 z-50" onClick={() => setConfirmDelete(false)} />
               <div className="absolute right-0 top-8 z-50 rounded-xl p-3 shadow-xl"
-                style={{ background: "oklch(13% 0 0)", border: "1px solid oklch(0.35 0.12 25 / 0.5)", minWidth: "180px" }}>
+                style={{ background: "var(--bloomberg-surface-2)", border: "1px solid oklch(0.35 0.12 25 / 0.5)", minWidth: "180px" }}>
                 <p className="text-xs mb-2.5" style={{ color: "oklch(82% 0 0)" }}>
                   确定删除「{conv.title || `对话 #${conv.id}`}」？
                 </p>
@@ -2563,7 +2563,7 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
                 <div className="flex gap-2">
                   <button onClick={() => setConfirmDelete(false)}
                     className="flex-1 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
-                    style={{ color: "oklch(60% 0 0)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
+                    style={{ color: "var(--bloomberg-text-secondary)", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
                     取消
                   </button>
                   <button onClick={() => { onDelete(conv.id); setConfirmDelete(false); }}

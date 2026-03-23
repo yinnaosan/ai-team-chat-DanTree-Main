@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -13,6 +13,7 @@ import InvestmentLibrary from "./pages/InvestmentLibrary";
 import NetWorthDashboard from "./pages/NetWorthDashboard";
 import FactorBacktest from "./pages/FactorBacktest";
 import PWAInstallBanner from "./components/PWAInstallBanner";
+import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
 
 function Router() {
   return (
@@ -31,6 +32,23 @@ function Router() {
   );
 }
 
+function GlobalCommandPalette() {
+  const { open, setOpen } = useCommandPalette();
+  const [, navigate] = useLocation();
+  return (
+    <CommandPalette
+      open={open}
+      onClose={() => setOpen(false)}
+      onNavigate={(path, query) => {
+        navigate(path);
+        if (query) {
+          sessionStorage.setItem("commandPaletteQuery", query);
+        }
+      }}
+    />
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -39,6 +57,7 @@ function App() {
           <Toaster />
           <Router />
           <PWAInstallBanner />
+          <GlobalCommandPalette />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

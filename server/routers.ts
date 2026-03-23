@@ -1094,7 +1094,7 @@ ${"```"}`;
       // 本地技术指标（indicatorts 本地计算，无需 API 配额）+ 技术信号自动标注
       () => resourcePlan.dataSources.technicalIndicators && primaryTicker
         ? timed("本地技术指标+信号标注", getLocalTechnicalIndicators(primaryTicker)
-            .then(d => {
+            .then(async d => {
               if (!d) return "";
               const indicatorStr = formatLocalTechnicalIndicators(d);
               // 追加技术信号自动标注报告
@@ -1110,7 +1110,7 @@ ${"```"}`;
                   // 用 ATR14 估算年化波动率：ATR/Price * sqrt(252)
                   const atr = d.atr14?.at(-1) ?? 0;
                   const sigma = atr > 0 ? Math.min(Math.max((atr / currentPrice) * Math.sqrt(252), 0.05), 2.0) : 0.25;
-                  const optionSummary = generateOptionSummary(primaryTicker!, currentPrice, sigma);
+                  const optionSummary = await generateOptionSummary(primaryTicker!, currentPrice, sigma);
                   combined += "\n\n" + optionSummary;
                 }
               } catch { /* ignore */ }

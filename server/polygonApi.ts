@@ -390,3 +390,123 @@ export function formatOptionsChain(data: PolyOptionsChainData): string {
 
   return lines.join("\n");
 }
+
+// ── IV Smile 数据提取 ──────────────────────────────────────────────────────────
+
+export interface IVSmilePoint {
+  strike: number;
+  moneyness: number;
+  actualIV: number;
+  bsIV: number;
+  type: "call" | "put";
+  expiry?: string;
+  midPrice?: number;
+}
+
+interface PolyOptionSnapshot {
+  details?: { contract_type?: string; expiration_date?: string; strike_price?: number };
+  greeks?: { delta?: number; gamma?: number; theta?: number; vega?: number };
+  implied_volatility?: number;
+  last_quote?: { ask?: number; bid?: number; midpoint?: number };
+}
+
+/**
+ * 从 Polygon 期权快照 API 获取各行权价的实际 IV，构建 IV Smile 数据
+ */
+export async function getIVSmileData(
+  symbol: string,
+  spotPrice: number,
+  bsSigma: number,
+  daysAhead = 45,
+): Promise<IVSmilePoint[] | null> {
+  const sym = symbol.toUpperCase();
+  const today = new Date().toISOString().split("T")[0];
+  const expMax = new Date(Date.now() + daysAhead * 86400000).toISOString().split("T")[0];
+  const strikeMin = (spotPrice * 0.80).toFixed(2);
+  const strikeMax = (spotPrice * 1.20).toFixed(2);
+
+  try {
+    const [callsRes, putsRes] = await Promise.allSettled([
+      fetchPolygon<{ results: PolyOptionSnapshot[] }>(
+        `/v3/snapshot/options/${sym}`,
+        { expiration_date_gte: today, expiration_date_lte: expMax, contract_type: "call", strike_price_gte: strikeMin, strike_price_lte: strikeMax, limit: "50" }
+      ),
+      fetchPolygon<{ results: PolyOptionSnapshot[] }>(
+        `/v3/snapshot/options/${sym}`,
+        { expiration_date_gte: today, expiration_date_lte: expMax, contract_type: "put", strike_price_gte: strikeMin, strike_price_lte: strikeMax, limit: "50" }
+      ),
+    ]);
+
+    const calls = callsRes.status === "fulfilled" ? (callsRes.value.results ?? []) : [];
+    const puts = putsRes.status === "fulfilled" ? (putsRes.value.results ?? []) : [];
+    if (calls.length === 0 && puts.length === 0) return null;
+
+    const bsIVPct = parseFloat((bsSigma * 100).toFixed(2));
+    const smilePoints: IVSmilePoint[] = [];
+
+    const processSnap = (snap: PolyOptionSnapshot, type: "call" | "put") => {
+      const strike = snap.details?.strike_price;
+      const expiry = snap.details?.expiration_date;
+      if (!strike || !expiry) return;
+
+      let actualIV: number | null = null;
+      if (snap.implied_volatility && snap.implied_volatility > 0 && snap.implied_volatility < 5) {
+        actualIV = parseFloat((snap.implied_volatility * 100).toFixed(2));
+      } else if (snap.last_quote?.midpoint && snap.last_quote.midpoint > 0) {
+        const T = Math.max((new Date(expiry).getTime() - Date.now()) / (365 * 24 * 3600 * 1000), 1 / 365);
+        const ivRaw = ivBisect(snap.last_quote.midpoint, spotPrice, strike, T, 0.05, type);
+        if (ivRaw !== null) actualIV = parseFloat((ivRaw * 100).toFixed(2));
+      }
+
+      if (actualIV !== null && actualIV > 0 && actualIV < 500) {
+        smilePoints.push({ strike, moneyness: parseFloat((strike / spotPrice).toFixed(4)), actualIV, bsIV: bsIVPct, type, expiry, midPrice: snap.last_quote?.midpoint });
+      }
+    };
+
+    for (const snap of calls) processSnap(snap, "call");
+    for (const snap of puts) processSnap(snap, "put");
+
+    // 去重：同一行权价取均值
+    const grouped = new Map<string, IVSmilePoint[]>();
+    for (const p of smilePoints) {
+      const key = `${p.type}_${p.strike}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(p);
+    }
+    const result: IVSmilePoint[] = [];
+    grouped.forEach((pts: IVSmilePoint[]) => {
+      const avgIV = pts.reduce((s: number, p: IVSmilePoint) => s + p.actualIV, 0) / pts.length;
+      result.push({ ...pts[0], actualIV: parseFloat(avgIV.toFixed(2)) });
+    });
+    return result.sort((a, b) => a.moneyness - b.moneyness);
+  } catch {
+    return null;
+  }
+}
+
+function ivBisect(mktPrice: number, S: number, K: number, T: number, r: number, type: "call" | "put"): number | null {
+  let lo = 0.001, hi = 5.0;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    const p = bsPriceLocal(S, K, T, r, mid, type);
+    const diff = p - mktPrice;
+    if (Math.abs(diff) < 0.001) return mid;
+    if (diff > 0) hi = mid; else lo = mid;
+  }
+  return null;
+}
+
+function bsPriceLocal(S: number, K: number, T: number, r: number, sigma: number, type: "call" | "put"): number {
+  if (T <= 0 || sigma <= 0) return Math.max(type === "call" ? S - K : K - S, 0);
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+  const d2 = d1 - sigma * sqrtT;
+  const nc = (x: number) => {
+    const sign = x < 0 ? -1 : 1;
+    const t = 1 / (1 + 0.3275911 * Math.abs(x));
+    const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    return 0.5 * (1 + sign * (1 - poly * Math.exp(-x * x / 2)));
+  };
+  const discK = K * Math.exp(-r * T);
+  return type === "call" ? S * nc(d1) - discK * nc(d2) : discK * nc(-d2) - S * nc(-d1);
+}

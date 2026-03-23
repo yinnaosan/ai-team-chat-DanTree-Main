@@ -1543,3 +1543,10 @@
 - [x] 前端：OptionPricingCard 期权链表格按颜色区分 ITM/ATM/OTM/Deep OTM，Greeks 值按大小着色
 - [x] 前端：ChatRoom.tsx 集成 OptionPricingCard 渲染逻辑（%%OPTION_PRICING%% 标记检测）
 - [x] 422/423 测试通过（1 个已知网络环境限制，Yahoo Finance 沙盒 404）
+
+## 三项高级可视化增强（2026-03-23）
+- [x] OptionPricingCard：添加第四 Tab「敏感度/盈亏」，包含 Payoff Diagram（到期盈亏曲线）+ Delta/Gamma 随标的价格变化的敏感度曲线
+- [x] AlphaFactorCard：展开详情中添加因子相关性矩阵热力图（N×N 自定义 CSS Cell 热力图）
+- [x] IV Smile：后端 polygonApi.ts 新增 getIVSmileData 函数（二分法反推 IV + Polygon 快照 implied_volatility）
+- [x] IV Smile：optionPricing.ts generateOptionSummary 改为 async，调用 getIVSmileData 并将 ivSmile 数据注入 structuredPayload
+- [x] IV Smile：OptionPricingCard 第五 Tab「IV Smile」，实际 IV vs BS 理论 IV 对比曲线（有真实数据时显示 Polygon 标注，否则 BS 理论模拟降级）

@@ -4,11 +4,11 @@
  * 解析 %%ALPHA_FACTORS%%{JSON}%%END_ALPHA_FACTORS%% 标记
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
@@ -18,6 +18,12 @@ import {
   Tooltip,
   ReferenceLine,
   XAxis,
+  ScatterChart,
+  Scatter,
+  Cell,
+  XAxis as XAxisR,
+  YAxis,
+  ZAxis,
 } from "recharts";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
@@ -302,6 +308,193 @@ function FactorRow({ factor }: { factor: AlphaFactorData }) {
   );
 }
 
+// ── 因子相关性矩阵热力图 ──────────────────────────────────────────────────────────
+
+/**
+ * 基于因子的 zScore 值计算皮尔逊相关系数
+ * 若 zScore 缺失，使用 strength 和 signal 的组合代替
+ */
+function computeCorrelationMatrix(factors: AlphaFactorData[]): number[][] {
+  const n = factors.length;
+  // 构建特征向量：[signal * strength, zScore ?? signal * strength / 50]
+  const vectors = factors.map(f => {
+    const base = f.signal * f.strength;
+    const z = f.zScore !== null ? f.zScore : base / 50;
+    return [base, z, f.strength];
+  });
+
+  const corr: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) { corr[i][j] = 1; continue; }
+      // 皮尔逊相关系数（基于多维特征的平均）
+      const xi = vectors[i], xj = vectors[j];
+      const dim = xi.length;
+      let sumXY = 0, sumX2 = 0, sumY2 = 0;
+      const meanX = xi.reduce((a, b) => a + b, 0) / dim;
+      const meanY = xj.reduce((a, b) => a + b, 0) / dim;
+      for (let k = 0; k < dim; k++) {
+        sumXY += (xi[k] - meanX) * (xj[k] - meanY);
+        sumX2 += (xi[k] - meanX) ** 2;
+        sumY2 += (xj[k] - meanY) ** 2;
+      }
+      const denom = Math.sqrt(sumX2 * sumY2);
+      corr[i][j] = denom === 0 ? 0 : parseFloat((sumXY / denom).toFixed(3));
+    }
+  }
+  return corr;
+}
+
+function corrToColor(value: number): string {
+  // 红（-1）→ 白（0）→ 绿（+1）
+  if (value >= 0.8) return "rgba(16,185,129,0.9)";
+  if (value >= 0.5) return "rgba(52,211,153,0.75)";
+  if (value >= 0.2) return "rgba(110,231,183,0.55)";
+  if (value >= -0.2) return "rgba(100,116,139,0.35)";
+  if (value >= -0.5) return "rgba(252,165,165,0.55)";
+  if (value >= -0.8) return "rgba(248,113,113,0.75)";
+  return "rgba(239,68,68,0.9)";
+}
+
+const FACTOR_SHORT_NAMES: Record<string, string> = {
+  "动量": "MOM", "反转": "REV", "波动率": "VOL", "成交量": "VOL2",
+  "技术": "TECH", "价值": "VAL", "质量": "QUAL",
+  "momentum": "MOM", "reversal": "REV", "volatility": "VOL",
+  "volume": "VLM", "technical": "TCH", "value": "VAL", "quality": "QLT",
+};
+
+function getShortName(factor: AlphaFactorData, index: number): string {
+  // 取因子名称的前4个字符或类别缩写
+  const catAbbr = FACTOR_SHORT_NAMES[factor.category] ?? factor.category.slice(0, 3).toUpperCase();
+  return `${catAbbr}${index + 1}`;
+}
+
+function FactorCorrelationMatrix({ factors }: { factors: AlphaFactorData[] }) {
+  const [hoveredCell, setHoveredCell] = useState<{ i: number; j: number; v: number } | null>(null);
+
+  const corrMatrix = useMemo(() => computeCorrelationMatrix(factors), [factors]);
+  const shortNames = factors.map((f, i) => getShortName(f, i));
+  const n = factors.length;
+
+  // 找出高相关对（|r| > 0.7，排除对角线）
+  const highCorrPairs: Array<{ i: number; j: number; r: number }> = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (Math.abs(corrMatrix[i][j]) > 0.7) {
+        highCorrPairs.push({ i, j, r: corrMatrix[i][j] });
+      }
+    }
+  }
+
+  const cellSize = Math.min(24, Math.floor(280 / n));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Grid3x3 className="w-3.5 h-3.5 text-violet-400" />
+        <span className="text-xs font-medium text-foreground/80">因子相关性矩阵</span>
+        <span className="text-xs text-muted-foreground/50 ml-auto">
+          {n} × {n} 皮尔逊相关系数
+        </span>
+      </div>
+
+      {/* 矩阵热力图 */}
+      <div className="overflow-x-auto">
+        <div className="inline-block">
+          {/* 列标题 */}
+          <div className="flex" style={{ marginLeft: `${cellSize * 2}px` }}>
+            {shortNames.map((name, j) => (
+              <div
+                key={j}
+                className="text-center text-muted-foreground/60 font-mono"
+                style={{ width: cellSize, fontSize: Math.max(7, cellSize * 0.4) }}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+          {/* 矩阵行 */}
+          {corrMatrix.map((row, i) => (
+            <div key={i} className="flex items-center">
+              {/* 行标题 */}
+              <div
+                className="text-right text-muted-foreground/60 font-mono pr-1"
+                style={{ width: cellSize * 2, fontSize: Math.max(7, cellSize * 0.4) }}
+              >
+                {shortNames[i]}
+              </div>
+              {/* 单元格 */}
+              {row.map((v, j) => (
+                <div
+                  key={j}
+                  className="relative cursor-default transition-all"
+                  style={{
+                    width: cellSize,
+                    height: cellSize,
+                    background: corrToColor(v),
+                    border: hoveredCell?.i === i && hoveredCell?.j === j
+                      ? "1px solid rgba(255,255,255,0.5)"
+                      : "1px solid rgba(255,255,255,0.04)",
+                  }}
+                  onMouseEnter={() => setHoveredCell({ i, j, v })}
+                  onMouseLeave={() => setHoveredCell(null)}
+                >
+                  {cellSize >= 18 && (
+                    <span
+                      className="absolute inset-0 flex items-center justify-center font-mono"
+                      style={{ fontSize: Math.max(6, cellSize * 0.35), color: Math.abs(v) > 0.5 ? "rgba(255,255,255,0.9)" : "rgba(148,163,184,0.7)" }}
+                    >
+                      {i === j ? "1" : v.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hover 提示 */}
+      {hoveredCell && hoveredCell.i !== hoveredCell.j && (
+        <div className="text-xs bg-white/10 rounded px-2 py-1 border border-white/10">
+          <span className="font-mono text-foreground/80">{factors[hoveredCell.i].name}</span>
+          <span className="text-muted-foreground/50 mx-1">vs</span>
+          <span className="font-mono text-foreground/80">{factors[hoveredCell.j].name}</span>
+          <span className="ml-2 font-mono font-bold" style={{ color: corrToColor(hoveredCell.v) }}>
+            r = {hoveredCell.v.toFixed(3)}
+          </span>
+          <span className="ml-2 text-muted-foreground/50">
+            {Math.abs(hoveredCell.v) > 0.8 ? "高度相关（冗余风险）" :
+             Math.abs(hoveredCell.v) > 0.5 ? "中度相关" :
+             Math.abs(hoveredCell.v) > 0.2 ? "弱相关" : "近似独立"}
+          </span>
+        </div>
+      )}
+
+      {/* 图例 */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ background: "rgba(239,68,68,0.9)" }} />
+          <span>-1.0 负相关</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ background: "rgba(100,116,139,0.35)" }} />
+          <span>0 独立</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ background: "rgba(16,185,129,0.9)" }} />
+          <span>+1.0 正相关</span>
+        </div>
+        {highCorrPairs.length > 0 && (
+          <span className="ml-auto text-amber-400/70">
+            ⚠ {highCorrPairs.length} 对高相关因子（|r|&gt;0.7）
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayload }) {
   const [expanded, setExpanded] = useState(false);
@@ -440,7 +633,7 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
           </span>
         </div>
 
-        {/* 展开详情：因子列表 */}
+        {/* 展开详情：因子列表 + 相关性矩阵 */}
         {expanded && (
           <div className="mt-3 space-y-2">
             {techFactors.length > 0 && (
@@ -463,6 +656,14 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                 </div>
               </div>
             )}
+
+            {/* 因子相关性矩阵热力图 */}
+            {payload.factors.length >= 3 && (
+              <div className="mt-3 pt-3 border-t border-white/10 px-1">
+                <FactorCorrelationMatrix factors={payload.factors} />
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground/40 px-2 pt-1 border-t border-white/5 mt-2">
               基于 WorldQuant Alpha101、qlib Alpha158 因子集，仅供参考，不构成投资建议
             </p>

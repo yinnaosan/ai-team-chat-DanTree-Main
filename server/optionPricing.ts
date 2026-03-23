@@ -15,6 +15,8 @@
  * 6. 格式化 Markdown 报告
  */
 
+import { getIVSmileData } from "./polygonApi";
+
 // ── 标准正态分布函数 ─────────────────────────────────────────────────────────
 
 /**
@@ -489,12 +491,12 @@ export function formatOptionReport(
 /**
  * 快速生成期权分析摘要（用于注入 GPT prompt）
  */
-export function generateOptionSummary(
+export async function generateOptionSummary(
   ticker: string,
   S: number,
   sigma: number,
   r = 0.05,
-): string {
+): Promise<string> {
   const T = 30 / 365; // 30 天期权
   const K_atm = Math.round(S); // 平值行权价
   const K_otm_call = Math.round(S * 1.05); // 5% 虚值 Call
@@ -567,7 +569,18 @@ export function generateOptionSummary(
       },
     ],
     generatedAt: Date.now(),
+    ivSmile: undefined as import("./polygonApi").IVSmilePoint[] | undefined,
   };
+
+  // 尝试从 Polygon 获取真实 IV Smile 数据（非阻塞，失败时使用前端模拟）
+  try {
+    const ivSmileData = await getIVSmileData(ticker, S, sigma, 45);
+    if (ivSmileData && ivSmileData.length >= 3) {
+      structuredPayload.ivSmile = ivSmileData;
+    }
+  } catch {
+    // IV Smile 数据获取失败，前端将使用 BS 理论模拟
+  }
 
   const jsonMarker = `%%OPTION_PRICING%%${JSON.stringify(structuredPayload)}%%END_OPTION_PRICING%%`;
 

@@ -2888,22 +2888,34 @@ export const appRouter = router({
     getAccount: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       if (!isAlpacaConfigured()) return { configured: false, account: null };
-      const account = await getAlpacaAccount();
-      return { configured: true, account, formatted: formatAlpacaAccount(account) };
+      try {
+        const account = await getAlpacaAccount();
+        return { configured: true, account, formatted: formatAlpacaAccount(account) };
+      } catch {
+        return { configured: true, account: null, error: true };
+      }
     }),
     // 获取持仓列表
     getPositions: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       if (!isAlpacaConfigured()) return { configured: false, positions: [] };
-      const positions = await getAlpacaPositions();
-      return { configured: true, positions, formatted: formatAlpacaPositions(positions) };
+      try {
+        const positions = await getAlpacaPositions();
+        return { configured: true, positions, formatted: formatAlpacaPositions(positions) };
+      } catch {
+        return { configured: true, positions: [], error: true };
+      }
     }),
     // 获取市场时钟
     getClock: protectedProcedure.query(async ({ ctx }) => {
       await requireAccess(ctx.user.id, ctx.user.openId);
       if (!isAlpacaConfigured()) return { configured: false, clock: null };
-      const clock = await getAlpacaClock();
-      return { configured: true, clock, formatted: formatAlpacaClock(clock) };
+      try {
+        const clock = await getAlpacaClock();
+        return { configured: true, clock, formatted: formatAlpacaClock(clock) };
+      } catch {
+        return { configured: true, clock: null, error: true };
+      }
     }),
     // 模拟下单
     placeOrder: protectedProcedure

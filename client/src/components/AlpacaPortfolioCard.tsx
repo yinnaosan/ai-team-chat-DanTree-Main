@@ -42,16 +42,19 @@ export function AlpacaPortfolioCard() {
   // 数据查询
   const accountQuery = trpc.alpaca.getAccount.useQuery(undefined, {
     refetchInterval: 30000, // 30 秒自动刷新
+    retry: false,
   });
   const positionsQuery = trpc.alpaca.getPositions.useQuery(undefined, {
     refetchInterval: 30000,
+    retry: false,
   });
   const clockQuery = trpc.alpaca.getClock.useQuery(undefined, {
     refetchInterval: 60000,
+    retry: false,
   });
   const ordersQuery = trpc.alpaca.getOrders.useQuery(
     { status: "all", limit: 20 },
-    { refetchInterval: 30000 }
+    { refetchInterval: 30000, retry: false }
   );
 
   // 下单 mutation
@@ -107,6 +110,19 @@ export function AlpacaPortfolioCard() {
           <AlertCircle className="mx-auto mb-2 h-8 w-8 opacity-50" />
           <p className="text-sm">Alpaca Paper Trading 未配置</p>
           <p className="text-xs mt-1">请在设置中添加 API Key</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 网络连接失败状态
+  if (accountQuery.isError || (accountQuery.data && (accountQuery.data as { error?: boolean }).error)) {
+    return (
+      <Card className="border-dashed border-muted-foreground/30">
+        <CardContent className="pt-6 text-center text-muted-foreground">
+          <AlertCircle className="mx-auto mb-2 h-8 w-8 opacity-50" />
+          <p className="text-sm">Alpaca 连接失败</p>
+          <p className="text-xs mt-1">网络不可用，请稍后重试</p>
         </CardContent>
       </Card>
     );

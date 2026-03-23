@@ -1295,6 +1295,7 @@ export default function ChatRoom() {
       taskId: m.taskId,
       conversationId: m.conversationId,
       createdAt: new Date(m.createdAt),
+      metadata: (m.metadata as Msg["metadata"]) ?? null,
     }));
     setConvMessages(mapped);
     const last = mapped[mapped.length - 1];

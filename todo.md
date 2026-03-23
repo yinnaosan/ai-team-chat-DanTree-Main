@@ -1773,3 +1773,17 @@
 - [x] EVIDENCE_ENGINE 补充 freshnessLabel + conflictList + discussability 字段（server/evidenceValidator.ts）
 - [x] Interpretation_Agent: server/multiAgentAnalysis.ts 添加第 5 个 Agent，所有 taskType 均激活，输出 discussionHooks
 - [x] ACTION_ENGINE: server/routers.ts 在 pipeline 中根据 task_type 自动决定触发哪些 action（comparison/chart/sensitivity/allocation），注入 Step3 prompt
+
+## 数据来源归因 UI + 文件内容提取接入 AI 上下文
+
+### 数据来源归因 UI
+- [ ] 后端：新闻 API 触发条件精细化（仅检测到股票代码/公司名/宏观事件时才调用 NewsAPI/Marketaux）
+- [ ] 后端：收集实际使用的数据源列表，随任务结果一起返回给前端（写入 message metadata.sourcesUsed）
+- [ ] 前端：AI 回复底部显示可折叠「数据来源」卡片（列出本次任务实际调用了哪些 API + 状态）
+
+### 文件内容提取接入 AI 上下文
+- [ ] 后端：fileProcessor.ts 实现 PDF 文本提取（pdf-parse）
+- [ ] 后端：fileProcessor.ts 实现图片 Vision 描述（LLM image_url）
+- [ ] 后端：fileProcessor.ts 实现音频 Whisper 转写（transcribeAudio）
+- [ ] 后端：submitTask 支持 attachmentIds 参数，提取文件内容注入 Step1/Step3 AI 上下文
+- [ ] 前端：消息中显示已附加的文件卡片（含文件名/类型/大小）

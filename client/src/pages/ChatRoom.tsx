@@ -101,6 +101,8 @@ interface Msg {
     missingBlocking?: string[];
     missingImportant?: string[];
     missingOptional?: string[];
+    // 附件信息（用户消息中显示已附加的文件）
+    attachments?: Array<{ filename: string; mimeType: string; size: number; s3Url: string }>;
   } | null;
 }
 
@@ -878,11 +880,11 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             ))}
           </div>
         )}
-        {/* 数据来源归因展示 */}
-        {(msg.metadata?.dataSources?.length || msg.metadata?.apiSources?.length) ? (
+        {/* 数据来源归因展示 - V2.1: 优先使用 citationHits（含 latencyMs），fallback apiSources */}
+        {(msg.metadata?.dataSources?.length || msg.metadata?.apiSources?.length || msg.metadata?.citationHits?.length) ? (
           <DataSourcesFooter
             sources={msg.metadata?.dataSources}
-            apiSources={msg.metadata?.apiSources}
+            apiSources={msg.metadata?.citationHits?.length ? msg.metadata.citationHits : msg.metadata?.apiSources}
           />
         ) : null}
       </div>
@@ -911,6 +913,27 @@ function UserMessage({ msg }: { msg: Msg }) {
           </span>
           <span className="text-sm font-semibold" style={{ color: "oklch(82% 0 0)" }}>你</span>
         </div>
+        {/* 附件卡片（从 metadata 读取，发送后持久显示） */}
+        {msg.metadata?.attachments && msg.metadata.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 justify-end mb-1">
+            {msg.metadata.attachments.map((att, i) => {
+              const isImg = att.mimeType.startsWith("image/");
+              const isPdf = att.mimeType === "application/pdf";
+              const isAudio = att.mimeType.startsWith("audio/");
+              const icon = isImg ? "🖼️" : isPdf ? "📄" : isAudio ? "🎵" : "📎";
+              const sizeStr = att.size < 1024 * 1024 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / (1024 * 1024)).toFixed(1)} MB`;
+              return (
+                <a key={i} href={att.s3Url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs hover:opacity-80 transition-opacity"
+                  style={{ background: "oklch(0.10 0.006 264)", border: "1px solid oklch(22% 0 0)", color: "oklch(75% 0 0)", maxWidth: "180px" }}>
+                  <span>{icon}</span>
+                  <span className="truncate" style={{ maxWidth: "110px" }}>{att.filename}</span>
+                  <span style={{ color: "oklch(45% 0 0)", flexShrink: 0 }}>{sizeStr}</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
         <div className="group relative px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed"
           style={{ background: "oklch(0.12 0.006 264)", border: "1px solid oklch(20% 0 0)", color: "oklch(90% 0 0)", wordBreak: "break-word" }}>
           {msg.content}

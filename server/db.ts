@@ -278,6 +278,12 @@ export async function getAttachmentsByMessage(messageId: number) {
   return db.select().from(attachments)
     .where(eq(attachments.messageId, messageId));
 }
+export async function getAttachmentById(attachmentId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(attachments).where(eq(attachments.id, attachmentId)).limit(1);
+  return rows[0] ?? null;
+}
 
 export async function updateAttachmentMessage(attachmentId: number, messageId: number) {
   const db = await getDb();

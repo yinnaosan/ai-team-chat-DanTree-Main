@@ -25,6 +25,7 @@ import {
   insertAttachment,
   getAttachmentsByConversation,
   getAttachmentsByMessage,
+  getAttachmentById,
   saveDbConnection,
   getDbConnectionsByUser,
   getActiveDbConnection,
@@ -2515,7 +2516,7 @@ export const appRouter = router({
           }
         }
 
-        // 写入用户消息
+        // 写入用户消息（附件信息暂存，待附件查询后更新 metadata）
         const userMsgId = await insertMessage({
           userId,
           conversationId,
@@ -2537,11 +2538,13 @@ export const appRouter = router({
 
         // 收集附件内容作为上下文
         let attachmentContext: string | undefined;
+        let attachmentInfoList: Array<{ filename: string; mimeType: string; size: number; s3Url: string }> = [];
         if (input.attachmentIds && input.attachmentIds.length > 0) {
           const attachmentTexts: string[] = [];
           for (const attId of input.attachmentIds) {
-            const atts = await getAttachmentsByMessage(attId);
-            for (const att of atts) {
+            const att = await getAttachmentById(attId);
+            if (att) {
+              attachmentInfoList.push({ filename: att.filename, mimeType: att.mimeType, size: att.size, s3Url: att.s3Url });
               if (att.extractedText) attachmentTexts.push(att.extractedText);
             }
           }
@@ -2550,6 +2553,10 @@ export const appRouter = router({
           }
         }
 
+        // 将附件信息写入用户消息 metadata（供前端显示附件卡片）
+        if (attachmentInfoList.length > 0) {
+          await updateMessageContent(userMsgId, input.title, { attachments: attachmentInfoList });
+        }
         // 异步执行四步协作流程
         runCollaborationFlow(taskId, userId, description, conversationId, attachmentContext, input.analysisMode)
           .catch((err) => {

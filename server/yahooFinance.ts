@@ -94,14 +94,18 @@ export function extractTickers(text: string): string[] {
 
 /**
  * Fetch real-time stock data for a single ticker
+ * @param ticker 股票代码
+ * @param range 时间范围："1mo"|"3mo"|"6mo"|"1y"|"2y"|"5y"，默认 "1y"
  */
-export async function getStockData(ticker: string): Promise<string> {
+export async function getStockData(ticker: string, range: string = "1y"): Promise<string> {
   try {
     const normalized = normalizeTicker(ticker);
+    // 根据 range 选择合适的 interval
+    const interval = range === "3mo" || range === "6mo" ? "1d" : range === "1y" ? "1wk" : "1mo";
 
     // Get chart data (includes current price, 52-week range)
     const chartData = await callDataApi("YahooFinance/get_stock_chart", {
-      query: { symbol: normalized, interval: "1d", range: "3mo" },
+      query: { symbol: normalized, interval, range },
     });
 
     const chartAny = chartData as any;
@@ -155,13 +159,15 @@ export async function getStockData(ticker: string): Promise<string> {
 
 /**
  * Fetch data for multiple tickers and return combined report
+ * @param tickers 股票代码列表
+ * @param range 时间范围，默认 "1y"
  */
-export async function getMultipleStocksData(tickers: string[]): Promise<string> {
+export async function getMultipleStocksData(tickers: string[], range: string = "1y"): Promise<string> {
   if (tickers.length === 0) return "";
 
-  const results = await Promise.allSettled(tickers.map((t) => getStockData(t)));
+  const results = await Promise.allSettled(tickers.map((t) => getStockData(t, range)));
 
-  const lines = ["## 实时股票数据（来源：Yahoo Finance）\n"];
+  const lines = [`## 实时股票数据（来源：Yahoo Finance | 时间范围：${range}）\n`];
   for (const result of results) {
     if (result.status === "fulfilled") {
       lines.push(result.value);
@@ -174,11 +180,13 @@ export async function getMultipleStocksData(tickers: string[]): Promise<string> 
 
 /**
  * Main entry: given a task description, extract tickers and fetch data
+ * @param taskDescription 任务描述
+ * @param period 时间范围（来自 Step1 解析），默认 "1y"
  */
-export async function fetchStockDataForTask(taskDescription: string): Promise<string> {
+export async function fetchStockDataForTask(taskDescription: string, period: string = "1y"): Promise<string> {
   const tickers = extractTickers(taskDescription);
   if (tickers.length === 0) return "";
-  return getMultipleStocksData(tickers);
+  return getMultipleStocksData(tickers, period);
 }
 
 /**

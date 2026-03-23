@@ -633,7 +633,13 @@ DATA_INTEGRITY[MAX]:
 [加密货币] coingecko(coins,metrics)
 [新闻情绪] news_api(query,sources) | marketaux(ticker,sentiment) | gdelt(query,themes)
 [网页搜索] tavily_search(query) ← 限定在用户资源库 + Trusted Sources 域名内搜索
-资源库域名: ${(() => { const tsDomains = trustedSourceUrls.map(u => { try { return new URL(u).hostname; } catch { return u; } }); const allDomains = Array.from(new Set([...userLibraryDomains, ...tsDomains])); return allDomains.slice(0, 10).join(' | ') + (allDomains.length > 10 ? ' ...' : ''); })()}`;
+资源库域名: ${(() => { const tsDomains = trustedSourceUrls.map(u => { try { return new URL(u).hostname; } catch { return u; } }); const allDomains = Array.from(new Set([...userLibraryDomains, ...tsDomains])); return allDomains.slice(0, 10).join(' | ') + (allDomains.length > 10 ? ' ...' : ''); })()}
+[任务类型→数据粒度映射（period 参数规则）]
+- 技术分析/短线/K线/波段: yahoo_finance period="3mo" | "6mo"
+- 季报分析/季度业绩: yahoo_finance period="1y"，fmp statements=["quarterly"]
+- 年报/长期基本面/价值投资: yahoo_finance period="2y" | "5y"，fmp statements=["annual"]
+- 宏观/行业对比: yahoo_finance period="5y"，fred/world_bank 优先
+- 默认（不确定）: yahoo_finance period="1y"`;
 
     const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
@@ -705,8 +711,8 @@ ${"```"}`;
       // [已移除]
       // [已移除]
 
-    const [step1Result, stockDataResult, earlyTavilyResult] = await Promise.allSettled([
-      // A. Step1：GPT 规划框架
+    // 先单独执行 Step1，获取 period 参数后再调用 Yahoo Finance
+    const step1Result = await Promise.resolve(
       userConfig?.openaiApiKey
         ? callOpenAI({
             apiKey: userConfig.openaiApiKey,
@@ -717,21 +723,44 @@ ${"```"}`;
             ],
             maxTokens: modeConfig.step1MaxTokens,
           })
-        : Promise.resolve(null),
-      // B. Yahoo Finance：去重版，跳过已由 Baostock 处理的 A 股代码
-      fetchStockDataForTask(taskDescription),
-      // C. 网页搜索已关闭，纯 API 模式
-      Promise.resolve(""),
-    ]);
+        : Promise.resolve(null)
+    ).then(v => ({ status: "fulfilled" as const, value: v })).catch(e => ({ status: "rejected" as const, reason: e }));
 
-    // 解析 Step1 结果
-    const FALLBACK_STEP1 = `## 分析框架\n标准价值投资分析：估值→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估值指标、市场表现、行业对比`;
+    // 解析 Step1 结果，提取 period 参数
+    const FALLBACK_STEP1 = `## 分析框架\n标准价値投资分析：估値→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估値指标、市场表现、行业对比`;
     let gptStep1Output: string;
     if (step1Result.status === "fulfilled" && step1Result.value) {
       gptStep1Output = step1Result.value as string;
     } else {
       gptStep1Output = FALLBACK_STEP1;
     }
+
+    // 从 Step1 输出中提取 yahoo_finance period 参数
+    const extractYahooPeriod = (step1Text: string): string => {
+      // 尝试从 RESOURCE_SPEC JSON 中提取
+      const periodMatch = step1Text.match(/"yahoo_finance"[^}]*"period"\s*:\s*"([^"]+)"/)
+        || step1Text.match(/yahoo_finance.*?period[":\s]+(["']?)([1-9][a-z]+)\1/);
+      if (periodMatch) {
+        const p = periodMatch[2] || periodMatch[1];
+        if (["1mo", "3mo", "6mo", "1y", "2y", "5y"].includes(p)) return p;
+      }
+      // 根据任务描述关键词推断
+      if (/技术分析|短线|K线|波段|短期/i.test(taskDescription)) return "3mo";
+      if (/季报|季度业绩|季度财务/i.test(taskDescription)) return "1y";
+      if (/年报|长期|价値投资|年度财务/i.test(taskDescription)) return "2y";
+      if (/宏观|行业对比|历史走势/i.test(taskDescription)) return "5y";
+      return "1y"; // 默认
+    };
+    const yahooPeriod = extractYahooPeriod(gptStep1Output);
+
+    // 并行执行 Yahoo Finance（使用从 Step1 提取的 period）和空结果占位
+    const [stockDataResult, earlyTavilyResult] = await Promise.allSettled([
+      // B. Yahoo Finance：使用任务类型匹配的时间范围
+      fetchStockDataForTask(taskDescription, yahooPeriod),
+      // C. 网页搜索已关闭，纯 API 模式
+      Promise.resolve(""),
+    ]);
+
     await updateTaskStatus(taskId, "manus_working");
 
     // ── 解析 Step1 资源规划 JSON ─────────────────────────────────────────────
@@ -1198,89 +1227,14 @@ ${"```"}`;
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
     const realTimeDataBlock = [structuredDataBlock, webContentBlock].filter(Boolean).join("\n\n---\n\n");
-    // Step2 Manus prompt（结构化 DATA_REPORT 输出）
-    // 提取 hypotheses 中的 required_fields 供 Manus 针对性收集
-    const hypothesesBlock = resourcePlan.taskSpec?.hypotheses && resourcePlan.taskSpec.hypotheses.length > 0
-      ? `\nHYPOTHESES_TO_VERIFY:\n${resourcePlan.taskSpec.hypotheses.map((h: { id: string; statement: string; required_fields: string[] }) => `[${h.id}] ${h.statement} | fields_needed: ${h.required_fields.join(", ")}`).join("\n")}`
-      : "";
-    const step2UserContent = `[MANUS←GPT|STEP2|INTERNAL]
-TASK:${taskDescription.slice(0, 200)}
-GPT_RETRIEVAL_PLAN:
-${gptStep1Output.slice(0, 1200)}${hypothesesBlock}
-${structuredDataBlock ? `[PRE_DATA:structured]\n${structuredDataBlock}` : ""}
-${webContentBlock ? `[PRE_DATA:web_raw]\n${webContentBlock}` : ""}
-[MANUS_INSTRUCTIONS]
-ROLE: data_executor — 你是专业数据执行层，不做任何分析判断
-MISSION: 按照 GPT 的 retrieval_plan 收集数据，输出结构化事实包
-
-**输出规范（严格遵守）：**
-1. 每个数据点必须包含：字段名 | 数字值 | 单位 | 数据时间 | 来源
-   格式：field_name: value unit (YYYY-MM-DD) [source]
-   示例：price.current: 189.30 USD (${currentDateStr}) [Yahoo Finance]
-2. 缺失数据必须标注：field_name: [DATA_UNAVAILABLE] reason
-3. 禁止输出：分析评论 | 方向性判断 | 投资建议 | 任何主观推断
-4. 对应 HYPOTHESES_TO_VERIFY 中的 required_fields，确保每个字段都有对应数据或 [DATA_UNAVAILABLE]
-5. 如果 required=true 的源失败，在该字段后标注 [HARD_MISSING]
-
-OUTPUT_FORMAT (strict):
-[RESOURCE_REVIEW]
-api_name: EXECUTE|CACHED|SKIP → reason（最多8字）
-[DATA_REPORT]
-## {source_group}
-field: value unit (date) [source]
-...
-[EVIDENCE_PACKET]
-输出以下 JSON 结构（必须在 [EVIDENCE_PACKET] 和 [/EVIDENCE_PACKET] 之间）：
-{
-  "facts": {
-    "price.current": { "value": 214.31, "unit": "USD", "timestamp": "${currentDateStr}", "source": "yahoo_finance" }
-  },
-  "missing": [
-    { "field": "valuation.pe_band_5y", "reason": "not_returned", "source": "fmp", "hard_missing": true }
-  ],
-  "source_status": [
-    { "source": "yahoo_finance", "success": true, "latency_ms": 830 }
-  ]
-}
-[/EVIDENCE_PACKET]
-limit: ${modeConfig.step2MaxWords} tokens
-${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
-
-    let manusReport: string;
-    try {
-      const manusResponse = await invokeLLMWithRetry({
-        messages: [
-          { role: "system", content: manusSystemPrompt },
-          { role: "user", content: step2UserContent },
-        ],
-      });
-      manusReport = String(manusResponse.choices?.[0]?.message?.content || "");
-    } catch (manusErr) {
-      // Manus LLM 上游不稳定时，自动降级用 GPT 完成数据收集
-      if (userConfig?.openaiApiKey) {
-        try {
-          manusReport = await callOpenAI({
-            apiKey: userConfig.openaiApiKey,
-            model: userConfig.openaiModel || DEFAULT_MODEL,
-            messages: [
-              { role: "system", content: manusSystemPrompt },
-              { role: "user", content: step2UserContent },
-            ],
-            maxTokens: modeConfig.step1MaxTokens * 2,
-          });
-        } catch {
-          manusReport = realTimeDataBlock
-            ? `## 实时数据汇总\n\n${realTimeDataBlock}`
-            : `## 数据收集（基于已有分析）\n\n${gptStep1Output}`;
-        }
-      } else {
-        manusReport = realTimeDataBlock
-          ? `## 实时数据汇总\n\n${realTimeDataBlock}`
-          : `## 数据收集（基于已有分析）\n\n${gptStep1Output}`;
-      }
-    }
+    // ── Step2 直接数据聚合（无 LLM 调用，参考 TradingAgents/FinRobot 模式）──────────────
+    // 直接将结构化 API 数据作为 DATA_REPORT，无需中间 LLM 整理层
+    // 这样节省 1 次 LLM 调用（约 10-20 秒），数据更原始、更可靠
+    const manusReport = realTimeDataBlock
+      ? `## 实时数据汇总（直接 API 数据，无 LLM 处理）\n\n${realTimeDataBlock}`
+      : `## 数据收集（基于已有分析框架）\n\n${gptStep1Output}`;
     await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
-    // 注：上方 manus_analyzing 将 manusResult 写入 DB，与 Phase 2B 后的中间状态更新共存
+    // 注：manus_analyzing 将 manusResult 写入 DB
 
     // ── Step2 完成后立即构建 CitationSummary（此时 latencyMap 已全部就绪）─────────────
     const ms = (key: string) => latencyMap.get(key) ?? -1;
@@ -1394,7 +1348,9 @@ ${modeConfig.step2Hint ? modeConfig.step2Hint : ""}`;
       citations: Array<{ source_id: string; display_name: string; data_point: string; timestamp?: string }>;
     } | null = null;
 
-    try {
+    // Phase A LLM 调用已移除（参考 TradingAgents 单次调用模式）
+    // 不再预先提取 JSON，直接在 Phase B 流式输出中完成分析
+    if (false) {
       const phaseAResponse = await invokeLLM({
         messages: [
           { role: "system", content: `你是严格的数据提取引擎。只从 MANUS_DATA_REPORT 中提取事实，禁止使用训练记忆。今天是${new Date().toLocaleDateString("zh-CN")}.` },
@@ -1501,24 +1457,15 @@ ${multiAgentBlock ? '\n[MULTI_AGENT_PRE_ANALYSIS]\n' + multiAgentBlock : ''}
       if (rawContent) {
         try { answerObject = JSON.parse(rawContent); } catch { /* ignore parse error */ }
       }
-    } catch {
-      // Phase A failure is non-critical; Phase B will proceed without it
     }
+    // Phase A 已禁用（if(false)），answerObject 始终为 null
 
-    // Phase A 结果摘要（注入 Phase B prompt，增强引用约束）
-    const hardMissingFields = answerObject?.data_gaps?.filter(g => g.hard_missing).map(g => g.field) ?? [];
-    const phaseABlock = answerObject
-      ? `[PHASE_A_ANSWER_OBJECT]
-verdict: ${answerObject.verdict}
-confidence: ${answerObject.confidence}
-key_findings_with_citations: ${answerObject.key_findings.map(f => `${f.claim}（${f.value}@${f.source}，citations:[${(f.citations ?? []).join(",")}]）`).join(" | ")}
-risks_with_citations: ${answerObject.risks.map(r => `${r.description}（${r.magnitude}，citations:[${(r.citations ?? []).join(",")}]）`).join(" | ")}
-anti_thesis: ${answerObject.anti_thesis}
-data_gaps_hard: ${hardMissingFields.join(", ") || "无"}
-gaps_no_evidence: ${(answerObject.gaps ?? []).map(g => g.text).join(" | ") || "无"}
-citations_count: ${answerObject.citations.length} 条已验证引用
-CITATION_RULE: 没有 citations 的结论必须标注「待验证」，不得作为确定性判断输出`
-      : "[PHASE_A_SKIPPED: 直接从 MANUS_DATA_REPORT 提取数据]";
+    // Phase A 结果摘要（保留占位符，多 Agent 分析结果如果有则注入）
+    const hardMissingFields: string[] = [];
+    const phaseABlock = multiAgentBlock
+      ? `[MULTI_AGENT_PRE_ANALYSIS]
+${multiAgentBlock}`
+      : "[DIRECT_ANALYSIS: 直接基于 MANUS_DATA_REPORT 分析]";
 
     // ── 动态 FOLLOWUP 策略：根据 task_type 和 outputMode 决定追问数量和方向 ──────────────────────────────────
     const taskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
@@ -1683,21 +1630,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         isWhitelisted: c.isWhitelisted,
       }));
     }
-    // 将 Phase A answer object 写入 metadata（供前端展示结构化引用卡片）
-    if (answerObject) {
-      metadataToSave.answerObject = {
-        verdict: answerObject.verdict,
-        confidence: answerObject.confidence,
-        key_findings: answerObject.key_findings,
-        risks: answerObject.risks,
-        anti_thesis: answerObject.anti_thesis,
-        data_gaps: answerObject.data_gaps,
-        gaps: answerObject.gaps ?? [],
-        citations_count: answerObject.citations.length,
-        citations: answerObject.citations,
-        hard_missing_count: hardMissingFields.length,
-      };
-    }
+    // Phase A answer object 已移除，不再写入 metadata
+    // 证据强度和输出模式信息保留（见下方）
     // 将 evidenceScore 和 outputMode 写入 metadata（供前端展示证据强度指示）
     metadataToSave.evidenceScore = evidencePacket.evidenceScore;
     metadataToSave.outputMode = evidencePacket.outputMode;

@@ -1357,3 +1357,12 @@
 - [x] ETF 分析模块：server/etfAnalysis.ts（ETF 识别/基本信息/风险指标/评分/比较），已接入分析主流程
 - [x] 沙盒代码执行：server/codeExecution.ts（安全检查/Python 执行/matplotlib 图表生成），20 个测试通过，routers.ts codeExec 路由已添加
 - [x] 全部测试：24 个测试文件，361/361 测试通过，TypeScript 0 错误
+
+## 工作流优化（参考 TradingAgents/FinRobot 单次调用模式）
+- [x] 去除 Step2 冗余 LLM 调用：直接用结构化 API 数据构建 MANUS_DATA_REPORT，节省 1 次 LLM 调用（~10-20s）
+- [x] 禁用 Phase A 预提取 LLM 调用（if(false) 封装）：Phase B 直接基于 MANUS_DATA_REPORT 流式输出分析
+- [x] 修复 answerObject 残留引用：移除 metadata 写入中对 answerObject 的依赖
+- [x] 任务类型→数据粒度映射：Step1 提示词加入 period 规则（技术分析→3mo，季报→1y，年报→2y，宏观→5y）
+- [x] Yahoo Finance 支持 period 参数：getStockData/getMultipleStocksData/fetchStockDataForTask 全部支持 range 参数
+- [x] Step1 先执行后提取 period：先等待 Step1 完成，从 RESOURCE_SPEC JSON 提取 yahoo_finance.period，再并行调用 Yahoo Finance
+- [x] extractYahooPeriod 关键词兜底：Step1 无 JSON 时按任务描述关键词（技术分析/季报/年报/宏观）推断 period

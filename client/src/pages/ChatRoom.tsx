@@ -21,6 +21,9 @@ import AlphaFactorCard, { parseAlphaFactors } from "@/components/AlphaFactorCard
 import HealthScoreCard, { parseHealthScore } from "@/components/HealthScoreCard";
 import OptionPricingCard, { parseOptionPricing } from "@/components/OptionPricingCard";
 import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
+import { BacktestCard } from "@/components/BacktestCard";
+import { TrendRadarCard } from "@/components/TrendRadarCard";
+import { WorldMonitorCard } from "@/components/WorldMonitorCard";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
@@ -555,6 +558,17 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   const optionPricingData = React.useMemo(() => parseOptionPricing(
     healthScoreData ? healthScoreData.rest : (alphaFactorsData ? alphaFactorsData.rest : cleanContent)
   ), [alphaFactorsData, healthScoreData, cleanContent]);
+  // 提取 ticker/spot/sigma 供 BacktestCard/TrendRadarCard/WorldMonitorCard 使用
+  const tickerForCards = alphaFactorsData?.payload?.ticker ?? optionPricingData?.payload?.ticker ?? "";
+  const spotForCards = (optionPricingData?.payload?.spotPrice ?? 100) as number;
+  const sigmaForCards = (optionPricingData?.payload?.sigma ?? 0.25) as number;
+  const newsItemsForCards = React.useMemo(() => {
+    const meta = msg.metadata as Record<string, unknown> | undefined;
+    if (meta?.newsItems && Array.isArray(meta.newsItems)) {
+      return meta.newsItems as Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string }>;
+    }
+    return [];
+  }, [msg.metadata]);
   // 移除标记后的内容供图表解析
   const contentForCharts = React.useMemo(() => {
     let c = cleanContent;
@@ -601,6 +615,24 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           {healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
           {/* 期权定价卡片（Greeks 热力图 + 期权链表格） */}
           {optionPricingData && <OptionPricingCard payload={optionPricingData.payload} />}
+          {/* Qbot 量化回测卡片 */}
+          {tickerForCards && spotForCards > 0 && (
+            <div className="mt-3">
+              <BacktestCard ticker={tickerForCards} spot={spotForCards} sigma={sigmaForCards} />
+            </div>
+          )}
+          {/* TrendRadar 热点雷达卡片 */}
+          {tickerForCards && newsItemsForCards.length > 0 && (
+            <div className="mt-3">
+              <TrendRadarCard ticker={tickerForCards} newsItems={newsItemsForCards} />
+            </div>
+          )}
+          {/* World Monitor 全局雷达卡片 */}
+          {tickerForCards && (
+            <div className="mt-3">
+              <WorldMonitorCard ticker={tickerForCards} />
+            </div>
+          )}
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
               <InlineChart key={idx} raw={block.raw} />

@@ -9,9 +9,10 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { BookOpen, ExternalLink, Search, Star, Code2, TrendingUp, Brain, Database, Globe, Shield, Cpu, BarChart3 } from "lucide-react";
+import { BookOpen, ExternalLink, Search, Star, Code2, TrendingUp, Brain, Database, Globe, Shield, Cpu, BarChart3, Rss, RefreshCw, Clock, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
+import { trpc } from "@/lib/trpc";
 
 // ── 资源数据（整合三个仓库的精华内容）──────────────────────────────────────────
 interface LibraryResource {
@@ -322,7 +323,119 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
+// ── NewsNow 风格的实时新闻聚合组件（灵感来自 ourongxing/newsnow）────────────────
+const NEWS_SOURCES = [
+  { id: "general", label: "综合", query: "stock market investing" },
+  { id: "macro", label: "宏观", query: "federal reserve inflation GDP" },
+  { id: "tech", label: "科技股", query: "tech stocks NASDAQ AI semiconductor" },
+  { id: "crypto", label: "加密", query: "bitcoin ethereum crypto" },
+  { id: "china", label: "中国", query: "China economy A-shares" },
+];
+
+function NewsNowPanel() {
+  const [activeNewsSource, setActiveNewsSource] = useState("general");
+  const currentSource = NEWS_SOURCES.find(s => s.id === activeNewsSource) ?? NEWS_SOURCES[0];
+  const { data, isLoading, refetch, isFetching } = trpc.chat.getNewsFeed.useQuery(
+    { ticker: currentSource.query, maxArticles: 12 },
+    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+  );
+  const articles = (data as { articles?: Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string; sentiment?: string }> } | null)?.articles ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Rss className="w-4 h-4 text-amber-400" />
+          <span className="text-sm font-semibold">NewsNow 实时聚合</span>
+          <span className="text-xs text-muted-foreground/50">灵感来自 ourongxing/newsnow</span>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
+        >
+          <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
+          刷新
+        </button>
+      </div>
+      {/* 来源选择器 */}
+      <div className="flex flex-wrap gap-1.5">
+        {NEWS_SOURCES.map(src => (
+          <button
+            key={src.id}
+            onClick={() => setActiveNewsSource(src.id)}
+            className={cn(
+              "text-xs px-3 py-1 rounded-full border transition-colors",
+              activeNewsSource === src.id
+                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                : "bg-white/5 text-muted-foreground/60 border-white/10 hover:bg-white/8"
+            )}
+          >
+            {src.label}
+          </button>
+        ))}
+      </div>
+      {/* 新闻列表 */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-muted-foreground/40">
+          <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+          <span className="text-sm">加载中...</span>
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground/40">
+          <Newspaper className="w-6 h-6 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">暂无新闻</p>
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {articles.map((article, i) => (
+            <a
+              key={i}
+              href={article.url ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="group flex gap-3 p-3 rounded-lg bg-white/3 border border-white/6 hover:bg-white/6 transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground line-clamp-2 leading-snug">
+                  {article.title}
+                </p>
+                {article.description && (
+                  <p className="text-xs text-muted-foreground/50 mt-1 line-clamp-1">{article.description}</p>
+                )}
+                <div className="flex items-center gap-2 mt-1.5">
+                  {article.source && (
+                    <span className="text-[10px] text-muted-foreground/40">{article.source}</span>
+                  )}
+                  {article.publishedAt && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/30">
+                      <Clock className="w-2.5 h-2.5" />
+                      {new Date(article.publishedAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                  {article.sentiment && (
+                    <span className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded border",
+                      article.sentiment === "positive" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
+                      article.sentiment === "negative" ? "text-red-400 border-red-500/30 bg-red-500/10" :
+                      "text-amber-400 border-amber-500/30 bg-amber-500/10"
+                    )}>
+                      {article.sentiment === "positive" ? "利多" : article.sentiment === "negative" ? "利空" : "中性"}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <ExternalLink className="w-3 h-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 shrink-0 mt-1 transition-colors" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InvestmentLibrary() {
+  const [activeTab, setActiveTab] = useState<"library" | "newsnow">("library");
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSource, setActiveSource] = useState<string | null>(null);
@@ -361,7 +474,45 @@ export default function InvestmentLibrary() {
           </div>
         </div>
 
-        {/* 搜索和筛选 */}
+        {/* Tab 切换 */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("library")}
+            className={cn(
+              "flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg border transition-colors",
+              activeTab === "library"
+                ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
+                : "bg-white/5 text-muted-foreground/60 border-white/10 hover:bg-white/10"
+            )}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            资源库
+          </button>
+          <button
+            onClick={() => setActiveTab("newsnow")}
+            className={cn(
+              "flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg border transition-colors",
+              activeTab === "newsnow"
+                ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                : "bg-white/5 text-muted-foreground/60 border-white/10 hover:bg-white/10"
+            )}
+          >
+            <Rss className="w-3.5 h-3.5" />
+            NewsNow 实时
+          </button>
+        </div>
+
+        {/* NewsNow 面板 */}
+        {activeTab === "newsnow" && (
+          <Card className="bg-white/3 border-white/8">
+            <CardContent className="p-4">
+              <NewsNowPanel />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 搜索和筛选（仅在资源库 Tab 显示）*/}
+        {activeTab === "library" && <>
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
@@ -484,6 +635,7 @@ export default function InvestmentLibrary() {
             <p className="text-xs mt-1">尝试修改搜索词或筛选条件</p>
           </div>
         )}
+        </>}
       </div>
     </DashboardLayout>
   );

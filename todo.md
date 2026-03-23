@@ -1602,3 +1602,20 @@
 - [x] 长期：maybe-finance 风格资产负债表（schema 迁移 + netWorth tRPC 路由 + NetWorthDashboard 页面）
 - [x] 跳过：economizzer（与 maybe-finance 重复）
 - [x] 441/442 测试通过（1 个已知网络限制）
+
+## 5 个新开源仓库集成（2026-03-23 Round 3）
+- [ ] P1: Qbot — Python 回测引擎封装（qbot_backtest.py + backtestApi.ts + BacktestCard 组件）
+- [ ] P1: Qbot — AlphaFactorCard 新增「深度学习因子」Tab（LSTM/GRU 因子评分）
+- [ ] P1: TrendRadar — 热点雷达 API 集成（trendRadarApi.ts + SentimentNLPCard 热点面板）
+- [ ] P1: worldmonitor — 金融雷达数据源集成（worldMonitorApi.ts + 数据聚合层）
+- [ ] P2: newsnow — 知识库页面嵌入 newsnow 新闻聚合界面
+- [ ] 跳过: hacker-laws（与金融投资无直接关联）
+
+## 5 个新开源仓库集成完成状态（2026-03-23 Round 3）
+- [x] Qbot (UFund-Me/Qbot)：后端 qbot_backtest.py + qbotApi.ts + backtest tRPC 路由，前端 BacktestCard.tsx（回测指标 + 净值曲线）
+- [x] TrendRadar (sansan0/TrendRadar)：后端 trendRadarApi.ts + trendRadar tRPC 路由，前端 TrendRadarCard.tsx（热点聚合 + AI 筛选）
+- [x] worldmonitor (koala73/worldmonitor)：后端 worldMonitorApi.ts + worldMonitor tRPC 路由，前端 WorldMonitorCard.tsx（跨资产雷达）
+- [x] newsnow (ourongxing/newsnow)：InvestmentLibrary 页面新增 NewsNow Tab（实时新闻聚合，按综合/宏观/科技/加密/中国分类）
+- [x] hacker-laws (dwmkerr/hacker-laws)：跳过（与投资平台无直接关联）
+- [x] BacktestCard/TrendRadarCard/WorldMonitorCard 集成到 ChatRoom.tsx 消息渲染
+- [x] 441/442 测试通过（1 个已知网络限制）

@@ -2503,6 +2503,26 @@ export const appRouter = router({
         const { analyzeNewsSentiment } = await import("./primoGptNlp.js");
         return analyzeNewsSentiment(input.ticker, input.newsItems);
       }),
+    getNewsFeed: protectedProcedure
+      .input(z.object({
+        ticker: z.string(),
+        maxArticles: z.number().optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { searchNews } = await import("./newsApi.js");
+        const articles = await searchNews(input.ticker, input.maxArticles ?? 12);
+        return {
+          articles: articles.map((a: import("./newsApi.js").NewsArticle) => ({
+            title: a.title,
+            description: a.description ?? undefined,
+            source: a.source.name,
+            url: a.url,
+            publishedAt: a.publishedAt,
+            sentiment: undefined as string | undefined,
+          })),
+        };
+      }),
   }),
   // --- ChatGPT API 配置 ----------------------------------------------------------------------------------------
   rpa: router({
@@ -2997,6 +3017,73 @@ export const appRouter = router({
       const { getNetWorthHistory } = await import("./db");
       return getNetWorthHistory(ctx.user.id);
     }),
+  }),
+  backtest: router({
+    run: protectedProcedure
+      .input(z.object({
+        strategy: z.enum(["momentum", "mean_reversion", "ma_crossover", "alpha_factor", "buy_hold"]),
+        spot: z.number().optional(),
+        sigma: z.number().optional(),
+        days: z.number().optional(),
+        lookback: z.number().optional(),
+        window: z.number().optional(),
+        fast: z.number().optional(),
+        slow: z.number().optional(),
+        prices: z.array(z.number()).optional(),
+        alpha_scores: z.array(z.number()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { runBacktest } = await import("./qbotApi");
+        return runBacktest(input);
+      }),
+    compare: protectedProcedure
+      .input(z.object({
+        spot: z.number(),
+        sigma: z.number(),
+        days: z.number().optional(),
+        prices: z.array(z.number()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { runStrategyComparison } = await import("./qbotApi");
+        return runStrategyComparison(input.spot, input.sigma, input.days ?? 252, input.prices);
+      }),
+  }),
+  trendRadar: router({
+    scan: protectedProcedure
+      .input(z.object({
+        ticker: z.string(),
+        newsItems: z.array(z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          source: z.string().optional(),
+          url: z.string().optional(),
+          publishedAt: z.string().optional(),
+        })),
+        maxItems: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { runTrendRadar } = await import("./trendRadarApi");
+        return runTrendRadar(input.ticker, input.newsItems, input.maxItems ?? 8);
+      }),
+  }),
+  worldMonitor: router({
+    analyze: protectedProcedure
+      .input(z.object({
+        ticker: z.string(),
+        vix: z.number().optional(),
+        sp500Change: z.number().optional(),
+        btcChange: z.number().optional(),
+        goldChange: z.number().optional(),
+        dxyChange: z.number().optional(),
+        yieldSpread: z.number().optional(),
+        sectorPerformance: z.record(z.string(), z.number()).optional(),
+        relatedTickers: z.array(z.object({ symbol: z.string(), change: z.number() })).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { runWorldMonitor } = await import("./worldMonitorApi");
+        const { ticker, ...marketData } = input;
+        return runWorldMonitor(ticker, marketData);
+      }),
   }),
 });
 

@@ -1,6 +1,6 @@
 /**
  * AlphaFactorCard.tsx
- * Alpha 因子可视化卡片：信号灯 + 评分条
+ * Alpha 因子可视化卡片：信号灯 + 评分条 + 历史趋势 Sparkline
  * 解析 %%ALPHA_FACTORS%%{JSON}%%END_ALPHA_FACTORS%% 标记
  */
 
@@ -8,8 +8,17 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/lib/trpc";
+import {
+  LineChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  ReferenceLine,
+  XAxis,
+} from "recharts";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface AlphaFactorData {
@@ -53,6 +62,7 @@ const SIGNAL_CONFIG = {
     bgColor: "bg-emerald-500/10",
     icon: TrendingUp,
     scoreColor: "text-emerald-400",
+    lineColor: "#10b981",
   },
   long: {
     label: "偏多",
@@ -62,6 +72,7 @@ const SIGNAL_CONFIG = {
     bgColor: "bg-green-500/10",
     icon: TrendingUp,
     scoreColor: "text-green-400",
+    lineColor: "#22c55e",
   },
   neutral: {
     label: "中性",
@@ -71,6 +82,7 @@ const SIGNAL_CONFIG = {
     bgColor: "bg-slate-500/10",
     icon: Minus,
     scoreColor: "text-slate-400",
+    lineColor: "#94a3b8",
   },
   short: {
     label: "偏空",
@@ -80,6 +92,7 @@ const SIGNAL_CONFIG = {
     bgColor: "bg-orange-500/10",
     icon: TrendingDown,
     scoreColor: "text-orange-400",
+    lineColor: "#f97316",
   },
   strong_short: {
     label: "强烈看空",
@@ -89,6 +102,7 @@ const SIGNAL_CONFIG = {
     bgColor: "bg-red-500/10",
     icon: TrendingDown,
     scoreColor: "text-red-400",
+    lineColor: "#ef4444",
   },
 };
 
@@ -101,6 +115,123 @@ const CATEGORY_LABELS: Record<string, string> = {
   value: "价值",
   quality: "质量",
 };
+
+// ── 历史趋势 Sparkline 组件 ───────────────────────────────────────────────────
+interface SparklineProps {
+  ticker: string;
+  currentScore: number;
+  currentSignal: string;
+}
+
+function AlphaSparkline({ ticker, currentScore, currentSignal }: SparklineProps) {
+  const { data: history, isLoading } = trpc.chat.getAlphaFactorHistory.useQuery(
+    { ticker, limit: 5 },
+    { staleTime: 60_000 }
+  );
+
+  const config = SIGNAL_CONFIG[currentSignal as keyof typeof SIGNAL_CONFIG] ?? SIGNAL_CONFIG.neutral;
+
+  // 将历史数据 + 当前数据合并为图表数据
+  const chartData = [
+    ...(history || []).filter((h): h is NonNullable<typeof h> => h !== null).map((h, i) => ({
+      idx: i,
+      score: h.compositeScore,
+      label: new Date(h.analyzedAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" }),
+    })),
+    {
+      idx: (history?.length ?? 0),
+      score: currentScore,
+      label: "当前",
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
+        <History className="w-3 h-3" />
+        <span>加载历史趋势...</span>
+      </div>
+    );
+  }
+
+  // 只有当前数据点时不显示 Sparkline
+  if (chartData.length <= 1) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground/40">
+        <History className="w-3 h-3" />
+        <span>首次分析，暂无历史趋势</span>
+      </div>
+    );
+  }
+
+  const minScore = Math.min(...chartData.map(d => d.score));
+  const maxScore = Math.max(...chartData.map(d => d.score));
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-1.5 mb-1">
+        <History className="w-3 h-3 text-muted-foreground/60" />
+        <span className="text-xs text-muted-foreground/60">
+          Alpha 评分历史趋势（近 {chartData.length} 次分析）
+        </span>
+      </div>
+      <div className="h-16 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 9, fill: "rgba(148,163,184,0.6)" }}
+              axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
+            />
+            <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+            <Tooltip
+              contentStyle={{
+                background: "rgba(15,15,25,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "6px",
+                padding: "4px 8px",
+                fontSize: "11px",
+              }}
+              labelStyle={{ color: "rgba(148,163,184,0.8)", marginBottom: "2px" }}
+              formatter={(value: number) => [
+                `${value > 0 ? "+" : ""}${value}`,
+                "Alpha 评分",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="score"
+              stroke={config.lineColor}
+              strokeWidth={1.5}
+              dot={(props) => {
+                const { cx, cy, index } = props;
+                const isLast = index === chartData.length - 1;
+                return (
+                  <circle
+                    key={`dot-${index}`}
+                    cx={cx}
+                    cy={cy}
+                    r={isLast ? 3.5 : 2}
+                    fill={isLast ? config.lineColor : "rgba(0,0,0,0.6)"}
+                    stroke={config.lineColor}
+                    strokeWidth={isLast ? 2 : 1}
+                  />
+                );
+              }}
+              activeDot={{ r: 4, fill: config.lineColor }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground/30 px-1 mt-0.5">
+        <span>低 {minScore > 0 ? "+" : ""}{minScore}</span>
+        <span>高 {maxScore > 0 ? "+" : ""}{maxScore}</span>
+      </div>
+    </div>
+  );
+}
 
 // ── 单个因子行 ────────────────────────────────────────────────────────────────
 function FactorRow({ factor }: { factor: AlphaFactorData }) {
@@ -174,6 +305,7 @@ function FactorRow({ factor }: { factor: AlphaFactorData }) {
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayload }) {
   const [expanded, setExpanded] = useState(false);
+  const [showSparkline, setShowSparkline] = useState(true);
   const config = SIGNAL_CONFIG[payload.overallSignal];
   const SignalIcon = config.icon;
 
@@ -212,12 +344,24 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
               qlib Alpha101/158
             </Badge>
           </div>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
-          >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowSparkline(!showSparkline)}
+              className={cn(
+                "text-muted-foreground hover:text-foreground transition-colors p-1 rounded",
+                showSparkline && "text-amber-400/70"
+              )}
+              title={showSparkline ? "隐藏历史趋势" : "显示历史趋势"}
+            >
+              <History className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
+            >
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </CardHeader>
 
@@ -259,6 +403,20 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
             </div>
           </div>
         </div>
+
+        {/* 历史趋势 Sparkline */}
+        {showSparkline && (
+          <div className={cn(
+            "rounded-lg border px-3 py-2 mb-3",
+            "border-white/10 bg-white/5"
+          )}>
+            <AlphaSparkline
+              ticker={payload.ticker}
+              currentScore={payload.compositeScore}
+              currentSignal={payload.overallSignal}
+            />
+          </div>
+        )}
 
         {/* 因子统计摘要 */}
         <div className="flex gap-3 mb-2">

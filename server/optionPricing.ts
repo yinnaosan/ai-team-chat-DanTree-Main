@@ -499,14 +499,77 @@ export function generateOptionSummary(
   const K_atm = Math.round(S); // 平值行权价
   const K_otm_call = Math.round(S * 1.05); // 5% 虚值 Call
   const K_otm_put = Math.round(S * 0.95);  // 5% 虚值 Put
+  // 额外行权价：±2.5%、±10%
+  const K_itm_call = Math.round(S * 0.975);
+  const K_itm_put = Math.round(S * 1.025);
+  const K_deep_otm_call = Math.round(S * 1.10);
+  const K_deep_otm_put = Math.round(S * 0.90);
 
   const atmCall = blackScholes({ S, K: K_atm, T, r, sigma, type: "call" });
   const atmPut = blackScholes({ S, K: K_atm, T, r, sigma, type: "put" });
   const otmCall = blackScholes({ S, K: K_otm_call, T, r, sigma, type: "call" });
   const otmPut = blackScholes({ S, K: K_otm_put, T, r, sigma, type: "put" });
+  const itmCall = blackScholes({ S, K: K_itm_call, T, r, sigma, type: "call" });
+  const itmPut = blackScholes({ S, K: K_itm_put, T, r, sigma, type: "put" });
+  const deepOtmCall = blackScholes({ S, K: K_deep_otm_call, T, r, sigma, type: "call" });
+  const deepOtmPut = blackScholes({ S, K: K_deep_otm_put, T, r, sigma, type: "put" });
 
   const straddle = longStraddle(S, K_atm, T, r, sigma);
   const bullSpread = bullCallSpread(S, K_atm, K_otm_call, T, r, sigma);
+
+  // 构建结构化 JSON 供前端 OptionPricingCard 渲染
+  const optionChain = [
+    { label: "ITM Call (-2.5%)", type: "call" as const, strike: K_itm_call, moneyness: "ITM", ...itmCall },
+    { label: "ATM Call", type: "call" as const, strike: K_atm, moneyness: "ATM", ...atmCall },
+    { label: "OTM Call (+5%)", type: "call" as const, strike: K_otm_call, moneyness: "OTM", ...otmCall },
+    { label: "Deep OTM Call (+10%)", type: "call" as const, strike: K_deep_otm_call, moneyness: "Deep OTM", ...deepOtmCall },
+    { label: "ITM Put (+2.5%)", type: "put" as const, strike: K_itm_put, moneyness: "ITM", ...itmPut },
+    { label: "ATM Put", type: "put" as const, strike: K_atm, moneyness: "ATM", ...atmPut },
+    { label: "OTM Put (-5%)", type: "put" as const, strike: K_otm_put, moneyness: "OTM", ...otmPut },
+    { label: "Deep OTM Put (-10%)", type: "put" as const, strike: K_deep_otm_put, moneyness: "Deep OTM", ...deepOtmPut },
+  ];
+
+  const structuredPayload = {
+    ticker,
+    spotPrice: S,
+    sigma: parseFloat((sigma * 100).toFixed(1)),
+    riskFreeRate: parseFloat((r * 100).toFixed(1)),
+    daysToExpiry: 30,
+    optionChain: optionChain.map(o => ({
+      label: o.label,
+      type: o.type,
+      strike: o.strike,
+      moneyness: o.moneyness,
+      price: parseFloat(o.price.toFixed(4)),
+      intrinsicValue: parseFloat(o.intrinsicValue.toFixed(4)),
+      timeValue: parseFloat(o.timeValue.toFixed(4)),
+      delta: parseFloat(o.delta.toFixed(4)),
+      gamma: parseFloat(o.gamma.toFixed(6)),
+      vega: parseFloat(o.vega.toFixed(4)),
+      theta: parseFloat(o.theta.toFixed(4)),
+      rho: parseFloat(o.rho.toFixed(4)),
+    })),
+    strategies: [
+      {
+        name: straddle.name,
+        netPremium: parseFloat(Math.abs(straddle.netPremium).toFixed(2)),
+        maxLoss: straddle.maxLoss ? parseFloat(straddle.maxLoss.toFixed(2)) : null,
+        breakEven: straddle.breakEven.map(b => parseFloat(b.toFixed(2))),
+        outlook: straddle.outlook,
+      },
+      {
+        name: bullSpread.name,
+        netPremium: parseFloat(Math.abs(bullSpread.netPremium).toFixed(2)),
+        maxProfit: bullSpread.maxProfit ? parseFloat(bullSpread.maxProfit.toFixed(2)) : null,
+        maxLoss: bullSpread.maxLoss ? parseFloat(bullSpread.maxLoss.toFixed(2)) : null,
+        breakEven: bullSpread.breakEven.map(b => parseFloat(b.toFixed(2))),
+        outlook: bullSpread.outlook,
+      },
+    ],
+    generatedAt: Date.now(),
+  };
+
+  const jsonMarker = `%%OPTION_PRICING%%${JSON.stringify(structuredPayload)}%%END_OPTION_PRICING%%`;
 
   const lines: string[] = [];
   lines.push(`#### ${ticker} 期权定价参考（30 天，σ=${(sigma * 100).toFixed(1)}%）`);
@@ -521,5 +584,5 @@ export function generateOptionSummary(
   lines.push(`- ${straddle.name}：总成本 $${Math.abs(straddle.netPremium).toFixed(2)}，盈亏平衡 $${straddle.breakEven[0].toFixed(2)} / $${straddle.breakEven[1].toFixed(2)}`);
   lines.push(`- ${bullSpread.name}：净成本 $${Math.abs(bullSpread.netPremium).toFixed(2)}，最大收益 $${bullSpread.maxProfit?.toFixed(2)}`);
 
-  return lines.join("\n");
+  return `${jsonMarker}\n\n${lines.join("\n")}`;
 }

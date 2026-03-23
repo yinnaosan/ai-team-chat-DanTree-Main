@@ -1524,3 +1524,22 @@
 - [ ] 前端：创建 OptionPricingCard.tsx（Greeks 热力图 + 期权链 Put/Call 可视化）
 - [ ] 前端：ChatRoom.tsx 集成 OptionPricingCard 渲染
 - [x] 修复 lightweight-charts 无法解析 OKLCH 颜色格式的错误（InlineChart.tsx 全部 OKLCH 替换为 HEX/RGB）
+
+## Alpha 因子历史趋势 + FinancePy 期权定价卡片（2026-03-23）
+- [ ] 后端：routers.ts 新增 chat.getAlphaFactorHistory tRPC procedure（从 memory_context 读取历史 agentSignals 中的因子评分）
+- [ ] 前端：AlphaFactorCard.tsx 调用 getAlphaFactorHistory，添加迷你 Sparkline 折线图展示最近 3 次因子评分变化
+- [ ] 后端：routers.ts 修改期权定价任务，输出 %%OPTION_PRICING%%{JSON}%%END_OPTION_PRICING%% 结构化标记
+- [ ] 前端：创建 OptionPricingCard.tsx（Greeks 热力图 + Put/Call 期权链表格）
+- [ ] 前端：ChatRoom.tsx 集成 OptionPricingCard 渲染逻辑
+
+## Alpha 因子历史趋势 Sparkline + OptionPricingCard 完成（2026-03-23）
+- [x] 后端：routers.ts 修改 savedAgentSignalsJson，将 Alpha 因子快照（compositeScore/overallSignal/factors）存入 agentSignals JSON
+- [x] 后端：routers.ts 新增 chat.getAlphaFactorHistory tRPC procedure（从 memory_context 读取历史 agentSignals 中的因子评分）
+- [x] 前端：AlphaFactorCard.tsx 调用 getAlphaFactorHistory，添加 AlphaSparkline 子组件（Recharts LineChart），展示历史 Alpha 评分趋势
+- [x] 前端：AlphaFactorCard 新增历史趋势切换按钮（History 图标），支持显示/隐藏 Sparkline
+- [x] 后端：optionPricing.ts 修改 generateOptionSummary，输出 %%OPTION_PRICING%%{JSON}%%END_OPTION_PRICING%% 结构化标记（含 8 个行权价的完整期权链）
+- [x] 前端：创建 OptionPricingCard.tsx（Greeks 热力图 Tab + 期权链表格 Tab + 策略参考 Tab）
+- [x] 前端：OptionPricingCard Greeks 热力图使用 Recharts BarChart 对比 Call/Put 的 Delta/Gamma/Vega/Theta
+- [x] 前端：OptionPricingCard 期权链表格按颜色区分 ITM/ATM/OTM/Deep OTM，Greeks 值按大小着色
+- [x] 前端：ChatRoom.tsx 集成 OptionPricingCard 渲染逻辑（%%OPTION_PRICING%% 标记检测）
+- [x] 422/423 测试通过（1 个已知网络环境限制，Yahoo Finance 沙盒 404）

@@ -1524,6 +1524,20 @@ ${"```"}`;
           modeConfig.label === "deep" ? 400 : 300,
         );
         multiAgentBlock = multiAgentResult.directorSummary;
+        // 提取 Alpha 因子快照（从 alphaResult 中解析 JSON 标记）
+        let alphaFactorsSnapshot: { compositeScore?: number; overallSignal?: string; factors?: Array<{ name: string; value: number; signal: string }> } | null = null;
+        try {
+          const alphaRaw = alphaResult?.status === "fulfilled" ? alphaResult.value : "";
+          const alphaMatch = alphaRaw?.match(/%%ALPHA_FACTORS%%([\s\S]*?)%%END_ALPHA_FACTORS%%/);
+          if (alphaMatch?.[1]) {
+            const parsed = JSON.parse(alphaMatch[1]);
+            alphaFactorsSnapshot = {
+              compositeScore: parsed.compositeScore,
+              overallSignal: parsed.overallSignal,
+              factors: (parsed.factors || []).map((f: { name: string; value: number; signal: string }) => ({ name: f.name, value: f.value, signal: f.signal })),
+            };
+          }
+        } catch { /* ignore */ }
         // 序列化 Agent 信号供记忆持久化
         savedAgentSignalsJson = JSON.stringify({
           ticker: primaryTicker || null,
@@ -1533,6 +1547,7 @@ ${"```"}`;
           sentiment: multiAgentResult.agents.find(a => a.role === "sentiment"),
           consensusSignal: multiAgentResult.consensusSignal,
           divergenceNote: multiAgentResult.divergenceNote,
+          alphaFactors: alphaFactorsSnapshot,
           analyzedAt: Date.now(),
         });
       } catch {
@@ -2353,6 +2368,30 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         return getRecentMemory(ctx.user.id, input.limit, input.conversationId);
+      }),
+
+    // Alpha 因子历史趋势查询（供前端 Sparkline 图表使用）
+    getAlphaFactorHistory: protectedProcedure
+      .input(z.object({ ticker: z.string().min(1).max(20), limit: z.number().min(1).max(10).default(5) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const history = await getAgentSignalHistory(ctx.user.id, input.ticker, input.limit);
+        // 解析每条记录中的 alphaFactors 字段
+        return history
+          .map(h => {
+            try {
+              const signals = JSON.parse(h.agentSignals);
+              if (!signals.alphaFactors) return null;
+              return {
+                analyzedAt: h.createdAt,
+                compositeScore: signals.alphaFactors.compositeScore as number,
+                overallSignal: signals.alphaFactors.overallSignal as string,
+                factors: signals.alphaFactors.factors as Array<{ name: string; value: number; signal: string }>,
+              };
+            } catch { return null; }
+          })
+          .filter(Boolean)
+          .reverse(); // 按时间正序排列（旧→新）
       }),
   }),
 

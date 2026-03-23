@@ -19,6 +19,7 @@ import remarkGfm from "remark-gfm";
 import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
 import AlphaFactorCard, { parseAlphaFactors } from "@/components/AlphaFactorCard";
 import HealthScoreCard, { parseHealthScore } from "@/components/HealthScoreCard";
+import OptionPricingCard, { parseOptionPricing } from "@/components/OptionPricingCard";
 import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -546,18 +547,22 @@ function AnswerHeader({ answerObject, outputMode }: {
 function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
-  // 解析 Alpha 因子和健康评分标记
+  // 解析 Alpha 因子、健康评分、期权定价标记
   const alphaFactorsData = React.useMemo(() => parseAlphaFactors(cleanContent), [cleanContent]);
   const healthScoreData = React.useMemo(() => parseHealthScore(
     alphaFactorsData ? alphaFactorsData.rest : cleanContent
   ), [alphaFactorsData, cleanContent]);
+  const optionPricingData = React.useMemo(() => parseOptionPricing(
+    healthScoreData ? healthScoreData.rest : (alphaFactorsData ? alphaFactorsData.rest : cleanContent)
+  ), [alphaFactorsData, healthScoreData, cleanContent]);
   // 移除标记后的内容供图表解析
   const contentForCharts = React.useMemo(() => {
     let c = cleanContent;
     if (alphaFactorsData) c = alphaFactorsData.rest;
     if (healthScoreData) c = healthScoreData.rest;
+    if (optionPricingData) c = optionPricingData.rest;
     return c;
-  }, [cleanContent, alphaFactorsData, healthScoreData]);
+  }, [cleanContent, alphaFactorsData, healthScoreData, optionPricingData]);
   const chartBlocks = React.useMemo(() => parseChartBlocks(contentForCharts), [contentForCharts]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = "投资研究助手";
@@ -594,6 +599,8 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           {alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
           {/* 财务健康评分卡片 */}
           {healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
+          {/* 期权定价卡片（Greeks 热力图 + 期权链表格） */}
+          {optionPricingData && <OptionPricingCard payload={optionPricingData.payload} />}
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
               <InlineChart key={idx} raw={block.raw} />

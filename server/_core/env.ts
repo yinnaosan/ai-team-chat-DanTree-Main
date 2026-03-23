@@ -47,4 +47,6 @@ export const ENV = {
   // ── Alpaca Paper Trading（模拟交易，需用户自行配置） ────────────────────────
   ALPACA_API_KEY:          e("ALPACA_API_KEY",          ""),
   ALPACA_API_SECRET:       e("ALPACA_API_SECRET",       ""),
+  // ── Tushare A 股增强数据（FinanceMCP 架构，需用户自行配置） ─────────────────
+  TUSHARE_TOKEN:           e("TUSHARE_TOKEN",           ""),
 };

@@ -129,7 +129,7 @@ function DataSourceStatusPanel() {
           {status && (
             <span className="text-xs px-1.5 py-0.5 rounded-full"
               style={{ background: "oklch(0.20 0.005 270)", color: "oklch(40% 0 0)" }}>
-              {[
+                 {[
                 ["active","warning"].includes(status.yahooStatus) ? 1 : 0,
                 ["active","warning"].includes(status.fredStatus) ? 1 : 0,
                 ["active","warning"].includes(status.worldBankStatus) ? 1 : 0,
@@ -140,19 +140,26 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes(status.alphaVantageStatus) ? 1 : 0,
                 ["active","warning"].includes(status.secEdgarStatus) ? 1 : 0,
                 ["active","warning"].includes(status.coinGeckoStatus) ? 1 : 0,
-
                 1, // GDELT 免费公开，始终计入
                 ["active","warning"].includes(status.newsApiStatus) ? 1 : 0,
                 ["active","warning"].includes(status.marketauxStatus) ? 1 : 0,
-
-
                 ["active","warning"].includes(status.ecbStatus) ? 1 : 0,
                 ["active","warning"].includes(status.hkexStatus) ? 1 : 0,
                 ["active","warning"].includes(status.boeStatus) ? 1 : 0,
                 ["active","warning"].includes(status.hkmaStatus) ? 1 : 0,
+                ["active","warning"].includes(status.simfinStatus) ? 1 : 0,
+                ["active","warning"].includes(status.tiingoStatus) ? 1 : 0,
+                ["active","warning"].includes(status.congressStatus) ? 1 : 0,
+                ["active","warning"].includes(status.gleifStatus) ? 1 : 0,
+                1, // FinanceDatabase 免费公开，始终计入
+                1, // DeFiLlama 免费公开，始终计入
+                1, // 本地技术指标引擎，始终计入
+                1, // qlib Alpha 因子库，始终计入
+                1, // 财报 PDF 解析器，始终计入
+                ["active","warning"].includes(status.alpacaStatus) ? 1 : 0,
               ].reduce((a, b) => a + b, 0)}
               /
-              {20}
+              {30}
                正常
             </span>
           )}
@@ -479,6 +486,68 @@ function DataSourceStatusPanel() {
             }
           />
 
+          {/* 分隔线：开源架构数据库 */}
+          <p className="text-xs px-1 pt-2" style={{ color: "oklch(38% 0 0)" }}>—— 开源架构数据库</p>
+          {/* FinanceDatabase */}
+          <SourceRow
+            label="FinanceDatabase"
+            desc="159,957 行全球股票分类 / 行业 / 交易所 / 同业公司"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开 | JerBouma
+              </span>
+            }
+          />
+          {/* DeFiLlama */}
+          <SourceRow
+            label="DeFiLlama"
+            desc="7,213 个 DeFi 协议 / 436 条链 / 18,168 个 Yield 池"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开 | goat-sdk
+              </span>
+            }
+          />
+          {/* 本地技术指标引擎 */}
+          <SourceRow
+            label="本地技术指标引擎"
+            desc="RSI / MACD / 布林带 / EMA / 随机指标 / ATR / OBV"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                内置 | 无延迟
+              </span>
+            }
+          />
+          {/* qlib Alpha 因子库 */}
+          <SourceRow
+            label="qlib Alpha 因子库"
+            desc="18 个 Alpha 因子：Alpha101 + 基本面因子（PE_MOM/EPS_REV/ROE_TREND）"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                内置 | microsoft/qlib
+              </span>
+            }
+          />
+          {/* 财报 PDF 解析器 */}
+          <SourceRow
+            label="财报 PDF 解析器"
+            desc="财报类型检测 / 关键指标提取 / 同比分析 / 风险因素"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                内置 | GallenQiu
+              </span>
+            }
+          />
           {/* 网页搜索已关闭，纯 API 模式 */}
           <p className="text-xs px-1 pt-2" style={{ color: "oklch(38% 0 0)" }}>—— 网页搜索</p>
           <div className="flex items-center justify-between py-1.5 px-2 rounded-lg"
@@ -1815,7 +1884,7 @@ export default function Settings() {
                 },
                 {
                   step: "Step 2 · Manus", label: "Manus 完善任务 + 数据收集",
-                  desc: "Manus 接收 GPT 的 TASK_SPEC 后，先做资源审查（可补漏/去冗余），再并行调动 21+ 个 API 模块收集数据，整理为结构化报告交回 GPT",
+                  desc: "Manus 接收 GPT 的 TASK_SPEC 后，先做资源审查（可补漏/去冗余），再并行调动 30+ 个数据源模块收集数据，整理为结构化报告交回 GPT",
                   color: "oklch(60% 0.15 250)", icon: Bot,
                 },
                 {

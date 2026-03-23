@@ -1479,3 +1479,12 @@
 - [x] 接入 FinanceDatabase 到 Step2 deepTasks（股票代码 → 行业分类 + 同业公司）
 - [x] 编写测试：alphaFactors.test.ts(8) + financeReportParser.test.ts(14) + defiDataApi.test.ts(10) + financeDatabaseApi.test.ts(10) = 42 个测试全部通过
 - [x] 总计 422/423 测试通过（1 个失败为已知网络环境限制）
+
+## 25 仓库评估清单 — 剩余任务完成（2026-03-22）
+
+- [x] FinanceToolkit calculateHealthScore 接入主流程（deepTasks 并行任务 + structuredDataBlock 注入）
+- [x] 前端数据源数量更新：Home.tsx "30+" + Settings.tsx "30+" + 新增5个数据源条目
+- [x] Tushare A股数据（FinanceMCP）— 已放弃（需用户自行注册获取 Token，无内置 Key）
+- [x] 多 Agent 架构已完整实现（multiAgentAnalysis.ts：宏观/技术/基本面/情绪四路并行 + Director 汇总）
+- [x] Alpaca 下单完整实现（AlpacaPortfolioCard.tsx + tRPC alpaca router）
+- [x] 全量测试：422/423 通过（1个已知网络限制失败）

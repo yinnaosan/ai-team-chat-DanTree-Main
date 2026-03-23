@@ -72,6 +72,7 @@ import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVa
 import { getLocalTechnicalIndicators, formatLocalTechnicalIndicators, getOHLCVForChart } from "./localIndicators";
 import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth, getOptionsChain, formatOptionsChain } from "./polygonApi";
 import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
+import { calculateHealthScore } from "./financialMetrics";
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
 import { getCryptoData, formatCryptoData, isCryptoTask, pingCoinGecko } from "./coinGeckoApi";
 import { fetchEFinanceData, formatEFinanceDataAsMarkdown, isEFinanceTask, extractStockCodes as extractEFinanceCodes, pingEFinance } from "./efinanceApi";
@@ -1220,8 +1221,26 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // 财务健康评分（JerBouma/FinanceToolkit 150+ 指标 → calculateHealthScore）
+      () => primaryTicker && ENV.FMP_API_KEY && resourcePlan.dataSources.deepFinancials
+        ? timed("财务健康", (async () => {
+            try {
+              const fmpRaw = await getFmpData(primaryTicker!);
+              const health = calculateHealthScore(
+                fmpRaw.incomeStatements,
+                fmpRaw.balanceSheets,
+                fmpRaw.cashFlows,
+                fmpRaw.keyMetrics
+              );
+              if (health.grade === "N/A") return "";
+              return `## 财务健康评分（FinanceToolkit）\n\n` +
+                `**综合评分：${health.score}/100（${health.grade}）**\n\n${health.summary}\n\n` +
+                `> 评分维度：盈利能力（30分）+ 偿债能力（25分）+ 现金流质量（25分）+ 成长性（20分）`;
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, healthScoreResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1304,6 +1323,7 @@ ${"```"}`;
       alphaResult?.status === "fulfilled" && alphaResult.value ? alphaResult.value : "",  // Alpha 因子（qlib Alpha101 + Alpha158）
       defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "",  // DeFi 链上数据（goat-sdk/goat · DeFiLlama）
       financeDbResult?.status === "fulfilled" && financeDbResult.value ? financeDbResult.value : "",  // 全球股票分类（JerBouma/FinanceDatabase）
+      healthScoreResult?.status === "fulfilled" && healthScoreResult.value ? healthScoreResult.value : "",  // 财务健康评分（JerBouma/FinanceToolkit 150+ 指标）
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）

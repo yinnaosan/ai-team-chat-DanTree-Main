@@ -150,7 +150,7 @@ export default function Home() {
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
             style={{ background: "oklch(0.72 0.18 155 / 0.08)", border: "1px solid oklch(0.72 0.18 155 / 0.2)", color: "oklch(68% 0.18 155)" }}>
             <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(68% 0.18 155)" }} />
-            25+ 数据源在线
+            30+ 数据源在线
           </div>
           {!authLoading && (
             <button
@@ -199,7 +199,7 @@ export default function Home() {
               <br />研究平台
             </h1>
             <p className="text-lg leading-relaxed max-w-xl mx-auto" style={{ color: "oklch(50% 0 0)" }}>
-              多 Agent 协作 · 25+ 专业数据源 · 证据驱动分析
+              多 Agent 协作 · 30+ 专业数据源 · 证据驱动分析
               <br />严格遵循段永平价值投资体系
             </p>
           </div>
@@ -249,7 +249,7 @@ export default function Home() {
               <Database className="w-5 h-5" style={{ color: "oklch(75% 0 0)" }} />
             </div>
             <h3 className="text-sm font-semibold mb-2" style={{ color: "oklch(88% 0 0)" }}>数据引擎</h3>
-            <p className="text-xs leading-relaxed" style={{ color: "oklch(38% 0 0)" }}>25+ 专业数据源，自动采集、交叉验证、结构化整理关键财务与市场数据。</p>
+            <p className="text-xs leading-relaxed" style={{ color: "oklch(38% 0 0)" }}>30+ 专业数据源，自动采集、交叉验证、结构化整理关键财务与市场数据。</p>
           </div>
 
           <div className="p-5 rounded-2xl"
@@ -286,7 +286,7 @@ export default function Home() {
         {/* ── Stats row ── */}
         <div className="max-w-4xl mx-auto w-full mt-12 grid grid-cols-3 gap-4">
           {[
-            { value: "25+", label: "专业数据源", icon: Globe },
+            { value: "30+", label: "专业数据源", icon: Globe },
             { value: "3", label: "分析阶段", icon: Cpu },
             { value: "99%", label: "数据准确率", icon: Shield },
           ].map(({ value, label, icon: Icon }) => (

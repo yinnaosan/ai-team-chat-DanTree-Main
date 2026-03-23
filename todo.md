@@ -1743,3 +1743,12 @@
 - [x] 在 DashboardLayout 侧边栏添加「因子回测」菜单项（FlaskConical 图标）
 - [x] 在 App.tsx 注册 /backtest 路由
 - [x] 编写 backtestEngine.test.ts（20 个测试），运行 499/499 全套测试通过
+
+## TrendRadar 算法集成
+
+- [ ] 创建 server/trendRadarEnhancer.ts：新闻权重评分（排名×0.4+频次×0.3+热度×0.3）
+- [ ] 实现跨平台共振检测（同一话题在多少源出现）
+- [ ] 实现全局过滤词（标题党/营销软文正则过滤）
+- [ ] 更新 Step2 新闻处理：叠加权重排序 + 过滤
+- [ ] 更新 Step3 AI 提示词：升级为 TrendRadar 六板块结构化分析格式
+- [ ] 编写测试，运行全套测试，保存 checkpoint

@@ -110,6 +110,7 @@ import { buildLawsContextBlock, getAllLawsSummary } from "./hackerLawsKnowledge"
 import { runBacktest as runFactorBacktest, BACKTEST_FACTORS } from "./backtestEngine";
 import { buildQuantContextBlock } from "./quantFactorKnowledge";
 import { fetchAllCnFinanceNews, formatCnNewsToMarkdown, isCnFinanceNewsRelevant, checkCnFinanceNewsHealth } from "./cnFinanceNewsApi";
+import { buildEnhancedNewsBlock, buildTrendRadarAnalysisPrompt, buildSourceAttribution, filterLowQualityNews, detectCrossSourceResonance, type NewsItem as TRNewsItem } from "./trendRadarEnhancer";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1776,8 +1777,14 @@ ${multiAgentBlock}`
       followupInstruction = `⑪ FOLLOWUP: 结尾给出 3 个研究延伸问题（帮用户深化分析，而非重复已知信息） %%FOLLOWUP%%问题%%END%%`;
     }
 
+    // 检测是否为新闻/市场分析类查询，如是则注入 TrendRadar 六板块分析框架
+    const isNewsAnalysisQuery = /新闻|市场动态|趋势|情绪|热点|头条|资讯|公告|事件|动态|影响|评估|news|trend|market update/i.test(taskDescription);
+    const trendRadarFramework = isNewsAnalysisQuery
+      ? `\n\n[TRENDRADAR_FRAMEWORK]\n${buildTrendRadarAnalysisPrompt()}\n[/TRENDRADAR_FRAMEWORK]`
+      : "";
+
     // Step3 GPT prompt（Phase B：基于 Phase A 结果，渲染自然语言）
-    const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]
+    const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]${trendRadarFramework}
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
 [GPT_RETRIEVAL_PLAN_S1]
 ${gptStep1Output.slice(0, 800)}

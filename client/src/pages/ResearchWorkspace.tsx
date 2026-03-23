@@ -531,11 +531,14 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
 }
 
 /** Customize Workspace Modal */
-function CustomizeWorkspaceModal({ open, onClose, panelVisibility, onTogglePanel }: {
+function CustomizeWorkspaceModal({ open, onClose, panelVisibility, onTogglePanel, columnWidths, onColumnWidthsChange, onSave }: {
   open: boolean;
   onClose: () => void;
   panelVisibility: Record<string, boolean>;
   onTogglePanel: (key: string) => void;
+  columnWidths?: { sidebar: number; analysis: number; discussion: number; insight: number };
+  onColumnWidthsChange?: (key: string, value: number) => void;
+  onSave?: () => void;
 }) {
   const panels = [
     { key: "verdict", label: "AI Verdict Card", desc: "主要决策输出" },
@@ -606,6 +609,10 @@ export default function ResearchWorkspacePage() {
   const [insightCollapsed, setInsightCollapsed] = useState(false);
   const [newConvTitle, setNewConvTitle] = useState("");
   const [showNewConvDialog, setShowNewConvDialog] = useState(false);
+  const [analysisRefreshed, setAnalysisRefreshed] = useState(false);
+  const [columnWidths, setColumnWidths] = useState<{sidebar: number; analysis: number; discussion: number; insight: number}>({
+    sidebar: 220, analysis: 280, discussion: 380, insight: 260,
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -620,6 +627,14 @@ export default function ResearchWorkspacePage() {
   const { data: rpaConfig } = trpc.rpa.getConfig.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
   });
+  const { data: quoteData } = trpc.market.getQuote.useQuery(
+    { symbol: currentTicker },
+    {
+      enabled: isAuthenticated && !!accessData?.hasAccess && !!currentTicker,
+      refetchInterval: 30000, // 30秒刷新一次
+      staleTime: 25000,
+    }
+  );
   const { data: rawConvMsgs, isLoading: _msgsLoading, refetch: refetchMsgs } = trpc.chat.getConversationMessages.useQuery(
     { conversationId: activeConvId! },
     {
@@ -636,6 +651,17 @@ export default function ResearchWorkspacePage() {
     };
     setAnalysisMode(modeMap[rpaConfig.defaultCostMode] ?? "standard");
   }, [rpaConfig?.defaultCostMode]);
+  // ── Sync columnWidths from rpaConfig ──
+  useEffect(() => {
+    if (!rpaConfig?.columnWidths) return;
+    const cw = rpaConfig.columnWidths as {sidebar?: number; analysis?: number; discussion?: number; insight?: number};
+    setColumnWidths(prev => ({
+      sidebar: cw.sidebar ?? prev.sidebar,
+      analysis: cw.analysis ?? prev.analysis,
+      discussion: cw.discussion ?? prev.discussion,
+      insight: cw.insight ?? prev.insight,
+    }));
+  }, [rpaConfig?.columnWidths]);
 
   // ── Mutations ──
   const createConvMutation = trpc.chat.createConversation.useMutation({
@@ -664,6 +690,10 @@ export default function ResearchWorkspacePage() {
       setSending(false);
       setIsTyping(false);
     },
+  });
+  const saveConfigMutation = trpc.rpa.setConfig.useMutation({
+    onSuccess: () => toast.success("工作台配置已保存"),
+    onError: (err) => toast.error("保存失败: " + err.message),
   });
   const pinConvMutation = trpc.conversation.pin.useMutation({ onSuccess: () => refetchConvs(), onError: (err) => toast.error(err.message) });
   const favoriteConvMutation = trpc.conversation.favorite.useMutation({ onSuccess: () => refetchConvs(), onError: (err) => toast.error(err.message) });
@@ -709,6 +739,9 @@ export default function ResearchWorkspacePage() {
           setTaskPhase("manus_working");
           refetchMsgs();
           refetchConvs();
+          // 触发分析列刷新动画
+          setAnalysisRefreshed(true);
+          setTimeout(() => setAnalysisRefreshed(false), 2000);
           es.close(); sseRef.current = null;
         } else if (d.type === "error") {
           setIsTyping(false); setIsStreaming(false); setSending(false);
@@ -877,8 +910,53 @@ export default function ResearchWorkspacePage() {
 
   // ── Render ──
   return (
-    <div className="h-screen flex overflow-hidden" style={{ background: "var(--bloomberg-surface-0)", fontFamily: "var(--font-sans)" }}>
-      {/* ── Instrument Selector Modal ── */}
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: "var(--bloomberg-surface-0)", fontFamily: "var(--font-sans)" }}>
+      {/* ── Pinned Metrics Top Bar ── */}
+      {currentTicker && quoteData && (
+        <div className="flex items-center gap-4 px-4 py-1.5 shrink-0 overflow-x-auto"
+          style={{ background: "var(--bloomberg-surface-1)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
+          {/* Ticker + Price */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-mono font-bold" style={{ color: "var(--bloomberg-gold)" }}>{currentTicker}</span>
+            <span className="text-[13px] font-mono font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>
+              {quoteData.price != null ? `$${quoteData.price.toFixed(2)}` : "—"}
+            </span>
+            {quoteData.changePercent != null && (
+              <span className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded"
+                style={{
+                  background: quoteData.changePercent >= 0 ? "oklch(0.65 0.18 145 / 0.15)" : "oklch(0.65 0.18 25 / 0.15)",
+                  color: quoteData.changePercent >= 0 ? "oklch(0.72 0.18 145)" : "oklch(0.72 0.18 25)",
+                }}>
+                {quoteData.changePercent >= 0 ? "▲" : "▼"} {Math.abs(quoteData.changePercent).toFixed(2)}%
+              </span>
+            )}
+          </div>
+          <div className="w-px h-4 shrink-0" style={{ background: "var(--bloomberg-border-dim)" }} />
+          {/* Metrics row */}
+          {[
+            { label: "开盘", value: quoteData.open != null ? `$${quoteData.open.toFixed(2)}` : "—" },
+            { label: "最高", value: quoteData.high != null ? `$${quoteData.high.toFixed(2)}` : "—" },
+            { label: "最低", value: quoteData.low != null ? `$${quoteData.low.toFixed(2)}` : "—" },
+            { label: "前收", value: quoteData.prevClose != null ? `$${quoteData.prevClose.toFixed(2)}` : "—" },
+            { label: "PE", value: quoteData.pe != null ? quoteData.pe.toFixed(1) : "—" },
+            { label: "PB", value: quoteData.pb != null ? quoteData.pb.toFixed(2) : "—" },
+            { label: "ROE", value: quoteData.roe != null ? `${(quoteData.roe * 100).toFixed(1)}%` : "—" },
+            { label: "EPS", value: quoteData.eps != null ? `$${quoteData.eps.toFixed(2)}` : "—" },
+          ].map(m => (
+            <div key={m.label} className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(35% 0 0)" }}>{m.label}</span>
+              <span className="text-[11px] font-mono" style={{ color: "var(--bloomberg-text-secondary)" }}>{m.value}</span>
+            </div>
+          ))}
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.72 0.18 145)" }} />
+            <span className="text-[9px]" style={{ color: "oklch(35% 0 0)" }}>LIVE · 30s</span>
+          </div>
+        </div>
+      )}
+      {/* ── 4-Column workspace ── */}
+      <div className="flex flex-1 overflow-hidden">
+      {/* ── Modals (rendered outside columns to avoid layout issues) ── */}
       <InstrumentSelectorModal
         open={showInstrumentModal}
         onClose={() => setShowInstrumentModal(false)}
@@ -893,6 +971,9 @@ export default function ResearchWorkspacePage() {
         open={showCustomizeModal}
         onClose={() => setShowCustomizeModal(false)}
         panelVisibility={panelVisibility}
+        columnWidths={columnWidths}
+        onColumnWidthsChange={(key, value) => setColumnWidths(prev => ({ ...prev, [key]: value }))}
+        onSave={() => saveConfigMutation.mutate({ columnWidths })}
         onTogglePanel={(key) => setPanelVisibility(prev => ({ ...prev, [key]: !prev[key] }))}
       />
 
@@ -1045,11 +1126,22 @@ export default function ResearchWorkspacePage() {
           COLUMN 2: Analysis Column (center-left)
       ════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
-        style={{ borderRight: "1px solid var(--bloomberg-border-dim)" }}>
+        style={{
+          borderRight: "1px solid var(--bloomberg-border-dim)",
+          transition: "box-shadow 0.3s ease",
+          boxShadow: analysisRefreshed ? "inset 0 0 0 1px var(--bloomberg-gold)" : "none",
+        }}>
         {/* Analysis Header */}
         <div className="flex items-center justify-between px-4 py-2.5 shrink-0"
           style={{ background: "var(--bloomberg-surface-1)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
           <div className="flex items-center gap-3">
+            {/* Analysis refreshed badge */}
+            {analysisRefreshed && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded animate-pulse"
+                style={{ background: "oklch(0.65 0.18 145 / 0.2)", color: "oklch(0.72 0.18 145)", border: "1px solid oklch(0.65 0.18 145 / 0.4)" }}>
+                ✓ 分析已更新
+              </span>
+            )}
             {/* Ticker badge */}
             <button onClick={() => setShowInstrumentModal(true)}
               className="flex items-center gap-2 px-2.5 py-1 rounded-lg transition-all hover:scale-[1.02]"
@@ -1424,6 +1516,7 @@ export default function ResearchWorkspacePage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

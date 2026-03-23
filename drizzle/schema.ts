@@ -156,6 +156,8 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   pinnedMetrics: json("pinnedMetrics"),
   // 用户自选股列表（JSON 数组，如 ["AAPL", "TSLA", "BTC"]）
   userWatchlist: json("userWatchlist"),
+  // 工作台列宽配置（JSON，如 {sidebar: 220, analysis: 320, discussion: 380, insight: 280}）
+  columnWidths: json("columnWidths"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -3140,6 +3140,8 @@ export const appRouter = router({
         pinnedMetrics: (config?.pinnedMetrics as Array<{label: string; value: string; change?: string; color?: string}> | null) ?? [],
         // 用户自选股列表
         userWatchlist: (config?.userWatchlist as string[] | null) ?? ["AAPL", "TSLA", "NVDA", "BTC"],
+        // 工作台列宽配置
+        columnWidths: (config?.columnWidths as {sidebar?: number; analysis?: number; discussion?: number; insight?: number} | null) ?? null,
       };
     }),
     // 保存 API Key 和模型选择
@@ -3188,6 +3190,13 @@ export const appRouter = router({
         })).optional().nullable(),
         // 用户自选股列表
         userWatchlist: z.array(z.string()).optional().nullable(),
+        // 工作台列宽配置
+        columnWidths: z.object({
+          sidebar: z.number().min(160).max(400).optional(),
+          analysis: z.number().min(240).max(600).optional(),
+          discussion: z.number().min(280).max(600).optional(),
+          insight: z.number().min(200).max(500).optional(),
+        }).optional().nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3208,6 +3217,8 @@ export const appRouter = router({
           pinnedMetrics: input.pinnedMetrics ?? undefined,
           // 用户自选股列表
           userWatchlist: input.userWatchlist ?? undefined,
+          // 工作台列宽配置
+          columnWidths: input.columnWidths ?? undefined,
         });
         return { success: true };
       }),
@@ -3702,6 +3713,60 @@ export const appRouter = router({
         return runWorldMonitor(ticker, marketData);
       }),
   }),
+  market: router({
+    // 获取单只股票的实时行情（价格、涨跌幅、PE 等）
+    getQuote: protectedProcedure
+      .input(z.object({ symbol: z.string().min(1).max(20) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const sym = input.symbol.toUpperCase().trim();
+        try {
+          const { getQuote, getBasicFinancials } = await import("./finnhubApi");
+          const [quote, metrics] = await Promise.allSettled([
+            getQuote(sym),
+            getBasicFinancials(sym),
+          ]);
+          const q = quote.status === "fulfilled" ? quote.value : null;
+          const m = metrics.status === "fulfilled" ? metrics.value : null;
+          return {
+            symbol: sym,
+            price: q?.c ?? null,
+            change: q?.d ?? null,
+            changePercent: q?.dp ?? null,
+            high: q?.h ?? null,
+            low: q?.l ?? null,
+            open: q?.o ?? null,
+            prevClose: q?.pc ?? null,
+            pe: m?.metric?.peNormalizedAnnual ?? null,
+            pb: m?.metric?.pbAnnual ?? null,
+            roe: m?.metric?.roeTTM ?? null,
+            eps: m?.metric?.epsNormalizedAnnual ?? null,
+            marketCap: null,
+            timestamp: q?.t ?? null,
+          };
+        } catch (err) {
+          return { symbol: sym, price: null, change: null, changePercent: null, high: null, low: null, open: null, prevClose: null, pe: null, pb: null, roe: null, eps: null, marketCap: null, timestamp: null };
+        }
+      }),
+    // 批量获取多只股票的实时行情（用于 Pinned Metrics 栏）
+    getBatchQuotes: protectedProcedure
+      .input(z.object({ symbols: z.array(z.string().min(1).max(20)).max(10) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { getQuote } = await import("./finnhubApi");
+        const results = await Promise.allSettled(
+          input.symbols.map(sym => getQuote(sym.toUpperCase().trim()))
+        );
+        return input.symbols.map((sym, i) => {
+          const r = results[i];
+          if (r.status === "fulfilled") {
+            return { symbol: sym.toUpperCase(), price: r.value.c, change: r.value.d, changePercent: r.value.dp, prevClose: r.value.pc };
+          }
+          return { symbol: sym.toUpperCase(), price: null, change: null, changePercent: null, prevClose: null };
+        });
+      }),
+  }),
+
 });
 
 export type AppRouter = typeof appRouter;

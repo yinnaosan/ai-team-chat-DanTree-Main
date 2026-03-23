@@ -1371,7 +1371,27 @@ ${"```"}`;
         : Promise.resolve(""),
       // 中文财经新闻（华尔街见闻/金十/格隆汇/雪球）
       () => isCnFinanceNewsRelevant(taskDescription + " " + gptStep1Output)
-        ? fetchAllCnFinanceNews().then(r => formatCnNewsToMarkdown(r, taskDescription)).catch(() => "")
+        ? fetchAllCnFinanceNews().then(r => {
+            // ── V2.1 TrendRadar 集成：过滤 + 权重排序 + 共振检测 ──
+            const allItems = [
+              ...r.wallstreetcn.items,
+              ...r.jin10.items,
+              ...r.gelonghui.items,
+              ...r.xueqiu.items,
+            ].map((item, idx) => ({
+              title: item.title,
+              source: item.source,
+              url: item.url,
+              publishedAt: item.publishedAt ? new Date(item.publishedAt).toISOString() : undefined,
+              rank: idx + 1,
+            }));
+            if (allItems.length === 0) return formatCnNewsToMarkdown(r, taskDescription);
+            const enhancedBlock = buildEnhancedNewsBlock(allItems, 20);
+            const originalBlock = formatCnNewsToMarkdown(r, taskDescription);
+            return enhancedBlock
+              ? `## 中文财经新闻（TrendRadar 增强版）\n${enhancedBlock}\n\n---\n\n${originalBlock}`
+              : originalBlock;
+          }).catch(() => "")
         : Promise.resolve(""),
     ];
     const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, cnFinanceNewsResult] = await runBatch(deepTasks, 2);

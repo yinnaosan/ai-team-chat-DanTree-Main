@@ -565,6 +565,14 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   // TrendRadar 热点点击 → WorldMonitor 联动
   const [worldMonitorLinkedTicker, setWorldMonitorLinkedTicker] = React.useState<string | null>(null);
   const worldMonitorTicker = worldMonitorLinkedTicker ?? tickerForCards;
+  // WorldMonitor 跨资产分析完成 → 回写 TrendRadar watchlist
+  const [extraWatchlist, setExtraWatchlist] = React.useState<string[]>([]);
+  const handleTopCorrelationsFound = React.useCallback((assets: string[]) => {
+    setExtraWatchlist(prev => {
+      const merged = new Set([...prev, ...assets]);
+      return Array.from(merged);
+    });
+  }, []);
   const newsItemsForCards = React.useMemo(() => {
     const meta = msg.metadata as Record<string, unknown> | undefined;
     if (meta?.newsItems && Array.isArray(meta.newsItems)) {
@@ -631,6 +639,7 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
                 ticker={tickerForCards}
                 newsItems={newsItemsForCards}
                 onWatchlistClick={(sym) => setWorldMonitorLinkedTicker(sym)}
+                extraWatchlist={extraWatchlist}
               />
             </div>
           )}
@@ -664,10 +673,10 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
                       className="ml-auto text-[10px] px-2 py-0.5 rounded bg-white/5 text-muted-foreground/40 hover:text-muted-foreground/80 hover:bg-white/10 transition-colors"
                     >↩ 恢复默认</button>
                   </div>
-                  <WorldMonitorCard ticker={worldMonitorLinkedTicker} />
+                  <WorldMonitorCard ticker={worldMonitorLinkedTicker} onTopCorrelationsFound={handleTopCorrelationsFound} />
                 </div>
               ) : (
-                <WorldMonitorCard ticker={worldMonitorTicker} />
+                <WorldMonitorCard ticker={worldMonitorTicker} onTopCorrelationsFound={handleTopCorrelationsFound} />
               )}
             </div>
           )}

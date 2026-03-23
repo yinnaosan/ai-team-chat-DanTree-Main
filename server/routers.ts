@@ -56,6 +56,8 @@ import {
   getAllMessagesByUser,
   searchConversations,
   updateMessageContent,
+  upsertDailySentiment,
+  getSentimentHistoryRecords,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -2536,6 +2538,45 @@ export const appRouter = router({
         } catch {
           // 情绪分析失败不影响新闻加载
         }
+        // 写入当日情绪数据到数据库（upsert）
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const positiveCount = Array.from(sentimentMap.values()).filter(v => v === "positive").length;
+        const negativeCount = Array.from(sentimentMap.values()).filter(v => v === "negative").length;
+        const neutralCount = Array.from(sentimentMap.values()).filter(v => v === "neutral").length;
+        try {
+          await upsertDailySentiment({
+            date: todayStr,
+            score: overallSentimentScore,
+            label: overallSentimentLabel,
+            articleCount: articles.length,
+            positiveCount,
+            negativeCount,
+            neutralCount,
+          });
+        } catch { /* 写入失败不影响返回 */ }
+        // 从数据库读取 7 日历史
+        let sentimentHistoryData: Array<{ date: string; score: number }> = [];
+        try {
+          const records = await getSentimentHistoryRecords(7);
+          sentimentHistoryData = records.map(r => ({
+            date: r.date.slice(5), // MM-DD
+            score: r.score,
+          }));
+        } catch { /* 读取失败使用空数组 */ }
+        // 若历史数据不足 7 天，用模拟数据补全
+        if (sentimentHistoryData.length < 2) {
+          const today = Date.now();
+          const DAY = 86400000;
+          const seed = overallSentimentScore;
+          sentimentHistoryData = [];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(today - i * DAY);
+            const label = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const offset = Math.round((Math.sin((seed * 0.1 + i) * 0.7) * 18) + (Math.cos(i * 1.3) * 12));
+            const score = Math.max(-100, Math.min(100, seed + offset));
+            sentimentHistoryData.push({ date: label, score });
+          }
+        }
         return {
           articles: articles.map((a: import("./newsApi.js").NewsArticle, idx: number) => ({
             title: a.title,
@@ -2549,21 +2590,7 @@ export const appRouter = router({
             score: overallSentimentScore,
             label: overallSentimentLabel,
           },
-          sentimentHistory: (() => {
-            // 生成 7 日情绪历史（以当日分数为基准，加入正弦波动模拟趋势）
-            const today = Date.now();
-            const DAY = 86400000;
-            const seed = overallSentimentScore;
-            const history: Array<{ date: string; score: number }> = [];
-            for (let i = 6; i >= 0; i--) {
-              const d = new Date(today - i * DAY);
-              const label = `${d.getMonth() + 1}/${d.getDate()}`;
-              const offset = Math.round((Math.sin((seed * 0.1 + i) * 0.7) * 18) + (Math.cos(i * 1.3) * 12));
-              const score = Math.max(-100, Math.min(100, seed + offset));
-              history.push({ date: label, score });
-            }
-            return history;
-          })(),
+          sentimentHistory: sentimentHistoryData,
         };
       }),
   }),

@@ -59,6 +59,8 @@ interface WorldMonitorCardProps {
     sectorPerformance?: Record<string, number>;
     relatedTickers?: Array<{ symbol: string; change: number }>;
   };
+  /** 分析完成后，回调相关性最强的资产列表（用于回写 TrendRadar watchlist） */
+  onTopCorrelationsFound?: (assets: string[]) => void;
 }
 
 const ASSET_TYPE_ICONS: Record<string, string> = {
@@ -121,10 +123,22 @@ function SignalRow({ signal }: { signal: GlobalSignal }) {
   );
 }
 
-export function WorldMonitorCard({ ticker, marketData = {} }: WorldMonitorCardProps) {
+export function WorldMonitorCard({ ticker, marketData = {}, onTopCorrelationsFound }: WorldMonitorCardProps) {
   const [result, setResult] = useState<CrossStreamAnalysis | null>(null);
   const analyzeMutation = trpc.worldMonitor.analyze.useMutation({
-    onSuccess: (data) => setResult(data as CrossStreamAnalysis),
+    onSuccess: (data) => {
+      const analysis = data as CrossStreamAnalysis;
+      setResult(analysis);
+      // 回调相关性绝对値最高的前 3 个资产（排除主 ticker 本身）
+      if (onTopCorrelationsFound && analysis.correlationMatrix?.length) {
+        const topAssets = [...analysis.correlationMatrix]
+          .sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation))
+          .slice(0, 3)
+          .map(c => c.asset)
+          .filter(a => a.toUpperCase() !== ticker.toUpperCase());
+        if (topAssets.length > 0) onTopCorrelationsFound(topAssets);
+      }
+    },
   });
 
   const handleAnalyze = () => {

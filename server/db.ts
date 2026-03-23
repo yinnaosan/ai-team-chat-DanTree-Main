@@ -903,3 +903,34 @@ export async function getNetWorthHistory(userId: number, limit = 30) {
     .orderBy(desc(netWorthSnapshots.snapshotAt))
     .limit(limit);
 }
+
+// ── 市场情绪历史持久化 ──────────────────────────────────────────────────────────────
+import { sentimentHistory } from "../drizzle/schema";
+import type { InsertSentimentHistory } from "../drizzle/schema";
+import { gte } from "drizzle-orm";
+
+/**
+ * 写入当日情绪数据（upsert：同一天只保留最新一条）
+ */
+export async function upsertDailySentiment(data: Omit<InsertSentimentHistory, "id" | "createdAt">): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  // 先删除同日旧记录，再插入新记录
+  await db.delete(sentimentHistory).where(eq(sentimentHistory.date, data.date));
+  await db.insert(sentimentHistory).values(data);
+}
+
+/**
+ * 查询最近 N 天的情绪历史（按日期升序，用于趋势图）
+ */
+export async function getSentimentHistoryRecords(days = 7) {
+  const db = await getDb();
+  if (!db) return [];
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return db.select().from(sentimentHistory)
+    .where(gte(sentimentHistory.date, cutoffStr))
+    .orderBy(sentimentHistory.date)
+    .limit(days);
+}

@@ -39,6 +39,8 @@ interface TrendRadarResult {
 interface TrendRadarCardProps {
   ticker: string;
   onWatchlistClick?: (symbol: string) => void;
+  /** WorldMonitor 联动回写的额外关注资产 */
+  extraWatchlist?: string[];
   newsItems: Array<{
     title: string;
     description?: string;
@@ -108,7 +110,7 @@ function PulseGauge({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function TrendRadarCard({ ticker, newsItems, onWatchlistClick }: TrendRadarCardProps) {
+export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatchlist = [] }: TrendRadarCardProps) {
   const [result, setResult] = useState<TrendRadarResult | null>(null);
   const scanMutation = trpc.trendRadar.scan.useMutation({
     onSuccess: (data) => setResult(data as TrendRadarResult),
@@ -251,25 +253,44 @@ export function TrendRadarCard({ ticker, newsItems, onWatchlistClick }: TrendRad
             </div>
 
             {/* Watchlist */}
-            {pulse?.watchlist && pulse.watchlist.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] text-muted-foreground">关注列表:</span>
-                {pulse.watchlist.map((sym) => (
-                  <button
-                    key={sym}
-                    onClick={() => onWatchlistClick?.(sym)}
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 transition-colors",
-                      onWatchlistClick && "hover:bg-blue-500/40 hover:border-blue-400/60 cursor-pointer"
-                    )}
-                    title={onWatchlistClick ? `查看 ${sym} 跨资产相关性` : undefined}
-                  >
-                    {sym}
-                    {onWatchlistClick && <span className="ml-0.5 opacity-60">↗</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            {(() => {
+              // 合并 AI 扫描的 watchlist 和 WorldMonitor 回写的 extraWatchlist
+              const baseList = pulse?.watchlist ?? [];
+              const mergedSet = new Set([...baseList, ...extraWatchlist]);
+              const mergedList = Array.from(mergedSet);
+              if (mergedList.length === 0) return null;
+              return (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">关注列表:</span>
+                    {mergedList.map((sym) => {
+                      const isFromWorldMonitor = extraWatchlist.includes(sym) && !baseList.includes(sym);
+                      return (
+                        <button
+                          key={sym}
+                          onClick={() => onWatchlistClick?.(sym)}
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                            isFromWorldMonitor
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/40"
+                              : "bg-blue-500/20 text-blue-300 border-blue-500/30",
+                            onWatchlistClick && "hover:border-opacity-80 cursor-pointer"
+                          )}
+                          title={isFromWorldMonitor ? `来自 WorldMonitor 跨资产分析 — 查看 ${sym} 相关性` : (onWatchlistClick ? `查看 ${sym} 跨资产相关性` : undefined)}
+                        >
+                          {sym}
+                          {isFromWorldMonitor && <span className="ml-0.5 text-emerald-400 opacity-80">★</span>}
+                          {!isFromWorldMonitor && onWatchlistClick && <span className="ml-0.5 opacity-60">↗</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {extraWatchlist.length > 0 && (
+                    <p className="text-[10px] text-emerald-400/60">★ 来自 WorldMonitor 跨资产分析</p>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="text-[10px] text-muted-foreground/50 text-right">
               扫描时间: {new Date(result.scanTime).toLocaleTimeString()}

@@ -1640,3 +1640,11 @@
 - [x] 情绪指数 7 日历史趋势图：NewsNowPanel 底部添加 Recharts AreaChart，展示近 7 日市场情绪指数变化，带标注和渐变色填充
 - [x] TrendRadar 联动滑入动画：WorldMonitorCard 从右侧滑入（slideInFromRight 关键帧），标题显示「来自 TrendRadar 联动」标记
 - [x] BacktestCard 策略自动预填充：基于 Alpha 因子类别权重自动推断最优策略，标题显示推断结果，策略按鈕显示「推荐」徽章
+
+## 深度增强功能（2026-03-23 第三批）
+
+- [x] 情绪历史持久化：新建 sentiment_history 表（ticker, date, score, label, articleCount），getNewsFeed 写入当日数据，新增 getSentimentHistory 路由查询 7 日历史
+- [x] 情绪历史持久化：NewsNowPanel 7 日趋势图改用真实数据库历史数据
+- [x] TrendRadar 联动扩展：WorldMonitorCard 跨资产分析完成后，将相关性最强的资产自动添加到 TrendRadarCard watchlist（extraWatchlist）
+- [x] BacktestCard 预填充精细化：将 Alpha 因子 zScore 纳入策略推断权重（zScore 绝对値越大权重越高）
+- [x] BacktestCard 预填充精细化：运行按鈕旁显示「基于 Alpha 信号预期胜率」估算（基于 compositeScore 和 zScore 均値计算）

@@ -53,6 +53,7 @@ interface BacktestCardProps {
   prices?: number[];
   alphaScores?: number[];
   suggestedStrategy?: string; // Alpha 因子推断的预选策略
+  expectedWinRate?: number; // 基于 zScore 加权 Alpha 信号强度估算的预期胜率
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -141,7 +142,7 @@ function StrategyResultRow({ result }: { result: BacktestResult }) {
   );
 }
 
-export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggestedStrategy }: BacktestCardProps) {
+export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggestedStrategy, expectedWinRate }: BacktestCardProps) {
   const [activeStrategy, setActiveStrategy] = useState<string>(suggestedStrategy ?? "momentum");
   const [showComparison, setShowComparison] = useState(false);
 
@@ -225,7 +226,7 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggest
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleRunSingle}
             disabled={isLoading}
@@ -250,6 +251,21 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggest
             )}
             四策略对比
           </button>
+          {/* 预期胜率徽章（基于 Alpha 因子 zScore 加权信号强度估算） */}
+          {expectedWinRate !== undefined && (
+            <span
+              className={`ml-auto text-[10px] px-2.5 py-1 rounded-lg border font-semibold ${
+                expectedWinRate >= 60
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  : expectedWinRate >= 55
+                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  : "bg-slate-500/15 text-slate-400 border-slate-500/30"
+              }`}
+              title="基于 Alpha 因子 zScore 加权信号强度估算，仅供参考"
+            >
+              基于 Alpha 信号预期胜率 {expectedWinRate}%
+            </span>
+          )}
         </div>
 
         {/* Error */}

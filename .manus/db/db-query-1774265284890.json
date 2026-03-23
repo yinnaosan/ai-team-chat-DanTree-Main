@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `sentiment_history` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `date` varchar(10) NOT NULL,\n  `score` int NOT NULL,\n  `label` varchar(20) NOT NULL,\n  `articleCount` int NOT NULL DEFAULT 0,\n  `positiveCount` int NOT NULL DEFAULT 0,\n  `negativeCount` int NOT NULL DEFAULT 0,\n  `neutralCount` int NOT NULL DEFAULT 0,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `sentiment_history_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute CREATE TABLE IF NOT EXISTS `sentiment_history` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `date` varchar(10) NOT NULL,\n  `score` int NOT NULL,\n  `label` varchar(20) NOT NULL,\n  `articleCount` int NOT NULL DEFAULT 0,\n  `positiveCount` int NOT NULL DEFAULT 0,\n  `negativeCount` int NOT NULL DEFAULT 0,\n  `neutralCount` int NOT NULL DEFAULT 0,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `sentiment_history_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 517
+}

@@ -307,3 +307,21 @@ export const netWorthSnapshots = mysqlTable("net_worth_snapshots", {
 
 export type NetWorthSnapshot = typeof netWorthSnapshots.$inferSelect;
 export type InsertNetWorthSnapshot = typeof netWorthSnapshots.$inferInsert;
+
+/**
+ * 市场情绪历史表
+ * 每次调用 getNewsFeed 时写入当日情绪分析结果，用于 7 日趋势图
+ */
+export const sentimentHistory = mysqlTable("sentiment_history", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 10 }).notNull(),          // YYYY-MM-DD
+  score: int("score").notNull(),                             // 0-100 情绪指数
+  label: varchar("label", { length: 20 }).notNull(),         // bullish / bearish / neutral
+  articleCount: int("articleCount").notNull().default(0),    // 分析的新闻数量
+  positiveCount: int("positiveCount").notNull().default(0),  // 正面新闻数
+  negativeCount: int("negativeCount").notNull().default(0),  // 负面新闻数
+  neutralCount: int("neutralCount").notNull().default(0),    // 中性新闻数
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type SentimentHistory = typeof sentimentHistory.$inferSelect;
+export type InsertSentimentHistory = typeof sentimentHistory.$inferInsert;

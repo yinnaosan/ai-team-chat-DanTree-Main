@@ -740,25 +740,37 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
   const [showLiquidity, setShowLiquidity] = useState(false);
   const [showBacktest, setShowBacktest] = useState(false);
 
-  // 基于 Alpha 因子类别权重自动推断最优回测策略
-  const suggestedStrategy = useMemo(() => {
-    if (!payload.factors || payload.factors.length === 0) return "momentum";
-    // 按类别统计平均强度加权分
+  // 基于 Alpha 因子类别权重（含 zScore）自动推断最优回测策略，并计算预期胜率
+  const { suggestedStrategy, expectedWinRate } = useMemo(() => {
+    if (!payload.factors || payload.factors.length === 0)
+      return { suggestedStrategy: "momentum", expectedWinRate: 50 };
+    // 按类别统计加权分：|zScore| 越高，该因子对类别评分贡献越大
     const categoryScores: Record<string, number> = {};
+    let totalZWeight = 0;
+    let weightedSignalSum = 0;
     for (const f of payload.factors) {
       const cat = (f.category ?? "").toLowerCase();
-      const score = f.strength * f.signal;
+      const zWeight = f.zScore !== null ? (1 + Math.min(Math.abs(f.zScore), 3) / 3) : 1.0;
+      const score = f.strength * f.signal * zWeight;
       categoryScores[cat] = (categoryScores[cat] ?? 0) + score;
+      totalZWeight += zWeight;
+      weightedSignalSum += f.signal * zWeight;
     }
+    const avgSignal = totalZWeight > 0 ? weightedSignalSum / totalZWeight : 0;
     // 如果综合评分很高，优先用 alpha_factor 策略
-    if (Math.abs(payload.compositeScore) >= 60) return "alpha_factor";
-    // 动量类别强则用动量策略
+    if (Math.abs(payload.compositeScore) >= 60) {
+      const winRate = Math.min(Math.round(50 + Math.abs(avgSignal) * 0.25 + (Math.abs(payload.compositeScore) - 60) * 0.3), 78);
+      return { suggestedStrategy: "alpha_factor", expectedWinRate: winRate };
+    }
     const momentumScore = (categoryScores["momentum"] ?? 0) + (categoryScores["technical"] ?? 0);
     const valueScore = (categoryScores["value"] ?? 0) + (categoryScores["quality"] ?? 0) + (categoryScores["fundamental"] ?? 0);
     const trendScore = (categoryScores["trend"] ?? 0) + (categoryScores["price"] ?? 0);
-    if (valueScore > momentumScore && valueScore > trendScore) return "mean_reversion";
-    if (trendScore > momentumScore && trendScore > valueScore) return "ma_crossover";
-    return "momentum";
+    const baseWinRate = Math.round(50 + Math.abs(avgSignal) * 0.2);
+    if (valueScore > momentumScore && valueScore > trendScore)
+      return { suggestedStrategy: "mean_reversion", expectedWinRate: Math.min(baseWinRate + 3, 72) };
+    if (trendScore > momentumScore && trendScore > valueScore)
+      return { suggestedStrategy: "ma_crossover", expectedWinRate: Math.min(baseWinRate + 2, 70) };
+    return { suggestedStrategy: "momentum", expectedWinRate: Math.min(baseWinRate, 68) };
   }, [payload.factors, payload.compositeScore]);
   // 权重状态：默认全部 1.0
   const [weights, setWeights] = useState<Record<string, number>>(
@@ -1051,11 +1063,11 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
             {/* Alpha 因子回测（Qbot 联动） */}
             {showBacktest && (
               <div className="mt-3 pt-3 border-t border-white/10">
-                <div className="flex items-center gap-1.5 mb-2">
+                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                   <FlaskConical className="w-3.5 h-3.5 text-pink-400" />
                   <span className="text-xs font-medium text-pink-400">Qbot 量化回测</span>
                   <span className="text-xs text-muted-foreground/50">（基于 Alpha 因子信号）</span>
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">
                     自动推断: {{
                       momentum: "动量策略",
                       mean_reversion: "均値回归",
@@ -1063,6 +1075,19 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                       alpha_factor: "Alpha 因子",
                       buy_hold: "买入持有",
                     }[suggestedStrategy] ?? suggestedStrategy}
+                  </span>
+                  {/* 预期胜率徽章（基于 zScore 加权 Alpha 信号强度） */}
+                  <span
+                    className={`ml-auto text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                      expectedWinRate >= 60
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                        : expectedWinRate >= 55
+                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                        : "bg-slate-500/15 text-slate-400 border-slate-500/30"
+                    }`}
+                    title="基于 Alpha 因子 zScore 加权信号强度估算，仅供参考"
+                  >
+                    预期胜率 {expectedWinRate}%
                   </span>
                 </div>
                 <BacktestCard
@@ -1072,6 +1097,7 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                   alphaScore={payload.compositeScore}
                   alphaScores={payload.factors.map(f => f.strength * f.signal)}
                   suggestedStrategy={suggestedStrategy}
+                  expectedWinRate={expectedWinRate}
                 />
               </div>
             )}

@@ -157,9 +157,12 @@ function DataSourceStatusPanel() {
                 1, // qlib Alpha 因子库，始终计入
                 1, // 财报 PDF 解析器，始终计入
                 ["active","warning"].includes(status.alpacaStatus) ? 1 : 0,
+                ["active","warning"].includes(status.twelveDataStatus) ? 1 : 0,
+                1, // Frankfurter 免费公开，始终计入
+                1, // Portfolio Optimizer 免费公开，始终计入
               ].reduce((a, b) => a + b, 0)}
               /
-              {30}
+              {33}
                正常
             </span>
           )}
@@ -533,6 +536,49 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
                 内置 | microsoft/qlib
+              </span>
+            }
+          />
+          {/* Twelve Data */}
+          <SourceRow
+            label="Twelve Data"
+            desc="实时报价 / RSI / MACD / OHLCV（Yahoo Finance 备用源）"
+            statusStr={status?.twelveDataStatus ?? "unknown"}
+            badge={
+              !status?.twelveDataConfigured ? (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.65 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+                  需 API Key
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.60 0.12 250)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
+                  5000+ 股票
+                </span>
+              )
+            }
+          />
+          {/* Frankfurter 外汇 */}
+          <SourceRow
+            label="Frankfurter 外汇"
+            desc="33 种货币实时汇率 / 历史 FX（基于欧洲央行）"
+            statusStr={status?.exchangeRatesStatus ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开 | ECB 数据
+              </span>
+            }
+          />
+          {/* Portfolio Optimizer */}
+          <SourceRow
+            label="Portfolio Optimizer"
+            desc="均値-方差优化 / 风险平价 / 有效前沿"
+            statusStr={status?.portfolioOptimizerStatus ?? "active"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开 | portfoliooptimizer.io
               </span>
             }
           />

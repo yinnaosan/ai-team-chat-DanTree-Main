@@ -103,6 +103,9 @@ import { executeCode, validateCode, getPresetChartCode, generateAutoChart } from
 import { calcAlphaFactors, convertToOHLCVSeries } from "./alphaFactors";
 import { getDeFiOverview, searchDeFiProtocols, formatDeFiOverview, needsDeFiData, extractDeFiProtocols } from "./defiDataApi";
 import { getEquityClassification, formatFinanceDatabaseReport, extractTickersForClassification } from "./financeDatabaseApi";
+import { getTwelveDataAnalysis, checkTwelveDataHealth, isTwelveDataConfigured } from "./twelveDataApi";
+import { getForexAnalysis, checkExchangeRatesHealth } from "./exchangeRatesApi";
+import { getPortfolioOptimizationAnalysis, checkPortfolioOptimizerHealth } from "./portfolioOptimizerApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -153,6 +156,12 @@ type DataSourceStatusResult = {
   gleifStatus: ApiHealthStatus; gleifConfigured: boolean;
   // Alpaca Paper Trading（模拟交易）
   alpacaStatus: ApiHealthStatus; alpacaConfigured: boolean;
+  // Twelve Data（实时行情/历史 OHLCV/技术指标）
+  twelveDataStatus: ApiHealthStatus; twelveDataConfigured: boolean;
+  // Frankfurter（外汇汇率，免费公开）
+  exchangeRatesStatus: ApiHealthStatus; exchangeRatesConfigured: boolean;
+  // Portfolio Optimizer（投资组合优化，免费公开）
+  portfolioOptimizerStatus: ApiHealthStatus; portfolioOptimizerConfigured: boolean;
   // Serper（Tavily 备用搜索引擎）
   serperConfigured: boolean;
   serperActiveCount: number;
@@ -207,6 +216,9 @@ function buildDefaultDataSourceStatus(): DataSourceStatusResult {
     eurLexStatus: "active", eurLexConfigured: true,
     gleifStatus: "active", gleifConfigured: true,
     alpacaStatus: smartDefault(isAlpacaConfigured(), false), alpacaConfigured: isAlpacaConfigured(),
+    twelveDataStatus: smartDefault(!!ENV.TWELVE_DATA_API_KEY, false), twelveDataConfigured: !!ENV.TWELVE_DATA_API_KEY,
+    exchangeRatesStatus: "active", exchangeRatesConfigured: true,
+    portfolioOptimizerStatus: "active", portfolioOptimizerConfigured: true,
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -264,6 +276,7 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
       // [已移除]
     { key: "congress",      check: () => withTimeout(ENV.CONGRESS_API_KEY ? checkCongressHealth().then(r => r.status === "ok" ? "active" : "degraded").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
     { key: "alpaca",        check: () => withTimeout(isAlpacaConfigured() ? checkAlpacaHealth().then(r => r.status === "active" ? "active" : "error").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
+    { key: "twelveData",    check: () => withTimeout(ENV.TWELVE_DATA_API_KEY ? checkTwelveDataHealth().then(r => r.status === "ok" ? "active" : r.status === "degraded" ? "degraded" : "error").catch(() => "error") : Promise.resolve("not_configured"), "timeout", 8000) as Promise<ApiHealthStatus> },
   ];
 
   const keyedResults = await runBatched(keyedChecks.map(c => c.check), 5);
@@ -303,6 +316,9 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     eurLexStatus: freePublicApis.eurLex, eurLexConfigured: true,
     gleifStatus: freePublicApis.gleif, gleifConfigured: true,
     alpacaStatus: keyedMap["alpaca"] ?? "error", alpacaConfigured: isAlpacaConfigured(),
+    twelveDataStatus: keyedMap["twelveData"] ?? (ENV.TWELVE_DATA_API_KEY ? "unknown" : "not_configured"), twelveDataConfigured: !!ENV.TWELVE_DATA_API_KEY,
+    exchangeRatesStatus: "active", exchangeRatesConfigured: true,
+    portfolioOptimizerStatus: "active", portfolioOptimizerConfigured: true,
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -1253,6 +1269,14 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // Twelve Data：实时报价 + RSI/MACD（作为 Yahoo Finance 备用源）
+      () => primaryTicker && isTwelveDataConfigured()
+        ? timed("Twelve Data", getTwelveDataAnalysis(primaryTicker!).catch(() => ""))
+        : Promise.resolve(""),
+      // Frankfurter：外汇汇率（免费公开，无需 Key）
+      () => resourcePlan.dataSources.macroData || /汇率|外汇|人民币|港元|美元|日元|欧元|USD|EUR|JPY|CNY|HKD|GBP|forex|currency/i.test(taskDescription + " " + gptStep1Output)
+        ? timed("外汇汇率", getForexAnalysis(taskDescription + " " + gptStep1Output).catch(() => ""))
+        : Promise.resolve(""),
       // 财务健康评分（JerBouma/FinanceToolkit 150+ 指标 → calculateHealthScore）
       () => primaryTicker && ENV.FMP_API_KEY && resourcePlan.dataSources.deepFinancials
         ? timed("财务健康", (async () => {
@@ -1324,7 +1348,7 @@ ${"```"}`;
           })())
         : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, healthScoreResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1360,6 +1384,13 @@ ${"```"}`;
     const secMarkdown = secResult.status === "fulfilled" && secResult.value ? secResult.value : "";
     const avEconomicMarkdown = avEconomicResult.status === "fulfilled" && avEconomicResult.value ? avEconomicResult.value : "";
     const cryptoMarkdown = cryptoResult.status === "fulfilled" && cryptoResult.value ? cryptoResult.value : "";
+    const etfMarkdown = etfResult?.status === "fulfilled" && etfResult.value ? etfResult.value : "";
+    const alphaMarkdown = alphaResult?.status === "fulfilled" && alphaResult.value ? alphaResult.value : "";
+    const defiMarkdown = defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "";
+    const financeDbMarkdown = financeDbResult?.status === "fulfilled" && financeDbResult.value ? financeDbResult.value : "";
+    const twelveDataMarkdown = twelveDataResult?.status === "fulfilled" && twelveDataResult.value ? twelveDataResult.value : "";
+    const forexMarkdown = forexResult?.status === "fulfilled" && forexResult.value ? forexResult.value : "";
+    const healthScoreMarkdown = healthScoreResult?.status === "fulfilled" && healthScoreResult.value ? healthScoreResult.value : "";
     const aStockMarkdown = "";  // [已移除 Baostock]
     const gdeltMarkdown = "";  // [已移除 GDELT]
     const newsApiMarkdown = newsApiResult.status === "fulfilled" && newsApiResult.value ? newsApiResult.value : "";
@@ -1403,6 +1434,8 @@ ${"```"}`;
       congressMarkdown,        // Congress.gov 美国立法动态/法案
       eurLexMarkdown,          // EUR-Lex 欧盟法规/监管文件
       gleifMarkdown,           // GLEIF 全球 LEI 法人识别码/法人结构/母子公司关系
+      twelveDataMarkdown,        // Twelve Data 实时报价/RSI/MACD（Yahoo Finance 备用源）
+      forexMarkdown,             // Frankfurter 外汇汇率（免费公开，基于欧洲央行）
       etfResult?.status === "fulfilled" && etfResult.value ? etfResult.value : "",  // ETF 分析（ThePassiveInvestor）
       alphaResult?.status === "fulfilled" && alphaResult.value ? alphaResult.value : "",  // Alpha 因子（qlib Alpha101 + Alpha158）
       defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "",  // DeFi 链上数据（goat-sdk/goat · DeFiLlama）

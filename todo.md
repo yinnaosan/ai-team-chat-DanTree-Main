@@ -1668,3 +1668,15 @@
 - [x] routers.ts Manus 系统提示词新增 A_SHARE_HK_DATA 规则：严禁因非交易时段显示「数据不足」错误
 - [x] realtime-data.test.ts 新增 5 个测试：沪深300/恒指/上证指数 ticker 提取 + A 股/港股数据获取无错误验证
 - [x] 447/447 测试全部通过，TypeScript 0 错误
+
+## Twelve Data + Exchange Rates API + Portfolio Optimizer 集成
+- [x] 研究三个 API 接口文档，确认 Key 需求与免费层限制
+- [x] 申请 Twelve Data API Key（twelvedata.com 免费 800次/天）
+- [x] 创建 server/twelveDataApi.ts（实时行情/历史 OHLCV/技术指标，作为 Yahoo Finance 备用源）
+- [x] 创建 server/exchangeRatesApi.ts（Frankfurter 外汇汇率，开源免费，无需 Key）
+- [x] 创建 server/portfolioOptimizerApi.ts（均値-方差优化/风险平价/有效前沿，无需 Key）
+- [x] 接入 Step2 数据引擎：routers.ts 并行调用三个新 API
+- [x] 更新 Step1 提示词：新增三个 API 的路由规则
+- [x] 更新 getDataSourceStatus 健康检测
+- [x] 更新 Settings.tsx 数据源面板（新增三行）
+- [x] 编写测试用例，运行全套测试，保存 checkpoint

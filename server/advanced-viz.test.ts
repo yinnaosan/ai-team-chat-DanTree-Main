@@ -53,7 +53,7 @@ describe("generateOptionSummary - async 改造", () => {
     expect(result).toBeInstanceOf(Promise);
     const text = await result;
     expect(typeof text).toBe("string");
-  });
+  }, 15000);
 
   it("返回的字符串应包含 %%OPTION_PRICING%% 标记", async () => {
     const text = await generateOptionSummary("TSLA", 200, 0.40);

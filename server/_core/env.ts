@@ -49,4 +49,6 @@ export const ENV = {
   ALPACA_API_SECRET:       e("ALPACA_API_SECRET",       ""),
   // ── Tushare A 股增强数据（FinanceMCP 架构，需用户自行配置） ─────────────────
   TUSHARE_TOKEN:           e("TUSHARE_TOKEN",           ""),
+  // ── Twelve Data（实时行情/历史 OHLCV/技术指标，免费 800次/天） ────────────────────
+  TWELVE_DATA_API_KEY:     e("TWELVE_DATA_API_KEY",     ""),
 };

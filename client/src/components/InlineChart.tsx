@@ -46,11 +46,11 @@ const DEFAULT_COLORS = [
   "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
 ];
 
-const CHART_BG = "oklch(0.10 0.005 264)";
-const AXIS_COLOR = "oklch(0.52 0.01 270)";
-const GRID_COLOR = "oklch(0.24 0.007 270)";
-const TOOLTIP_BG = "oklch(0.13 0.006 264)";
-const TOOLTIP_BORDER = "oklch(0.30 0.008 270)";
+const CHART_BG = "#141418";
+const AXIS_COLOR = "#7c8a9e";
+const GRID_COLOR = "#2d3340";
+const TOOLTIP_BG = "#1a1c22";
+const TOOLTIP_BORDER = "#3d4455";
 
 const axisStyle = { fill: AXIS_COLOR, fontSize: 11, fontFamily: "inherit" };
 const gridStyle = { stroke: GRID_COLOR, strokeDasharray: "3 3" };
@@ -60,11 +60,11 @@ const tooltipStyle = {
     border: `1px solid ${TOOLTIP_BORDER}`,
     borderRadius: 8,
     fontSize: 12,
-    color: "oklch(0.82 0.005 264)",
+    color: "#c8d0dc",
   },
-  labelStyle: { color: "oklch(0.82 0.005 264)", fontWeight: 600 },
-  itemStyle: { color: "oklch(0.72 0.12 250)" },
-  cursor: { fill: "oklch(0.25 0.007 270 / 0.5)" },
+  labelStyle: { color: "#c8d0dc", fontWeight: 600 },
+  itemStyle: { color: "#8ba4d0" },
+  cursor: { fill: "rgba(50,60,80,0.5)" },
 };
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
         ].map(item => (
           <div key={item.label} className="flex items-center gap-1">
             <div className="w-3 h-3 rounded-sm" style={{ background: item.bg }} />
-            <span className="text-[10px]" style={{ color: "oklch(0.52 0.008 264)" }}>{item.label}</span>
+            <span className="text-[10px]" style={{ color: "#7c8a9e" }}>{item.label}</span>
           </div>
         ))}
       </div>
@@ -219,7 +219,7 @@ function HeatmapChart({ data, unit = "%" }: { data: HeatmapItem[]; unit?: string
           <span style={{ color: "#6b7280" }}>平盘 {data.filter(d => d.value === 0).length} 个</span>
           <span style={{ color: "#ef4444" }}>下跌 {data.filter(d => d.value < 0).length} 个</span>
         </div>
-        <span className="text-xs" style={{ color: "oklch(0.43 0.008 264)" }}>共 {data.length} 个板块</span>
+        <span className="text-xs" style={{ color: "#5a6475" }}>共 {data.length} 个板块</span>
       </div>
     </div>
   );
@@ -378,15 +378,15 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
         <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#f59e0b" }} /><span className="text-[10px]" style={{ color: "#f59e0b" }}>MA5</span></div>
         <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#a855f7" }} /><span className="text-[10px]" style={{ color: "#a855f7" }}>MA20</span></div>
         {data.length >= 60 && <div className="flex items-center gap-1"><div className="w-4 h-0.5 rounded" style={{ background: "#06b6d4" }} /><span className="text-[10px]" style={{ color: "#06b6d4" }}>MA60</span></div>}
-        <span className="text-[10px] ml-auto" style={{ color: "oklch(0.43 0.008 264)" }}>可拖拽 · 滚轮缩放</span>
+        <span className="text-[10px] ml-auto" style={{ color: "#5a6475" }}>可拖拽 · 滚轮缩放</span>
       </div>
       {/* lightweight-charts 容器 */}
       <div ref={containerRef} style={{ width: "100%", height: 300 }} />
       {/* 成交量副图 */}
       {hasVolume && (
-        <div style={{ borderTop: "1px solid oklch(0.15 0.007 264)", marginTop: 2 }}>
+        <div style={{ borderTop: "1px solid #1e2028", marginTop: 2 }}>
           <div className="flex items-center gap-1.5 px-3 pt-1.5 pb-0.5">
-            <span className="text-[10px] font-medium" style={{ color: "oklch(0.50 0.01 270)" }}>成交量</span>
+            <span className="text-[10px] font-medium" style={{ color: "#6e7d90" }}>成交量</span>
           </div>
           <ResponsiveContainer width="100%" height={60}>
             <BarChart data={volumeData} barCategoryGap="20%">
@@ -400,7 +400,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
               <Tooltip
                 contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 6, fontSize: 11 }}
                 formatter={(v: unknown) => [`${((v as number) / 1e4).toFixed(0)}万`, "成交量"]}
-                labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
+                labelStyle={{ color: "#c8d0dc", fontWeight: 600 }}
               />
               <Bar dataKey="volume" shape={<VolumeBar />} minPointSize={1}>
                 {volumeData.map((entry, index) => (
@@ -464,7 +464,7 @@ function WaterfallChart({ data, unit = "" }: { data: WaterfallItem[]; unit?: str
     const d = payload[0].payload;
     return (
       <div style={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
-        <div style={{ color: "oklch(0.82 0.005 264)", fontWeight: 600, marginBottom: 4 }}>{label}</div>
+        <div style={{ color: "#c8d0dc", fontWeight: 600, marginBottom: 4 }}>{label}</div>
         <div style={{ color: d.isPositive ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
           {d.displayValue > 0 ? "+" : ""}{formatNumber(d.displayValue, unit)}
         </div>
@@ -485,7 +485,7 @@ function WaterfallChart({ data, unit = "" }: { data: WaterfallItem[]; unit?: str
         />
         {/* 连接线 */}
         <line x1={x + width - 2} x2={x + width + 4} y1={y} y2={y}
-          stroke="oklch(0.40 0.01 270)" strokeWidth={1} strokeDasharray="2 2" />
+          stroke="#5a6880" strokeWidth={1} strokeDasharray="2 2" />
       </g>
     );
   };
@@ -502,7 +502,7 @@ function WaterfallChart({ data, unit = "" }: { data: WaterfallItem[]; unit?: str
           width={60}
         />
         <Tooltip content={<CustomTooltip />} />
-        <ReferenceLine y={0} stroke="oklch(0.40 0.01 270)" strokeWidth={1} />
+        <ReferenceLine y={0} stroke="#5a6880" strokeWidth={1} />
         {/* 透明底部（占位到 base） */}
         <Bar dataKey="base" stackId="waterfall" fill="transparent" legendType="none" />
         {/* 实际柱子 */}
@@ -560,7 +560,7 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
     <div className="flex flex-col items-center py-4">
       <svg width="200" height="130" viewBox="0 0 200 130">
         {/* 背景弧 */}
-        <path d={arcPath(-150, 150, r)} fill="none" stroke="oklch(0.18 0.007 264)" strokeWidth={14} strokeLinecap="round" />
+        <path d={arcPath(-150, 150, r)} fill="none" stroke="#22252e" strokeWidth={14} strokeLinecap="round" />
         {/* 颜色分段 */}
         {defaultThresholds.map((t, i) => {
           const prevVal = i === 0 ? min : defaultThresholds[i - 1].value;
@@ -576,13 +576,13 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
         {/* 已完成弧 */}
         <path d={arcPath(-150, angle, r)} fill="none" stroke={activeColor} strokeWidth={14} strokeLinecap="round" />
         {/* 指针 */}
-        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="oklch(0.88 0.008 270)" strokeWidth={2.5} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={5} fill="oklch(0.88 0.008 270)" />
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#d8e0ec" strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={5} fill="#d8e0ec" />
         {/* 数值 */}
         <text x={cx} y={cy + 28} textAnchor="middle" fontSize={22} fontWeight={700} fill={activeColor}>
           {value}{unit}
         </text>
-        <text x={cx} y={cy + 44} textAnchor="middle" fontSize={11} fill="oklch(0.60 0.01 270)">
+        <text x={cx} y={cy + 44} textAnchor="middle" fontSize={11} fill="#8a96a8">
           {activeLabel}
         </text>
         {/* 最小/最大标签 */}
@@ -594,7 +594,7 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
         {defaultThresholds.map((t, i) => (
           <div key={i} className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
-            <span className="text-[10px]" style={{ color: "oklch(0.52 0.008 264)" }}>{t.label}</span>
+            <span className="text-[10px]" style={{ color: "#7c8a9e" }}>{t.label}</span>
           </div>
         ))}
       </div>
@@ -627,9 +627,9 @@ function DualAxisChart({ config }: { config: ChartConfig }) {
         />
         <Tooltip
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
+          labelStyle={{ color: "#c8d0dc", fontWeight: 600 }}
         />
-        <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
+        <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
         <Bar yAxisId="right" dataKey={rightKey} fill={colors[1] ?? "#22c55e"} opacity={0.6} radius={[2, 2, 0, 0]} name={rightKey} />
         <Line yAxisId="left" type="monotone" dataKey={leftKey} stroke={colors[0] ?? "#6366f1"} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} name={leftKey} />
       </ComposedChart>
@@ -650,9 +650,9 @@ function ComboChart({ config }: { config: ChartConfig }) {
         {lines.length > 0 && <YAxis yAxisId="right" orientation="right" tick={axisStyle} width={45} />}
         <Tooltip
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: "oklch(0.82 0.005 264)", fontWeight: 600 }}
+          labelStyle={{ color: "#c8d0dc", fontWeight: 600 }}
         />
-        <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
+        <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
         {bars.map((b, i) => (
           <Bar key={b.key} yAxisId="left" dataKey={b.key} name={b.name ?? b.key}
             fill={b.color ?? colors[i % colors.length]} radius={[3, 3, 0, 0]} opacity={0.85} />
@@ -704,12 +704,12 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <Pie data={data} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%"
             outerRadius={110} innerRadius={45} paddingAngle={2}
             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-            labelLine={{ stroke: "oklch(0.40 0.01 270)", strokeWidth: 1 }}
+            labelLine={{ stroke: "#5a6880", strokeWidth: 1 }}
           >
             {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="transparent" />)}
           </Pie>
           <Tooltip {...tooltipStyle} formatter={(v) => [`${v}${unit}`, ""]} />
-          <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />
+          <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -726,7 +726,7 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           {seriesList.map((s, i) => (
             <Scatter key={s.key} name={s.name || s.key} data={data} fill={s.color || colors[i % colors.length]} opacity={0.85} />
           ))}
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
         </ScatterChart>
       </ResponsiveContainer>
     );
@@ -741,8 +741,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
           {seriesList.map((s, i) => (
             <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
               fill={s.color || colors[i % colors.length]} radius={[3, 3, 0, 0]} />
@@ -765,8 +765,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
           {seriesList.map((s, i) => {
             const c = s.color || colors[i % colors.length];
             return (
@@ -782,8 +782,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "oklch(0.65 0.01 270)" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "oklch(0.65 0.01 270)", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
           {seriesList.map((s, i) => (
             <Line key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
               stroke={s.color || colors[i % colors.length]} strokeWidth={2.5}
@@ -809,7 +809,7 @@ export function InlineChart({ raw }: InlineChartProps) {
     config = JSON.parse(raw.trim());
   } catch {
     return (
-      <div className="my-3 p-3 rounded-lg text-xs" style={{ background: "oklch(0.11 0.005 264)", color: "oklch(0.52 0.008 264)" }}>
+      <div className="my-3 p-3 rounded-lg text-xs" style={{ background: "#16181e", color: "#7c8a9e" }}>
         [图表数据解析失败]
       </div>
     );
@@ -888,7 +888,7 @@ export function InlineChart({ raw }: InlineChartProps) {
       className="my-4 rounded-xl overflow-hidden transition-all"
       style={{
         background: CHART_BG,
-        border: "1px solid oklch(0.18 0.007 264)",
+        border: "1px solid #22252e",
         ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16 } : {}),
       }}
     >
@@ -896,16 +896,16 @@ export function InlineChart({ raw }: InlineChartProps) {
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-            style={{ background: "oklch(0.22 0.015 250)", color: "oklch(0.65 0.12 250)", fontSize: 10 }}>
+            style={{ background: "#282c3a", color: "#7090d0", fontSize: 10 }}>
             {typeLabels[config.type] || config.type}
           </span>
           {config.title && (
-            <span className="text-sm font-semibold truncate" style={{ color: "oklch(0.88 0.008 270)" }}>
+            <span className="text-sm font-semibold truncate" style={{ color: "#d8e0ec" }}>
               {config.title}
             </span>
           )}
           {config.subtitle && (
-            <span className="text-xs shrink-0" style={{ color: "oklch(0.52 0.01 270)" }}>
+            <span className="text-xs shrink-0" style={{ color: "#7c8a9e" }}>
               {config.subtitle}
             </span>
           )}
@@ -921,13 +921,13 @@ export function InlineChart({ raw }: InlineChartProps) {
           {!noDownload && (
             <button onClick={handleDownload}
               className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-              style={{ color: "oklch(0.52 0.01 270)" }} title="下载 PNG">
+              style={{ color: "#7c8a9e" }} title="下载 PNG">
               <Download className="w-3 h-3" /><span>PNG</span>
             </button>
           )}
           <button onClick={() => setExpanded(e => !e)}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "oklch(0.52 0.01 270)" }} title={expanded ? "收起" : "全屏"}>
+            style={{ color: "#7c8a9e" }} title={expanded ? "收起" : "全屏"}>
             {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
           </button>
         </div>
@@ -940,7 +940,7 @@ export function InlineChart({ raw }: InlineChartProps) {
 
       {/* 注释 */}
       {config.annotations && (
-        <div className="px-4 pb-3 text-xs" style={{ color: "oklch(0.50 0.01 270)", borderTop: "1px solid oklch(0.15 0.007 264)", paddingTop: 8 }}>
+        <div className="px-4 pb-3 text-xs" style={{ color: "#6e7d90", borderTop: "1px solid #1e2028", paddingTop: 8 }}>
           {config.annotations}
         </div>
       )}
@@ -977,7 +977,7 @@ export function PyImageChart({ base64 }: { base64: string }) {
       className="my-4 rounded-xl overflow-hidden transition-all"
       style={{
         background: CHART_BG,
-        border: "1px solid oklch(0.18 0.007 264)",
+        border: "1px solid #22252e",
         ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16, display: "flex", flexDirection: "column" } : {}),
       }}
     >
@@ -985,22 +985,22 @@ export function PyImageChart({ base64 }: { base64: string }) {
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-            style={{ background: "oklch(0.22 0.015 130)", color: "oklch(0.65 0.12 130)", fontSize: 10 }}>
+            style={{ background: "#242e28", color: "#70c090", fontSize: 10 }}>
             技术图表
           </span>
-          <span className="text-sm font-semibold" style={{ color: "oklch(0.88 0.008 270)" }}>
+          <span className="text-sm font-semibold" style={{ color: "#d8e0ec" }}>
             K线图 + 技术指标
           </span>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={handleDownload}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "oklch(0.52 0.01 270)" }} title="下载 PNG">
+            style={{ color: "#7c8a9e" }} title="下载 PNG">
             <Download className="w-3 h-3" /><span>PNG</span>
           </button>
           <button onClick={() => setExpanded(e => !e)}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "oklch(0.52 0.01 270)" }} title={expanded ? "收起" : "全屏"}>
+            style={{ color: "#7c8a9e" }} title={expanded ? "收起" : "全屏"}>
             {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
           </button>
         </div>

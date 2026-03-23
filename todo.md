@@ -1515,3 +1515,12 @@
 - [x] routers.ts：分析开始时读取历史 Agent 信号注入 structuredDataBlock（跨任务记忆）
 - [x] 修复 defiDataApi.test.ts 中 protocol.tvl 类型测试（兼容 DeFiLlama object 返回）
 - [x] 422/423 测试通过（1 个已知网络环境限制）
+
+## Alpha 因子历史趋势 + FinancePy 期权定价前端（2026-03-22）
+
+- [ ] 后端：新增 tRPC procedure `chat.getAlphaFactorHistory(ticker, limit)` 读取历史 agentSignals 中的因子评分
+- [ ] 前端：AlphaFactorCard 添加迷你折线图（Recharts Sparkline），展示最近 3 次各因子评分变化趋势
+- [ ] 后端：修改 routers.ts 中期权定价任务，输出 %%OPTION_PRICING%%{JSON}%%END_OPTION_PRICING%% 标记
+- [ ] 前端：创建 OptionPricingCard.tsx（Greeks 热力图 + 期权链 Put/Call 可视化）
+- [ ] 前端：ChatRoom.tsx 集成 OptionPricingCard 渲染
+- [x] 修复 lightweight-charts 无法解析 OKLCH 颜色格式的错误（InlineChart.tsx 全部 OKLCH 替换为 HEX/RGB）

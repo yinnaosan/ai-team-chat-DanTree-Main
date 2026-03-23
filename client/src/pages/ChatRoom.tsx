@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { InlineChart, parseChartBlocks } from "@/components/InlineChart";
+import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
 import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -25,6 +25,7 @@ import {
   MoreHorizontal, ChevronRight, FileText, Table2, Copy, Check,
   Paperclip, Image, Film, Music, File, XCircle, Sparkles,
   FolderPlus, Folder, FolderOpen, Pencil, Trash2, MoveRight, FileDown, BarChart3,
+  TrendingUp, Globe, Zap, ArrowRight,
 } from "lucide-react";
 
 // ─── Markdown ErrorBoundary ─────────────────────────────────────────────────
@@ -578,6 +579,8 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
               <InlineChart key={idx} raw={block.raw} />
+            ) : block.type === "pyimage" ? (
+              <PyImageChart key={idx} base64={block.base64} />
             ) : (
               <MarkdownErrorBoundary key={idx} fallback={block.text}>
                 <ReactMarkdown
@@ -1644,30 +1647,66 @@ export default function ChatRoom() {
           }} className="flex-1 h-full overflow-y-auto">
             <div className="max-w-3xl mx-auto px-6 py-4">
               {!activeConvId ? (
-                // No conversation selected
-                <div className="flex items-center justify-center min-h-[60vh]">
-                  <div className="text-center space-y-5 max-w-md">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
-                      style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(22% 0 0)" }}>
-                      <MessageSquare className="w-8 h-8" style={{ color: "oklch(75% 0 0)" }} />
+                // No conversation selected — Grok-style centered hero
+                <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+                  {/* Logo + brand */}
+                  <div className="mb-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                      style={{ background: "oklch(14% 0 0)", border: "1px solid oklch(22% 0 0)" }}>
+                      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="oklch(78% 0 0)" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+                      </svg>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2" style={{ color: "oklch(93% 0 0)", fontFamily: "'Inter', sans-serif" }}>开始协作</h3>
-                      <p className="text-sm leading-relaxed" style={{ color: "oklch(50% 0 0)" }}>
-                        点击左侧「新任务」创建独立对话框，每个任务完全隔离，AI 自动携带历史摘要实现跨任务联动。
-                      </p>
-                    </div>
-                    <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
-                      className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
-                      style={{ background: "oklch(18% 0 0)", border: "1px solid oklch(28% 0 0)", color: "oklch(75% 0 0)" }}>
-                      <Plus className="w-4 h-4" />新建任务
-                    </button>
-                    <div className="flex items-center justify-center gap-4 text-xs" style={{ color: "oklch(42% 0 0)" }}>
-                      <div className="flex items-center gap-1.5">
-                        <Brain className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.18 25)" }} />
-                        数据采集 → 证据验证 → 研究结论
-                      </div>
-                    </div>
+                    <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "oklch(93% 0 0)", fontFamily: "'Inter', sans-serif" }}>
+                      今天想分析什么？
+                    </h1>
+                    <p className="mt-2 text-sm" style={{ color: "oklch(48% 0 0)" }}>
+                      AI 团队实时调用 20+ 数据源，为您生成专业投资研究报告
+                    </p>
+                  </div>
+
+                  {/* Quick-start suggestion cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl mb-8">
+                    {[
+                      { icon: <TrendingUp className="w-4 h-4" />, label: "分析个股", desc: "深度研究 AAPL、TSLA、腾讯等", query: "帮我深度分析苹果公司 AAPL 的投资价值" },
+                      { icon: <BarChart3 className="w-4 h-4" />, label: "市场概览", desc: "美股、港股、A股今日表现", query: "给我一份今日全球市场概览，包括美股、港股和A股" },
+                      { icon: <Globe className="w-4 h-4" />, label: "宏观研究", desc: "利率、通胀、货币政策分析", query: "分析当前美联储货币政策对市场的影响" },
+                      { icon: <Zap className="w-4 h-4" />, label: "快速估值", desc: "DCF 模型、PE/PB 对比", query: "用 DCF 模型估算特斯拉 TSLA 的合理估值" },
+                    ].map(({ icon, label, desc, query }) => (
+                      <button
+                        key={label}
+                        onClick={() => { setNewTaskName(label); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
+                        className="group flex items-start gap-3 p-4 rounded-2xl text-left transition-all hover:scale-[1.01]"
+                        style={{ background: "oklch(10% 0 0)", border: "1px solid oklch(18% 0 0)" }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = "oklch(28% 0 0)")}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = "oklch(18% 0 0)")}>
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ background: "oklch(16% 0 0)", color: "oklch(65% 0 0)" }}>
+                          {icon}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium" style={{ color: "oklch(88% 0 0)" }}>{label}</p>
+                          <p className="text-xs mt-0.5" style={{ color: "oklch(45% 0 0)" }}>{desc}</p>
+                        </div>
+                        <ArrowRight className="w-4 h-4 shrink-0 mt-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "oklch(55% 0 0)" }} />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* New task CTA */}
+                  <button onClick={() => { setNewTaskName(""); setNewTaskDialogOpen(true); setTimeout(() => newTaskInputRef.current?.focus(), 80); }}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
+                    style={{ background: "oklch(93% 0 0)", color: "oklch(8% 0 0)" }}>
+                    <Plus className="w-4 h-4" />新建任务
+                  </button>
+
+                  {/* Stats row */}
+                  <div className="flex items-center gap-6 mt-8 text-xs" style={{ color: "oklch(35% 0 0)" }}>
+                    <span>20+ 数据源</span>
+                    <span style={{ color: "oklch(22% 0 0)" }}>·</span>
+                    <span>实时行情</span>
+                    <span style={{ color: "oklch(22% 0 0)" }}>·</span>
+                    <span>GPT-4o 驱动</span>
                   </div>
                 </div>
               ) : msgsLoading ? (

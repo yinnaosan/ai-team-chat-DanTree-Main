@@ -444,3 +444,64 @@ export function generateTechnicalSignalSummary(data: LocalTechnicalIndicators): 
     signals.map(s => `- ${s.indicator}：${s.detail}`).join("\n"),
   ].join("\n");
 }
+
+// ── 图表数据获取（用于 yorkeccak/finance 架构的自动图表生成）────────────────────
+
+export interface ChartIndicatorData {
+  ohlcv: OHLCVData;
+  rsi14: number[];
+  macdLine: number[];
+  macdSignal: number[];
+  bbUpper: number[];
+  bbMiddle: number[];
+  bbLower: number[];
+  ema20: number[];
+  ema50: number[];
+  sma200: number[];
+}
+
+/**
+ * 获取完整的 OHLCV + 技术指标数据，用于 matplotlib 图表生成
+ * 与 getLocalTechnicalIndicators 的区别：不截断数据，返回全量序列
+ */
+export async function getOHLCVForChart(ticker: string): Promise<ChartIndicatorData | null> {
+  const ohlcv = await fetchOHLCV(ticker);
+  if (!ohlcv || ohlcv.closes.length < 30) return null;
+
+  const { highs, lows, closes, volumes } = ohlcv;
+
+  const safeFullArr = (fn: () => number[]): number[] => {
+    try { return fn(); } catch { return []; }
+  };
+
+  // 计算全量指标（不截断，供图表使用）
+  const rsi14 = safeFullArr(() => rsi(closes) as number[]);
+
+  const macdResult = (() => {
+    try {
+      const r = macd(closes, MACDDefaultConfig) as { macdLine: number[]; signalLine: number[] };
+      return { macdLine: r.macdLine, macdSignal: r.signalLine };
+    } catch { return { macdLine: [], macdSignal: [] }; }
+  })();
+
+  const bbResult = (() => {
+    try {
+      const r = bollingerBands(closes, { ...BBDefaultConfig, period: 20 }) as { upper: number[]; middle: number[]; lower: number[] };
+      return { bbUpper: r.upper, bbMiddle: r.middle, bbLower: r.lower };
+    } catch { return { bbUpper: [], bbMiddle: [], bbLower: [] }; }
+  })();
+
+  const ema20 = safeFullArr(() => ema(closes, { ...EMADefaultConfig, period: 20 }) as number[]);
+  const ema50 = safeFullArr(() => ema(closes, { ...EMADefaultConfig, period: 50 }) as number[]);
+  const sma200 = safeFullArr(() => sma(closes, { ...SMADefaultConfig, period: 200 }) as number[]);
+
+  return {
+    ohlcv,
+    rsi14,
+    ...macdResult,
+    ...bbResult,
+    ema20,
+    ema50,
+    sma200,
+  };
+}

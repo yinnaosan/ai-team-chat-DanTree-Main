@@ -958,11 +958,83 @@ export function InlineChart({ raw }: InlineChartProps) {
 }
 
 /**
- * 解析消息内容，将 %%CHART%%...%%END_CHART%% 替换为图表组件
+ * matplotlib 图像组件（渲染 base64 PNG）
+ * 支持全屏展开和下载
  */
-export function parseChartBlocks(content: string): Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> {
-  const parts: Array<{ type: "text"; text: string } | { type: "chart"; raw: string }> = [];
-  const regex = /%%CHART%%([\s\S]*?)%%END_CHART%%/g;
+export function PyImageChart({ base64 }: { base64: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const imgSrc = base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`;
+
+  const handleDownload = () => {
+    const a = document.createElement("a");
+    a.download = "chart.png";
+    a.href = imgSrc;
+    a.click();
+  };
+
+  return (
+    <div
+      className="my-4 rounded-xl overflow-hidden transition-all"
+      style={{
+        background: CHART_BG,
+        border: "1px solid oklch(0.18 0.007 264)",
+        ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16, display: "flex", flexDirection: "column" } : {}),
+      }}
+    >
+      {/* 标题栏 */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+            style={{ background: "oklch(0.22 0.015 130)", color: "oklch(0.65 0.12 130)", fontSize: 10 }}>
+            技术图表
+          </span>
+          <span className="text-sm font-semibold" style={{ color: "oklch(0.88 0.008 270)" }}>
+            K线图 + 技术指标
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={handleDownload}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+            style={{ color: "oklch(0.52 0.01 270)" }} title="下载 PNG">
+            <Download className="w-3 h-3" /><span>PNG</span>
+          </button>
+          <button onClick={() => setExpanded(e => !e)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+            style={{ color: "oklch(0.52 0.01 270)" }} title={expanded ? "收起" : "全屏"}>
+            {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+        </div>
+      </div>
+      {/* 图像区域 */}
+      <div className={expanded ? "flex-1 overflow-auto p-2" : "px-2 pb-3"}>
+        <img
+          src={imgSrc}
+          alt="技术分析图表"
+          className="w-full rounded-lg"
+          style={{ maxHeight: expanded ? "100%" : 500, objectFit: "contain" }}
+        />
+      </div>
+      {/* 全屏遮罩 */}
+      {expanded && (
+        <div
+          className="fixed inset-0 bg-black/60"
+          onClick={() => setExpanded(false)}
+          style={{ zIndex: 9998 }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 解析消息内容，将 %%CHART%%...%%END_CHART%% 和 %%PYIMAGE%%...%%END_PYIMAGE%% 替换为图表组件
+ */
+export function parseChartBlocks(
+  content: string
+): Array<{ type: "text"; text: string } | { type: "chart"; raw: string } | { type: "pyimage"; base64: string }> {
+  const parts: Array<{ type: "text"; text: string } | { type: "chart"; raw: string } | { type: "pyimage"; base64: string }> = [];
+  // 合并匹配两种标记
+  const regex = /%%CHART%%([\s\S]*?)%%END_CHART%%|%%PYIMAGE%%([\s\S]*?)%%END_PYIMAGE%%/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -970,7 +1042,13 @@ export function parseChartBlocks(content: string): Array<{ type: "text"; text: s
     if (match.index > lastIndex) {
       parts.push({ type: "text", text: content.slice(lastIndex, match.index) });
     }
-    parts.push({ type: "chart", raw: match[1] });
+    if (match[1] !== undefined) {
+      // %%CHART%% 格式
+      parts.push({ type: "chart", raw: match[1] });
+    } else if (match[2] !== undefined) {
+      // %%PYIMAGE%% 格式（matplotlib base64 图像）
+      parts.push({ type: "pyimage", base64: match[2].trim() });
+    }
     lastIndex = match.index + match[0].length;
   }
 

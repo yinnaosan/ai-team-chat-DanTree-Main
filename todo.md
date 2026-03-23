@@ -1410,3 +1410,61 @@
 - [x] AccessGate.tsx：FinRobot Pro 风格登录页（左侧 3D 机器人鼠标跟随 + 右侧登录面板）
 - [x] Home.tsx：颜色系统统一为 Grok 纯黑色系
 - [x] OpenAI API Key 接入：服务端安全配置，优先使用用户自己的 Key，回退到平台内置算力
+
+## P1/P2/P3 UI 精细化（Grok 风格完善）
+- [ ] P1：空状态页升级 — Grok 风格中央 Logo + 快捷分析建议卡片（分析股票/市场概览/宏观研究）
+- [ ] P2：消息气泡精细化 — AI 消息无背景左对齐，用户消息右侧深灰圆角胶囊
+- [ ] P3：设置页简化 — 模型选择改为下拉菜单，投资规则改为全屏代码编辑器风格
+
+## 架构参考模块集成（按评估清单顺序）
+
+### yorkeccak/finance — AI 生成代码→执行→图表可视化
+- [ ] 创建 server/codeExecutor.ts（安全沙箱：Node.js vm 模块执行 AI 生成的分析代码）
+- [ ] 接入 routers.ts：新增 chart.generateAndExecute tRPC procedure
+- [ ] 前端：AI 回复中内联渲染动态图表（Chart.js / Recharts）
+- [ ] 编写 codeExecutor.test.ts
+
+### OpenBB-finance/OpenBB — 数据标准化层
+- [ ] 创建 server/dataStandardizer.ts（统一 24 个 API 返回格式：OHLCV/财务指标/宏观数据）
+- [ ] 接入现有 API 模块，输出标准化 DataPoint 对象
+- [ ] 编写 dataStandardizer.test.ts
+
+### microsoft/qlib — Alpha 因子库
+- [ ] 创建 server/alphaFactors.ts（动量/反转/波动率/流动性/价值因子）
+- [ ] 接入分析主流程（技术分析任务自动附加 Alpha 因子评分）
+- [ ] 编写 alphaFactors.test.ts
+
+### P2：财报 PDF 解析（GallenQiu/FinanceReportAnalysis）
+- [ ] 创建 server/reportParser.ts（用户上传 PDF → LLM 提取关键财务数据）
+- [ ] 前端支持 PDF 拖拽上传并触发解析
+- [ ] 编写 reportParser.test.ts
+
+### P2：FinanceDatabase 同行业比较（JerBouma/FinanceDatabase）
+- [ ] 创建 server/industryComparison.ts（行业分类 + 同行 PE/PB/市值对比）
+- [ ] 接入分析主流程（Step2 条件触发）
+- [ ] 编写 industryComparison.test.ts
+
+## yorkeccak/finance + OpenBB + qlib Alpha 架构集成
+- [x] 扩展 codeExecution.ts：新增 generateAutoChart() 函数（OHLCV + 技术指标 → matplotlib K线图）
+- [x] 在 localIndicators.ts 新增 getOHLCVForChart() 函数（返回完整 OHLCV + 指标数据，不截断）
+- [x] 在 routers.ts deepTasks 中接入自动图表生成（并行执行，不阻塞主流程）
+- [x] 将 matplotlib 图表 base64 通过 %%PYIMAGE%%...%%END_PYIMAGE%% 标记嵌入 manusReport
+- [x] 扩展 InlineChart.tsx：支持 %%PYIMAGE%% 格式渲染 matplotlib base64 图像（PyImageChart 组件）
+- [x] 扩展 ChatRoom.tsx：渲染 pyimage 类型图表块
+- [x] 创建 server/dataStandardizer.ts（OpenBB 风格数据标准化层，统一 24+ API 接口）
+  - 支持 28 种数据源的可靠性权重（sec_edgar 0.98 → serper 0.63）
+  - 数据质量评分（来源可靠性 60分 + 时效性 30分 + 有效性 10分）
+  - 多源数据融合（数值型加权平均、字符串取最优、冲突检测）
+  - extractFromYahooFinance() / extractFromLocalIndicators() 提取函数
+  - formatStandardizedReport() 生成 Markdown 报告
+- [x] 创建 server/alphaFactors.ts（microsoft/qlib 风格 Alpha 因子库）
+  - 实现 11 个 Alpha 因子：ALPHA001/002/003/012（WorldQuant Alpha101）+ MOM20/MOM60/REV5/VOL20/VMOM10/PRPOS/HLSPREAD
+  - 因子值 Z-score 标准化（相对自身历史）
+  - 综合 Alpha 评分（IC 加权平均，-100 到 100）
+  - 整体信号判断（strong_long / long / neutral / short / strong_short）
+- [x] 在 routers.ts deepTasks 中接入 Alpha 因子计算（并行执行）
+- [x] 将 Alpha 因子报告嵌入 structuredDataBlock（供 GPT Step3 分析参考）
+- [x] 编写 autoChart.test.ts（5 个测试全部通过）
+- [x] 编写 dataStandardizer.test.ts（15 个测试全部通过）
+- [x] 编写 alphaFactors.test.ts（8 个测试全部通过）
+- [x] 总计 388/389 测试通过（1 个失败为已知网络环境限制）

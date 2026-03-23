@@ -69,7 +69,7 @@ import { isTavilyConfigured, getTavilyKeyStatuses, getSerperKeyStatuses, isSerpe
 import { runMultiAgentAnalysis } from "./multiAgentAnalysis";
 import { getStockFullData as getFinnhubData, formatFinnhubData, checkHealth as checkFinnhubHealth } from "./finnhubApi";
 import { getStockData as getAlphaVantageStockData, getEconomicData as getAlphaVantageEconomicData, formatStockData as formatAVStockData, formatEconomicData as formatAVEconomicData, checkHealth as checkAVHealth } from "./alphaVantageApi";
-import { getLocalTechnicalIndicators, formatLocalTechnicalIndicators } from "./localIndicators";
+import { getLocalTechnicalIndicators, formatLocalTechnicalIndicators, getOHLCVForChart } from "./localIndicators";
 import { getStockFullData as getPolygonData, formatPolygonData, checkHealth as checkPolygonHealth, getOptionsChain, formatOptionsChain } from "./polygonApi";
 import { getStockFullData as getFmpData, formatFmpData, checkHealth as checkFmpHealth } from "./fmpApi";
 import { getStockFullData as getSecData, formatSecData, checkHealth as checkSecHealth } from "./secEdgarApi";
@@ -95,7 +95,8 @@ import { generateTechnicalSignalReport, generateSignalBadge } from "./technicalS
 import { generateOptionSummary } from "./optionPricing";
 import { generateRiskSummary, parametricVaR } from "./currencyRisk";
 import { isETFTask, extractETFTickers, getETFBasicInfo, calculateETFRiskMetrics, scoreETF, compareETFsSummary } from "./etfAnalysis";
-import { executeCode, validateCode, getPresetChartCode } from "./codeExecution";
+import { executeCode, validateCode, getPresetChartCode, generateAutoChart } from "./codeExecution";
+import { calcAlphaFactors, convertToOHLCVSeries } from "./alphaFactors";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1142,8 +1143,48 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // 自动图表生成（yorkeccak/finance 架构：OHLCV + 技术指标 → matplotlib K线图）
+      () => primaryTicker && resourcePlan.dataSources.technicalIndicators
+        ? timed("自动图表生成", (async () => {
+            try {
+              const chartData = await getOHLCVForChart(primaryTicker!);
+              if (!chartData) return "";
+              const base64 = await generateAutoChart(
+                primaryTicker!,
+                chartData.ohlcv,
+                {
+                  rsi14: chartData.rsi14,
+                  macdLine: chartData.macdLine,
+                  macdSignal: chartData.macdSignal,
+                  bbUpper: chartData.bbUpper,
+                  bbMiddle: chartData.bbMiddle,
+                  bbLower: chartData.bbLower,
+                  ema20: chartData.ema20,
+                  ema50: chartData.ema50,
+                  sma200: chartData.sma200,
+                },
+                "full"
+              );
+              if (!base64) return "";
+              // 返回特殊标记，供 manusReport 嵌入
+              return `%%PYIMAGE%%${base64}%%END_PYIMAGE%%`;
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
+      // Alpha 因子计算（microsoft/qlib 架构：WorldQuant Alpha101 + Alpha158）
+      () => primaryTicker && resourcePlan.dataSources.technicalIndicators
+        ? timed("Alpha因子", (async () => {
+            try {
+              const chartData = await getOHLCVForChart(primaryTicker!);
+              if (!chartData) return "";
+              const ohlcvSeries = convertToOHLCVSeries(chartData.ohlcv);
+              const alphaReport = calcAlphaFactors(primaryTicker!, ohlcvSeries);
+              return alphaReport.summary;
+            } catch { return ""; }
+          })())
+        : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1223,6 +1264,7 @@ ${"```"}`;
       eurLexMarkdown,          // EUR-Lex 欧盟法规/监管文件
       gleifMarkdown,           // GLEIF 全球 LEI 法人识别码/法人结构/母子公司关系
       etfResult?.status === "fulfilled" && etfResult.value ? etfResult.value : "",  // ETF 分析（ThePassiveInvestor）
+      alphaResult?.status === "fulfilled" && alphaResult.value ? alphaResult.value : "",  // Alpha 因子（qlib Alpha101 + Alpha158）
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）
@@ -1230,9 +1272,17 @@ ${"```"}`;
     // ── Step2 直接数据聚合（无 LLM 调用，参考 TradingAgents/FinRobot 模式）──────────────
     // 直接将结构化 API 数据作为 DATA_REPORT，无需中间 LLM 整理层
     // 这样节省 1 次 LLM 调用（约 10-20 秒），数据更原始、更可靠
+    // 提取自动图表 base64（如有）
+    const autoChartBase64 = autoChartResult?.status === "fulfilled" && autoChartResult.value
+      ? autoChartResult.value
+      : "";
+    // 图表区块：在报告顶部插入 matplotlib 图表（%%PYIMAGE%% 标记供前端解析）
+    const chartBlock = autoChartBase64 && autoChartBase64.startsWith("%%PYIMAGE%%")
+      ? `\n\n${autoChartBase64}\n\n`
+      : "";
     const manusReport = realTimeDataBlock
-      ? `## 实时数据汇总（直接 API 数据，无 LLM 处理）\n\n${realTimeDataBlock}`
-      : `## 数据收集（基于已有分析框架）\n\n${gptStep1Output}`;
+      ? `## 实时数据汇总（直接 API 数据，无 LLM 处理）${chartBlock}\n\n${realTimeDataBlock}`
+      : `## 数据收集（基于已有分析框架）${chartBlock}\n\n${gptStep1Output}`;
     await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
     // 注：manus_analyzing 将 manusResult 写入 DB
 

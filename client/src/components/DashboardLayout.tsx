@@ -174,11 +174,24 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+                    alt="DanTree"
+                    className="w-6 h-6 rounded-md shrink-0 object-cover"
+                  />
                   <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                    DanTree
                   </span>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex items-center justify-center w-full">
+                  <img
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+                    alt="DanTree"
+                    className="w-6 h-6 rounded-md object-cover"
+                  />
+                </div>
+              )}
             </div>
           </SidebarHeader>
 

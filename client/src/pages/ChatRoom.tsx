@@ -1555,11 +1555,12 @@ export default function ChatRoom() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 shrink-0" style={{ borderBottom: "1px solid oklch(100% 0 0 / 0.06)" }}>
           <div className="flex items-center gap-2.5">
-            {/* Logo mark — Apple glass style */}
-            <div className="w-7 h-7 rounded-xl flex items-center justify-center relative overflow-hidden inner-glow"
-              style={{ background: "linear-gradient(135deg, oklch(22% 0.005 264), oklch(14% 0.003 264))", border: "1px solid oklch(100% 0 0 / 0.12)" }}>
-              <Bot className="w-4 h-4" style={{ color: "oklch(88% 0 0)" }} />
-            </div>
+            {/* Logo mark */}
+            <img
+              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+              alt="DanTree"
+              className="w-7 h-7 rounded-xl object-cover shrink-0"
+            />
             <div>
               <span className="text-sm font-semibold" style={{ color: "oklch(95% 0 0)", fontFamily: "'Inter', sans-serif", letterSpacing: "-0.01em" }}>DanTree</span>
               <div className="text-[9px] font-medium tracking-widest uppercase" style={{ color: "oklch(40% 0 0)", letterSpacing: "0.10em" }}>AI Finance</div>
@@ -1903,12 +1904,11 @@ export default function ChatRoom() {
                 <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
                   {/* Logo + brand */}
                   <div className="mb-8 text-center">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                      style={{ background: "oklch(14% 0 0)", border: "1px solid oklch(22% 0 0)" }}>
-                      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="oklch(78% 0 0)" strokeWidth="1.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
-                      </svg>
-                    </div>
+                    <img
+                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-128_c42a5873.png"
+                      alt="DanTree"
+                      className="w-14 h-14 rounded-2xl object-cover mx-auto mb-4"
+                    />
                     <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "oklch(93% 0 0)", fontFamily: "'Inter', sans-serif" }}>
                       今天想分析什么？
                     </h1>

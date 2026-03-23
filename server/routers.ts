@@ -59,6 +59,9 @@ import {
   updateMessageContent,
   upsertDailySentiment,
   getSentimentHistoryRecords,
+  deleteMemoryContext,
+  deleteMemoryContextBatch,
+  updateMemoryContext,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -2832,6 +2835,52 @@ export const appRouter = router({
           },
           sentimentHistory: sentimentHistoryData,
         };
+      }),
+  }),
+  // --- AI 记忆管理 -----------------------------------------------------------------------------------------
+  memory: router({
+    /** 获取当前用户的所有记忆条目（支持按 memoryType 过滤） */
+    list: protectedProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(50),
+        memoryType: z.enum(["preference", "workflow", "watchlist", "analysis", "all"]).default("all"),
+      }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const memories = await getRecentMemory(ctx.user.id, input.limit);
+        if (input.memoryType === "all") return memories;
+        return memories.filter((m: { memoryType?: string }) => m.memoryType === input.memoryType);
+      }),
+    /** 更新记忆的 summary 和 keywords 字段 */
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        summary: z.string().min(1).max(2000).optional(),
+        keywords: z.string().max(500).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await updateMemoryContext(input.id, ctx.user.id, {
+          summary: input.summary,
+          keywords: input.keywords,
+        });
+        return { success: true };
+      }),
+    /** 删除单条记忆 */
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await deleteMemoryContext(input.id, ctx.user.id);
+        return { success: true };
+      }),
+    /** 批量删除记忆 */
+    deleteBatch: protectedProcedure
+      .input(z.object({ ids: z.array(z.number()).min(1).max(100) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await deleteMemoryContextBatch(input.ids, ctx.user.id);
+        return { success: true, deletedCount: input.ids.length };
       }),
   }),
   // --- ChatGPT API 配置 ----------------------------------------------------------------------------------------

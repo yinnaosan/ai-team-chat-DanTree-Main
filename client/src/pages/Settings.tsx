@@ -13,9 +13,10 @@ import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
   Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity, Sparkles,
+  BookOpen, Edit3, X, Filter, Search,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "access" | "logic";
+type SettingsTab = "api" | "database" | "access" | "logic" | "memory";
 type RulesTab = "investment" | "task" | "data";
 
 // ---- TrustedSource 类型（与后端 db.ts 一致）----
@@ -893,6 +894,7 @@ export default function Settings() {
     { id: "database", label: "数据库", icon: Database },
     ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield, ownerOnly: true }] : []),
     { id: "logic", label: "逻辑", icon: Brain },
+    { id: "memory", label: "AI 记忆", icon: BookOpen },
   ];
 
   const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
@@ -2001,7 +2003,359 @@ export default function Settings() {
             </div>
           </div>
         )}
+
+        {/* ── Tab: AI 记忆管理 ── */}
+        {activeTab === "memory" && <MemoryManager />}
       </div>
+    </div>
+  );
+}
+
+// ─── AI 记忆管理组件 ─────────────────────────────────────────────────────────────
+type MemoryType = "preference" | "workflow" | "watchlist" | "analysis" | "all";
+
+interface MemoryItem {
+  id: number;
+  userId: number;
+  taskTitle: string | null;
+  summary: string | null;
+  memoryType: string | null;
+  keywords: string | null;
+  conversationId: number | null;
+  expiresAt: Date | null;
+  createdAt: Date | null;
+}
+
+const MEMORY_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  preference: { label: "偏好", color: "oklch(0.72 0.18 142)", bg: "oklch(0.72 0.18 142 / 0.12)" },
+  workflow: { label: "工作流", color: "oklch(0.65 0.15 250)", bg: "oklch(0.65 0.15 250 / 0.12)" },
+  watchlist: { label: "关注列表", color: "oklch(0.72 0.18 50)", bg: "oklch(0.72 0.18 50 / 0.12)" },
+  analysis: { label: "分析结论", color: "oklch(0.70 0.18 300)", bg: "oklch(0.70 0.18 300 / 0.12)" },
+};
+
+function MemoryManager() {
+  const [filterType, setFilterType] = useState<MemoryType>("all");
+  const [searchText, setSearchText] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editSummary, setEditSummary] = useState("");
+  const [editKeywords, setEditKeywords] = useState("");
+  const utils = trpc.useUtils();
+
+  const { data: memories = [], isLoading } = trpc.memory.list.useQuery(
+    { limit: 100, memoryType: filterType },
+    { refetchOnWindowFocus: false }
+  );
+
+  const deleteMutation = trpc.memory.delete.useMutation({
+    onSuccess: () => {
+      utils.memory.list.invalidate();
+      toast.success("记忆已删除");
+    },
+    onError: () => toast.error("删除失败"),
+  });
+
+  const deleteBatchMutation = trpc.memory.deleteBatch.useMutation({
+    onSuccess: (data) => {
+      utils.memory.list.invalidate();
+      setSelectedIds(new Set());
+      toast.success(`已删除 ${data.deletedCount} 条记忆`);
+    },
+    onError: () => toast.error("批量删除失败"),
+  });
+
+  const updateMutation = trpc.memory.update.useMutation({
+    onSuccess: () => {
+      utils.memory.list.invalidate();
+      setEditingId(null);
+      toast.success("记忆已更新");
+    },
+    onError: () => toast.error("更新失败"),
+  });
+
+  const filtered = (memories as MemoryItem[]).filter(m => {
+    if (!searchText) return true;
+    const q = searchText.toLowerCase();
+    return (
+      (m.taskTitle ?? "").toLowerCase().includes(q) ||
+      (m.summary ?? "").toLowerCase().includes(q) ||
+      (m.keywords ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(m => m.id)));
+    }
+  };
+
+  const startEdit = (m: MemoryItem) => {
+    setEditingId(m.id);
+    setEditSummary(m.summary ?? "");
+    setEditKeywords(m.keywords ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditSummary("");
+    setEditKeywords("");
+  };
+
+  const saveEdit = (id: number) => {
+    updateMutation.mutate({ id, summary: editSummary, keywords: editKeywords });
+  };
+
+  const typeFilters: { id: MemoryType; label: string }[] = [
+    { id: "all", label: "全部" },
+    { id: "preference", label: "偏好" },
+    { id: "workflow", label: "工作流" },
+    { id: "watchlist", label: "关注列表" },
+    { id: "analysis", label: "分析结论" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* 标题区 */}
+      <div className="p-4 rounded-2xl"
+        style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <BookOpen className="w-4 h-4" style={{ color: "oklch(0.65 0.15 250)" }} />
+          <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>AI 记忆管理</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full"
+            style={{ background: "oklch(0.65 0.15 250 / 0.15)", color: "oklch(0.65 0.15 250)" }}>
+            {(memories as MemoryItem[]).length} 条
+          </span>
+        </div>
+        <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+          AI 在对话中自动提取并存储的长期记忆，包括你的投资偏好、常用工作流、关注标的和分析结论。你可以在此查看、编辑或删除这些记忆。
+        </p>
+      </div>
+
+      {/* 过滤栏 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 p-1 rounded-xl"
+          style={{ background: "oklch(100% 0 0 / 0.05)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+          <Filter className="w-3 h-3 ml-1" style={{ color: "oklch(42% 0 0)" }} />
+          {typeFilters.map(f => (
+            <button key={f.id}
+              onClick={() => setFilterType(f.id)}
+              className="text-xs px-2.5 py-1 rounded-lg transition-all"
+              style={{
+                background: filterType === f.id ? "oklch(0.65 0.15 250 / 0.2)" : "transparent",
+                color: filterType === f.id ? "oklch(0.75 0.15 250)" : "oklch(42% 0 0)",
+                fontWeight: filterType === f.id ? 600 : 400,
+              }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 搜索框 */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-[160px] px-2.5 py-1.5 rounded-xl"
+          style={{ background: "oklch(100% 0 0 / 0.05)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+          <Search className="w-3 h-3 flex-shrink-0" style={{ color: "oklch(42% 0 0)" }} />
+          <input
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="搜索记忆内容..."
+            className="flex-1 bg-transparent text-xs outline-none"
+            style={{ color: "oklch(82% 0 0)", minWidth: 0 }}
+          />
+          {searchText && (
+            <button onClick={() => setSearchText("")}>
+              <X className="w-3 h-3" style={{ color: "oklch(42% 0 0)" }} />
+            </button>
+          )}
+        </div>
+
+        {/* 批量删除 */}
+        {selectedIds.size > 0 && (
+          <button
+            onClick={() => deleteBatchMutation.mutate({ ids: Array.from(selectedIds) })}
+            disabled={deleteBatchMutation.isPending}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl transition-all"
+            style={{ background: "oklch(0.65 0.18 20 / 0.15)", color: "oklch(0.72 0.18 20)", border: "1px solid oklch(0.65 0.18 20 / 0.3)" }}>
+            {deleteBatchMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            删除所选 ({selectedIds.size})
+          </button>
+        )}
+      </div>
+
+      {/* 记忆列表 */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "oklch(42% 0 0)" }} />
+          <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>加载记忆中...</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <BookOpen className="w-10 h-10" style={{ color: "oklch(28% 0 0)" }} />
+          <p className="text-sm" style={{ color: "oklch(42% 0 0)" }}>
+            {searchText ? "未找到匹配的记忆" : "暂无 AI 记忆，开始对话后自动生成"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {/* 全选行 */}
+          <div className="flex items-center gap-2 px-1">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              onChange={toggleSelectAll}
+              className="w-3.5 h-3.5 rounded accent-blue-500"
+            />
+            <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+              {selectedIds.size > 0 ? `已选 ${selectedIds.size} 条` : `共 ${filtered.length} 条`}
+            </span>
+          </div>
+
+          {filtered.map(m => {
+            const typeInfo = MEMORY_TYPE_LABELS[m.memoryType ?? ""];
+            const isEditing = editingId === m.id;
+            const isSelected = selectedIds.has(m.id);
+            return (
+              <div key={m.id}
+                className="p-3 rounded-2xl transition-all"
+                style={{
+                  background: isSelected ? "oklch(0.65 0.15 250 / 0.08)" : "oklch(100% 0 0 / 0.04)",
+                  border: `1px solid ${isSelected ? "oklch(0.65 0.15 250 / 0.3)" : "oklch(100% 0 0 / 0.08)"}`,
+                }}>
+                <div className="flex items-start gap-2.5">
+                  {/* 复选框 */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(m.id)}
+                    className="w-3.5 h-3.5 rounded mt-0.5 flex-shrink-0 accent-blue-500"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    {/* 标题行 */}
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      {typeInfo && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+                          style={{ background: typeInfo.bg, color: typeInfo.color }}>
+                          {typeInfo.label}
+                        </span>
+                      )}
+                      <span className="text-xs font-medium truncate" style={{ color: "oklch(85% 0 0)" }}>
+                        {m.taskTitle ?? "未命名任务"}
+                      </span>
+                      <span className="text-xs ml-auto flex-shrink-0" style={{ color: "oklch(35% 0 0)" }}>
+                        {m.createdAt ? new Date(m.createdAt).toLocaleDateString("zh-CN") : ""}
+                      </span>
+                    </div>
+
+                    {/* 摘要 */}
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs mb-1 block" style={{ color: "oklch(55% 0 0)" }}>摘要</label>
+                          <textarea
+                            value={editSummary}
+                            onChange={e => setEditSummary(e.target.value)}
+                            rows={4}
+                            className="w-full text-xs p-2 rounded-lg resize-none outline-none"
+                            style={{
+                              background: "oklch(100% 0 0 / 0.06)",
+                              border: "1px solid oklch(0.65 0.15 250 / 0.4)",
+                              color: "oklch(85% 0 0)",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs mb-1 block" style={{ color: "oklch(55% 0 0)" }}>关键词（逗号分隔）</label>
+                          <input
+                            value={editKeywords}
+                            onChange={e => setEditKeywords(e.target.value)}
+                            className="w-full text-xs p-2 rounded-lg outline-none"
+                            style={{
+                              background: "oklch(100% 0 0 / 0.06)",
+                              border: "1px solid oklch(0.65 0.15 250 / 0.4)",
+                              color: "oklch(85% 0 0)",
+                            }}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => saveEdit(m.id)}
+                            disabled={updateMutation.isPending}
+                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
+                            style={{ background: "oklch(0.65 0.15 250 / 0.2)", color: "oklch(0.75 0.15 250)" }}>
+                            {updateMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            保存
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
+                            style={{ background: "oklch(100% 0 0 / 0.06)", color: "oklch(42% 0 0)" }}>
+                            <X className="w-3 h-3" /> 取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs leading-relaxed mb-1.5" style={{ color: "oklch(65% 0 0)" }}>
+                          {m.summary ?? "无摘要"}
+                        </p>
+                        {m.keywords && (
+                          <div className="flex flex-wrap gap-1 mb-1.5">
+                            {m.keywords.split(/[,，]/).filter(Boolean).map((kw, i) => (
+                              <span key={i} className="text-xs px-1.5 py-0.5 rounded"
+                                style={{ background: "oklch(100% 0 0 / 0.06)", color: "oklch(50% 0 0)" }}>
+                                {kw.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {m.expiresAt && (
+                          <p className="text-xs" style={{ color: "oklch(38% 0 0)" }}>
+                            过期：{new Date(m.expiresAt).toLocaleDateString("zh-CN")}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* 操作按钮 */}
+                  {!isEditing && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => startEdit(m)}
+                        className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
+                        title="编辑"
+                        style={{ background: "oklch(100% 0 0 / 0.06)" }}>
+                        <Edit3 className="w-3.5 h-3.5" style={{ color: "oklch(55% 0 0)" }} />
+                      </button>
+                      <button
+                        onClick={() => deleteMutation.mutate({ id: m.id })}
+                        disabled={deleteMutation.isPending && deleteMutation.variables?.id === m.id}
+                        className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
+                        title="删除"
+                        style={{ background: "oklch(0.65 0.18 20 / 0.1)" }}>
+                        {deleteMutation.isPending && deleteMutation.variables?.id === m.id
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "oklch(0.65 0.18 20)" }} />
+                          : <Trash2 className="w-3.5 h-3.5" style={{ color: "oklch(0.65 0.18 20)" }} />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

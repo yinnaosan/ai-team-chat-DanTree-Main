@@ -1,4 +1,4 @@
-import { eq, desc, and, isNull, sql } from "drizzle-orm";
+import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
@@ -913,7 +913,6 @@ export async function getNetWorthHistory(userId: number, limit = 30) {
 // ── 市场情绪历史持久化 ──────────────────────────────────────────────────────────────
 import { sentimentHistory } from "../drizzle/schema";
 import type { InsertSentimentHistory } from "../drizzle/schema";
-import { gte } from "drizzle-orm";
 
 /**
  * 写入当日情绪数据（upsert：同一天只保留最新一条）
@@ -939,4 +938,41 @@ export async function getSentimentHistoryRecords(days = 7) {
     .where(gte(sentimentHistory.date, cutoffStr))
     .orderBy(sentimentHistory.date)
     .limit(days);
+}
+
+// ─── Memory Context CRUD helpers ─────────────────────────────────────────────
+/** 删除单条记忆（仅限记忆所有者） */
+export async function deleteMemoryContext(id: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(memoryContext).where(
+    and(eq(memoryContext.id, id), eq(memoryContext.userId, userId))
+  );
+}
+
+/** 批量删除记忆（仅限记忆所有者） */
+export async function deleteMemoryContextBatch(ids: number[], userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (ids.length === 0) return;
+  await db.delete(memoryContext).where(
+    and(inArray(memoryContext.id, ids), eq(memoryContext.userId, userId))
+  );
+}
+
+/** 更新记忆的 summary 和 keywords 字段（仅限记忆所有者） */
+export async function updateMemoryContext(
+  id: number,
+  userId: number,
+  data: { summary?: string; keywords?: string }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const updates: Record<string, unknown> = {};
+  if (data.summary !== undefined) updates.summary = data.summary;
+  if (data.keywords !== undefined) updates.keywords = data.keywords;
+  if (Object.keys(updates).length === 0) return;
+  await db.update(memoryContext)
+    .set(updates)
+    .where(and(eq(memoryContext.id, id), eq(memoryContext.userId, userId)));
 }

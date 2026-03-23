@@ -1733,7 +1733,7 @@
 - [ ] 在 routers.ts 中添加 backtest.run 和 backtest.getFactors tRPC 过程
 - [ ] 创建 client/src/pages/FactorBacktest.tsx（因子选择器 + 股票输入 + 净值曲线 + 指标卡片）
 - [ ] 在 App.tsx 中注册路由，DashboardLayout 侧边栏添加入口
-- [ ] 编写测试，运行全套测试，保存 checkpoint
+- [x] 编写测试，运行全套测试，保存 checkpoint
 
 ## 因子回测可视化页面
 
@@ -1787,3 +1787,20 @@
 - [ ] 后端：fileProcessor.ts 实现音频 Whisper 转写（transcribeAudio）
 - [ ] 后端：submitTask 支持 attachmentIds 参数，提取文件内容注入 Step1/Step3 AI 上下文
 - [ ] 前端：消息中显示已附加的文件卡片（含文件名/类型/大小）
+
+## 新闻 API 触发条件精细化 + AI 记忆系统 UI
+### 新闻 API 触发精细化
+- [x] 扩展 extractNewsQuery：添加 200+ A 股/港股公司名映射（茅台/平安/招行/中芯/小米等）
+- [x] 扩展行业词库：新能源/医药/消费/科技/金融/地产/能源等行业关键词
+- [x] 扩展宏观事件词库：降准/降息/加息/汇率/贸易战/关税/政策等
+- [x] 支持 A 股 ticker 格式（000001/600519/300750 等）直接触发中文新闻
+- [x] 优化英文 ticker 黑名单（避免 GDP/CPI 等缩写误触发）
+### AI 记忆系统 UI
+- [x] 后端：routers.ts 添加 memory.list / memory.update / memory.delete tRPC 路由
+- [x] 前端：Settings.tsx 新增「AI 记忆」Tab
+- [x] 前端：记忆列表（卡片式，显示 taskTitle/summary/memoryType/keywords/createdAt）
+- [x] 前端：支持按 memoryType 过滤（preference/workflow/watchlist/analysis）
+- [x] 前端：支持编辑 summary/keywords 字段（inline 编辑）
+- [x] 前端：支持单条删除 + 批量删除
+- [x] 前端：显示记忆过期时间（expiresAt）
+- [x] 编写测试，运行全套测试，保存 checkpoint

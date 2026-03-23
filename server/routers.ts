@@ -693,6 +693,19 @@ ${AVAILABLE_APIS_CATALOG}
 • Manus 负责：按计划调用 API、抓取数据、清洗计算、返回结构化事实包
 • 禁止在 Step1 出现：买入/卖出/持有/高估/低估/目标价/结论性摘要/方向性判断
 • 禁止用「待数据验证」替代假设——假设必须是可被数据证伪的具体陈述
+**INTENT_CONTEXT_LAYER（task_type 分类规则）：**
+• stock_analysis：涉及具体股票/ETF 的估值、财务、技术分析
+• macro_analysis：宏观经济、利率、通胀、汇率、行业趋势
+• crypto_analysis：加密货币、DeFi、链上数据
+• portfolio_review：持仓组合、资产配置、再平衡
+• event_driven：财报、并购、政策事件、突发新闻
+• discussion：开放性讨论、投资理念、无明确标的
+• general：无法归类时使用
+**time_mode 分类规则：**
+• realtime：需要当前价格/实时行情（优先 polygon/alpaca）
+• latest_available：需要最新可用数据（非实时也可，优先 fmp/finnhub）
+• recent：近期趋势（1-3个月，优先 yahoo_finance/news_api）
+• historical：历史回测/长期对比（1年+，优先 sec_edgar/simfin）
 
 **三阶段检索计划（core / conditional / deep）：**
 • core：每个任务必须执行的 2-4 个最关键数据源（并发上限 3）
@@ -709,10 +722,11 @@ ${AVAILABLE_APIS_CATALOG}
 ${"```"}json
 {
   "task_parse": {
-    "task_type": "stock_analysis|macro_analysis|event_driven|general",
+    "task_type": "stock_analysis|macro_analysis|crypto_analysis|portfolio_review|event_driven|discussion|general",
     "symbols": ["AAPL"],
     "markets": ["US"],
     "time_scope": "current|historical|forecast",
+    "time_mode": "realtime|latest_available|recent|historical",
     "depth_mode": "quick|standard|deep"
   },
   "hypotheses": [
@@ -737,6 +751,9 @@ ${"```"}json
   },
   "tavily_query": "苹果AI战略分析师观点 ${currentYearStr}",
   "company_names": ["苹果", "Apple Inc."],
+  "priority_map": {"h1": "high", "h2": "medium"},
+  "action_candidates": ["comparison", "chart", "sensitivity"],
+  "fallback_plan": "若 fmp 不可用，改用 simfin + tiingo 组合替代财务数据",
   "reasoning": "检索计划选取理由（一句话）"
 }
 ${"```"}`;
@@ -1488,7 +1505,16 @@ ${"```"}`;
     const manusReport = realTimeDataBlock
       ? `## 实时数据汇总（直接 API 数据，无 LLM 处理）${chartBlock}\n\n${realTimeDataBlock}`
       : `## 数据收集（基于已有分析框架）${chartBlock}\n\n${gptStep1Output}`;
-    await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
+
+    // ── V2.1 DATA_PACKET freshness 标签计算 ──────────────────────────────────
+    const hasLiveApiData = (polygonMarkdown ?? "").length > 100;
+    const hasRecentData = manusReport.includes("2025") || manusReport.includes("2026");
+    const hasAnyData = manusReport.length > 200;
+    const dataPacketFreshness: "realtime" | "latest_available" | "recent" | "stale" =
+      hasLiveApiData ? "realtime" :
+      hasRecentData ? "latest_available" :
+      hasAnyData ? "recent" : "stale";
+    // ─────────────────────────────────────────────────────────────────────────    await updateTaskStatus(taskId, "manus_analyzing", { manusResult: manusReport });
     // 注：manus_analyzing 将 manusResult 写入 DB
 
     // ── Step2 完成后立即构建 CitationSummary（此时 latencyMap 已全部就绪）─────────────
@@ -1572,10 +1598,30 @@ ${"```"}`;
     // ------------------------------------------------------------------------
     await updateTaskStatus(taskId, "gpt_reviewing");
 
+    // ── V2.1 ACTION_ENGINE：根据 task_type 自动决定触发哪些 action ─────────────
+    const resolvedTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    const actionCandidatesFromStep1: string[] = (resourcePlan.taskSpec as any)?.action_candidates ?? [];
+    const autoActions: string[] = [...actionCandidatesFromStep1];
+    // 按 task_type 自动补充 action
+    if (resolvedTaskType === "stock_analysis") {
+      if (!autoActions.includes("comparison")) autoActions.push("comparison");
+      if (!autoActions.includes("chart")) autoActions.push("chart");
+      if (!autoActions.includes("sensitivity")) autoActions.push("sensitivity");
+    } else if (resolvedTaskType === "portfolio_review") {
+      if (!autoActions.includes("allocation")) autoActions.push("allocation");
+      if (!autoActions.includes("comparison")) autoActions.push("comparison");
+    } else if (resolvedTaskType === "macro_analysis") {
+      if (!autoActions.includes("chart")) autoActions.push("chart");
+    } else if (resolvedTaskType === "crypto_analysis") {
+      if (!autoActions.includes("chart")) autoActions.push("chart");
+      if (!autoActions.includes("comparison")) autoActions.push("comparison");
+    }
+    // ACTION_ENGINE 结果注入 Step3 prompt（在 Step3 构建时使用 autoActions）
+    // ─────────────────────────────────────────────────────────────────────────
     // ── 并行多 Agent 分析（参考 TradingAgents/AutoHedge 架构）──────────────────────
     // 仅在深度/标准模式且任务类型为 stock_analysis/macro_analysis 时激活
     // 避免在快速模式下增加延迟
-    const multiAgentTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    const multiAgentTaskType = resolvedTaskType;
     let multiAgentBlock = "";
     let savedAgentSignalsJson: string | undefined;
     if (modeConfig.label !== "quick" && (multiAgentTaskType === "stock_analysis" || multiAgentTaskType === "macro_analysis")) {
@@ -1777,6 +1823,17 @@ ${multiAgentBlock}`
       followupInstruction = `⑪ FOLLOWUP: 结尾给出 3 个研究延伸问题（帮用户深化分析，而非重复已知信息） %%FOLLOWUP%%问题%%END%%`;
     }
 
+    // ── V2.1 ACTION_ENGINE：将 autoActions 注入 Step3 prompt ─────────────────
+    const actionEngineBlock = autoActions.length > 0
+      ? `
+[ACTION_ENGINE] 本次分析已自动启用以下 action：${autoActions.join(", ")}。请在报告中相应地包含：${
+          autoActions.includes("comparison") ? "横向对比（竞争对手/行业均值）；" : ""
+        }${autoActions.includes("chart") ? "%%CHART%% 图表（至少1个）；" : ""
+        }${autoActions.includes("sensitivity") ? "敏感性分析（关键假设变动影响）；" : ""
+        }${autoActions.includes("allocation") ? "资产配置建议（权重/比例）；" : ""
+        }[/ACTION_ENGINE]`
+      : "";
+    // ─────────────────────────────────────────────────────────────────────────
     // 检测是否为新闻/市场分析类查询，如是则注入 TrendRadar 六板块分析框架
     const isNewsAnalysisQuery = /新闻|市场动态|趋势|情绪|热点|头条|资讯|公告|事件|动态|影响|评估|news|trend|market update/i.test(taskDescription);
     const trendRadarFramework = isNewsAnalysisQuery
@@ -1784,7 +1841,7 @@ ${multiAgentBlock}`
       : "";
 
     // Step3 GPT prompt（Phase B：基于 Phase A 结果，渲染自然语言）
-    const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]${trendRadarFramework}
+    const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]${trendRadarFramework}${actionEngineBlock}
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
 [GPT_RETRIEVAL_PLAN_S1]
 ${gptStep1Output.slice(0, 800)}

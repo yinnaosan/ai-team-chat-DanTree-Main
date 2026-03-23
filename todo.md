@@ -1764,3 +1764,12 @@
 - [x] client/src/pages/ChatRoom.tsx: 新增 DiscussionPanel 组件（key_uncertainty/weakest_point/alternative_view/follow_up_questions/exploration_paths）
 - [x] client/src/pages/ChatRoom.tsx: 前端 fallback-safe — 两个对象均可为 null，不 crash
 - [x] vitest: 覆盖 marker 解析、JSON 验证、graceful degradation 三个场景
+
+## SYSTEM_REBUILD_V2_1_FULL COMPLETE IMPLEMENTATION
+- [x] INTENT_CONTEXT_LAYER: Step1 prompt 注入 task_type 分类规则（stock/macro/crypto/portfolio/event/discussion/general）+ time_mode 分类规则
+- [x] Step1 OUTPUT JSON 补充 priority_map + action_candidates + fallback_plan 字段
+- [x] SOURCE_SELECTION_ENGINE 动态评分: server/dataSourceRegistry.ts 末尾添加 selectTopSources() 函数（reliability + data_quality - latency_penalty - cost_penalty - failure_rate_penalty）
+- [x] DATA_PACKET freshness 标签: manusReport 构建后计算 dataPacketFreshness（realtime/latest_available/recent/stale）
+- [x] EVIDENCE_ENGINE 补充 freshnessLabel + conflictList + discussability 字段（server/evidenceValidator.ts）
+- [x] Interpretation_Agent: server/multiAgentAnalysis.ts 添加第 5 个 Agent，所有 taskType 均激活，输出 discussionHooks
+- [x] ACTION_ENGINE: server/routers.ts 在 pipeline 中根据 task_type 自动决定触发哪些 action（comparison/chart/sensitivity/allocation），注入 Step3 prompt

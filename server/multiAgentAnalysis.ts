@@ -16,7 +16,7 @@ import { invokeLLM } from "./_core/llm";
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
 export interface AgentAnalysis {
-  role: "macro" | "technical" | "fundamental" | "sentiment";
+  role: "macro" | "technical" | "fundamental" | "sentiment" | "interpretation";
   roleName: string;
   verdict: string;           // 该角色的核心判断（1-2句）
   keyPoints: string[];       // 3-5个关键发现
@@ -87,6 +87,10 @@ const AGENT_ROLES = {
   "confidence": "high|medium|low",
   "dataUsed": ["使用的数据来源1", "使用的数据来源2"]
 }`,
+  },
+  interpretation: {
+    name: "解读分析师",
+    systemPrompt: `你是专业的投资解读分析师（Interpretation Agent）。你的职责是基于已有数据，生成深度讨论钩子和延伸问题。\n专注于：识别最大不确定性、指出分析中最薄弱的环节、提出对立观点、生成有价值的追问问题。\n输出格式（严格 JSON）：\n{\n  "verdict": "本次分析的核心解读（1-2句）",\n  "keyPoints": ["最大不确定性", "最薄弱环节", "对立观点"],\n  "signal": "neutral",\n  "confidence": "medium",\n  "dataUsed": ["使用的数据来源"],\n  "discussionHooks": {\n    "key_uncertainty": "最大不确定性（1句）",\n    "weakest_point": "分析中最薄弱的环节（1句）",\n    "alternative_view": "对立观点（1句）",\n    "follow_up_questions": ["追问1", "追问2", "追问3"],\n    "deeper_dive": "值得深入研究的方向（1句）"\n  }\n}`,
   },
 };
 
@@ -214,7 +218,7 @@ function buildDirectorSummary(agents: AgentAnalysis[], consensus: string): strin
 export async function runMultiAgentAnalysis(
   taskDescription: string,
   dataReport: string,
-  taskType: "stock_analysis" | "macro_analysis" | "general" | "event_driven" | string = "general",
+  taskType: "stock_analysis" | "macro_analysis" | "crypto_analysis" | "portfolio_review" | "event_driven" | "discussion" | "general" | string = "general",
   maxTokensPerAgent = 300,
 ): Promise<MultiAgentResult> {
   const t0 = Date.now();
@@ -222,14 +226,20 @@ export async function runMultiAgentAnalysis(
   // 根据任务类型决定激活哪些 Agent
   let activeRoles: Array<keyof typeof AGENT_ROLES>;
   if (taskType === "stock_analysis") {
-    activeRoles = ["macro", "technical", "fundamental", "sentiment"];
+    activeRoles = ["macro", "technical", "fundamental", "sentiment", "interpretation"];
   } else if (taskType === "macro_analysis") {
-    activeRoles = ["macro", "sentiment"];
+    activeRoles = ["macro", "sentiment", "interpretation"];
+  } else if (taskType === "crypto_analysis") {
+    activeRoles = ["technical", "sentiment", "interpretation"];
+  } else if (taskType === "portfolio_review") {
+    activeRoles = ["macro", "fundamental", "interpretation"];
   } else if (taskType === "event_driven") {
-    activeRoles = ["fundamental", "sentiment"];
+    activeRoles = ["fundamental", "sentiment", "interpretation"];
+  } else if (taskType === "discussion") {
+    activeRoles = ["interpretation"];
   } else {
-    // general：只激活基本面和情绪（最通用）
-    activeRoles = ["fundamental", "sentiment"];
+    // general：基本面 + 情绪 + 解读
+    activeRoles = ["fundamental", "sentiment", "interpretation"];
   }
 
   // 并行运行所有激活的 Agent

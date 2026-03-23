@@ -65,6 +65,13 @@ export interface EvidencePacket {
   missingBlocking: string[];
   missingImportant: string[];
   missingOptional: string[];
+  // ── V2.1 新增字段 ──────────────────────────────────────────────────────────
+  /** 数据新鲜度标签（来自 DATA_PACKET freshness） */
+  freshnessLabel: "realtime" | "latest_available" | "recent" | "stale";
+  /** 冲突数据列表（不同来源对同一指标有矛盾数据时填充） */
+  conflictList: Array<{ field: string; valueA: string; sourceA: string; valueB: string; sourceB: string }>;
+  /** 是否适合深度讨论（evidenceScore >= 50 且无 blocking missing） */
+  discussability: boolean;
 }
 
 /** P0-3: 字段级缺失分层输入 */
@@ -419,6 +426,27 @@ ${apiHitSummary}${fieldMissingSummary}`;
 ${apiHitSummary}${fieldMissingSummary}`;
   }
 
+  // ── V2.1: 计算新增字段 ────────────────────────────────────────────────────
+  const freshFacts = facts.filter(f => f.freshness === "fresh").length;
+  const staleFacts = facts.filter(f => f.freshness === "stale").length;
+  const freshnessLabel: EvidencePacket["freshnessLabel"] =
+    freshFacts > 2 ? "realtime" :
+    freshFacts > 0 || staleFacts > 2 ? "latest_available" :
+    staleFacts > 0 ? "recent" : "stale";
+  const conflictList: EvidencePacket["conflictList"] = [];
+  const fieldValueMap = new Map<string, { value: string; source: string }>();
+  for (const fact of facts) {
+    if (!fact.value) continue;
+    const key = fact.claim.slice(0, 40).toLowerCase().replace(/\s+/g, "_");
+    const existing = fieldValueMap.get(key);
+    if (existing && existing.source !== fact.source && existing.value !== String(fact.value)) {
+      conflictList.push({ field: key, valueA: existing.value, sourceA: existing.source, valueB: String(fact.value), sourceB: fact.source });
+    } else if (!existing) {
+      fieldValueMap.set(key, { value: String(fact.value), source: fact.source });
+    }
+  }
+  const discussability = evidenceScore >= 50 && mb.length === 0;
+  // ─────────────────────────────────────────────────────────────────────────
   return {
     taskDescription,
     facts,
@@ -432,6 +460,9 @@ ${apiHitSummary}${fieldMissingSummary}`;
     missingBlocking: mb,
     missingImportant: mi,
     missingOptional: mo,
+    freshnessLabel,
+    conflictList,
+    discussability,
   };
 }
 

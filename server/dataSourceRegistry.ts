@@ -1195,3 +1195,66 @@ export function computeDataQualityScore(
     recommendations,
   };
 }
+
+// ── SOURCE_SELECTION_ENGINE V2.1 — 动态评分 + top_k 选择 ────────────────────
+/**
+ * 数据源动态评分结果
+ */
+export interface SourceScore {
+  sourceId: string;
+  displayName: string;
+  score: number;
+  reliability: number;
+  dataQuality: number;
+  latencyPenalty: number;
+  costPenalty: number;
+  failureRatePenalty: number;
+  selected: boolean;
+}
+
+/**
+ * SOURCE_SELECTION_ENGINE V2.1
+ * 按动态评分从候选源中选出 top_k 个最优数据源
+ *
+ * @param candidateSourceIds 候选数据源 ID 列表
+ * @param recentLatencyMap 最近一次调用的延迟记录（sourceId → latencyMs，-1 表示未调用/超时）
+ * @param recentFailures 最近失败记录（sourceId → failCount）
+ * @param mode 选择模式：quick=top3 | standard=top5 | deep=top8
+ */
+export function selectTopSources(
+  candidateSourceIds: string[],
+  recentLatencyMap: Map<string, number> = new Map(),
+  recentFailures: Map<string, number> = new Map(),
+  mode: "quick" | "standard" | "deep" = "standard"
+): SourceScore[] {
+  const topK = mode === "quick" ? 3 : mode === "deep" ? 8 : 5;
+
+  const scores: SourceScore[] = candidateSourceIds.map(sourceId => {
+    const def = DATA_SOURCE_REGISTRY.find(d => d.id === sourceId);
+    if (!def) {
+      return { sourceId, displayName: sourceId, score: 0, reliability: 0, dataQuality: 0, latencyPenalty: 0, costPenalty: 0, failureRatePenalty: 0, selected: false };
+    }
+    const reliability = Math.round((def.confidenceWeight ?? 0.7) * 40);
+    const dataQuality = (def.dataType === "structured" ? 20 : 10) + (def.isWhitelisted ? 15 : 0);
+    const latencyMs = recentLatencyMap.get(sourceId) ?? -1;
+    const latencyPenalty = latencyMs < 0 ? 0 : latencyMs > 5000 ? 15 : latencyMs > 2000 ? 8 : latencyMs > 1000 ? 3 : 0;
+    const costPenalty = def.costClass === "paid" ? 10 : def.costClass === "freemium" ? 5 : 0;
+    const failCount = recentFailures.get(sourceId) ?? 0;
+    const failureRatePenalty = Math.min(15, failCount * 5);
+    const score = Math.max(0, Math.min(100, reliability + dataQuality - latencyPenalty - costPenalty - failureRatePenalty));
+    return { sourceId, displayName: def.displayName, score, reliability, dataQuality, latencyPenalty, costPenalty, failureRatePenalty, selected: false };
+  });
+
+  scores.sort((a, b) => b.score - a.score);
+  for (let i = 0; i < Math.min(topK, scores.length); i++) {
+    scores[i].selected = true;
+  }
+  return scores;
+}
+
+/**
+ * 从 selectTopSources 结果中提取被选中的 sourceId 集合
+ */
+export function getSelectedSourceIds(scores: SourceScore[]): Set<string> {
+  return new Set(scores.filter(s => s.selected).map(s => s.sourceId));
+}

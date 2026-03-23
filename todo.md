@@ -1550,3 +1550,10 @@
 - [x] IV Smile：后端 polygonApi.ts 新增 getIVSmileData 函数（二分法反推 IV + Polygon 快照 implied_volatility）
 - [x] IV Smile：optionPricing.ts generateOptionSummary 改为 async，调用 getIVSmileData 并将 ivSmile 数据注入 structuredPayload
 - [x] IV Smile：OptionPricingCard 第五 Tab「IV Smile」，实际 IV vs BS 理论 IV 对比曲线（有真实数据时显示 Polygon 标注，否则 BS 理论模拟降级）
+
+## 三项交互增强（2026-03-23 Round 2）
+- [x] OptionPricingCard：顶部添加到期日选择器（7/14/30/60/90 天），动态重算所有 Greeks/Payoff/IV Smile
+- [x] AlphaFactorCard：展开详情添加各因子权重滑块（0-2x），实时重算综合评分和信号方向
+- [x] IV Smile Tab：下方添加 IV 历史趋势折线图（从 getAlphaFactorHistory 历史记录提取 sigma，包含当前/均唃 IV 对比和高位/低位判断）
+- [x] 后端：routers.ts savedAgentSignalsJson 新增 optionSigma 字段，getAlphaFactorHistory 返回 optionSigma
+- [x] 440/442 测试通过（2 个已知网络限制）

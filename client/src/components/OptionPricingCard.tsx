@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown,
-  Activity, BarChart2, LineChart as LineChartIcon, Smile,
+  Activity, BarChart2, LineChart as LineChartIcon, Smile, History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/lib/trpc";
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Legend,
@@ -502,6 +503,34 @@ function SensitivityChart({ payload }: SensitivityChartProps) {
 // ── IV Smile 曲线 ─────────────────────────────────────────────────────────────
 function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
   const [showType, setShowType] = useState<"all" | "call" | "put">("all");
+  const [showHistory, setShowHistory] = useState(true);
+
+  // 查询历史 IV 趋势（从 agentSignals 历史记录中提取 sigma）
+  const { data: alphaHistory } = trpc.chat.getAlphaFactorHistory.useQuery(
+    { ticker: payload.ticker, limit: 10 },
+    { enabled: !!payload.ticker, staleTime: 5 * 60 * 1000 }
+  );
+
+  // 构建历史 IV 趋势数据
+  const ivHistoryData = useMemo(() => {
+    if (!alphaHistory || alphaHistory.length === 0) return [];
+    return alphaHistory
+      .filter(h => h && typeof (h as { optionSigma?: number | null }).optionSigma === "number")
+      .map(h => {
+        const record = h as { analyzedAt: Date | number; optionSigma?: number | null };
+        const sigma = record.optionSigma as number;
+        return {
+          date: new Date(typeof record.analyzedAt === "number" ? record.analyzedAt : record.analyzedAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" }),
+          sigma,
+          timestamp: typeof record.analyzedAt === "number" ? record.analyzedAt : new Date(record.analyzedAt).getTime(),
+        };
+      });
+  }, [alphaHistory]);
+
+  const hasIVHistory = ivHistoryData.length >= 2;
+  const avgIV = hasIVHistory ? ivHistoryData.reduce((s, d) => s + d.sigma, 0) / ivHistoryData.length : null;
+  const currentIV = payload.sigma;
+  const ivRelative = avgIV !== null ? (currentIV > avgIV * 1.2 ? "high" : currentIV < avgIV * 0.8 ? "low" : "normal") : null;
 
   // 如果后端提供了 IV Smile 数据，使用真实数据
   const hasRealData = payload.ivSmile && payload.ivSmile.length > 0;
@@ -626,9 +655,94 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
       <div className="text-xs text-muted-foreground/50 px-1">
         {hasRealData
           ? `紫色实线为 Polygon 期权链实际成交价反推的隐含波动率，灰色虚线为 BS 理论平坦 IV（σ=${payload.sigma}%）。IV 微笑/偏斜反映市场对尾部风险的定价`
-          : `当前为 BS 理论模拟（灰色虚线为 σ=${payload.sigma}%）。紫色曲线模拟市场典型 IV 微笑形态：OTM Put 溢价（左侧偏斜）+ OTM Call 溢价（右侧上翘）。实际 IV Smile 需要 Polygon 期权链实时成交数据`
+          : `当前为 BS 理论模拟（灰色虚线为 σ=${payload.sigma}%）。紫色曲线模拟市场典型 IV 微笑形态：OTM Put 溢价（左侧偏斜）+ OTM Call 溢价（右侧上翈）。实际 IV Smile 需要 Polygon 期权链实时成交数据`
         }
       </div>
+
+      {/* IV 历史趋势折线图 */}
+      {(hasIVHistory || ivHistoryData.length > 0) && (
+        <div className="mt-4 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-amber-400/70" />
+              <span className="text-xs font-medium text-foreground/80">IV 历史趋势</span>
+              {ivRelative && (
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded border",
+                  ivRelative === "high" ? "text-red-400 bg-red-400/10 border-red-400/20" :
+                  ivRelative === "low" ? "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" :
+                  "text-slate-400 bg-slate-400/10 border-slate-400/20"
+                )}>
+                  {ivRelative === "high" ? `当前高位 (均唃${avgIV?.toFixed(1)}%)` :
+                   ivRelative === "low" ? `当前低位 (均唃${avgIV?.toFixed(1)}%)` :
+                   `当前正常 (均唃${avgIV?.toFixed(1)}%)`}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors",
+                showHistory && "text-amber-400/70"
+              )}
+            >
+              {showHistory ? "折叠" : "展开"}
+            </button>
+          </div>
+          {showHistory && (
+            <div className="h-32">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={ivHistoryData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={32}
+                    tickFormatter={(v) => `${v}%`}
+                    domain={["auto", "auto"]}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+                    formatter={(v: number) => [`${v.toFixed(1)}%`, "年化波动率 IV"]}
+                  />
+                  {avgIV !== null && (
+                    <ReferenceLine
+                      y={avgIV}
+                      stroke="rgba(148,163,184,0.3)"
+                      strokeDasharray="4 4"
+                      label={{ value: `均唃${avgIV.toFixed(1)}%`, position: "right", fontSize: 8, fill: "rgba(148,163,184,0.5)" }}
+                    />
+                  )}
+                  <ReferenceLine
+                    y={currentIV}
+                    stroke="rgba(251,191,36,0.4)"
+                    strokeDasharray="4 4"
+                    label={{ value: `当前${currentIV}%`, position: "right", fontSize: 8, fill: "rgba(251,191,36,0.6)" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="sigma"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ fill: "#f59e0b", r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground/40 mt-1">
+            历史数据来自本平台历次分析记录中的 ATR 估算年化波动率。当前 IV 处于历史高位时，期权卖方策略相对有利；处于历史低位时，期权买方策略相对有利
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -636,12 +750,56 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 type TabType = "heatmap" | "chain" | "strategy" | "sensitivity" | "ivsmile";
 
+const EXPIRY_OPTIONS = [7, 14, 30, 60, 90] as const;
+type ExpiryDays = typeof EXPIRY_OPTIONS[number];
+
+// 纯前端重算期权链（当用户切换到期日时）
+function recomputeChain(
+  chain: OptionChainItem[],
+  S: number,
+  r: number,
+  sigma: number,
+  newDays: number,
+): OptionChainItem[] {
+  const T = newDays / 365;
+  return chain.map(item => {
+    const bs = bsCalc(S, item.strike, T, r, sigma, item.type);
+    const intrinsic = item.type === "call" ? Math.max(S - item.strike, 0) : Math.max(item.strike - S, 0);
+    return {
+      ...item,
+      price: parseFloat(bs.price.toFixed(4)),
+      intrinsicValue: parseFloat(intrinsic.toFixed(4)),
+      timeValue: parseFloat(Math.max(bs.price - intrinsic, 0).toFixed(4)),
+      delta: parseFloat(bs.delta.toFixed(4)),
+      gamma: parseFloat(bs.gamma.toFixed(6)),
+      vega: parseFloat(bs.vega.toFixed(4)),
+      theta: parseFloat(bs.theta.toFixed(4)),
+    };
+  });
+}
+
 export default function OptionPricingCard({ payload }: { payload: OptionPricingPayload }) {
   const [activeTab, setActiveTab] = useState<TabType>("heatmap");
   const [expanded, setExpanded] = useState(true);
+  // 到期日选择器：默认使用后端返回的天数，如果不在选项中则选最接近的
+  const defaultDays = (EXPIRY_OPTIONS.includes(payload.daysToExpiry as ExpiryDays)
+    ? payload.daysToExpiry
+    : EXPIRY_OPTIONS.reduce((prev, curr) =>
+        Math.abs(curr - payload.daysToExpiry) < Math.abs(prev - payload.daysToExpiry) ? curr : prev
+      )) as ExpiryDays;
+  const [selectedDays, setSelectedDays] = useState<ExpiryDays>(defaultDays);
 
-  const calls = payload.optionChain.filter(o => o.type === "call");
-  const puts = payload.optionChain.filter(o => o.type === "put");
+  // 当用户切换到期日时，用纯前端 BS 重算期权链
+  const dynamicPayload = useMemo(() => {
+    if (selectedDays === payload.daysToExpiry) return payload;
+    const sigma = payload.sigma / 100;
+    const r = payload.riskFreeRate / 100;
+    const newChain = recomputeChain(payload.optionChain, payload.spotPrice, r, sigma, selectedDays);
+    return { ...payload, daysToExpiry: selectedDays, optionChain: newChain };
+  }, [payload, selectedDays]);
+
+  const calls = dynamicPayload.optionChain.filter(o => o.type === "call");
+  const puts = dynamicPayload.optionChain.filter(o => o.type === "put");
   const atmCall = calls.find(c => c.moneyness === "ATM");
   const atmPut = puts.find(p => p.moneyness === "ATM");
 
@@ -688,7 +846,22 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-muted-foreground/60">到期</span>
-            <span className="font-mono text-foreground/70">{payload.daysToExpiry}天</span>
+            <div className="flex gap-0.5">
+              {EXPIRY_OPTIONS.map(d => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDays(d)}
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-xs font-mono transition-all border",
+                    selectedDays === d
+                      ? "bg-violet-500/25 border-violet-500/50 text-violet-300 font-bold"
+                      : "bg-white/5 border-white/10 text-muted-foreground/60 hover:bg-white/10 hover:text-foreground/70"
+                  )}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-muted-foreground/60">无风险利率</span>
@@ -708,6 +881,11 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
               <span className="text-muted-foreground/60">ATM Put</span>
               <span className="font-mono text-red-400">${atmPut.price.toFixed(2)}</span>
               <span className="text-muted-foreground/40">Δ={atmPut.delta.toFixed(3)}</span>
+            </div>
+          )}
+          {selectedDays !== payload.daysToExpiry && (
+            <div className="flex items-center gap-1 text-xs">
+              <span className="text-amber-400/70 text-[10px]">↻ 已重算 {selectedDays}天</span>
             </div>
           )}
         </div>
@@ -735,7 +913,7 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
 
             {/* Tab 内容 */}
             {activeTab === "heatmap" && (
-              <GreeksHeatmap calls={calls} puts={puts} spotPrice={payload.spotPrice} />
+              <GreeksHeatmap calls={calls} puts={puts} spotPrice={dynamicPayload.spotPrice} />
             )}
             {activeTab === "chain" && (
               <div className="space-y-4">
@@ -756,10 +934,10 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
               </div>
             )}
             {activeTab === "sensitivity" && (
-              <SensitivityChart payload={payload} />
+              <SensitivityChart payload={dynamicPayload} />
             )}
             {activeTab === "ivsmile" && (
-              <IVSmileChart payload={payload} />
+              <IVSmileChart payload={dynamicPayload} />
             )}
           </>
         )}

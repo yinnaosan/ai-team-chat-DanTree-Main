@@ -1539,6 +1539,18 @@ ${"```"}`;
           }
         } catch { /* ignore */ }
         // 序列化 Agent 信号供记忆持久化
+        // 从技术指标结果中提取 sigma（期权定价用的年化波动率）
+        let optionSigma: number | null = null;
+        try {
+          const techRaw = techIndicatorsResult?.status === "fulfilled" ? techIndicatorsResult.value : "";
+          if (techRaw) {
+            const sigmaMatch = techRaw.match(/%%OPTION_PRICING%%([\s\S]*?)%%END_OPTION_PRICING%%/);
+            if (sigmaMatch?.[1]) {
+              const parsed = JSON.parse(sigmaMatch[1]);
+              if (typeof parsed.sigma === "number") optionSigma = parsed.sigma;
+            }
+          }
+        } catch { /* ignore */ }
         savedAgentSignalsJson = JSON.stringify({
           ticker: primaryTicker || null,
           macro: multiAgentResult.agents.find(a => a.role === "macro"),
@@ -1548,6 +1560,7 @@ ${"```"}`;
           consensusSignal: multiAgentResult.consensusSignal,
           divergenceNote: multiAgentResult.divergenceNote,
           alphaFactors: alphaFactorsSnapshot,
+          optionSigma,
           analyzedAt: Date.now(),
         });
       } catch {
@@ -2387,6 +2400,7 @@ export const appRouter = router({
                 compositeScore: signals.alphaFactors.compositeScore as number,
                 overallSignal: signals.alphaFactors.overallSignal as string,
                 factors: signals.alphaFactors.factors as Array<{ name: string; value: number; signal: string }>,
+                optionSigma: typeof signals.optionSigma === "number" ? signals.optionSigma as number : null,
               };
             } catch { return null; }
           })

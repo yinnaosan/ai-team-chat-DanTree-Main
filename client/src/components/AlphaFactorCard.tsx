@@ -4,11 +4,12 @@
  * 解析 %%ALPHA_FACTORS%%{JSON}%%END_ALPHA_FACTORS%% 标记
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
@@ -495,11 +496,58 @@ function FactorCorrelationMatrix({ factors }: { factors: AlphaFactorData[] }) {
   );
 }
 
-// ── 主组件 ────────────────────────────────────────────────────────────────────
+// ── 主组件 ────────────────────────────────────────────────────────────────────────────────
+// 因子权重重算工具函数
+function computeWeightedScore(
+  factors: AlphaFactorData[],
+  weights: Record<string, number>,
+): { score: number; signal: AlphaFactorsPayload["overallSignal"] } {
+  if (factors.length === 0) return { score: 0, signal: "neutral" };
+  let totalWeight = 0;
+  let weightedSum = 0;
+  for (const f of factors) {
+    const w = weights[f.name] ?? 1.0;
+    const contribution = f.signal * (f.strength / 100) * w;
+    weightedSum += contribution;
+    totalWeight += w;
+  }
+  const normalized = totalWeight > 0 ? (weightedSum / totalWeight) * 100 : 0;
+  const score = Math.round(Math.max(-100, Math.min(100, normalized)));
+  const signal: AlphaFactorsPayload["overallSignal"] =
+    score >= 60 ? "strong_long" :
+    score >= 25 ? "long" :
+    score <= -60 ? "strong_short" :
+    score <= -25 ? "short" : "neutral";
+  return { score, signal };
+}
+
 export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayload }) {
   const [expanded, setExpanded] = useState(false);
   const [showSparkline, setShowSparkline] = useState(true);
-  const config = SIGNAL_CONFIG[payload.overallSignal];
+  const [showWeights, setShowWeights] = useState(false);
+  // 权重状态：默认全部 1.0
+  const [weights, setWeights] = useState<Record<string, number>>(
+    () => Object.fromEntries(payload.factors.map(f => [f.name, 1.0]))
+  );
+
+  const resetWeights = useCallback(() => {
+    setWeights(Object.fromEntries(payload.factors.map(f => [f.name, 1.0])));
+  }, [payload.factors]);
+
+  const isWeightModified = useMemo(
+    () => Object.values(weights).some(w => Math.abs(w - 1.0) > 0.01),
+    [weights]
+  );
+
+  // 权重调整后的动态评分
+  const { score: weightedScore, signal: weightedSignal } = useMemo(
+    () => isWeightModified ? computeWeightedScore(payload.factors, weights) : { score: payload.compositeScore, signal: payload.overallSignal },
+    [payload.factors, payload.compositeScore, payload.overallSignal, weights, isWeightModified]
+  );
+
+  const displayScore = weightedScore;
+  const displaySignal = weightedSignal;
+  const config = SIGNAL_CONFIG[displaySignal];
   const SignalIcon = config.icon;
 
   const techFactors = payload.factors.filter(f =>
@@ -514,10 +562,10 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
   const neutralCount = payload.factors.filter(f => f.signal === 0).length;
 
   // 综合评分的进度条（-100~100 → 0~100%）
-  const scorePercent = (payload.compositeScore + 100) / 2;
+  const scorePercent = (displayScore + 100) / 2;
   const scoreBarColor =
-    payload.compositeScore >= 25 ? "bg-emerald-500" :
-    payload.compositeScore <= -25 ? "bg-red-500" :
+    displayScore >= 25 ? "bg-emerald-500" :
+    displayScore <= -25 ? "bg-red-500" :
     "bg-slate-400";
 
   return (
@@ -547,6 +595,17 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
               title={showSparkline ? "隐藏历史趋势" : "显示历史趋势"}
             >
               <History className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setShowWeights(!showWeights); if (!expanded) setExpanded(true); }}
+              className={cn(
+                "text-muted-foreground hover:text-foreground transition-colors p-1 rounded",
+                showWeights && "text-violet-400/80",
+                isWeightModified && "text-amber-400"
+              )}
+              title="因子权重调节"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setExpanded(!expanded)}
@@ -636,6 +695,60 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
         {/* 展开详情：因子列表 + 相关性矩阵 */}
         {expanded && (
           <div className="mt-3 space-y-2">
+            {/* 因子权重调节面板 */}
+            {showWeights && (
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 mb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-3 h-3 text-violet-400" />
+                    <span className="text-xs font-medium text-foreground/80">因子权重调节</span>
+                    {isWeightModified && (
+                      <span className="text-[10px] text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                        已修改 → 评分 {displayScore > 0 ? "+" : ""}{displayScore}
+                      </span>
+                    )}
+                  </div>
+                  {isWeightModified && (
+                    <button
+                      onClick={resetWeights}
+                      className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-foreground/80 transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      重置
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {payload.factors.map(f => {
+                    const w = weights[f.name] ?? 1.0;
+                    const signalColor = f.signal === 1 ? "text-emerald-400" : f.signal === -1 ? "text-red-400" : "text-slate-400";
+                    return (
+                      <div key={f.name} className="flex items-center gap-2">
+                        <span className={cn("text-[10px] font-mono w-20 truncate flex-shrink-0", signalColor)} title={f.name}>
+                          {f.name}
+                        </span>
+                        <div className="flex-1">
+                          <Slider
+                            min={0}
+                            max={200}
+                            step={10}
+                            value={[Math.round(w * 100)]}
+                            onValueChange={([v]) => setWeights(prev => ({ ...prev, [f.name]: v / 100 }))}
+                            className="h-3"
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground/70 w-8 text-right flex-shrink-0">
+                          {w.toFixed(1)}x
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground/40 mt-2">
+                  拖动滑块调整因子权重（0x=屏蔽 / 1x=默认 / 2x=加倍），实时重算综合评分
+                </p>
+              </div>
+            )}
             {techFactors.length > 0 && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground/70 mb-1 px-2">

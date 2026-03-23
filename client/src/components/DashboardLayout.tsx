@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen, Settings, Wallet } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen, Settings, Wallet, FlaskConical } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -32,6 +32,7 @@ const menuItems = [
   { icon: MessageSquare, label: "AI 分析对话", path: "/chat" },
   { icon: BookOpen, label: "投资知识库", path: "/library" },
   { icon: Wallet, label: "资产负债表", path: "/networth" },
+  { icon: FlaskConical, label: "因子回测", path: "/backtest" },
   { icon: Settings, label: "设置", path: "/settings" },
 ];
 

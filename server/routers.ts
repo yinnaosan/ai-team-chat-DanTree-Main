@@ -107,6 +107,7 @@ import { getTwelveDataAnalysis, checkTwelveDataHealth, isTwelveDataConfigured } 
 import { getForexAnalysis, checkExchangeRatesHealth } from "./exchangeRatesApi";
 import { getPortfolioOptimizationAnalysis, checkPortfolioOptimizerHealth } from "./portfolioOptimizerApi";
 import { buildLawsContextBlock, getAllLawsSummary } from "./hackerLawsKnowledge";
+import { runBacktest as runFactorBacktest, BACKTEST_FACTORS } from "./backtestEngine";
 import { buildQuantContextBlock } from "./quantFactorKnowledge";
 import { fetchAllCnFinanceNews, formatCnNewsToMarkdown, isCnFinanceNewsRelevant, checkCnFinanceNewsHealth } from "./cnFinanceNewsApi";
 
@@ -3148,6 +3149,20 @@ export const appRouter = router({
     }),
   }),
   backtest: router({
+    // 因子回测：基于技术因子的历史回测
+    factorRun: protectedProcedure
+      .input(z.object({
+        ticker: z.string().min(1).max(20),
+        factorId: z.enum(["macd", "rsi", "bollinger", "ma_cross", "momentum", "kdj"]),
+        period: z.enum(["6mo", "1y", "2y"]).default("1y"),
+      }))
+      .mutation(async ({ input }) => {
+        return runFactorBacktest(input.ticker, input.factorId, input.period);
+      }),
+    getFactors: publicProcedure
+      .query(() => {
+        return BACKTEST_FACTORS;
+      }),
     run: protectedProcedure
       .input(z.object({
         strategy: z.enum(["momentum", "mean_reversion", "ma_crossover", "alpha_factor", "buy_hold"]),

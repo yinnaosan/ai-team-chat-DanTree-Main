@@ -1726,3 +1726,20 @@
 
 ### 测试与 checkpoint
 - [x] 编写新模块测试，运行全套测试，保存 checkpoint
+
+## 因子回测可视化页面
+
+- [ ] 创建 server/backtestEngine.ts（历史 OHLCV 获取 + 因子计算 + 回测逻辑）
+- [ ] 在 routers.ts 中添加 backtest.run 和 backtest.getFactors tRPC 过程
+- [ ] 创建 client/src/pages/FactorBacktest.tsx（因子选择器 + 股票输入 + 净值曲线 + 指标卡片）
+- [ ] 在 App.tsx 中注册路由，DashboardLayout 侧边栏添加入口
+- [ ] 编写测试，运行全套测试，保存 checkpoint
+
+## 因子回测可视化页面
+
+- [x] 创建 server/backtestEngine.ts（历史数据获取 + 因子计算 + 回测逻辑）
+- [x] 在 routers.ts 中添加 backtest.factorRun 和 backtest.getFactors tRPC 接口
+- [x] 创建 client/src/pages/FactorBacktest.tsx（因子选择器 + 净值曲线 + 指标卡片 + 交易记录 + 回撤图）
+- [x] 在 DashboardLayout 侧边栏添加「因子回测」菜单项（FlaskConical 图标）
+- [x] 在 App.tsx 注册 /backtest 路由
+- [x] 编写 backtestEngine.test.ts（20 个测试），运行 499/499 全套测试通过

@@ -11,6 +11,7 @@ import AccessGate from "./pages/AccessGate";
 import AdminPanel from "./pages/AdminPanel";
 import InvestmentLibrary from "./pages/InvestmentLibrary";
 import NetWorthDashboard from "./pages/NetWorthDashboard";
+import FactorBacktest from "./pages/FactorBacktest";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path={"/admin"} component={AdminPanel} />
       <Route path={"/library"} component={InvestmentLibrary} />
       <Route path={"/networth"} component={NetWorthDashboard} />
+      <Route path={"/backtest"} component={FactorBacktest} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

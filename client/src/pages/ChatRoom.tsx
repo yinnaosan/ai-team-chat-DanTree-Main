@@ -562,6 +562,9 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   const tickerForCards = alphaFactorsData?.payload?.ticker ?? optionPricingData?.payload?.ticker ?? "";
   const spotForCards = (optionPricingData?.payload?.spotPrice ?? 100) as number;
   const sigmaForCards = (optionPricingData?.payload?.sigma ?? 0.25) as number;
+  // TrendRadar 热点点击 → WorldMonitor 联动
+  const [worldMonitorLinkedTicker, setWorldMonitorLinkedTicker] = React.useState<string | null>(null);
+  const worldMonitorTicker = worldMonitorLinkedTicker ?? tickerForCards;
   const newsItemsForCards = React.useMemo(() => {
     const meta = msg.metadata as Record<string, unknown> | undefined;
     if (meta?.newsItems && Array.isArray(meta.newsItems)) {
@@ -624,13 +627,28 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           {/* TrendRadar 热点雷达卡片 */}
           {tickerForCards && newsItemsForCards.length > 0 && (
             <div className="mt-3">
-              <TrendRadarCard ticker={tickerForCards} newsItems={newsItemsForCards} />
+              <TrendRadarCard
+                ticker={tickerForCards}
+                newsItems={newsItemsForCards}
+                onWatchlistClick={(sym) => setWorldMonitorLinkedTicker(sym)}
+              />
             </div>
           )}
           {/* World Monitor 全局雷达卡片 */}
           {tickerForCards && (
             <div className="mt-3">
-              <WorldMonitorCard ticker={tickerForCards} />
+              {worldMonitorLinkedTicker && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs text-blue-400">联动分析:</span>
+                  <span className="text-xs font-mono font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded border border-blue-500/30">{worldMonitorLinkedTicker}</span>
+                  <span className="text-xs text-muted-foreground/50">跨资产相关性</span>
+                  <button
+                    onClick={() => setWorldMonitorLinkedTicker(null)}
+                    className="ml-auto text-xs text-muted-foreground/40 hover:text-muted-foreground/80 transition-colors"
+                  >× 恢复默认</button>
+                </div>
+              )}
+              <WorldMonitorCard ticker={worldMonitorTicker} />
             </div>
           )}
           {chartBlocks.map((block, idx) =>

@@ -9,7 +9,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { BookOpen, ExternalLink, Search, Star, Code2, TrendingUp, Brain, Database, Globe, Shield, Cpu, BarChart3, Rss, RefreshCw, Clock, Newspaper } from "lucide-react";
+import { BookOpen, ExternalLink, Search, Star, Code2, TrendingUp, Brain, Database, Globe, Shield, Cpu, BarChart3, Rss, RefreshCw, Clock, Newspaper, Activity, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
@@ -339,7 +339,9 @@ function NewsNowPanel() {
     { ticker: currentSource.query, maxArticles: 12 },
     { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
-  const articles = (data as { articles?: Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string; sentiment?: string }> } | null)?.articles ?? [];
+  const typedData = data as { articles?: Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string; sentiment?: string }>; marketSentiment?: { score: number; label: string } } | null;
+  const articles = typedData?.articles ?? [];
+  const marketSentiment = typedData?.marketSentiment;
 
   return (
     <div className="space-y-3">
@@ -375,6 +377,35 @@ function NewsNowPanel() {
           </button>
         ))}
       </div>
+      {/* 市场情绪指数（底部） */}
+      {marketSentiment && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-white/8 bg-white/3">
+          <Activity className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span className="text-xs text-muted-foreground/70">PrimoGPT 市场情绪指数</span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {marketSentiment.label === "very_bullish" || marketSentiment.label === "bullish" ? (
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            ) : marketSentiment.label === "very_bearish" || marketSentiment.label === "bearish" ? (
+              <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+            ) : (
+              <Minus className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span className={cn(
+              "text-sm font-bold font-mono",
+              marketSentiment.score > 20 ? "text-emerald-400" :
+              marketSentiment.score < -20 ? "text-red-400" : "text-amber-400"
+            )}>
+              {marketSentiment.score > 0 ? "+" : ""}{marketSentiment.score}
+            </span>
+            <span className="text-xs text-muted-foreground/50">
+              {marketSentiment.label === "very_bullish" ? "极度乐观" :
+               marketSentiment.label === "bullish" ? "偏多" :
+               marketSentiment.label === "very_bearish" ? "极度悲观" :
+               marketSentiment.label === "bearish" ? "偏空" : "中性"}
+            </span>
+          </div>
+        </div>
+      )}
       {/* 新闻列表 */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground/40">

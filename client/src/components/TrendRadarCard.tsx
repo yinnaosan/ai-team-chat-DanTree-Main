@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Radio, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TrendItem {
   title: string;
@@ -37,6 +38,7 @@ interface TrendRadarResult {
 
 interface TrendRadarCardProps {
   ticker: string;
+  onWatchlistClick?: (symbol: string) => void;
   newsItems: Array<{
     title: string;
     description?: string;
@@ -106,7 +108,7 @@ function PulseGauge({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function TrendRadarCard({ ticker, newsItems }: TrendRadarCardProps) {
+export function TrendRadarCard({ ticker, newsItems, onWatchlistClick }: TrendRadarCardProps) {
   const [result, setResult] = useState<TrendRadarResult | null>(null);
   const scanMutation = trpc.trendRadar.scan.useMutation({
     onSuccess: (data) => setResult(data as TrendRadarResult),
@@ -253,9 +255,18 @@ export function TrendRadarCard({ ticker, newsItems }: TrendRadarCardProps) {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] text-muted-foreground">关注列表:</span>
                 {pulse.watchlist.map((sym) => (
-                  <span key={sym} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  <button
+                    key={sym}
+                    onClick={() => onWatchlistClick?.(sym)}
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 transition-colors",
+                      onWatchlistClick && "hover:bg-blue-500/40 hover:border-blue-400/60 cursor-pointer"
+                    )}
+                    title={onWatchlistClick ? `查看 ${sym} 跨资产相关性` : undefined}
+                  >
                     {sym}
-                  </span>
+                    {onWatchlistClick && <span className="ml-0.5 opacity-60">↗</span>}
+                  </button>
                 ))}
               </div>
             )}

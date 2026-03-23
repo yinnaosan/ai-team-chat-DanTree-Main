@@ -1619,3 +1619,18 @@
 - [x] hacker-laws (dwmkerr/hacker-laws)：跳过（与投资平台无直接关联）
 - [x] BacktestCard/TrendRadarCard/WorldMonitorCard 集成到 ChatRoom.tsx 消息渲染
 - [x] 441/442 测试通过（1 个已知网络限制）
+
+## 三项联动增强（2026-03-23 Round 4）
+- [ ] BacktestCard：multiAgentAnalysis.ts Alpha 因子分析完成后自动触发 Qbot 回测，结果写入 agentSignals JSON
+- [ ] BacktestCard：AlphaFactorCard 展开详情中调用 chat.runBacktest，渲染 BacktestCard 在卡片下方
+- [ ] TrendRadar + WorldMonitor 联动：TrendRadarCard 点击热点股票时，向 WorldMonitorCard 传递 selectedTicker
+- [ ] TrendRadar + WorldMonitor 联动：WorldMonitorCard 接收 selectedTicker，自动显示该股票的跨资产相关性分析
+- [ ] NewsNow：getNewsFeed 后端路由调用 primoGptNlp.ts 对每条新闻进行情绪评分
+- [ ] NewsNow：InvestmentLibrary NewsNow Tab 每条新闻旁显示情绪徽章（正面/负面/中性）
+- [ ] NewsNow：NewsNow Tab 底部显示当日整体市场情绪指数（加权平均）
+
+## 联动增强功能（2026-03-23）
+
+- [x] BacktestCard 集成到 AI 分析流程：AlphaFactorCard 添加 FlaskConical 按钮，点击后在卡片内嵌入 BacktestCard，传入 alphaScore 和 alphaScores
+- [x] TrendRadar-WorldMonitor 联动：TrendRadarCard watchlist 标签可点击，触发 WorldMonitorCard 显示该 ticker 的跨资产相关性分析
+- [x] NewsNow PrimoGPT 情绪评分：getNewsFeed 路由集成 analyzeNewsSentiment，每条新闻显示情绪徽章（利多/利空/中性），底部显示当日市场情绪指数

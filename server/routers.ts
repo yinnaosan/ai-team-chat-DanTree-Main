@@ -2511,16 +2511,44 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         const { searchNews } = await import("./newsApi.js");
+        const { analyzeNewsSentiment } = await import("./primoGptNlp.js");
         const articles = await searchNews(input.ticker, input.maxArticles ?? 12);
+        // PrimoGPT 情绪分析（最多分析 8 条，节约算力）
+        let sentimentMap: Map<number, string> = new Map();
+        let overallSentimentScore = 0;
+        let overallSentimentLabel = "neutral";
+        try {
+          const newsForAnalysis = articles.slice(0, 8).map((a: import("./newsApi.js").NewsArticle) => ({
+            title: a.title,
+            description: a.description ?? undefined,
+            publishedAt: a.publishedAt,
+            source: a.source.name,
+          }));
+          const nlpResult = await analyzeNewsSentiment(input.ticker, newsForAnalysis);
+          overallSentimentScore = Math.round(nlpResult.overallScore * 100);
+          overallSentimentLabel = nlpResult.overallLabel;
+          // 映射每条新闻的情绪
+          nlpResult.features.forEach((feat, idx) => {
+            const label = feat.label === "very_bullish" || feat.label === "bullish" ? "positive" :
+                          feat.label === "very_bearish" || feat.label === "bearish" ? "negative" : "neutral";
+            sentimentMap.set(idx, label);
+          });
+        } catch {
+          // 情绪分析失败不影响新闻加载
+        }
         return {
-          articles: articles.map((a: import("./newsApi.js").NewsArticle) => ({
+          articles: articles.map((a: import("./newsApi.js").NewsArticle, idx: number) => ({
             title: a.title,
             description: a.description ?? undefined,
             source: a.source.name,
             url: a.url,
             publishedAt: a.publishedAt,
-            sentiment: undefined as string | undefined,
+            sentiment: sentimentMap.get(idx) ?? undefined,
           })),
+          marketSentiment: {
+            score: overallSentimentScore,
+            label: overallSentimentLabel,
+          },
         };
       }),
   }),

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3, SlidersHorizontal, RotateCcw, BarChart2, Droplets } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3, SlidersHorizontal, RotateCcw, BarChart2, Droplets, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
@@ -29,6 +29,7 @@ import {
   ZAxis,
   CartesianGrid,
 } from "recharts";
+import { BacktestCard } from "@/components/BacktestCard";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface AlphaFactorData {
@@ -737,6 +738,7 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
   const [showWeights, setShowWeights] = useState(false);
   const [showIC, setShowIC] = useState(false);
   const [showLiquidity, setShowLiquidity] = useState(false);
+  const [showBacktest, setShowBacktest] = useState(false);
   // 权重状态：默认全部 1.0
   const [weights, setWeights] = useState<Record<string, number>>(
     () => Object.fromEntries(payload.factors.map(f => [f.name, 1.0]))
@@ -838,6 +840,16 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
               title="因子权重调节"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setShowBacktest(!showBacktest); if (!expanded) setExpanded(true); }}
+              className={cn(
+                "text-muted-foreground hover:text-foreground transition-colors p-1 rounded",
+                showBacktest && "text-pink-400/80"
+              )}
+              title="Alpha 因子回测"
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setExpanded(!expanded)}
@@ -1014,6 +1026,24 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
 
             {/* 流动性因子（bidask） */}
             {showLiquidity && <LiquidityPanel payload={payload} />}
+
+            {/* Alpha 因子回测（Qbot 联动） */}
+            {showBacktest && (
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <FlaskConical className="w-3.5 h-3.5 text-pink-400" />
+                  <span className="text-xs font-medium text-pink-400">Qbot 量化回测</span>
+                  <span className="text-xs text-muted-foreground/50">（基于 Alpha 因子信号）</span>
+                </div>
+                <BacktestCard
+                  ticker={payload.ticker}
+                  spot={100}
+                  sigma={0.25}
+                  alphaScore={payload.compositeScore}
+                  alphaScores={payload.factors.map(f => f.strength * f.signal)}
+                />
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground/40 px-2 pt-1 border-t border-white/5 mt-2">
               基于 WorldQuant Alpha101、qlib Alpha158 因子集，仅供参考，不构成投资建议

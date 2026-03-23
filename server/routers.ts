@@ -1182,7 +1182,9 @@ ${"```"}`;
       congressResult, _eurLexResult, gleifResult,
     ] = await runBatch(conditionalTasks, 3);
     // 中间状态更新：条件性数据收集完成，进入深度分析阶段
+    emitTaskStatus(taskId, "data_fetching"); // SSE: 数据获取中
     await updateTaskStatus(taskId, "manus_analyzing");
+    emitTaskStatus(taskId, "evidence_eval"); // SSE: 证据评估中
 
     // ── Phase 2C: deep 阶段（并发上限 2，仅 deepFinancials 或 deep 模式时触发）──
     const isDeepMode = resourcePlan.priority === "deep" || resourcePlan.dataSources.deepFinancials;
@@ -1663,7 +1665,9 @@ ${"```"}`;
     // Phase A: 结构化 answer object（JSON Schema，内部使用，不流式）
     // Phase B: 自然语言渲染（基于 answer object，流式输出给用户）
     // ------------------------------------------------------------------------
+    emitTaskStatus(taskId, "multi_agent"); // SSE: 多智能体分析中
     await updateTaskStatus(taskId, "gpt_reviewing");
+    emitTaskStatus(taskId, "synthesis"); // SSE: 综合分析中
 
     // ── V2.1 ACTION_ENGINE：根据 task_type 自动决定触发哪些 action ─────────────
     const resolvedTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
@@ -3130,6 +3134,8 @@ export const appRouter = router({
         ),
         // 结构化可信来源配置
         trustedSourcesConfig: config?.trustedSourcesConfig ?? null,
+        // 成本控制模式
+        defaultCostMode: (config?.defaultCostMode as "A" | "B" | "C" | null) ?? "B",
       };
     }),
     // 保存 API Key 和模型选择
@@ -3167,6 +3173,8 @@ export const appRouter = router({
             blockOnHardMissing: z.boolean(),
           }),
         }).optional().nullable(),
+        // 成本控制模式：A=minimal, B=standard, C=restricted
+        defaultCostMode: z.enum(["A", "B", "C"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3181,6 +3189,8 @@ export const appRouter = router({
           dataLibrary: input.dataLibrary,
           // 结构化可信来源配置
           trustedSourcesConfig: input.trustedSourcesConfig ?? undefined,
+          // 成本控制模式
+          defaultCostMode: input.defaultCostMode,
         });
         return { success: true };
       }),

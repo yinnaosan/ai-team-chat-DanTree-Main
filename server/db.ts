@@ -489,15 +489,19 @@ export async function getOwnerRpaConfig() {
 
 export async function upsertRpaConfig(
   userId: number,
-  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null; trustedSourcesConfig?: TrustedSourcesConfig | null }
+  config: { chatgptConversationName?: string; manusSystemPrompt?: string; openaiApiKey?: string | null; openaiModel?: string | null; localProxyUrl?: string | null; userCoreRules?: string | null; investmentRules?: string | null; taskInstruction?: string | null; dataLibrary?: string | null; trustedSourcesConfig?: TrustedSourcesConfig | null; defaultCostMode?: "A" | "B" | "C" | null }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const existing = await getRpaConfig(userId);
+  // 过滤掉 null 值以避免 Drizzle 类型不兼容
+  const cleanConfig = Object.fromEntries(
+    Object.entries(config).filter(([, v]) => v !== null && v !== undefined)
+  ) as typeof config;
   if (existing) {
-    await db.update(rpaConfigs).set({ ...config }).where(eq(rpaConfigs.userId, userId));
+    await db.update(rpaConfigs).set({ ...cleanConfig } as any).where(eq(rpaConfigs.userId, userId));
   } else {
-    await db.insert(rpaConfigs).values({ userId, ...config });
+    await db.insert(rpaConfigs).values({ userId, ...cleanConfig } as any);
   }
 }
 

@@ -466,66 +466,98 @@ function DataSourcesFooter({ sources, apiSources }: { sources?: DataSource[]; ap
 }
 
 // ─── V2.1 DiscussionPanel ─────────────────────────────────────────────────────
-function DiscussionPanel({ discussionObject }: {
+function DiscussionPanel({ discussionObject, onFollowup }: {
   discussionObject: NonNullable<NonNullable<Msg["metadata"]>["discussionObject"]>;
+  onFollowup?: (q: string) => void;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(true);
+  const hasContent = discussionObject.weakest_point || discussionObject.alternative_view ||
+    (discussionObject.follow_up_questions?.length ?? 0) > 0 ||
+    (discussionObject.exploration_paths?.length ?? 0) > 0;
   return (
-    <div className="mb-3 rounded-xl px-4 py-3 flex flex-col gap-2"
-      style={{ background: "var(--bloomberg-surface-1)", border: "1px solid oklch(0.72 0.18 250 / 0.15)", boxShadow: "0 1px 8px oklch(0 0 0 / 0.2)" }}>
+    <div className="mb-3 rounded-xl overflow-hidden"
+      style={{ background: "oklch(0.14 0.025 250 / 0.7)", border: "1px solid oklch(0.72 0.18 250 / 0.22)", boxShadow: "0 2px 12px oklch(0 0 0 / 0.3)" }}>
       {/* Header row */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-4 py-2.5"
+        style={{ background: "oklch(0.72 0.18 250 / 0.08)", borderBottom: expanded && hasContent ? "1px solid oklch(0.72 0.18 250 / 0.12)" : "none" }}>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold" style={{ color: "oklch(0.72 0.18 250)" }}>深度讨论</span>
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.72 0.18 250)" }} />
+          <span className="text-xs font-bold tracking-wide uppercase" style={{ color: "oklch(0.72 0.18 250)", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.08em" }}>
+            DISCUSSION
+          </span>
           {discussionObject.key_uncertainty && (
-            <span className="text-xs px-2 py-0.5 rounded-full truncate max-w-[240px]"
-              style={{ background: "oklch(0.72 0.18 250 / 0.08)", color: "oklch(0.62 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
-              {discussionObject.key_uncertainty.slice(0, 50)}{discussionObject.key_uncertainty.length > 50 ? "…" : ""}
+            <span className="text-xs px-2 py-0.5 rounded truncate max-w-[200px] hidden sm:inline-block"
+              style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.62 0.12 250)", border: "1px solid oklch(0.72 0.18 250 / 0.18)" }}>
+              {discussionObject.key_uncertainty.slice(0, 45)}{discussionObject.key_uncertainty.length > 45 ? "…" : ""}
             </span>
           )}
         </div>
-        <button onClick={() => setExpanded(e => !e)}
-          className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors hover:opacity-80"
-          style={{ color: "var(--bloomberg-text-tertiary)", background: "oklch(100% 0 0 / 0.1)" }}>
-          {expanded ? "收起" : "展开"}
-        </button>
+        {hasContent && (
+          <button onClick={() => setExpanded(e => !e)}
+            className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors hover:opacity-80"
+            style={{ color: "var(--bloomberg-text-tertiary)", background: "oklch(100% 0 0 / 0.08)" }}>
+            {expanded ? "收起" : "展开"}
+          </button>
+        )}
       </div>
+      {/* Core uncertainty — always visible */}
+      {discussionObject.key_uncertainty && (
+        <div className="px-4 py-2.5" style={{ borderBottom: expanded && hasContent ? "1px solid oklch(100% 0 0 / 0.06)" : "none" }}>
+          <div className="flex items-start gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 mt-0.5 px-1.5 py-0.5 rounded"
+              style={{ background: "oklch(0.72 0.18 250 / 0.12)", color: "oklch(0.72 0.18 250)", fontFamily: "'IBM Plex Mono', monospace" }}>
+              KEY UNCERTAINTY
+            </span>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--bloomberg-text-primary)" }}>{discussionObject.key_uncertainty}</p>
+          </div>
+        </div>
+      )}
       {/* Expanded content */}
-      {expanded && (
-        <div className="mt-1 flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid oklch(100% 0 0 / 0.08)" }}>
+      {expanded && hasContent && (
+        <div className="px-4 py-3 flex flex-col gap-3">
           {discussionObject.weakest_point && (
-            <div>
-              <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.78 0.18 75)" }}>最薄弱环节</p>
-              <p className="text-xs" style={{ color: "var(--bloomberg-gold)" }}>{discussionObject.weakest_point}</p>
+            <div className="rounded-lg p-3" style={{ background: "oklch(0.78 0.18 75 / 0.06)", border: "1px solid oklch(0.78 0.18 75 / 0.15)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "oklch(0.78 0.18 75)", fontFamily: "'IBM Plex Mono', monospace" }}>WEAKEST POINT</p>
+              <p className="text-xs leading-relaxed" style={{ color: "oklch(82% 0 0)" }}>{discussionObject.weakest_point}</p>
             </div>
           )}
           {discussionObject.alternative_view && (
-            <div>
-              <p className="text-xs font-semibold mb-1" style={{ color: "oklch(0.72 0.18 25)" }}>对立观点</p>
-              <p className="text-xs" style={{ color: "var(--bloomberg-gold)" }}>{discussionObject.alternative_view}</p>
+            <div className="rounded-lg p-3" style={{ background: "oklch(0.72 0.18 25 / 0.06)", border: "1px solid oklch(0.72 0.18 25 / 0.15)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "oklch(0.72 0.18 25)", fontFamily: "'IBM Plex Mono', monospace" }}>ALTERNATIVE VIEW</p>
+              <p className="text-xs leading-relaxed" style={{ color: "oklch(82% 0 0)" }}>{discussionObject.alternative_view}</p>
             </div>
           )}
           {(discussionObject.follow_up_questions?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>深度追问</p>
-              <div className="flex flex-col gap-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--bloomberg-gold)", fontFamily: "'IBM Plex Mono', monospace" }}>FOLLOW-UP QUESTIONS</p>
+              <div className="flex flex-col gap-1.5">
                 {discussionObject.follow_up_questions.map((q, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 250)" }}>Q{i + 1}.</span>
-                    <span style={{ color: "oklch(82% 0 0)" }}>{q}</span>
-                  </div>
+                  <button
+                    key={i}
+                    onClick={() => onFollowup?.(q)}
+                    className={`flex items-start gap-2 text-xs text-left rounded-lg px-3 py-2 transition-all ${onFollowup ? "hover:scale-[1.01] active:scale-[0.99] cursor-pointer" : "cursor-default"}`}
+                    style={{
+                      background: onFollowup ? "oklch(0.72 0.18 250 / 0.06)" : "transparent",
+                      border: onFollowup ? "1px solid oklch(0.72 0.18 250 / 0.15)" : "none",
+                      color: "oklch(82% 0 0)",
+                    }}
+                  >
+                    <span className="shrink-0 font-mono text-[10px] mt-0.5 px-1 rounded" style={{ background: "oklch(0.72 0.18 250 / 0.12)", color: "oklch(0.72 0.18 250)" }}>Q{i + 1}</span>
+                    <span className="leading-relaxed">{q}</span>
+                    {onFollowup && <ChevronRight className="w-3 h-3 shrink-0 mt-0.5 ml-auto opacity-40" />}
+                  </button>
                 ))}
               </div>
             </div>
           )}
           {(discussionObject.exploration_paths?.length ?? 0) > 0 && (
             <div>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--bloomberg-gold)" }}>延伸研究方向</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "oklch(0.72 0.18 155)", fontFamily: "'IBM Plex Mono', monospace" }}>EXPLORATION PATHS</p>
               <div className="flex flex-col gap-1">
                 {discussionObject.exploration_paths.map((p, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 mt-0.5" style={{ color: "oklch(0.72 0.18 155)" }}>→</span>
-                    <span style={{ color: "oklch(82% 0 0)" }}>{p}</span>
+                    <span className="shrink-0 mt-0.5 font-mono" style={{ color: "oklch(0.72 0.18 155)" }}>→</span>
+                    <span style={{ color: "oklch(75% 0 0)" }}>{p}</span>
                   </div>
                 ))}
               </div>
@@ -689,6 +721,7 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
   const worldMonitorTicker = worldMonitorLinkedTicker ?? tickerForCards;
   // WorldMonitor 跨资产分析完成 → 回写 TrendRadar watchlist
   const [extraWatchlist, setExtraWatchlist] = React.useState<string[]>([]);
+  const [userWatchlist, setUserWatchlist] = React.useState<string[]>([]);
   const handleTopCorrelationsFound = React.useCallback((assets: string[]) => {
     setExtraWatchlist(prev => {
       const merged = new Set([...prev, ...assets]);
@@ -743,7 +776,7 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
         )}
         {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}
         {isAssistant && msg.metadata?.discussionObject && (
-          <DiscussionPanel discussionObject={msg.metadata.discussionObject} />
+          <DiscussionPanel discussionObject={msg.metadata.discussionObject} onFollowup={onFollowup} />
         )}
         <div className="prose-chat w-full" ref={msgRef}>
           {/* Alpha 因子可视化卡片 */}
@@ -766,6 +799,8 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
                 newsItems={newsItemsForCards}
                 onWatchlistClick={(sym) => setWorldMonitorLinkedTicker(sym)}
                 extraWatchlist={extraWatchlist}
+                userWatchlist={userWatchlist}
+                onWatchlistChange={setUserWatchlist}
               />
             </div>
           )}
@@ -1210,10 +1245,22 @@ export default function ChatRoom() {
 
         if (event.type === "status") {
           const status = event.status ?? "";
-          if (status === "manus_working") { setTaskPhase("manus_working"); setIsStreaming(false); }
-          else if (status === "manus_analyzing") { setTaskPhase("manus_analyzing"); setIsStreaming(false); }
-          else if (status === "gpt_reviewing" || status === "gpt_planning") { setTaskPhase("gpt_reviewing"); setIsStreaming(false); }
-          else if (status === "streaming") {
+          // 细粒度 9-step pipeline 状态映射
+          if (status === "intent_parsing" || status === "planning" || status === "field_requirements" || status === "manus_working") {
+            setTaskPhase("manus_working"); setIsStreaming(false);
+          } else if (status === "source_selection") {
+            setTaskPhase("source_selection"); setIsStreaming(false);
+          } else if (status === "data_fetching" || status === "manus_analyzing") {
+            setTaskPhase("manus_analyzing"); setIsStreaming(false);
+          } else if (status === "evidence_eval") {
+            setTaskPhase("evidence_eval"); setIsStreaming(false);
+          } else if (status === "multi_agent") {
+            setTaskPhase("multi_agent"); setIsStreaming(false);
+          } else if (status === "synthesis" || status === "gpt_reviewing" || status === "gpt_planning") {
+            setTaskPhase("gpt_reviewing"); setIsStreaming(false);
+          } else if (status === "discussion") {
+            setTaskPhase("discussion"); setIsStreaming(false);
+          } else if (status === "streaming") {
             setTaskPhase("gpt_reviewing");
             setIsStreaming(true);
             setIsTyping(false);
@@ -1337,10 +1384,23 @@ export default function ChatRoom() {
     if (distFromBottom < 200) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages, isTyping]);
 
-  // 切换对话框时自动滚到最底部
+  // 切换对话框时自动滚到最底部（立即跳转）
   useEffect(() => {
     if (activeConvId) {
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "instant" }), 80);
+      // 立即跳转，不使用 smooth 避免用户感知到滚动过程
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+        bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 50);
+      // 消息加载后再次确保在底部
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+        bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 300);
     }
   }, [activeConvId]);
 
@@ -1420,6 +1480,10 @@ export default function ChatRoom() {
   });
 
   const pinConvMutation = trpc.conversation.pin.useMutation({
+    onSuccess: () => { refetchGroups(); refetchConvs(); },
+    onError: (err) => toast.error(err.message || "操作失败"),
+  });
+  const favoriteConvMutation = trpc.conversation.favorite.useMutation({
     onSuccess: () => { refetchGroups(); refetchConvs(); },
     onError: (err) => toast.error(err.message || "操作失败"),
   });
@@ -1518,6 +1582,9 @@ export default function ChatRoom() {
     if (!allConversations) return [];
     return allConversations.filter(c => !groupedConvIds.has(c.id));
   }, [allConversations, groupedConvIds]);
+  const pinnedConvs = useMemo(() => ungroupedConvs.filter(c => c.isPinned), [ungroupedConvs]);
+  const favoritedConvs = useMemo(() => ungroupedConvs.filter(c => !c.isPinned && c.isFavorited), [ungroupedConvs]);
+  const normalConvs = useMemo(() => ungroupedConvs.filter(c => !c.isPinned && !c.isFavorited), [ungroupedConvs]);
 
   const activeConvTitle = useMemo(() => {
     if (!activeConvId || !allConversations) return null;
@@ -1688,31 +1755,80 @@ export default function ChatRoom() {
             />
           ))}
 
-          {/* Ungrouped conversations */}
+          {/* Ungrouped conversations — 三区分组：置顶 / 收藏 / 普通 */}
           {ungroupedConvs.length > 0 && (
             <div>
-              {groups && groups.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-2" style={{ color: "var(--bloomberg-text-dim)" }}>
-                  <History className="w-3 h-3" />
-                  <span>未分组</span>
-                  <span className="ml-auto opacity-60">{ungroupedConvs.length}</span>
+              {/* 置顶区 */}
+              {pinnedConvs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-1" style={{ color: "oklch(0.82 0.18 75)" }}>
+                    <Pin className="w-3 h-3" />
+                    <span className="font-medium">置顶</span>
+                    <span className="ml-auto opacity-60">{pinnedConvs.length}</span>
+                  </div>
+                  {pinnedConvs.map(conv => (
+                    <ConvItem
+                      key={conv.id}
+                      conv={conv}
+                      active={activeConvId === conv.id}
+                      onSelect={() => setActiveConvId(conv.id)}
+                      onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
+                      onDelete={(id) => { deleteConvMutation.mutate({ conversationId: id }); if (activeConvId === id) setActiveConvId(null); }}
+                      onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
+                      onFavorite={(id, favorited) => favoriteConvMutation.mutate({ conversationId: id, favorited })}
+                      onRename={(id, title) => renameConvMutation.mutate({ conversationId: id, title })}
+                    />
+                  ))}
                 </div>
               )}
-              {ungroupedConvs.map(conv => (
-                <ConvItem
-                  key={conv.id}
-                  conv={conv}
-                  active={activeConvId === conv.id}
-                  onSelect={() => setActiveConvId(conv.id)}
-                  onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
-                  onDelete={(id) => {
-                    deleteConvMutation.mutate({ conversationId: id });
-                    if (activeConvId === id) setActiveConvId(null);
-                  }}
-                  onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
-                  onRename={(id, title) => renameConvMutation.mutate({ conversationId: id, title })}
-                />
-              ))}
+              {/* 收藏区 */}
+              {favoritedConvs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-1" style={{ color: "oklch(0.72 0.18 250)" }}>
+                    <Star className="w-3 h-3" />
+                    <span className="font-medium">收藏</span>
+                    <span className="ml-auto opacity-60">{favoritedConvs.length}</span>
+                  </div>
+                  {favoritedConvs.map(conv => (
+                    <ConvItem
+                      key={conv.id}
+                      conv={conv}
+                      active={activeConvId === conv.id}
+                      onSelect={() => setActiveConvId(conv.id)}
+                      onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
+                      onDelete={(id) => { deleteConvMutation.mutate({ conversationId: id }); if (activeConvId === id) setActiveConvId(null); }}
+                      onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
+                      onFavorite={(id, favorited) => favoriteConvMutation.mutate({ conversationId: id, favorited })}
+                      onRename={(id, title) => renameConvMutation.mutate({ conversationId: id, title })}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* 普通区 */}
+              {normalConvs.length > 0 && (
+                <div>
+                  {(groups && groups.length > 0 || pinnedConvs.length > 0 || favoritedConvs.length > 0) && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 text-xs mt-1" style={{ color: "var(--bloomberg-text-dim)" }}>
+                      <History className="w-3 h-3" />
+                      <span>最近</span>
+                      <span className="ml-auto opacity-60">{normalConvs.length}</span>
+                    </div>
+                  )}
+                  {normalConvs.map(conv => (
+                    <ConvItem
+                      key={conv.id}
+                      conv={conv}
+                      active={activeConvId === conv.id}
+                      onSelect={() => setActiveConvId(conv.id)}
+                      onMove={() => { setMoveConvId(conv.id); setMoveDialogOpen(true); }}
+                      onDelete={(id) => { deleteConvMutation.mutate({ conversationId: id }); if (activeConvId === id) setActiveConvId(null); }}
+                      onPin={(id, pinned) => pinConvMutation.mutate({ conversationId: id, pinned })}
+                      onFavorite={(id, favorited) => favoriteConvMutation.mutate({ conversationId: id, favorited })}
+                      onRename={(id, title) => renameConvMutation.mutate({ conversationId: id, title })}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1837,35 +1953,46 @@ export default function ChatRoom() {
           </div>
         </header>
 
-        {/* Three-phase progress bar */}
+        {/* 9-Step Pipeline progress bar */}
         {isTyping && (
           <div className="shrink-0 px-4 py-2" style={{ borderBottom: "1px solid var(--bloomberg-surface-3)" }}>
             <div className="max-w-3xl mx-auto">
               {/* Stage labels */}
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1.5 overflow-x-auto gap-1">
                 {[
-                  { key: "manus_working", label: "理解问题", icon: "01" },
-                  { key: "manus_analyzing", label: "验证证据", icon: "02" },
-                  { key: "gpt_reviewing", label: "形成结论", icon: "03" },
+                  { key: "manus_working", label: "意图解析", icon: "01" },
+                  { key: "manus_working", label: "任务规划", icon: "02" },
+                  { key: "manus_working", label: "字段需求", icon: "03" },
+                  { key: "manus_working", label: "源选择", icon: "04" },
+                  { key: "manus_analyzing", label: "数据获取", icon: "05" },
+                  { key: "manus_analyzing", label: "证据评估", icon: "06" },
+                  { key: "gpt_reviewing", label: "多智能体", icon: "07" },
+                  { key: "gpt_reviewing", label: "综合分析", icon: "08" },
+                  { key: "gpt_reviewing", label: "深度讨论", icon: "09" },
                 ].map((stage, i) => {
-                  const phaseOrder: Record<string, number> = { manus_working: 0, manus_analyzing: 1, gpt_reviewing: 2 };
-                  const currentOrder = phaseOrder[taskPhase] ?? 0;
-                  const stageOrder = phaseOrder[stage.key] ?? i;
-                  const isActive = taskPhase === stage.key;
-                  const isDone = currentOrder > stageOrder;
+                  // 9-step pipeline 状态映射
+                  const pipelineOrder: Record<string, number> = {
+                    manus_working: 1, planning: 2, field_requirements: 3, source_selection: 4,
+                    manus_analyzing: 5, data_fetching: 5, evidence_eval: 6,
+                    multi_agent: 7, gpt_reviewing: 8, synthesis: 8, discussion: 9, streaming: 9,
+                  };
+                  const stageStepNum = i + 1; // 1-9
+                  const currentStepNum = pipelineOrder[taskPhase] ?? 1;
+                  const isActive = stageStepNum === currentStepNum;
+                  const isDone = currentStepNum > stageStepNum;
                   return (
-                    <div key={stage.key} className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                    <div key={i} className="flex items-center gap-1 shrink-0">
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded"
                         style={{
                           background: isActive ? "var(--bloomberg-surface-3)" : isDone ? "oklch(0.55 0.12 155 / 0.15)" : "var(--bloomberg-surface-1)",
                           color: isActive ? "var(--bloomberg-gold)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)",
                           border: `1px solid ${isActive ? "var(--bloomberg-border-bright)" : isDone ? "oklch(0.55 0.12 155 / 0.3)" : "var(--bloomberg-border-dim)"}`
                         }}>{stage.icon}</span>
-                      <span className="text-xs" style={{ color: isActive ? "var(--bloomberg-text-primary)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)" }}>
+                      <span className="text-[10px] hidden sm:inline" style={{ color: isActive ? "var(--bloomberg-text-primary)" : isDone ? "oklch(0.65 0.15 155)" : "oklch(30% 0 0)" }}>
                         {stage.label}
                       </span>
-                      {isDone && <span className="text-[10px]" style={{ color: "oklch(0.65 0.15 155)" }}>✓</span>}
-                      {isActive && <span className="text-[10px] animate-pulse" style={{ color: "var(--bloomberg-gold)" }}>•••</span>}
+                      {isDone && <span className="text-[9px]" style={{ color: "oklch(0.65 0.15 155)" }}>✓</span>}
+                      {isActive && <span className="text-[9px] animate-pulse" style={{ color: "var(--bloomberg-gold)" }}>•</span>}
                     </div>
                   );
                 })}
@@ -2038,6 +2165,7 @@ export default function ChatRoom() {
           {/* Scroll to bottom */}
           {showScrollBtn && (
             <button onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+              title="跳到最新消息"
               className="absolute bottom-5 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 z-10"
               style={{ background: "oklch(0.16 0.010 258)", border: "1px solid oklch(0.50 0.18 258 / 0.55)", color: "var(--bloomberg-gold)", boxShadow: "0 4px 16px var(--bloomberg-border)" }}>
               <ChevronDown className="w-4 h-4" />
@@ -2455,24 +2583,26 @@ function GroupSection({ group, activeConvId, onSelectConv, onRename, onDelete, o
 }
 
 // ─── Conversation Item Component ──────────────────────────────────────────────
+// ─── Conversation Item Component ──────────────────────────────────────────────
 interface ConvItemProps {
-  conv: { id: number; title: string | null; createdAt: Date; isPinned?: boolean };
+  conv: { id: number; title: string | null; createdAt: Date; isPinned?: boolean; isFavorited?: boolean };
   active: boolean;
   onSelect: () => void;
   onMove: () => void;
   onDelete: (id: number) => void;
   onPin: (id: number, pinned: boolean) => void;
+  onFavorite?: (id: number, favorited: boolean) => void;
   onRename: (id: number, newTitle: string) => void;
   indent?: boolean;
 }
-
-function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, indent }: ConvItemProps) {
+function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onFavorite, onRename, indent }: ConvItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const isPinned = conv.isPinned ?? false;
+  const isFavorited = conv.isFavorited ?? false;
 
   const startEdit = () => {
     setEditValue(conv.title || "");
@@ -2537,6 +2667,13 @@ function ConvItem({ conv, active, onSelect, onMove, onDelete, onPin, onRename, i
                   style={{ color: isPinned ? "oklch(0.82 0.18 75)" : "oklch(82% 0 0)" }}>
                   <Pin className="w-3.5 h-3.5" />{isPinned ? "取消置顶" : "置顶对话"}
                 </button>
+                {onFavorite && (
+                  <button onClick={() => { onFavorite(conv.id, !isFavorited); setMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                    style={{ color: isFavorited ? "oklch(0.82 0.18 75)" : "oklch(82% 0 0)" }}>
+                    <Star className="w-3.5 h-3.5" />{isFavorited ? "取消收藏" : "收藏对话"}
+                  </button>
+                )}
                 <button onClick={() => { onMove(); setMenuOpen(false); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
                   style={{ color: "oklch(82% 0 0)" }}>

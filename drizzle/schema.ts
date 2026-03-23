@@ -150,6 +150,8 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   trustedSourcesConfig: json("trustedSourcesConfig"),
   // 兼容旧字段（废弃，保留不删）
   userCoreRules: text("userCoreRules"),
+  // 成本控制模式：A=minimal(quick), B=standard, C=restricted(deep with limits)
+  defaultCostMode: mysqlEnum("defaultCostMode", ["A", "B", "C"]).default("B").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

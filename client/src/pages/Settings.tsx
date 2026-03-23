@@ -1998,6 +1998,54 @@ export default function Settings() {
                 全程静默内部流转，用户只看到最终回复 · 同对话框内新消息默认延续上一任务
               </div>
             </div>
+            {/* 成本控制模式 */}
+            <div className="p-4 rounded-2xl space-y-4"
+              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>默认分析深度</h2>
+                  <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>控制每次分析的 Token 消耗与数据广度，可在对话框中临时切换</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const mode = savedConfig?.defaultCostMode ?? "B";
+                    saveConfigMutation.mutate({ defaultCostMode: mode as "A" | "B" | "C" });
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                  style={{ background: "oklch(0.72 0.18 75 / 0.15)", color: "var(--bloomberg-gold)", border: "1px solid oklch(0.72 0.18 75 / 0.3)" }}>
+                  保存默认
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  { mode: "A", label: "Mode A · 精简", desc: "快速扫描，1-2 个数据源，适合简单问答和市场概览", color: "oklch(0.72 0.18 142)", tokens: "~2K tokens", speed: "< 30s" },
+                  { mode: "B", label: "Mode B · 标准", desc: "均衡深度，5-8 个数据源，适合常规股票分析和行业研究", color: "oklch(0.72 0.18 250)", tokens: "~8K tokens", speed: "1-2 min" },
+                  { mode: "C", label: "Mode C · 深度", desc: "全面覆盖，15+ 数据源，适合深度尽调和投资决策", color: "oklch(0.72 0.18 75)", tokens: "~20K tokens", speed: "3-5 min" },
+                ] as const).map(({ mode, label, desc, color, tokens, speed }) => {
+                  const isSelected = (savedConfig?.defaultCostMode ?? "B") === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => saveConfigMutation.mutate({ defaultCostMode: mode })}
+                      className="p-3 rounded-xl text-left transition-all"
+                      style={{
+                        background: isSelected ? `${color.replace(")", " / 0.12)")}` : "oklch(100% 0 0 / 0.02)",
+                        border: `1px solid ${isSelected ? color.replace(")", " / 0.5)") : "oklch(100% 0 0 / 0.08)"}`,
+                      }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold" style={{ color: isSelected ? color : "oklch(82% 0 0)" }}>{label}</span>
+                        {isSelected && <div className="w-2 h-2 rounded-full" style={{ background: color }} />}
+                      </div>
+                      <p className="text-[10px] leading-relaxed mb-2" style={{ color: "oklch(42% 0 0)" }}>{desc}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "oklch(0.12 0.006 264)", color: "oklch(40% 0 0)" }}>{tokens}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "oklch(0.12 0.006 264)", color: "oklch(40% 0 0)" }}>{speed}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 

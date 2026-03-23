@@ -1848,3 +1848,14 @@
 - [x] InvestmentLibrary.tsx：统一颜色 token
 - [x] CommandPalette.tsx：新增全局命令面板组件（⌘K 触发、键盘导航、分组命令）
 - [x] App.tsx：集成全局命令面板（GlobalCommandPalette）
+
+## DANTREE FINAL EXECUTION PACKAGE（2026-03-23）
+
+- [ ] Research UI v2：DiscussionPanel 升级为核心区域（展开/折叠、独立面板、可点击追问）
+- [ ] Pinned Metrics 系统：固定关键指标到顶部栏（价格、PE、营收等）
+- [ ] 可编辑 Watchlist：TrendRadarCard 支持手动添加/删除标的
+- [ ] Jump-to-bottom：打开对话时自动滚动到最新消息，滚动按钮优化
+- [ ] 对话管理完善：ConvItem 添加收藏（Favorite）功能，侧边栏分置顶/收藏/普通三区
+- [ ] Settings UI v1：添加成本控制模式（Mode A/B/C）设置面板
+- [ ] Developer Access：AdminPanel 完善（开发者工具、系统状态、日志查看）
+- [ ] 推理引擎 Pipeline 可视化：在分析进度条中显示完整 9 步 pipeline

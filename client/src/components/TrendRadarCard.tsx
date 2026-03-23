@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Radio, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Zap } from "lucide-react";
+import { Radio, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Zap, Plus, X as XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TrendItem {
@@ -41,6 +41,10 @@ interface TrendRadarCardProps {
   onWatchlistClick?: (symbol: string) => void;
   /** WorldMonitor 联动回写的额外关注资产 */
   extraWatchlist?: string[];
+  /** 用户手动添加的 watchlist 标的 */
+  userWatchlist?: string[];
+  /** 当用户修改 watchlist 时回调 */
+  onWatchlistChange?: (list: string[]) => void;
   newsItems: Array<{
     title: string;
     description?: string;
@@ -110,8 +114,10 @@ function PulseGauge({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatchlist = [] }: TrendRadarCardProps) {
+export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatchlist = [], userWatchlist = [], onWatchlistChange }: TrendRadarCardProps) {
   const [result, setResult] = useState<TrendRadarResult | null>(null);
+  const [editingWatchlist, setEditingWatchlist] = useState(false);
+  const [newSymbolInput, setNewSymbolInput] = useState("");
   const scanMutation = trpc.trendRadar.scan.useMutation({
     onSuccess: (data) => setResult(data as TrendRadarResult),
   });
@@ -252,41 +258,99 @@ export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatch
               )}
             </div>
 
-            {/* Watchlist */}
+            {/* Watchlist — 可编辑模式 */}
             {(() => {
-              // 合并 AI 扫描的 watchlist 和 WorldMonitor 回写的 extraWatchlist
+              // 合并 AI 扫描的 watchlist + WorldMonitor 回写 + 用户手动添加
               const baseList = pulse?.watchlist ?? [];
-              const mergedSet = new Set([...baseList, ...extraWatchlist]);
-              const mergedList = Array.from(mergedSet);
-              if (mergedList.length === 0) return null;
+              const mergedList = Array.from(new Set([...baseList, ...extraWatchlist, ...userWatchlist]));
+              const handleAddSymbol = () => {
+                const sym = newSymbolInput.trim().toUpperCase();
+                if (!sym) return;
+                const newList = Array.from(new Set([...userWatchlist, sym]));
+                onWatchlistChange?.(newList);
+                setNewSymbolInput("");
+              };
+              const handleRemoveSymbol = (sym: string) => {
+                const newList = userWatchlist.filter(s => s !== sym);
+                onWatchlistChange?.(newList);
+              };
               return (
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-muted-foreground">关注列表:</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-medium" style={{ color: "var(--bloomberg-text-secondary)" }}>WATCHLIST</span>
+                    <span className="text-[10px] px-1 rounded" style={{ background: "oklch(0.72 0.18 250 / 0.1)", color: "oklch(0.72 0.18 250)" }}>{mergedList.length}</span>
+                    {onWatchlistChange && (
+                      <button
+                        onClick={() => setEditingWatchlist(e => !e)}
+                        className="ml-auto text-[10px] px-1.5 py-0.5 rounded transition-colors"
+                        style={{ color: editingWatchlist ? "var(--bloomberg-gold)" : "var(--bloomberg-text-dim)", background: editingWatchlist ? "oklch(0.72 0.18 75 / 0.1)" : "transparent", border: "1px solid var(--bloomberg-border-dim)" }}
+                      >
+                        {editingWatchlist ? "完成" : "编辑"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {mergedList.map((sym) => {
-                      const isFromWorldMonitor = extraWatchlist.includes(sym) && !baseList.includes(sym);
+                      const isFromWorldMonitor = extraWatchlist.includes(sym) && !baseList.includes(sym) && !userWatchlist.includes(sym);
+                      const isUserAdded = userWatchlist.includes(sym);
                       return (
-                        <button
-                          key={sym}
-                          onClick={() => onWatchlistClick?.(sym)}
-                          className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded border transition-colors",
-                            isFromWorldMonitor
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/40"
-                              : "bg-blue-500/20 text-blue-300 border-blue-500/30",
-                            onWatchlistClick && "hover:border-opacity-80 cursor-pointer"
+                        <div key={sym} className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => onWatchlistClick?.(sym)}
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                              isFromWorldMonitor
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/40"
+                                : isUserAdded
+                                ? "bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/40"
+                                : "bg-blue-500/20 text-blue-300 border-blue-500/30",
+                              onWatchlistClick && "hover:border-opacity-80 cursor-pointer"
+                            )}
+                            title={isFromWorldMonitor ? `WorldMonitor — ${sym}` : isUserAdded ? `手动添加 — ${sym}` : (onWatchlistClick ? `查看 ${sym}` : undefined)}
+                          >
+                            {sym}
+                            {isFromWorldMonitor && <span className="ml-0.5 text-emerald-400 opacity-80">★</span>}
+                            {isUserAdded && <span className="ml-0.5 text-amber-400 opacity-80">+</span>}
+                            {!isFromWorldMonitor && !isUserAdded && onWatchlistClick && <span className="ml-0.5 opacity-60">↗</span>}
+                          </button>
+                          {editingWatchlist && (isUserAdded || isFromWorldMonitor) && (
+                            <button
+                              onClick={() => handleRemoveSymbol(sym)}
+                              className="w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors hover:bg-red-500/20"
+                              style={{ color: "oklch(0.65 0.18 25)" }}
+                            >
+                              <XIcon className="w-2 h-2" />
+                            </button>
                           )}
-                          title={isFromWorldMonitor ? `来自 WorldMonitor 跨资产分析 — 查看 ${sym} 相关性` : (onWatchlistClick ? `查看 ${sym} 跨资产相关性` : undefined)}
-                        >
-                          {sym}
-                          {isFromWorldMonitor && <span className="ml-0.5 text-emerald-400 opacity-80">★</span>}
-                          {!isFromWorldMonitor && onWatchlistClick && <span className="ml-0.5 opacity-60">↗</span>}
-                        </button>
+                        </div>
                       );
                     })}
+                    {editingWatchlist && onWatchlistChange && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          value={newSymbolInput}
+                          onChange={e => setNewSymbolInput(e.target.value.toUpperCase())}
+                          onKeyDown={e => { if (e.key === "Enter") handleAddSymbol(); if (e.key === "Escape") setEditingWatchlist(false); }}
+                          placeholder="AAPL"
+                          className="w-16 text-[10px] px-1.5 py-0.5 rounded border outline-none"
+                          style={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", color: "var(--bloomberg-text-primary)", caretColor: "var(--bloomberg-gold)" }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleAddSymbol}
+                          className="w-5 h-5 rounded flex items-center justify-center transition-colors"
+                          style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(0.72 0.18 250)", border: "1px solid oklch(0.72 0.18 250 / 0.3)" }}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {extraWatchlist.length > 0 && (
-                    <p className="text-[10px] text-emerald-400/60">★ 来自 WorldMonitor 跨资产分析</p>
+                  {(extraWatchlist.length > 0 || userWatchlist.length > 0) && (
+                    <p className="text-[10px]" style={{ color: "oklch(40% 0 0)" }}>
+                      {extraWatchlist.length > 0 && "★ WorldMonitor  "}
+                      {userWatchlist.length > 0 && "+ 手动添加"}
+                    </p>
                   )}
                 </div>
               );

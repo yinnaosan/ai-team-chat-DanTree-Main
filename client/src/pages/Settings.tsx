@@ -13,7 +13,7 @@ import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
   Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity, Sparkles,
-  BookOpen, Edit3, X, Filter, Search,
+  BookOpen, Edit3, X, Filter, Search, Download,
 } from "lucide-react";
 
 type SettingsTab = "api" | "database" | "access" | "logic" | "memory";
@@ -2036,16 +2036,66 @@ const MEMORY_TYPE_LABELS: Record<string, { label: string; color: string; bg: str
 function MemoryManager() {
   const [filterType, setFilterType] = useState<MemoryType>("all");
   const [searchText, setSearchText] = useState("");
+  const [semanticQuery, setSemanticQuery] = useState(""); // 已提交的语义搜索词
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSummary, setEditSummary] = useState("");
   const [editKeywords, setEditKeywords] = useState("");
   const utils = trpc.useUtils();
-
   const { data: memories = [], isLoading } = trpc.memory.list.useQuery(
     { limit: 100, memoryType: filterType },
-    { refetchOnWindowFocus: false }
+    { refetchOnWindowFocus: false, enabled: !semanticQuery }
   );
+  // 语义搜索查询（仅在用户按 Enter 或点击搜索时触发）
+  const { data: semanticResults = [], isFetching: isSearching } = trpc.memory.search.useQuery(
+    { query: semanticQuery, limit: 30 },
+    { refetchOnWindowFocus: false, enabled: !!semanticQuery }
+  );
+  // 当前展示的记忆列表：语义搜索结果 or 普通列表
+  const displayMemories = semanticQuery
+    ? (semanticResults as unknown as MemoryItem[])
+    : (memories as MemoryItem[]);
+  // 导出功能
+  const handleExportJSON = () => {
+    const data = displayMemories.map(m => ({
+      id: m.id,
+      taskTitle: m.taskTitle,
+      summary: m.summary,
+      keywords: m.keywords,
+      memoryType: m.memoryType,
+      createdAt: m.createdAt,
+      expiresAt: m.expiresAt,
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-memory-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`已导出 ${data.length} 条记忆（JSON）`);
+  };
+  const handleExportCSV = () => {
+    const headers = ["ID", "任务标题", "摘要", "关键词", "类型", "创建时间", "过期时间"];
+    const rows = displayMemories.map(m => [
+      m.id,
+      `"${(m.taskTitle ?? "").replace(/"/g, '""')}"`,
+      `"${(m.summary ?? "").replace(/"/g, '""')}"`,
+      `"${(m.keywords ?? "").replace(/"/g, '""')}"`,
+      m.memoryType ?? "",
+      m.createdAt ? new Date(m.createdAt).toLocaleString("zh-CN") : "",
+      m.expiresAt ? new Date(m.expiresAt).toLocaleString("zh-CN") : "",
+    ]);
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-memory-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`已导出 ${rows.length} 条记忆（CSV）`);
+  };
 
   const deleteMutation = trpc.memory.delete.useMutation({
     onSuccess: () => {
@@ -2073,17 +2123,7 @@ function MemoryManager() {
     onError: () => toast.error("更新失败"),
   });
 
-  const filtered = (memories as MemoryItem[]).filter(m => {
-    if (!searchText) return true;
-    const q = searchText.toLowerCase();
-    return (
-      (m.taskTitle ?? "").toLowerCase().includes(q) ||
-      (m.summary ?? "").toLowerCase().includes(q) ||
-      (m.keywords ?? "").toLowerCase().includes(q)
-    );
-  });
-
-  const toggleSelect = (id: number) => {
+    const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -2091,13 +2131,24 @@ function MemoryManager() {
       return next;
     });
   };
-
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (selectedIds.size === displayMemories.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map(m => m.id)));
+      setSelectedIds(new Set(displayMemories.map(m => m.id)));
     }
+  };
+  const handleSemanticSearch = () => {
+    const q = searchText.trim();
+    if (q) {
+      setSemanticQuery(q);
+    } else {
+      setSemanticQuery("");
+    }
+  };
+  const clearSearch = () => {
+    setSearchText("");
+    setSemanticQuery("");
   };
 
   const startEdit = (m: MemoryItem) => {
@@ -2161,24 +2212,57 @@ function MemoryManager() {
           ))}
         </div>
 
-        {/* 搜索框 */}
+        {/* 语义搜索框 */}
         <div className="flex items-center gap-1.5 flex-1 min-w-[160px] px-2.5 py-1.5 rounded-xl"
-          style={{ background: "oklch(100% 0 0 / 0.05)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
-          <Search className="w-3 h-3 flex-shrink-0" style={{ color: "oklch(42% 0 0)" }} />
+          style={{
+            background: semanticQuery ? "oklch(0.65 0.15 250 / 0.08)" : "oklch(100% 0 0 / 0.05)",
+            border: `1px solid ${semanticQuery ? "oklch(0.65 0.15 250 / 0.35)" : "oklch(100% 0 0 / 0.08)"}`,
+          }}>
+          {isSearching
+            ? <Loader2 className="w-3 h-3 flex-shrink-0 animate-spin" style={{ color: "oklch(0.65 0.15 250)" }} />
+            : <Search className="w-3 h-3 flex-shrink-0" style={{ color: semanticQuery ? "oklch(0.65 0.15 250)" : "oklch(42% 0 0)" }} />
+          }
           <input
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
-            placeholder="搜索记忆内容..."
+            onKeyDown={e => { if (e.key === "Enter") handleSemanticSearch(); }}
+            placeholder="语义搜索（按 Enter 触发）..."
             className="flex-1 bg-transparent text-xs outline-none"
             style={{ color: "oklch(82% 0 0)", minWidth: 0 }}
           />
-          {searchText && (
-            <button onClick={() => setSearchText("")}>
+          {semanticQuery && (
+            <span className="text-xs flex-shrink-0 px-1.5 py-0.5 rounded"
+              style={{ background: "oklch(0.65 0.15 250 / 0.15)", color: "oklch(0.65 0.15 250)" }}>
+              AI 搜索
+            </span>
+          )}
+          {(searchText || semanticQuery) && (
+            <button onClick={clearSearch} title="清除搜索">
               <X className="w-3 h-3" style={{ color: "oklch(42% 0 0)" }} />
             </button>
           )}
         </div>
-
+        {/* 导出按钮 */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleExportJSON}
+            disabled={displayMemories.length === 0}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl transition-all"
+            title="导出 JSON"
+            style={{ background: "oklch(100% 0 0 / 0.05)", color: "oklch(55% 0 0)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+            <Download className="w-3 h-3" />
+            JSON
+          </button>
+          <button
+            onClick={handleExportCSV}
+            disabled={displayMemories.length === 0}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl transition-all"
+            title="导出 CSV"
+            style={{ background: "oklch(100% 0 0 / 0.05)", color: "oklch(55% 0 0)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+            <Download className="w-3 h-3" />
+            CSV
+          </button>
+        </div>
         {/* 批量删除 */}
         {selectedIds.size > 0 && (
           <button
@@ -2198,11 +2282,11 @@ function MemoryManager() {
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: "oklch(42% 0 0)" }} />
           <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>加载记忆中...</span>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : displayMemories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <BookOpen className="w-10 h-10" style={{ color: "oklch(28% 0 0)" }} />
           <p className="text-sm" style={{ color: "oklch(42% 0 0)" }}>
-            {searchText ? "未找到匹配的记忆" : "暂无 AI 记忆，开始对话后自动生成"}
+            {semanticQuery ? `未找到与「${semanticQuery}」相关的记忆` : "暂无 AI 记忆，开始对话后自动生成"}
           </p>
         </div>
       ) : (
@@ -2211,16 +2295,15 @@ function MemoryManager() {
           <div className="flex items-center gap-2 px-1">
             <input
               type="checkbox"
-              checked={selectedIds.size === filtered.length && filtered.length > 0}
+               checked={selectedIds.size === displayMemories.length && displayMemories.length > 0}
               onChange={toggleSelectAll}
               className="w-3.5 h-3.5 rounded accent-blue-500"
             />
             <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
-              {selectedIds.size > 0 ? `已选 ${selectedIds.size} 条` : `共 ${filtered.length} 条`}
+              {selectedIds.size > 0 ? `已选 ${selectedIds.size} 条` : `共 ${displayMemories.length} 条`}
             </span>
           </div>
-
-          {filtered.map(m => {
+          {displayMemories.map((m: MemoryItem) => {
             const typeInfo = MEMORY_TYPE_LABELS[m.memoryType ?? ""];
             const isEditing = editingId === m.id;
             const isSelected = selectedIds.has(m.id);

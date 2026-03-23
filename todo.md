@@ -1804,3 +1804,10 @@
 - [x] 前端：支持单条删除 + 批量删除
 - [x] 前端：显示记忆过期时间（expiresAt）
 - [x] 编写测试，运行全套测试，保存 checkpoint
+
+## AI 记忆系统三项增强（2026-03-23）
+
+- [x] 记忆自动分类：saveMemoryContext 调用处加入 LLM 分类逻辑，自动判断 memoryType（preference/workflow/watchlist/analysis）
+- [x] 语义化搜索：后端 memory.search tRPC 路由（基于 keywords 相似度匹配）+ 前端搜索框接入
+- [x] 记忆导出：AI 记忆 Tab 添加「导出 JSON」和「导出 CSV」按钮
+- [x] 编写测试，运行全套测试，保存 checkpoint

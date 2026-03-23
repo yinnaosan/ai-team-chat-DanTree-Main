@@ -31,6 +31,13 @@ export interface MultiAgentResult {
   consensusSignal: "bullish" | "bearish" | "neutral" | "mixed";
   divergenceNote: string;    // 各角色分歧说明（若有）
   elapsedMs: number;
+  // V1.5: 角色重映射到 valuation/business/risk/market_context 分类
+  roleClassification: {
+    valuation_view: AgentAnalysis | null;   // fundamental 角色 → 估值视角
+    business_view: AgentAnalysis | null;    // fundamental 角色 → 业务质量视角
+    risk_view: AgentAnalysis | null;        // macro + sentiment 合并 → 风险视角
+    market_context: AgentAnalysis | null;   // technical 角色 → 市场背景
+  };
 }
 
 // ── Agent 角色定义 ────────────────────────────────────────────────────────────
@@ -262,12 +269,71 @@ export async function runMultiAgentAnalysis(
     divergenceNote = `${signalList[0]} vs ${signalList[1]} 存在分歧`;
   }
 
+  // V1.5: 角色重映射 — fundamental 拆分为 valuation_view + business_view，其他角色直接映射
+  const fundamentalAgent = agents.find(a => a.role === "fundamental") ?? null;
+  const macroAgent = agents.find(a => a.role === "macro") ?? null;
+  const sentimentAgent = agents.find(a => a.role === "sentiment") ?? null;
+  const technicalAgent = agents.find(a => a.role === "technical") ?? null;
+
+  // valuation_view: fundamental 角色，但强调估值相关内容
+  const valuation_view = fundamentalAgent ? {
+    ...fundamentalAgent,
+    roleName: "估値视角",
+    keyPoints: fundamentalAgent.keyPoints.filter(p =>
+      /PE|PB|EV|EBITDA|估値|市盈率|市净率|盘市率|目标价|安全边际|DCF|FCF|自由现金流/i.test(p)
+    ).concat(fundamentalAgent.keyPoints.filter(p =>
+      !/PE|PB|EV|EBITDA|估値|市盈率|市净率|盘市率|目标价|安全边际|DCF|FCF|自由现金流/i.test(p)
+    )).slice(0, 5),
+  } : null;
+
+  // business_view: fundamental 角色，但强调业务质量相关内容
+  const business_view = fundamentalAgent ? {
+    ...fundamentalAgent,
+    roleName: "业务质量视角",
+    keyPoints: fundamentalAgent.keyPoints.filter(p =>
+      /ROE|ROIC|毛利率|营收|增速|EPS|盈利能力|资产质量|负帏质量|业务|商业模式|护城河/i.test(p)
+    ).concat(fundamentalAgent.keyPoints.filter(p =>
+      !/ROE|ROIC|毛利率|营收|增速|EPS|盈利能力|资产质量|负帏质量|业务|商业模式|护城河/i.test(p)
+    )).slice(0, 5),
+  } : null;
+
+  // risk_view: macro + sentiment 合并，强调风险因素
+  const risk_view = (macroAgent || sentimentAgent) ? {
+    role: "macro" as const,
+    roleName: "风险视角",
+    verdict: [
+      macroAgent ? `宏观风险：${macroAgent.verdict}` : "",
+      sentimentAgent ? `情绪风险：${sentimentAgent.verdict}` : "",
+    ].filter(Boolean).join(" | "),
+    keyPoints: [
+      ...(macroAgent?.keyPoints ?? []).slice(0, 2),
+      ...(sentimentAgent?.keyPoints ?? []).slice(0, 2),
+    ].slice(0, 5),
+    signal: (macroAgent?.signal === "bearish" || sentimentAgent?.signal === "bearish")
+      ? "bearish" as const
+      : (macroAgent?.signal === "bullish" && sentimentAgent?.signal === "bullish")
+        ? "bullish" as const
+        : "mixed" as const,
+    confidence: "medium" as const,
+    dataUsed: [
+      ...(macroAgent?.dataUsed ?? []),
+      ...(sentimentAgent?.dataUsed ?? []),
+    ],
+  } : null;
+
+  // market_context: technical 角色直接映射
+  const market_context = technicalAgent ? {
+    ...technicalAgent,
+    roleName: "市场背景",
+  } : null;
+
   return {
     agents,
     directorSummary,
     consensusSignal,
     divergenceNote,
     elapsedMs: Date.now() - t0,
+    roleClassification: { valuation_view, business_view, risk_view, market_context },
   };
 }
 

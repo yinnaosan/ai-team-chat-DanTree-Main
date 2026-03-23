@@ -1823,3 +1823,14 @@
 
 - [x] 高重要性记忆置顶：getRelevantMemory 评分中加入 importance 权重，importance≥4 优先注入
 - [x] 记忆自动过期策略：saveMemoryContext 根据 importance 计算 expiresAt（1→30天，5→永不过期）
+
+## Reasoning Engine V1.5 实施（2026-03-23）
+
+- [x] Phase 1: 扩展 TASK_PARSE schema（interaction_mode / risk_focus / comparison_needed / user_goal）
+- [x] Phase 1: 添加 FIELD_REQUIREMENT_GENERATOR（数据拉取前的字段分层规划）
+- [x] Phase 2: 实现 SOURCE_SELECTION_ENGINE（field_route_map + 5min TTL health cache）
+- [x] Phase 2: 重映射多角色输出到 valuation_view / business_view / risk_view / market_context
+- [x] Phase 3: 增强 SYNTHESIS_ENGINE prompt（counterargument 强制 + latest_available 标注 + verdict 不得泛化）
+- [x] Phase 3: 增强 DISCUSSION_ENGINE prompt（thesis-specific 追问 + 4 种输出类型强制）
+- [x] Phase 4: 添加 DATA_PACKET_WRAPPER（field_sources / field_timestamps / freshness_labels / missing_fields / field_route_trace）
+- [x] Phase 5: 验证无新增 LLM 调用、快速模式无回归、输出更具体

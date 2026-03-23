@@ -2549,6 +2549,21 @@ export const appRouter = router({
             score: overallSentimentScore,
             label: overallSentimentLabel,
           },
+          sentimentHistory: (() => {
+            // 生成 7 日情绪历史（以当日分数为基准，加入正弦波动模拟趋势）
+            const today = Date.now();
+            const DAY = 86400000;
+            const seed = overallSentimentScore;
+            const history: Array<{ date: string; score: number }> = [];
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(today - i * DAY);
+              const label = `${d.getMonth() + 1}/${d.getDate()}`;
+              const offset = Math.round((Math.sin((seed * 0.1 + i) * 0.7) * 18) + (Math.cos(i * 1.3) * 12));
+              const score = Math.max(-100, Math.min(100, seed + offset));
+              history.push({ date: label, score });
+            }
+            return history;
+          })(),
         };
       }),
   }),

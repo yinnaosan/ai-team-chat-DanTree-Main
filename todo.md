@@ -1634,3 +1634,9 @@
 - [x] BacktestCard 集成到 AI 分析流程：AlphaFactorCard 添加 FlaskConical 按钮，点击后在卡片内嵌入 BacktestCard，传入 alphaScore 和 alphaScores
 - [x] TrendRadar-WorldMonitor 联动：TrendRadarCard watchlist 标签可点击，触发 WorldMonitorCard 显示该 ticker 的跨资产相关性分析
 - [x] NewsNow PrimoGPT 情绪评分：getNewsFeed 路由集成 analyzeNewsSentiment，每条新闻显示情绪徽章（利多/利空/中性），底部显示当日市场情绪指数
+
+## UX 增强功能（2026-03-23 第二批）
+
+- [x] 情绪指数 7 日历史趋势图：NewsNowPanel 底部添加 Recharts AreaChart，展示近 7 日市场情绪指数变化，带标注和渐变色填充
+- [x] TrendRadar 联动滑入动画：WorldMonitorCard 从右侧滑入（slideInFromRight 关键帧），标题显示「来自 TrendRadar 联动」标记
+- [x] BacktestCard 策略自动预填充：基于 Alpha 因子类别权重自动推断最优策略，标题显示推断结果，策略按鈕显示「推荐」徽章

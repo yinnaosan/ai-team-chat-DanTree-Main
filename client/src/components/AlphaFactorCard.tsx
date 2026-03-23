@@ -739,6 +739,27 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
   const [showIC, setShowIC] = useState(false);
   const [showLiquidity, setShowLiquidity] = useState(false);
   const [showBacktest, setShowBacktest] = useState(false);
+
+  // 基于 Alpha 因子类别权重自动推断最优回测策略
+  const suggestedStrategy = useMemo(() => {
+    if (!payload.factors || payload.factors.length === 0) return "momentum";
+    // 按类别统计平均强度加权分
+    const categoryScores: Record<string, number> = {};
+    for (const f of payload.factors) {
+      const cat = (f.category ?? "").toLowerCase();
+      const score = f.strength * f.signal;
+      categoryScores[cat] = (categoryScores[cat] ?? 0) + score;
+    }
+    // 如果综合评分很高，优先用 alpha_factor 策略
+    if (Math.abs(payload.compositeScore) >= 60) return "alpha_factor";
+    // 动量类别强则用动量策略
+    const momentumScore = (categoryScores["momentum"] ?? 0) + (categoryScores["technical"] ?? 0);
+    const valueScore = (categoryScores["value"] ?? 0) + (categoryScores["quality"] ?? 0) + (categoryScores["fundamental"] ?? 0);
+    const trendScore = (categoryScores["trend"] ?? 0) + (categoryScores["price"] ?? 0);
+    if (valueScore > momentumScore && valueScore > trendScore) return "mean_reversion";
+    if (trendScore > momentumScore && trendScore > valueScore) return "ma_crossover";
+    return "momentum";
+  }, [payload.factors, payload.compositeScore]);
   // 权重状态：默认全部 1.0
   const [weights, setWeights] = useState<Record<string, number>>(
     () => Object.fromEntries(payload.factors.map(f => [f.name, 1.0]))
@@ -1034,6 +1055,15 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                   <FlaskConical className="w-3.5 h-3.5 text-pink-400" />
                   <span className="text-xs font-medium text-pink-400">Qbot 量化回测</span>
                   <span className="text-xs text-muted-foreground/50">（基于 Alpha 因子信号）</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-pink-500/15 text-pink-400 border border-pink-500/25">
+                    自动推断: {{
+                      momentum: "动量策略",
+                      mean_reversion: "均値回归",
+                      ma_crossover: "均线交叉",
+                      alpha_factor: "Alpha 因子",
+                      buy_hold: "买入持有",
+                    }[suggestedStrategy] ?? suggestedStrategy}
+                  </span>
                 </div>
                 <BacktestCard
                   ticker={payload.ticker}
@@ -1041,6 +1071,7 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                   sigma={0.25}
                   alphaScore={payload.compositeScore}
                   alphaScores={payload.factors.map(f => f.strength * f.signal)}
+                  suggestedStrategy={suggestedStrategy}
                 />
               </div>
             )}

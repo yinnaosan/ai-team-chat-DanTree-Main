@@ -636,19 +636,39 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           )}
           {/* World Monitor 全局雷达卡片 */}
           {tickerForCards && (
-            <div className="mt-3">
-              {worldMonitorLinkedTicker && (
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="text-xs text-blue-400">联动分析:</span>
-                  <span className="text-xs font-mono font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded border border-blue-500/30">{worldMonitorLinkedTicker}</span>
-                  <span className="text-xs text-muted-foreground/50">跨资产相关性</span>
-                  <button
-                    onClick={() => setWorldMonitorLinkedTicker(null)}
-                    className="ml-auto text-xs text-muted-foreground/40 hover:text-muted-foreground/80 transition-colors"
-                  >× 恢复默认</button>
+            <div
+              className="mt-3 overflow-hidden"
+              style={{
+                transform: worldMonitorLinkedTicker ? "translateX(0)" : "translateX(0)",
+                transition: "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                opacity: 1,
+              }}
+            >
+              {worldMonitorLinkedTicker ? (
+                <div
+                  key={worldMonitorLinkedTicker}
+                  style={{
+                    animation: "slideInFromRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                  }}
+                >
+                  {/* 来自 TrendRadar 联动标记 */}
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                      来自 TrendRadar 联动
+                    </span>
+                    <span className="text-xs font-mono font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded border border-blue-500/30">{worldMonitorLinkedTicker}</span>
+                    <span className="text-xs text-muted-foreground/50">跨资产相关性</span>
+                    <button
+                      onClick={() => setWorldMonitorLinkedTicker(null)}
+                      className="ml-auto text-[10px] px-2 py-0.5 rounded bg-white/5 text-muted-foreground/40 hover:text-muted-foreground/80 hover:bg-white/10 transition-colors"
+                    >↩ 恢复默认</button>
+                  </div>
+                  <WorldMonitorCard ticker={worldMonitorLinkedTicker} />
                 </div>
+              ) : (
+                <WorldMonitorCard ticker={worldMonitorTicker} />
               )}
-              <WorldMonitorCard ticker={worldMonitorTicker} />
             </div>
           )}
           {chartBlocks.map((block, idx) =>

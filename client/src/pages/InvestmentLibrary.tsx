@@ -6,6 +6,7 @@
  * - ayush-that/FinVeda（金融教育内容）
  */
 import { useState, useMemo } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -339,9 +340,10 @@ function NewsNowPanel() {
     { ticker: currentSource.query, maxArticles: 12 },
     { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
-  const typedData = data as { articles?: Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string; sentiment?: string }>; marketSentiment?: { score: number; label: string } } | null;
+  const typedData = data as { articles?: Array<{ title: string; description?: string; source?: string; url?: string; publishedAt?: string; sentiment?: string }>; marketSentiment?: { score: number; label: string }; sentimentHistory?: Array<{ date: string; score: number }> } | null;
   const articles = typedData?.articles ?? [];
   const marketSentiment = typedData?.marketSentiment;
+  const sentimentHistory = typedData?.sentimentHistory;
 
   return (
     <div className="space-y-3">
@@ -459,6 +461,48 @@ function NewsNowPanel() {
               <ExternalLink className="w-3 h-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 shrink-0 mt-1 transition-colors" />
             </a>
           ))}
+        </div>
+      )}
+      {/* 7 日情绪指数历史趋势图 */}
+      {sentimentHistory && sentimentHistory.length > 0 && (
+        <div className="rounded-lg border border-white/8 bg-white/3 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs font-medium text-muted-foreground/70">7 日情绪指数趋势</span>
+            <span className="text-[10px] text-muted-foreground/40 ml-auto">PrimoGPT 情绪分析</span>
+          </div>
+          <ResponsiveContainer width="100%" height={80}>
+            <AreaChart data={sentimentHistory} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+              <defs>
+                <linearGradient id="sentimentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={marketSentiment && marketSentiment.score > 20 ? "#10b981" : marketSentiment && marketSentiment.score < -20 ? "#ef4444" : "#f59e0b"} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={marketSentiment && marketSentiment.score > 20 ? "#10b981" : marketSentiment && marketSentiment.score < -20 ? "#ef4444" : "#f59e0b"} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "oklch(50% 0 0)" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[-100, 100]} tick={{ fontSize: 9, fill: "oklch(50% 0 0)" }} axisLine={false} tickLine={false} />
+              <ReferenceLine y={0} stroke="oklch(40% 0 0)" strokeDasharray="3 3" />
+              <Tooltip
+                contentStyle={{ background: "oklch(15% 0 0)", border: "1px solid oklch(25% 0 0)", borderRadius: 6, fontSize: 10 }}
+                labelStyle={{ color: "oklch(70% 0 0)" }}
+                formatter={(v: number) => [`${v > 0 ? "+" : ""}${v}`, "情绪分数"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="score"
+                stroke={marketSentiment && marketSentiment.score > 20 ? "#10b981" : marketSentiment && marketSentiment.score < -20 ? "#ef4444" : "#f59e0b"}
+                strokeWidth={1.5}
+                fill="url(#sentimentGrad)"
+                dot={{ r: 2, fill: marketSentiment && marketSentiment.score > 20 ? "#10b981" : marketSentiment && marketSentiment.score < -20 ? "#ef4444" : "#f59e0b" }}
+                activeDot={{ r: 3 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="flex justify-between text-[9px] text-muted-foreground/30 px-1">
+            <span>利空 −100</span>
+            <span>中性 0</span>
+            <span>利多 +100</span>
+          </div>
         </div>
       )}
     </div>

@@ -744,3 +744,15 @@
 .animate-robot-glow  { animation: robotGlow 3s ease-in-out infinite; }
 .animate-scan-line   { animation: scanLine 5s linear infinite; }
 .animate-grid-pulse  { animation: gridPulse 4s ease-in-out infinite; }
+
+/* TrendRadar 联动：WorldMonitorCard 从右侧滑入动画 */
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

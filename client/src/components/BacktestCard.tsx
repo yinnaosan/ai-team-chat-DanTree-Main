@@ -52,6 +52,7 @@ interface BacktestCardProps {
   alphaScore?: number;
   prices?: number[];
   alphaScores?: number[];
+  suggestedStrategy?: string; // Alpha 因子推断的预选策略
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -140,8 +141,8 @@ function StrategyResultRow({ result }: { result: BacktestResult }) {
   );
 }
 
-export function BacktestCard({ ticker, spot, sigma, prices, alphaScores }: BacktestCardProps) {
-  const [activeStrategy, setActiveStrategy] = useState<string>("momentum");
+export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggestedStrategy }: BacktestCardProps) {
+  const [activeStrategy, setActiveStrategy] = useState<string>(suggestedStrategy ?? "momentum");
   const [showComparison, setShowComparison] = useState(false);
 
   const runMutation = trpc.backtest.run.useMutation();
@@ -207,13 +208,18 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores }: Backt
             <button
               key={key}
               onClick={() => setActiveStrategy(key)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              className={`relative text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 activeStrategy === key
                   ? "border-indigo-500 bg-indigo-500/20 text-indigo-300"
                   : "border-border/40 text-muted-foreground hover:border-border"
               }`}
             >
               {label}
+              {key === suggestedStrategy && (
+                <span className="absolute -top-1.5 -right-1 text-[8px] px-1 py-px rounded-full bg-pink-500/80 text-white font-bold leading-none">
+                  推荐
+                </span>
+              )}
             </button>
           ))}
         </div>

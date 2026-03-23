@@ -1375,3 +1375,38 @@
 - [x] 顶部导航栏：深黑背景 + 精致边框
 - [x] 输入框：更深背景、精致边框、拖拽高亮效果
 - [x] 首页 Home：市场指数卡片（SPY/QQQ/BTC/沪深300）、快捷分析入口、Feature Cards、Stats 统计行、网格背景动效
+
+## UI 全面重写（Grok 风格 — 色调/分级/交互逻辑完全照搬）
+- [ ] 全局主题：纯黑 #0C0C0C 背景、白色文字分级（primary/secondary/muted）、Inter 字体、无边框极简风
+- [ ] 侧边栏：Grok 极简图标竖栏（宽48px）+ 可展开历史面板（Search/Chat/Voice/Files/Tasks/Projects/History）+ 底部用户头像 + 展开/收起切换
+- [ ] 聊天主区：无气泡消息流、用户消息右对齐圆角胶囊（深灰色）、AI 消息无边框左对齐、消息间距宽松
+- [ ] 底部输入框：Grok 风格大圆角输入框、附件按钮、DeepSearch/Think 功能标签、模型选择器、发送按钮
+- [ ] 首页 Home：Grok 风格中央 Logo + 大输入框 + DeepSearch/Create Images/Personas 快捷按钮
+- [ ] 登录页 AccessGate：Grok xAI 极简风格，纯黑背景 + 居中品牌 + 极简登录卡片
+- [ ] 信息分级：标题 text-white、正文 text-zinc-300、辅助 text-zinc-500、禁用 text-zinc-700
+- [ ] 交互逻辑：侧边栏悬停展开对话标题、对话项 hover 显示操作按钮、输入框 focus 边框高亮
+
+## Apple 玻璃感改造（Grok 布局 + visionOS 玻璃质感）
+- [ ] 全局主题：深黑渐变背景、玻璃感 token（blur/半透明/内发光）
+- [ ] ChatRoom 侧边栏：磨砂玻璃背景、渐变边框、hover 发光
+- [ ] ChatRoom 顶部导航：苹果风格毛玻璃导航栏
+- [ ] ChatRoom 消息气泡：玻璃卡片、内发光白色边框
+- [ ] ChatRoom 输入框：玻璃质感、聚焦发光效果
+- [ ] AccessGate 登录页：Apple 玻璃登录卡片 + 深黑渐变背景
+- [ ] Settings 设置页：Apple 玻璃风格，简洁分组布局（AI 引擎 / 数据源 / 账户）
+- [ ] Home 首页：玻璃卡片布局 + 市场数据面板
+
+## 全面 UI 重设计（对标 Claude/ChatGPT/Linear 成熟 AI 软件）
+- [ ] ChatRoom 侧边栏：全新图标体系、对话分组、搜索框、底部用户头像
+- [ ] ChatRoom 主区：无气泡消息流、AI 头像、用户消息右对齐胶囊、底部大输入框
+- [ ] ChatRoom 输入框：大圆角、工具栏（附件/图片/搜索）、发送按钮
+- [ ] Settings 设置页：成熟 AI 软件布局（左侧分类导航 + 右侧内容区），简洁清晰
+- [ ] Home 首页：Grok 风格中央输入框 + 快捷功能卡片
+
+## Grok + Apple 玻璃感 UI 全面改造（完成）
+- [x] index.css：Grok 纯黑色系 + Apple 玻璃质感工具类（glass-sidebar/glass-card-v2/glass-input-v2/glass-btn-v2/glass-navbar）
+- [x] ChatRoom.tsx：侧边栏玻璃质感、顶部导航毛玻璃、分析模式选择器升级、发送按钮渐变
+- [x] Settings.tsx：颜色系统统一为 Grok 纯黑色系，Tab 切换器 Apple 分段控制器风格
+- [x] AccessGate.tsx：FinRobot Pro 风格登录页（左侧 3D 机器人鼠标跟随 + 右侧登录面板）
+- [x] Home.tsx：颜色系统统一为 Grok 纯黑色系
+- [x] OpenAI API Key 接入：服务端安全配置，优先使用用户自己的 Key，回退到平台内置算力

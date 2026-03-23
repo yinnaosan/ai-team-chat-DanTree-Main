@@ -16,8 +16,11 @@ export const ENV = {
   ownerOpenId: process.env.OWNER_OPEN_ID || getConfig("OWNER_OPEN_ID"),
   isProduction: process.env.NODE_ENV === "production",
   isLocalDev: IS_LOCAL_DEV,
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL || getConfig("BUILT_IN_FORGE_API_URL"),
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY || getConfig("BUILT_IN_FORGE_API_KEY"),
+  // 当用户配置了自己的 OpenAI Key，直接调用 OpenAI API；否则使用平台内置 Key
+  forgeApiUrl: process.env.OPENAI_API_KEY
+    ? "https://api.openai.com"
+    : (process.env.BUILT_IN_FORGE_API_URL || getConfig("BUILT_IN_FORGE_API_URL")),
+  forgeApiKey: process.env.OPENAI_API_KEY || process.env.BUILT_IN_FORGE_API_KEY || getConfig("BUILT_IN_FORGE_API_KEY"),
 
   // ── 金融数据 API Keys ──────────────────────────────────────────────────────
   // 优先级：process.env > 硬编码（不经过 getConfig，避免生产构建 tree-shaking 问题）

@@ -279,8 +279,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     response_format,
   } = params;
 
+  // 当用户配置了自己的 OpenAI Key 时使用 gpt-4o，否则使用平台默认模型
+  const useOpenAI = !!process.env.OPENAI_API_KEY;
+  const defaultModel = useOpenAI ? "gpt-4o" : "gemini-2.5-flash";
+
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model: defaultModel,
     messages: messages.map(normalizeMessage),
   };
 
@@ -296,9 +300,10 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
+  payload.max_tokens = 32768;
+  // thinking 参数仅平台内置模型支持，OpenAI 不支持
+  if (!useOpenAI) {
+    payload.thinking = { budget_tokens: 128 };
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({

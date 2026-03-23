@@ -160,9 +160,12 @@ function DataSourceStatusPanel() {
                 ["active","warning"].includes(status.twelveDataStatus) ? 1 : 0,
                 1, // Frankfurter 免费公开，始终计入
                 1, // Portfolio Optimizer 免费公开，始终计入
+                1, // 中文财经新闻，始终计入
+                1, // Hacker Laws 定律库，始终计入
+                1, // Qbot 量化因子库，始终计入
               ].reduce((a, b) => a + b, 0)}
               /
-              {33}
+              {36}
                正常
             </span>
           )}
@@ -579,6 +582,42 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
                 免费公开 | portfoliooptimizer.io
+              </span>
+            }
+          />
+          {/* 中文财经新闻 */}
+          <SourceRow
+            label="中文财经新闻"
+            desc="华尔街见闻 + 金十数据 + 格隆汇 + 雪球热股"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                免费公开 | A股/港股中文资讯
+              </span>
+            }
+          />
+          {/* Hacker Laws 定律库 */}
+          <SourceRow
+            label="Hacker Laws 定律库"
+            desc="25 条投资相关科技/商业定律（帕累托/炒作周期/古德哈特等）"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                内置 | dwmkerr/hacker-laws
+              </span>
+            }
+          />
+          {/* Qbot 量化因子库 */}
+          <SourceRow
+            label="Qbot 量化因子库"
+            desc="MACD/RSI/KDJ/RSRS/ROIC/FCF 等 10 个核心量化因子"
+            statusStr="active"
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 142 / 0.1)", color: "oklch(0.55 0.12 142)", border: "1px solid oklch(0.72 0.18 142 / 0.2)" }}>
+                内置 | UFund-Me/Qbot
               </span>
             }
           />

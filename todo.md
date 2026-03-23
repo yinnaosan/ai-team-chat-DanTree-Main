@@ -1680,3 +1680,49 @@
 - [x] 更新 getDataSourceStatus 健康检测
 - [x] 更新 Settings.tsx 数据源面板（新增三行）
 - [x] 编写测试用例，运行全套测试，保存 checkpoint
+
+## GitHub 仓库资源集成（hacker-laws + newsnow + Qbot + worldmonitor + TrendRadar）
+
+### hacker-laws 定律知识库
+- [ ] 克隆 hacker-laws 仓库，解析所有定律为结构化 JSON（名称/定义/投资应用场景）
+- [ ] 创建 server/hackerLawsKnowledge.ts（定律知识库模块，含投资相关定律检索）
+- [ ] 更新 Step1 提示词：注入定律知识库，AI 分析时自动引用相关定律（如帕累托/炒作周期）
+
+### newsnow 中文财经新闻源
+- [ ] 研究 newsnow 的新闻源配置（财联社/雪球/格隆汇/华尔街见闻/金十数据）
+- [ ] 创建 server/cnFinanceNewsApi.ts（中文财经新闻聚合，爬取 A 股核心媒体）
+- [ ] 接入 Step2 数据引擎：A 股/港股查询时自动触发中文新闻获取
+- [ ] 更新 Settings.tsx 数据源面板
+
+### Qbot 量化因子知识库
+- [ ] 研究 Qbot 的因子定义（RSRS/动量/价值/质量因子）和策略逻辑
+- [ ] 创建 server/quantFactorKnowledge.ts（量化因子知识库，含因子定义/计算公式/信号解读）
+- [ ] 更新 Step1 提示词：注入量化因子知识，AI 技术分析时自动引用
+
+### worldmonitor 地缘政治风险体系
+- [ ] 提取 worldmonitor 的地缘政治风险分类体系（制裁/军事/贸易路线/能源管道）
+- [ ] 更新 AI 分析提示词：宏观分析时引用地缘政治风险框架
+
+### 测试与 checkpoint
+- [ ] 编写新模块测试，运行全套测试，保存 checkpoint
+
+## GitHub 高优先级仓库集成（hacker-laws + newsnow + Qbot）
+
+### hacker-laws 定律知识库
+- [x] 克隆仓库，解析定律为结构化 JSON，筛选投资相关定律（帕累托/炒作周期/康威等）
+- [x] 创建 server/hackerLawsKnowledge.ts（定律检索模块）
+- [x] 更新 Step1 提示词：AI 分析时自动引用相关定律
+
+### newsnow 中文财经新闻源
+- [x] 研究 newsnow 的财联社/雪球/格隆汇/华尔街见闻新闻源配置
+- [x] 创建 server/cnFinanceNewsApi.ts（中文财经新闻聚合）
+- [x] 接入 Step2 数据引擎（A 股/港股查询时触发）
+- [x] 更新 Settings.tsx 数据源面板
+
+### Qbot 量化因子知识库
+- [x] 研究 Qbot 的因子定义（RSRS/动量/价値/质量因子）
+- [x] 创建 server/quantFactorKnowledge.ts（量化因子知识库）
+- [x] 更新 Step1 提示词：技术分析时引用量化因子知识
+
+### 测试与 checkpoint
+- [x] 编写新模块测试，运行全套测试，保存 checkpoint

@@ -106,6 +106,9 @@ import { getEquityClassification, formatFinanceDatabaseReport, extractTickersFor
 import { getTwelveDataAnalysis, checkTwelveDataHealth, isTwelveDataConfigured } from "./twelveDataApi";
 import { getForexAnalysis, checkExchangeRatesHealth } from "./exchangeRatesApi";
 import { getPortfolioOptimizationAnalysis, checkPortfolioOptimizerHealth } from "./portfolioOptimizerApi";
+import { buildLawsContextBlock, getAllLawsSummary } from "./hackerLawsKnowledge";
+import { buildQuantContextBlock } from "./quantFactorKnowledge";
+import { fetchAllCnFinanceNews, formatCnNewsToMarkdown, isCnFinanceNewsRelevant, checkCnFinanceNewsHealth } from "./cnFinanceNewsApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1347,8 +1350,12 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // 中文财经新闻（华尔街见闻/金十/格隆汇/雪球）
+      () => isCnFinanceNewsRelevant(taskDescription + " " + gptStep1Output)
+        ? fetchAllCnFinanceNews().then(r => formatCnNewsToMarkdown(r, taskDescription)).catch(() => "")
+        : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, cnFinanceNewsResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1441,6 +1448,12 @@ ${"```"}`;
       defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "",  // DeFi 链上数据（goat-sdk/goat · DeFiLlama）
       financeDbResult?.status === "fulfilled" && financeDbResult.value ? financeDbResult.value : "",  // 全球股票分类（JerBouma/FinanceDatabase）
       healthScoreResult?.status === "fulfilled" && healthScoreResult.value ? healthScoreResult.value : "",  // 财务健康评分（JerBouma/FinanceToolkit 150+ 指标）
+      // 中文财经新闻（华尔街见闻/金十/格隆汇/雪球）
+      cnFinanceNewsResult?.status === "fulfilled" && cnFinanceNewsResult.value ? cnFinanceNewsResult.value : "",
+      // hacker-laws 定律知识库（帕累托/炒作周期/梅特卡夫/古德哈特等）
+      buildLawsContextBlock(taskDescription),
+      // Qbot 量化因子知识库（MACD/RSI/KDJ/布林带/RSRS/ROIC/FCF）
+      buildQuantContextBlock(taskDescription),
       // 历史 Agent 信号记忆（跨任务积累，参考 TradingAgents 记忆机制）
       await (async () => {
         if (!primaryTicker) return "";

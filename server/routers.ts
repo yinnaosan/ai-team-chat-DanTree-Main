@@ -443,7 +443,8 @@ DATA_INTEGRITY[MAX]:
 3. PROHIBIT:fabricate|guess|training_data_as_realtime|fill_blanks_with_memory
 4. LABEL:[yahoo_finance]|[fred]|[tavily:domain]|[api:name]|[DATA_UNAVAILABLE:source]
 5. CRITICAL:if_API_returns_no_data→write_"[DATA_UNAVAILABLE]"→do_NOT_invent_plausible_numbers
-6. YEAR_CHECK:any_data_you_output_must_come_from_API_response|if_year_is_${currentYearStr}_verify_it_came_from_API` + USER_CORE_RULES;
+6. YEAR_CHECK:any_data_you_output_must_come_from_API_response|if_year_is_${currentYearStr}_verify_it_came_from_API
+7. A_SHARE_HK_DATA:yahoo_finance支持A股指数(000300.SS/000001.SS)和港股(^HSI/0700.HK)│非交易时段返回上一交易日收盘│标注“数据截至上一交易日”│严禁输出“数据不足”或错误提示` + USER_CORE_RULES;
 
   // -- GPT 主角人设（用户的唯一对话伙伴，负责所有与用户的交流和跟进）----------------------------------------------
   const gptSystemPrompt = `【重要系统信息】今天是 ${currentDateStr}。你的训练数据截止于 2024 年初，因此你对 ${currentYearStr} 年及 ${lastYearStr} 年的实时事件没有记忆。所有涉及当前市场状况、最新财务数据、近期新闻的内容，必须以 Manus 提供的实时 API 数据为准，严禁用训练记忆填充当前数据。
@@ -646,7 +647,19 @@ DATA_INTEGRITY[MAX]:
 - 季报分析/季度业绩: yahoo_finance period="1y"，fmp statements=["quarterly"]
 - 年报/长期基本面/价值投资: yahoo_finance period="2y" | "5y"，fmp statements=["annual"]
 - 宏观/行业对比: yahoo_finance period="5y"，fred/world_bank 优先
-- 默认（不确定）: yahoo_finance period="1y"`;
+- 默认（不确定）: yahoo_finance period="1y"
+[A股/港股指数 ticker 映射（必须使用以下代码，否则 Yahoo Finance 无法识别）]
+- 沪深300 / CSI300 → ticker="000300.SS"
+- 上证指数 / 上证综指 → ticker="000001.SS"
+- 深证成指 → ticker="399001.SZ"
+- 创业板指 → ticker="399006.SZ"
+- 科创50 → ticker="000688.SS"
+- 中证500 → ticker="000905.SS"
+- 恒生指数 / 恒指 / HSI → ticker="^HSI"
+- 恒生科技 → ticker="^HSTECH"
+- 日经225 → ticker="^N225"
+- 腾讯 → ticker="0700.HK" | 美团 → ticker="3690.HK" | 小米 → ticker="1810.HK"
+[A股/港股数据说明] yahoo_finance 支持 A 股指数和港股，非交易时段自动返回上一交易日收盘数据（无需报错）`;
 
     const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}

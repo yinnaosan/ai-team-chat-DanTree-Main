@@ -1648,3 +1648,23 @@
 - [x] TrendRadar 联动扩展：WorldMonitorCard 跨资产分析完成后，将相关性最强的资产自动添加到 TrendRadarCard watchlist（extraWatchlist）
 - [x] BacktestCard 预填充精细化：将 Alpha 因子 zScore 纳入策略推断权重（zScore 绝对値越大权重越高）
 - [x] BacktestCard 预填充精细化：运行按鈕旁显示「基于 Alpha 信号预期胜率」估算（基于 compositeScore 和 zScore 均値计算）
+
+## A 股/港股数据源接入（2026-03-23）
+
+- [ ] 创建 server/chinaStockApi.ts（Yahoo Finance A 股/港股行情、指数、历史数据）
+- [ ] 支持代码格式：A 股（000300.SS/600519.SS/000001.SZ）、港股（^HSI/00700.HK）
+- [ ] 数据降级（fallback）：实时数据不可用时自动返回最近一个交易日的历史数据
+- [ ] 集成到 Step2 数据引擎：识别 A 股/港股代码时自动触发
+- [ ] 更新 getDataSourceStatus 健康检测
+- [ ] 更新 Settings.tsx 数据源面板（新增「A 股/港股」分组）
+- [ ] 编写 chinaStock.test.ts 测试用例
+
+## A 股/港股数据源集成 + 数据获取失败自动 fallback
+- [x] yahooFinance.ts 扩充 nameMap：新增 50+ A 股/港股/指数名称映射（沪深300→000300.SS，恒指→^HSI 等）
+- [x] yahooFinance.ts 实现 fallback 逻辑：regularMarketPrice 为空时自动降级到 previousClose，再降级到历史 OHLCV 最近收盘价
+- [x] yahooFinance.ts 标注数据来源：实时数据标注「实时价格」，fallback 数据标注「最近收盘价（上一交易日）」
+- [x] yahooFinance.ts 添加交易所/时区信息输出（便于区分 A 股/港股/美股）
+- [x] routers.ts AVAILABLE_APIS_CATALOG 新增 A 股/港股指数 ticker 映射规则（供 GPT Step1 使用）
+- [x] routers.ts Manus 系统提示词新增 A_SHARE_HK_DATA 规则：严禁因非交易时段显示「数据不足」错误
+- [x] realtime-data.test.ts 新增 5 个测试：沪深300/恒指/上证指数 ticker 提取 + A 股/港股数据获取无错误验证
+- [x] 447/447 测试全部通过，TypeScript 0 错误

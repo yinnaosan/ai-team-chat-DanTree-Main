@@ -2404,11 +2404,106 @@ export const appRouter = router({
               };
             } catch { return null; }
           })
-          .filter(Boolean)
+           .filter(Boolean)
           .reverse(); // 按时间正序排列（旧→新）
       }),
-  }),
 
+    // alphalens: 计算 Alpha 因子 IC 信息系数
+    computeAlphaIC: protectedProcedure
+      .input(z.object({
+        factors: z.array(z.object({
+          name: z.string(),
+          history: z.array(z.object({
+            date: z.string(),
+            value: z.number(),
+            forward_return: z.number(),
+          })),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { computeAlphaIC } = await import("./alphalensApi.js");
+        return computeAlphaIC(input.factors);
+      }),
+
+    // bidask: 估算买卖价差（流动性因子）
+    estimateLiquidity: protectedProcedure
+      .input(z.object({
+        ticker: z.string().min(1).max(20),
+        ohlc: z.array(z.object({
+          date: z.string(),
+          open: z.number(),
+          high: z.number(),
+          low: z.number(),
+          close: z.number(),
+        })).min(5),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { estimateLiquidity } = await import("./alphalensApi.js");
+        return estimateLiquidity(input.ticker, input.ohlc);
+      }),
+
+    hestonPrice: protectedProcedure
+      .input(z.object({
+        S: z.number(),
+        K: z.number(),
+        T: z.number(),
+        r: z.number(),
+        sigma: z.number(),
+        kappa: z.number().optional(),
+        theta: z.number().optional(),
+        xi: z.number().optional(),
+        rho: z.number().optional(),
+        option_type: z.enum(["call", "put"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { hestonPrice } = await import("./hestonApi.js");
+        return hestonPrice(input);
+      }),
+
+    hestonChain: protectedProcedure
+      .input(z.object({
+        S: z.number(),
+        T: z.number(),
+        r: z.number(),
+        sigma: z.number(),
+        kappa: z.number().optional(),
+        theta: z.number().optional(),
+        xi: z.number().optional(),
+        rho: z.number().optional(),
+        strikes: z.array(z.number()),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { hestonOptionChain } = await import("./hestonApi.js");
+        return hestonOptionChain(
+          input.S, input.T, input.r, input.sigma,
+          input.kappa ?? 2.0,
+          input.theta ?? input.sigma ** 2,
+          input.xi ?? 0.3,
+          input.rho ?? -0.7,
+          input.strikes
+        );
+      }),
+
+    analyzeNewsSentiment: protectedProcedure
+      .input(z.object({
+        ticker: z.string(),
+        newsItems: z.array(z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          publishedAt: z.string(),
+          source: z.string().optional(),
+        })).max(20),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { analyzeNewsSentiment } = await import("./primoGptNlp.js");
+        return analyzeNewsSentiment(input.ticker, input.newsItems);
+      }),
+  }),
   // --- ChatGPT API 配置 ----------------------------------------------------------------------------------------
   rpa: router({
     // 获取当前 API 配置状态
@@ -2789,6 +2884,123 @@ export const appRouter = router({
       return getActiveDbConnection(ctx.user.id);
     }),
   }),
+
+  // ── maybe-finance/maybe 风格：资产负债表模块 ─────────────────────────────────────────────────
+  netWorth: router({
+    getAssets: protectedProcedure.query(async ({ ctx }) => {
+      const { getUserAssets } = await import("./db");
+      return getUserAssets(ctx.user.id);
+    }),
+    createAsset: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        category: z.enum(["stocks", "crypto", "cash", "real_estate", "bonds", "other"]),
+        ticker: z.string().max(20).optional(),
+        quantity: z.string().optional(),
+        costBasis: z.string().optional(),
+        currentValue: z.string(),
+        currency: z.string().default("USD"),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { createAsset, saveNetWorthSnapshot, getUserAssets, getUserLiabilities } = await import("./db");
+        const asset = await createAsset({ ...input, userId: ctx.user.id });
+        const allAssets = await getUserAssets(ctx.user.id);
+        const allLiabilities = await getUserLiabilities(ctx.user.id);
+        const totalAssets = allAssets.reduce((s, a) => s + parseFloat(a.currentValue), 0);
+        const totalLiabilities = allLiabilities.reduce((s, l) => s + parseFloat(l.outstandingBalance), 0);
+        await saveNetWorthSnapshot(ctx.user.id, totalAssets.toFixed(2), totalLiabilities.toFixed(2), (totalAssets - totalLiabilities).toFixed(2));
+        return asset;
+      }),
+    updateAsset: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100).optional(),
+        category: z.enum(["stocks", "crypto", "cash", "real_estate", "bonds", "other"]).optional(),
+        ticker: z.string().max(20).optional(),
+        quantity: z.string().optional(),
+        costBasis: z.string().optional(),
+        currentValue: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { updateAsset, saveNetWorthSnapshot, getUserAssets, getUserLiabilities } = await import("./db");
+        const { id, ...data } = input;
+        await updateAsset(id, ctx.user.id, data as any);
+        const allAssets = await getUserAssets(ctx.user.id);
+        const allLiabilities = await getUserLiabilities(ctx.user.id);
+        const totalAssets = allAssets.reduce((s, a) => s + parseFloat(a.currentValue), 0);
+        const totalLiabilities = allLiabilities.reduce((s, l) => s + parseFloat(l.outstandingBalance), 0);
+        await saveNetWorthSnapshot(ctx.user.id, totalAssets.toFixed(2), totalLiabilities.toFixed(2), (totalAssets - totalLiabilities).toFixed(2));
+        return { success: true };
+      }),
+    deleteAsset: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { deleteAsset } = await import("./db");
+        await deleteAsset(input.id, ctx.user.id);
+        return { success: true };
+      }),
+    getLiabilities: protectedProcedure.query(async ({ ctx }) => {
+      const { getUserLiabilities } = await import("./db");
+      return getUserLiabilities(ctx.user.id);
+    }),
+    createLiability: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        category: z.enum(["mortgage", "car_loan", "credit_card", "student_loan", "personal_loan", "other"]),
+        outstandingBalance: z.string(),
+        interestRate: z.string().optional(),
+        monthlyPayment: z.string().optional(),
+        currency: z.string().default("USD"),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { createLiability, saveNetWorthSnapshot, getUserAssets, getUserLiabilities } = await import("./db");
+        const liability = await createLiability({ ...input, userId: ctx.user.id });
+        const allAssets = await getUserAssets(ctx.user.id);
+        const allLiabilities = await getUserLiabilities(ctx.user.id);
+        const totalAssets = allAssets.reduce((s, a) => s + parseFloat(a.currentValue), 0);
+        const totalLiabilities = allLiabilities.reduce((s, l) => s + parseFloat(l.outstandingBalance), 0);
+        await saveNetWorthSnapshot(ctx.user.id, totalAssets.toFixed(2), totalLiabilities.toFixed(2), (totalAssets - totalLiabilities).toFixed(2));
+        return liability;
+      }),
+    updateLiability: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100).optional(),
+        category: z.enum(["mortgage", "car_loan", "credit_card", "student_loan", "personal_loan", "other"]).optional(),
+        outstandingBalance: z.string().optional(),
+        interestRate: z.string().optional(),
+        monthlyPayment: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { updateLiability, saveNetWorthSnapshot, getUserAssets, getUserLiabilities } = await import("./db");
+        const { id, ...data } = input;
+        await updateLiability(id, ctx.user.id, data as any);
+        const allAssets = await getUserAssets(ctx.user.id);
+        const allLiabilities = await getUserLiabilities(ctx.user.id);
+        const totalAssets = allAssets.reduce((s, a) => s + parseFloat(a.currentValue), 0);
+        const totalLiabilities = allLiabilities.reduce((s, l) => s + parseFloat(l.outstandingBalance), 0);
+        await saveNetWorthSnapshot(ctx.user.id, totalAssets.toFixed(2), totalLiabilities.toFixed(2), (totalAssets - totalLiabilities).toFixed(2));
+        return { success: true };
+      }),
+    deleteLiability: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { deleteLiability } = await import("./db");
+        await deleteLiability(input.id, ctx.user.id);
+        return { success: true };
+      }),
+    getHistory: protectedProcedure.query(async ({ ctx }) => {
+      const { getNetWorthHistory } = await import("./db");
+      return getNetWorthHistory(ctx.user.id);
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
+
+// NOTE: netWorth router appended below the closing }); of appRouter
+// This is a workaround - the actual router needs to be added inside appRouter

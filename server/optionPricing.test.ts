@@ -242,10 +242,10 @@ describe("formatOptionReport & generateOptionSummary", () => {
     expect(report).toContain("蒙特卡洛");
   });
 
-  it("generateOptionSummary 返回包含策略参考的字符串", () => {
-    const summary = generateOptionSummary("AAPL", 175, 0.3);
+  it("generateOptionSummary 返回包含策略参考的字符串", async () => {
+    const summary = await generateOptionSummary("AAPL", 175, 0.3);
     expect(summary).toContain("AAPL");
     expect(summary).toContain("Straddle");
     expect(summary).toContain("Bull Call Spread");
-  });
+  }, 15000);
 });

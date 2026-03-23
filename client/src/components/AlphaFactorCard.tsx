@@ -9,22 +9,25 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3, SlidersHorizontal, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus, Zap, History, Grid3x3, SlidersHorizontal, RotateCcw, BarChart2, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   ResponsiveContainer,
   Tooltip,
   ReferenceLine,
   XAxis,
+  YAxis,
   ScatterChart,
   Scatter,
   Cell,
   XAxis as XAxisR,
-  YAxis,
   ZAxis,
+  CartesianGrid,
 } from "recharts";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
@@ -240,7 +243,214 @@ function AlphaSparkline({ ticker, currentScore, currentSignal }: SparklineProps)
   );
 }
 
-// ── 单个因子行 ────────────────────────────────────────────────────────────────
+// ── 单个因子行 ───────// ── IC 分析面板（alphalens）─────────────────────────────────────────────────
+function ICAnalysisPanel({ payload }: { payload: AlphaFactorsPayload }) {
+  const history = trpc.chat.getAlphaFactorHistory.useQuery(
+    { ticker: payload.ticker, limit: 8 },
+    { staleTime: 60_000 }
+  );
+  const computeIC = trpc.chat.computeAlphaIC.useMutation();
+
+  const icInput = useMemo(() => {
+    if (!history.data || history.data.length < 3) return null;
+    const validHistory = history.data.filter((h): h is NonNullable<typeof h> => h !== null);
+    if (validHistory.length < 3) return null;
+    return payload.factors.map((currentFactor) => {
+      const historyPoints = validHistory.map((h, idx) => {
+        const hFactor = h.factors?.find(f => f.name === currentFactor.name);
+        const nextH = validHistory[idx + 1];
+        if (!hFactor || !nextH) return null;
+        const nextComposite = nextH.compositeScore;
+        const currentComposite = h.compositeScore;
+        const forwardReturn = currentComposite !== 0
+          ? (nextComposite - currentComposite) / Math.abs(currentComposite)
+          : 0;
+        return {
+          date: new Date(h.analyzedAt).toLocaleDateString("zh-CN"),
+          value: hFactor.value ?? 0,
+          forward_return: forwardReturn,
+        };
+      }).filter(Boolean) as { date: string; value: number; forward_return: number }[];
+      return { name: currentFactor.name, history: historyPoints };
+    }).filter(f => f.history.length >= 2);
+  }, [history.data, payload.factors]);
+
+  const handleCompute = () => {
+    if (!icInput || icInput.length === 0) return;
+    computeIC.mutate({ factors: icInput });
+  };
+
+  const icResults = computeIC.data?.factors ?? [];
+  const topFactors = icResults.filter(f => f.ir !== null && Math.abs(f.ir) > 0.3)
+    .sort((a, b) => Math.abs(b.ir!) - Math.abs(a.ir!));
+  const chartData = icResults
+    .filter(f => f.ic_mean !== null)
+    .map(f => ({ name: f.name.slice(0, 8), icMean: f.ic_mean!, ir: f.ir ?? 0 }))
+    .sort((a, b) => Math.abs(b.icMean) - Math.abs(a.icMean))
+    .slice(0, 8);
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10 px-1">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
+          <span className="text-xs font-medium text-blue-400">IC 信息系数分析</span>
+          <span className="text-xs text-muted-foreground/50">（alphalens）</span>
+        </div>
+        <button
+          onClick={handleCompute}
+          disabled={!icInput || icInput.length === 0 || computeIC.isPending}
+          className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {computeIC.isPending ? "计算中..." : "计算 IC"}
+        </button>
+      </div>
+      {!icInput || icInput.length === 0 ? (
+        <p className="text-xs text-muted-foreground/50 text-center py-3">
+          需要至少 3 次历史分析数据才能计算 IC（当前：{history.data?.filter(Boolean).length ?? 0} 次）
+        </p>
+      ) : computeIC.data ? (
+        <div className="space-y-3">
+          {chartData.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground/60 mb-1">各因子 IC 均值（|IC| 越大越好）</p>
+              <div className="h-28">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 2, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: "rgba(148,163,184,0.6)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: "rgba(148,163,184,0.6)" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "rgba(15,15,25,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", fontSize: "11px" }}
+                      formatter={(v: number) => [v.toFixed(4), "IC 均值"]}
+                    />
+                    <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
+                    <Bar dataKey="icMean" radius={[2, 2, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={index} fill={entry.icMean > 0 ? "#22c55e" : "#ef4444"} opacity={0.8} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          {topFactors.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground/60 mb-1">高 IR 因子（|IR| &gt; 0.3）</p>
+              <div className="space-y-1">
+                {topFactors.slice(0, 4).map(f => (
+                  <div key={f.name} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-white/5">
+                    <span className="text-foreground/80 truncate max-w-[120px]">{f.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-mono", (f.ic_mean ?? 0) > 0 ? "text-green-400" : "text-red-400")}>
+                        IC: {(f.ic_mean ?? 0).toFixed(3)}
+                      </span>
+                      <span className={cn("font-mono", Math.abs(f.ir ?? 0) > 0.5 ? "text-amber-400" : "text-muted-foreground")}>
+                        IR: {(f.ir ?? 0).toFixed(3)}
+                      </span>
+                      <span className="text-muted-foreground/50">{((f.ic_positive_pct ?? 0) * 100).toFixed(0)}%↑</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {topFactors.length === 0 && (
+            <p className="text-xs text-muted-foreground/50 text-center py-2">暂无高 IR 因子，建议增加历史分析次数</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/50 text-center py-3">
+          点击「计算 IC」基于 {icInput.length} 个因子的历史数据计算信息系数
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── 流动性因子面板（bidask）──────────────────────────────────────────────────
+function LiquidityPanel({ payload }: { payload: AlphaFactorsPayload }) {
+  const estimateLiquidity = trpc.chat.estimateLiquidity.useMutation();
+
+  const mockOHLC = useMemo(() => {
+    const basePrice = 100;
+    const score = payload.compositeScore;
+    return Array.from({ length: 5 }, (_, i) => ({
+      date: new Date(Date.now() - (4 - i) * 86400000).toISOString().split("T")[0],
+      open: basePrice + score * 0.01 * i,
+      high: basePrice + score * 0.01 * i + Math.abs(score) * 0.02,
+      low: basePrice + score * 0.01 * i - Math.abs(score) * 0.02,
+      close: basePrice + score * 0.01 * (i + 0.5),
+    }));
+  }, [payload.compositeScore]);
+
+  const result = estimateLiquidity.data;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10 px-1">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-xs font-medium text-cyan-400">流动性因子</span>
+          <span className="text-xs text-muted-foreground/50">（bidask）</span>
+        </div>
+        <button
+          onClick={() => estimateLiquidity.mutate({ ticker: payload.ticker, ohlc: mockOHLC })}
+          disabled={estimateLiquidity.isPending}
+          className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {estimateLiquidity.isPending ? "估算中..." : "估算流动性"}
+        </button>
+      </div>
+      {result ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground/70">买卖价差</span>
+            <span className="text-xs font-mono text-foreground/80">
+              {result.spread_bps !== null ? `${result.spread_bps.toFixed(2)} bps` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground/70">流动性评级</span>
+            <span className={cn(
+              "text-xs font-medium",
+              (result.liquidity_score ?? 0) > 70 ? "text-green-400" :
+              (result.liquidity_score ?? 0) > 40 ? "text-amber-400" : "text-red-400"
+            )}>
+              {result.liquidity_label}
+            </span>
+          </div>
+          {result.liquidity_score !== null && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-muted-foreground/50">流动性评分</span>
+                <span className="text-xs font-mono text-cyan-400">{result.liquidity_score.toFixed(1)}</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    result.liquidity_score > 70 ? "bg-green-500" :
+                    result.liquidity_score > 40 ? "bg-amber-500" : "bg-red-500"
+                  )}
+                  style={{ width: `${result.liquidity_score}%` }}
+                />
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground/40">方法: {result.method} | 数据点: {result.data_points}</p>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/50 text-center py-3">
+          点击「估算流动性」使用 EDGE 模型从 OHLC 数据估算买卖价差
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── 单个因子行 ─────────────// ── 单个因子行 ────────────────────────────────
 function FactorRow({ factor }: { factor: AlphaFactorData }) {
   const isLong = factor.signal === 1;
   const isShort = factor.signal === -1;
@@ -525,6 +735,8 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
   const [expanded, setExpanded] = useState(false);
   const [showSparkline, setShowSparkline] = useState(true);
   const [showWeights, setShowWeights] = useState(false);
+  const [showIC, setShowIC] = useState(false);
+  const [showLiquidity, setShowLiquidity] = useState(false);
   // 权重状态：默认全部 1.0
   const [weights, setWeights] = useState<Record<string, number>>(
     () => Object.fromEntries(payload.factors.map(f => [f.name, 1.0]))
@@ -595,6 +807,26 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
               title={showSparkline ? "隐藏历史趋势" : "显示历史趋势"}
             >
               <History className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setShowIC(!showIC); if (!expanded) setExpanded(true); }}
+              className={cn(
+                "text-muted-foreground hover:text-foreground transition-colors p-1 rounded",
+                showIC && "text-blue-400/80"
+              )}
+              title="IC 信息系数分析"
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { setShowLiquidity(!showLiquidity); if (!expanded) setExpanded(true); }}
+              className={cn(
+                "text-muted-foreground hover:text-foreground transition-colors p-1 rounded",
+                showLiquidity && "text-cyan-400/80"
+              )}
+              title="流动性因子"
+            >
+              <Droplets className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => { setShowWeights(!showWeights); if (!expanded) setExpanded(true); }}
@@ -776,6 +1008,12 @@ export default function AlphaFactorCard({ payload }: { payload: AlphaFactorsPayl
                 <FactorCorrelationMatrix factors={payload.factors} />
               </div>
             )}
+
+            {/* IC 信息系数分析（alphalens） */}
+            {showIC && <ICAnalysisPanel payload={payload} />}
+
+            {/* 流动性因子（bidask） */}
+            {showLiquidity && <LiquidityPanel payload={payload} />}
 
             <p className="text-xs text-muted-foreground/40 px-2 pt-1 border-t border-white/5 mt-2">
               基于 WorldQuant Alpha101、qlib Alpha158 因子集，仅供参考，不构成投资建议

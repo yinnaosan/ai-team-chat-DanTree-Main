@@ -748,7 +748,7 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
 }
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
-type TabType = "heatmap" | "chain" | "strategy" | "sensitivity" | "ivsmile";
+type TabType = "heatmap" | "chain" | "strategy" | "sensitivity" | "ivsmile" | "heston";
 
 const EXPIRY_OPTIONS = [7, 14, 30, 60, 90] as const;
 type ExpiryDays = typeof EXPIRY_OPTIONS[number];
@@ -803,12 +803,26 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
   const atmCall = calls.find(c => c.moneyness === "ATM");
   const atmPut = puts.find(p => p.moneyness === "ATM");
 
+  // Heston 随机波动率模型状态
+  const hestonChain = trpc.chat.hestonChain.useMutation();
+  const hestonSingle = trpc.chat.hestonPrice.useMutation();
+
+  const handleHestonChain = () => {
+    const sigma = dynamicPayload.sigma / 100;
+    const r = dynamicPayload.riskFreeRate / 100;
+    const S = dynamicPayload.spotPrice;
+    const T = dynamicPayload.daysToExpiry / 365;
+    const strikes = calls.map(o => o.strike);
+    hestonChain.mutate({ S, T, r, sigma, strikes });
+  };
+
   const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
     { key: "heatmap", label: "Greeks 热力图", icon: <Activity className="w-3 h-3" /> },
     { key: "chain", label: "期权链", icon: <BarChart2 className="w-3 h-3" /> },
     { key: "strategy", label: "策略参考", icon: <TrendingUp className="w-3 h-3" /> },
     { key: "sensitivity", label: "敏感度/盈亏", icon: <LineChartIcon className="w-3 h-3" /> },
     { key: "ivsmile", label: "IV Smile", icon: <Smile className="w-3 h-3" /> },
+    { key: "heston", label: "Heston 模型", icon: <History className="w-3 h-3" /> },
   ];
 
   return (
@@ -938,6 +952,108 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
             )}
             {activeTab === "ivsmile" && (
               <IVSmileChart payload={dynamicPayload} />
+            )}
+            {activeTab === "heston" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-violet-300">Heston 随机波动率模型</p>
+                    <p className="text-xs text-muted-foreground/50 mt-0.5">基于 yhilpisch/dawp · Carr-Madan FFT 数值方法</p>
+                  </div>
+                  <button
+                    onClick={handleHestonChain}
+                    disabled={hestonChain.isPending}
+                    className="text-xs px-3 py-1 rounded bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-violet-500/30"
+                  >
+                    {hestonChain.isPending ? "计算中..." : "运行 Heston"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {[
+                    { label: "均值回归速度 κ", value: "2.0", desc: "Heston 默认" },
+                    { label: "长期方差 θ", value: `${(dynamicPayload.sigma/100)**2 * 100}%`, desc: "初始方差" },
+                    { label: "vol-of-vol ξ", value: "0.3", desc: "Heston 默认" },
+                    { label: "相关系数 ρ", value: "-0.7", desc: "负相关假设" },
+                  ].map(p => (
+                    <div key={p.label} className="flex items-center justify-between px-2 py-1.5 rounded bg-white/5 border border-white/10">
+                      <div>
+                        <span className="text-muted-foreground/70">{p.label}</span>
+                        <span className="text-muted-foreground/40 ml-1 text-[10px]">({p.desc})</span>
+                      </div>
+                      <span className="font-mono text-violet-300">{p.value}</span>
+                    </div>
+                  ))}
+                </div>
+                {hestonChain.data ? (
+                  <div className="space-y-2">
+                    <div className="h-44">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={hestonChain.data.map(d => ({
+                            strike: `$${d.strike}`,
+                            bs_call: parseFloat(d.call_bs.toFixed(2)),
+                            heston_call: parseFloat(d.call_heston.toFixed(2)),
+                            premium: parseFloat(d.heston_premium_pct.toFixed(1)),
+                          }))}
+                          margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                          <XAxis dataKey="strike" tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} width={40} />
+                          <Tooltip
+                            contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+                            formatter={(v: number, name: string) => [
+                              name === "premium" ? `${v}%` : `$${v}`,
+                              name === "bs_call" ? "BS Call" : name === "heston_call" ? "Heston Call" : "Heston 溢价"
+                            ]}
+                          />
+                          <Legend formatter={(v) => v === "bs_call" ? "BS Call" : v === "heston_call" ? "Heston Call" : "Heston 溢价%"} wrapperStyle={{ fontSize: "11px" }} />
+                          <Bar dataKey="bs_call" fill="#6366f1" opacity={0.7} radius={[2, 2, 0, 0]} />
+                          <Bar dataKey="heston_call" fill="#8b5cf6" opacity={0.9} radius={[2, 2, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10">
+                            <th className="text-left py-1.5 px-2 text-violet-400">行权价</th>
+                            <th className="text-right py-1.5 px-2 text-muted-foreground/70">BS Call</th>
+                            <th className="text-right py-1.5 px-2 text-violet-300">Heston Call</th>
+                            <th className="text-right py-1.5 px-2 text-muted-foreground/70">BS Put</th>
+                            <th className="text-right py-1.5 px-2 text-violet-300">Heston Put</th>
+                            <th className="text-right py-1.5 px-2 text-amber-400">溢价%</th>
+                            <th className="text-right py-1.5 px-2 text-muted-foreground/70">调和展期 Delta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hestonChain.data.map((d, i) => (
+                            <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-1 px-2 font-mono text-foreground/80">${d.strike}</td>
+                              <td className="py-1 px-2 text-right font-mono text-indigo-300">${d.call_bs.toFixed(2)}</td>
+                              <td className="py-1 px-2 text-right font-mono text-violet-300 font-medium">${d.call_heston.toFixed(2)}</td>
+                              <td className="py-1 px-2 text-right font-mono text-rose-300">${d.put_bs.toFixed(2)}</td>
+                              <td className="py-1 px-2 text-right font-mono text-pink-300 font-medium">${d.put_heston.toFixed(2)}</td>
+                              <td className={cn("py-1 px-2 text-right font-mono", d.heston_premium_pct > 5 ? "text-amber-400" : d.heston_premium_pct < -5 ? "text-red-400" : "text-muted-foreground")}>
+                                {d.heston_premium_pct > 0 ? "+" : ""}{d.heston_premium_pct}%
+                              </td>
+                              <td className="py-1 px-2 text-right font-mono text-muted-foreground/70">{d.delta_call.toFixed(3)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground/40 px-1">
+                      Heston 溢价 = (Heston - BS) / BS × 100%。正值表示随机波动率模型认为期权被低估，负値表示被高估
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground/50 text-xs">
+                    <p>点击「运行 Heston」使用 Carr-Madan FFT 数值方法对比 BS 和 Heston 模型定价差异</p>
+                    <p className="mt-1 text-muted-foreground/30">Heston 模型考虑随机波动率，能更准确捕捉 IV Smile 和尾部风险</p>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}

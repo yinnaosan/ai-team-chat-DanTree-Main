@@ -824,3 +824,82 @@ export async function searchConversations(userId: number, keyword: string) {
 
   return results;
 }
+
+// ── maybe-finance/maybe 风格：资产负债表查询函数 ──────────────────────────────────────────────────
+import { assets, liabilities, netWorthSnapshots } from "../drizzle/schema";
+import type { Asset, InsertAsset, Liability, InsertLiability } from "../drizzle/schema";
+
+export async function getUserAssets(userId: number): Promise<Asset[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(assets)
+    .where(eq(assets.userId, userId))
+    .orderBy(desc(assets.updatedAt));
+}
+
+export async function createAsset(data: InsertAsset): Promise<Asset> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(assets).values(data) as any;
+  const [created] = await db.select().from(assets).where(eq(assets.id, result.insertId));
+  return created;
+}
+
+export async function updateAsset(id: number, userId: number, data: Partial<InsertAsset>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(assets)
+    .set({ ...data, updatedAt: new Date() } as any)
+    .where(and(eq(assets.id, id), eq(assets.userId, userId)));
+}
+
+export async function deleteAsset(id: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(assets).where(and(eq(assets.id, id), eq(assets.userId, userId)));
+}
+
+export async function getUserLiabilities(userId: number): Promise<Liability[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(liabilities)
+    .where(eq(liabilities.userId, userId))
+    .orderBy(desc(liabilities.updatedAt));
+}
+
+export async function createLiability(data: InsertLiability): Promise<Liability> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(liabilities).values(data) as any;
+  const [created] = await db.select().from(liabilities).where(eq(liabilities.id, result.insertId));
+  return created;
+}
+
+export async function updateLiability(id: number, userId: number, data: Partial<InsertLiability>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(liabilities)
+    .set({ ...data, updatedAt: new Date() } as any)
+    .where(and(eq(liabilities.id, id), eq(liabilities.userId, userId)));
+}
+
+export async function deleteLiability(id: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(liabilities).where(and(eq(liabilities.id, id), eq(liabilities.userId, userId)));
+}
+
+export async function saveNetWorthSnapshot(userId: number, totalAssets: string, totalLiabilities: string, netWorth: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(netWorthSnapshots).values({ userId, totalAssets, totalLiabilities, netWorth });
+}
+
+export async function getNetWorthHistory(userId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(netWorthSnapshots)
+    .where(eq(netWorthSnapshots.userId, userId))
+    .orderBy(desc(netWorthSnapshots.snapshotAt))
+    .limit(limit);
+}

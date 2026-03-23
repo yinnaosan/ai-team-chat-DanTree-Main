@@ -8,6 +8,7 @@ import {
   varchar,
   json,
   boolean,
+  decimal,
 } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
@@ -229,3 +230,80 @@ export const memoryContext = mysqlTable("memory_context", {
 
 export type MemoryContext = typeof memoryContext.$inferSelect;
 export type InsertMemoryContext = typeof memoryContext.$inferInsert;
+
+// ── maybe-finance/maybe 风格：个人资产负债表模块 ─────────────────────────────────────────────────
+/**
+ * 资产账户表
+ * 参考 maybe-finance/maybe 的 Account 模型设计
+ * 支持：股票持仓、现金账户、房产、加密货币、其他资产
+ */
+export const assets = mysqlTable("assets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  category: mysqlEnum("category", [
+    "stocks",      // 股票/ETF
+    "crypto",      // 加密货币
+    "cash",        // 现金/存款
+    "real_estate", // 房产
+    "bonds",       // 债券
+    "other",       // 其他
+  ]).notNull().default("other"),
+  ticker: varchar("ticker", { length: 20 }),        // 股票代码（可选）
+  quantity: decimal("quantity", { precision: 18, scale: 8 }),  // 持有数量
+  costBasis: decimal("costBasis", { precision: 18, scale: 2 }), // 成本价（USD）
+  currentValue: decimal("currentValue", { precision: 18, scale: 2 }).notNull(), // 当前市值（USD）
+  currency: varchar("currency", { length: 10 }).default("USD").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Asset = typeof assets.$inferSelect;
+export type InsertAsset = typeof assets.$inferInsert;
+
+/**
+ * 负债表
+ * 参考 maybe-finance/maybe 的 Liability 模型设计
+ * 支持：房贷、车贷、信用卡、学生贷款、其他负债
+ */
+export const liabilities = mysqlTable("liabilities", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  category: mysqlEnum("category", [
+    "mortgage",       // 房贷
+    "car_loan",       // 车贷
+    "credit_card",    // 信用卡
+    "student_loan",   // 学生贷款
+    "personal_loan",  // 个人贷款
+    "other",          // 其他
+  ]).notNull().default("other"),
+  outstandingBalance: decimal("outstandingBalance", { precision: 18, scale: 2 }).notNull(), // 未偿余额（USD）
+  interestRate: decimal("interestRate", { precision: 6, scale: 4 }),  // 年利率（小数，如 0.05 = 5%）
+  monthlyPayment: decimal("monthlyPayment", { precision: 18, scale: 2 }), // 月供（USD）
+  currency: varchar("currency", { length: 10 }).default("USD").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Liability = typeof liabilities.$inferSelect;
+export type InsertLiability = typeof liabilities.$inferInsert;
+
+/**
+ * 净资产快照表
+ * 参考 maybe-finance/maybe 的 NetWorthSnapshot 模型设计
+ * 每次用户更新资产/负债时自动记录净资产快照，用于趋势图
+ */
+export const netWorthSnapshots = mysqlTable("net_worth_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  totalAssets: decimal("totalAssets", { precision: 18, scale: 2 }).notNull(),    // 总资产（USD）
+  totalLiabilities: decimal("totalLiabilities", { precision: 18, scale: 2 }).notNull(), // 总负债（USD）
+  netWorth: decimal("netWorth", { precision: 18, scale: 2 }).notNull(),           // 净资产（USD）
+  snapshotAt: timestamp("snapshotAt").defaultNow().notNull(),
+});
+
+export type NetWorthSnapshot = typeof netWorthSnapshots.$inferSelect;
+export type InsertNetWorthSnapshot = typeof netWorthSnapshots.$inferInsert;

@@ -9,6 +9,8 @@ import ChatRoom from "./pages/ChatRoom";
 import Settings from "./pages/Settings";
 import AccessGate from "./pages/AccessGate";
 import AdminPanel from "./pages/AdminPanel";
+import InvestmentLibrary from "./pages/InvestmentLibrary";
+import NetWorthDashboard from "./pages/NetWorthDashboard";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 
 function Router() {
@@ -19,6 +21,8 @@ function Router() {
       <Route path={"/settings"} component={Settings} />
       <Route path={"/access"} component={AccessGate} />
       <Route path={"/admin"} component={AdminPanel} />
+      <Route path={"/library"} component={InvestmentLibrary} />
+      <Route path={"/networth"} component={NetWorthDashboard} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

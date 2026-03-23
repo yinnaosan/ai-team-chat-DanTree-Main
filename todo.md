@@ -1557,3 +1557,48 @@
 - [x] IV Smile Tab：下方添加 IV 历史趋势折线图（从 getAlphaFactorHistory 历史记录提取 sigma，包含当前/均唃 IV 对比和高位/低位判断）
 - [x] 后端：routers.ts savedAgentSignalsJson 新增 optionSigma 字段，getAlphaFactorHistory 返回 optionSigma
 - [x] 440/442 测试通过（2 个已知网络限制）
+
+## 开源仓库集成计划（2026-03-23）
+
+### 🥇 第一优先级（直接可用）
+- [ ] alphalens：后端新增 /api/alphalens Python 子进程，计算因子 IC/IR 统计
+- [ ] alphalens：AlphaFactorCard 新增 IC 分析 Tab（IC 均值、IC 标准差、IR 比率、IC 时序图）
+- [ ] bidask：Alpha 因子体系新增流动性维度（从 OHLC 数据估算买卖价差）
+- [ ] bidask：后端新增 estimateBidAskSpread 函数，前端 AlphaFactorCard 展示流动性因子
+- [ ] goat-sdk/goat：集成 TypeScript 包，为 AI 代理添加 Paper Trading 执行工具层
+- [ ] goat-sdk/goat：新增 PaperTradingCard 组件，展示模拟交易指令和执行结果
+
+### 🥈 第二优先级（功能增强）
+- [ ] yhilpisch/dawp：OptionPricingCard 升级 Heston 随机波动率模型（后端 Python 计算）
+- [ ] yhilpisch/dawp：OptionPricingCard 新增模型选择下拉（BSM / Heston）
+- [ ] ivebotunac/PrimoGPT：情绪 Agent 接入 NLP 特征提取管道（结构化情绪特征）
+- [ ] theOGognf/finagg：重构数据聚合层，统一 BEA/FRED/SEC 数据标准化处理
+- [ ] pskun/finance_news_analysis：补充中文 A 股新闻情绪分析（Jieba + Gensim）
+- [ ] curveresearch/curvesim：加密货币模块新增 DeFi 流动性池分析功能
+
+### 📚 资源型（知识库建设）
+- [ ] n0shake/Public-APIs + mr-karan/awesome-investing：平台内置知识库/资源导航页
+- [ ] ayush-that/FinVeda：参考金融教育内容结构，设计平台知识问答模块
+- [ ] highfestiva/finplot：参考 K 线图交互设计，优化平台图表 UX
+- [ ] ForestLinSen/finance：参考有效前沿可视化，集成到投资组合优化模块
+- [ ] Carl2016/finance：参考 Tushare A 股数据接入方案
+
+### 🏗️ 长期架构（季度目标）
+- [ ] maybe-finance/maybe：参考数据模型，设计个人资产负债表模块
+- [ ] hananedupouy/LLMs-in-Finance：参考 RAG 框架，升级 AI 代理文档理解能力
+- [ ] ivebotunac/PrimoGPT：引入 FinRL 深度强化学习，探索自适应交易策略生成
+- [ ] paulperry/quant：将 OLPS 算法移植到策略模块，提供自适应动态资产配置
+
+### ❌ 已去重跳过
+- [x] gugoan/economizzer：与 maybe-finance/maybe 功能重叠，跳过（优先 maybe）
+
+## 开源仓库集成完成状态（2026-03-23）
+- [x] 第一优先级：alphalens IC 信息系数分析（Python 脚本 + alphalensApi.ts + AlphaFactorCard IC 面板）
+- [x] 第一优先级：bidask 买卖价差流动性估算（Python 脚本 + alphalensApi.ts + AlphaFactorCard 流动性面板）
+- [x] 第二优先级：Heston 随机波动率模型（heston_pricing.py + hestonApi.ts + OptionPricingCard Heston Tab）
+- [x] 第二优先级：PrimoGPT NLP 情绪特征提取管道（primoGptNlp.ts + analyzeNewsSentiment 路由 + SentimentNLPCard）
+- [x] 第二优先级：finagg 数据质量评分（computeDataQualityScore 函数集成到 dataSourceRegistry.ts）
+- [x] 资源型：投资知识库页面（InvestmentLibrary.tsx，整合 Public-APIs + awesome-investing + FinVeda）
+- [x] 长期：maybe-finance 风格资产负债表（schema 迁移 + netWorth tRPC 路由 + NetWorthDashboard 页面）
+- [x] 跳过：economizzer（与 maybe-finance 重复）
+- [x] 441/442 测试通过（1 个已知网络限制）

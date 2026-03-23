@@ -1009,3 +1009,86 @@ export function classifyMissingFields(
 
   return { missingBlocking, missingImportant, missingOptional };
 }
+
+// ── finagg 风格数据质量评分（theOGognf/finagg 标准化处理理念）────────────────────────────────────
+/**
+ * 数据质量评分结果
+ * 参考 finagg 的 DataQuality 标准：覆盖率 + 时效性 + 可靠性
+ */
+export interface DataQualityScore {
+  overallScore: number;
+  coverageScore: number;
+  freshnessScore: number;
+  reliabilityScore: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  missingCritical: string[];
+  warnings: string[];
+  recommendations: string[];
+}
+
+/**
+ * 计算数据质量综合评分（finagg DataQuality 标准化实现）
+ */
+export function computeDataQualityScore(
+  fieldCoverage: Array<{ field: string; priority: FieldPriority; resolvedSource: string | null }>,
+  citationSummary: CitationSummary,
+  dataReport: string,
+): DataQualityScore {
+  const { missingBlocking, missingImportant } = classifyMissingFields(fieldCoverage);
+
+  const totalFields = fieldCoverage.length;
+  const coveredFields = fieldCoverage.filter(f => f.resolvedSource !== null).length;
+  const blockingPenalty = missingBlocking.length * 20;
+  const importantPenalty = missingImportant.length * 8;
+  const rawCoverage = totalFields > 0 ? (coveredFields / totalFields) * 100 : 50;
+  const coverageScore = Math.max(0, Math.min(100, rawCoverage - blockingPenalty - importantPenalty));
+
+  const hasRecentData = dataReport.includes("2024") || dataReport.includes("2025") || dataReport.includes("2026");
+  const hasLiveData = citationSummary.citations.filter(c => c.hit).map(c => c.sourceId).some(s =>
+    ["polygon", "alpaca", "finnhub"].some(live => s.toLowerCase().includes(live))
+  );
+  const freshnessScore = hasLiveData ? 95 : hasRecentData ? 75 : 50;
+
+  const sourceCount = citationSummary.citations.filter(c => c.hit).map(c => c.sourceId).length;
+  const premiumSources = citationSummary.citations.filter(c => c.hit).map(c => c.sourceId).filter(s =>
+    ["sec", "fred", "polygon", "fmp", "alpaca"].some(p => s.toLowerCase().includes(p))
+  ).length;
+  const reliabilityScore = Math.min(100, 40 + sourceCount * 8 + premiumSources * 12);
+
+  const overallScore = Math.round(
+    coverageScore * 0.45 + freshnessScore * 0.30 + reliabilityScore * 0.25
+  );
+
+  const grade: DataQualityScore["grade"] =
+    overallScore >= 85 ? "A" :
+    overallScore >= 70 ? "B" :
+    overallScore >= 55 ? "C" :
+    overallScore >= 40 ? "D" : "F";
+
+  const warnings: string[] = [];
+  const recommendations: string[] = [];
+
+  if (missingBlocking.length > 0) {
+    warnings.push(`${missingBlocking.length} 个关键字段缺失：${missingBlocking.slice(0, 3).join("、")}`);
+    recommendations.push("建议检查 API Key 配置，确保核心数据源可用");
+  }
+  if (!hasLiveData) {
+    warnings.push("未检测到实时行情数据");
+    recommendations.push("建议配置 Polygon.io 或 Alpaca API 以获取实时数据");
+  }
+  if (sourceCount < 3) {
+    warnings.push("引用来源较少，分析可能存在偏差");
+    recommendations.push("建议启用多源交叉验证（至少 3 个独立数据源）");
+  }
+
+  return {
+    overallScore,
+    coverageScore: Math.round(coverageScore),
+    freshnessScore: Math.round(freshnessScore),
+    reliabilityScore: Math.round(reliabilityScore),
+    grade,
+    missingCritical: missingBlocking,
+    warnings,
+    recommendations,
+  };
+}

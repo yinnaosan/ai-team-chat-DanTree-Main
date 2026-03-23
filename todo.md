@@ -1488,3 +1488,30 @@
 - [x] 多 Agent 架构已完整实现（multiAgentAnalysis.ts：宏观/技术/基本面/情绪四路并行 + Director 汇总）
 - [x] Alpaca 下单完整实现（AlpacaPortfolioCard.tsx + tRPC alpaca router）
 - [x] 全量测试：422/423 通过（1个已知网络限制失败）
+
+## 前端可视化增强 + 多 Agent 记忆持久化（2026-03-22）
+
+- [ ] 创建 AlphaFactorCard.tsx 组件（信号灯 + 评分条，解析 %%ALPHA_FACTORS%% 标记）
+- [ ] 在 ChatRoom.tsx 中集成 AlphaFactorCard 渲染
+- [ ] 在 routers.ts 中为 alphaResult 添加 %%ALPHA_FACTORS%% 标记格式
+- [ ] 创建 HealthScoreCard.tsx 组件（等级徽章 A+/A/B+... + Recharts 雷达图四维度）
+- [ ] 在 ChatRoom.tsx 中集成 HealthScoreCard 渲染（解析 %%HEALTH_SCORE%% 标记）
+- [ ] 在 routers.ts 中为 healthScoreResult 添加 %%HEALTH_SCORE%% 标记格式
+- [ ] 数据库迁移：memory_context 表新增 agentSignals JSON 字段（存储四路 Agent 分析信号）
+- [ ] 后端：multiAgentAnalysis.ts 分析完成后写入 memory_context 表
+- [ ] 后端：新任务开始时读取历史 agentSignals，注入跨任务记忆上下文
+- [ ] 编写相关测试
+
+## 前端可视化增强 + 多 Agent 记忆持久化（2026-03-22）
+
+- [x] AlphaFactorCard.tsx：信号灯（🔴/🟡/🟢）+ 评分条可视化，解析 %%ALPHA_FACTORS%%{JSON}%%END_ALPHA_FACTORS%% 标记
+- [x] HealthScoreCard.tsx：等级徽章（A+/A/B+/B/C/D）+ Recharts 雷达图（盈利/偿债/现金流/成长四维度）
+- [x] 修改 routers.ts：Alpha 因子任务输出结构化 JSON 标记 + 文本摘要
+- [x] 修改 routers.ts：财务健康评分任务输出结构化 JSON 标记 + 文本
+- [x] ChatRoom.tsx：集成 AlphaFactorCard 和 HealthScoreCard 渲染
+- [x] 多 Agent 记忆持久化：schema.ts 添加 agentSignals 字段，执行迁移 SQL
+- [x] db.ts：扩展 saveMemoryContext 支持 agentSignals，添加 getAgentSignalHistory 函数
+- [x] routers.ts：分析完成后将四路 Agent 信号序列化写入 memory_context
+- [x] routers.ts：分析开始时读取历史 Agent 信号注入 structuredDataBlock（跨任务记忆）
+- [x] 修复 defiDataApi.test.ts 中 protocol.tvl 类型测试（兼容 DeFiLlama object 返回）
+- [x] 422/423 测试通过（1 个已知网络环境限制）

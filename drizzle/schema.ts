@@ -221,6 +221,9 @@ export const memoryContext = mysqlTable("memory_context", {
   memoryType: mysqlEnum("memoryType", ["preference", "workflow", "watchlist", "analysis"]).default("analysis").notNull(),
   // 记忆过期时间（null 表示永不过期）
   expiresAt: timestamp("expiresAt"),
+  // 多 Agent 分析信号（JSON 字符串）
+  // 格式: { ticker, macro, technical, fundamental, sentiment, compositeSignal, analyzedAt }
+  agentSignals: text("agentSignals"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

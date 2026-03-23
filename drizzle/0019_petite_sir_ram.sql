@@ -1,0 +1,1 @@
+ALTER TABLE `memory_context` ADD `agentSignals` text;

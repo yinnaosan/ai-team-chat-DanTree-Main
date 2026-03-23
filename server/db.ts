@@ -691,6 +691,7 @@ export async function saveMemoryContext(data: {
   keywords?: string;
   memoryType?: "preference" | "workflow" | "watchlist" | "analysis";
   expiresAt?: Date;
+  agentSignals?: string; // JSON 字符串，存储多 Agent 分析信号
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -698,6 +699,33 @@ export async function saveMemoryContext(data: {
     ...data,
     memoryType: data.memoryType ?? "analysis",
   });
+}
+
+/** 获取用户对特定股票代码的历史 Agent 信号（最近 N 条） */
+export async function getAgentSignalHistory(
+  userId: number,
+  ticker: string,
+  limit = 5
+): Promise<Array<{ taskTitle: string; agentSignals: string; createdAt: Date }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({
+      taskTitle: memoryContext.taskTitle,
+      agentSignals: memoryContext.agentSignals,
+      createdAt: memoryContext.createdAt,
+    })
+    .from(memoryContext)
+    .where(
+      and(
+        eq(memoryContext.userId, userId),
+        sql`${memoryContext.agentSignals} IS NOT NULL`,
+        sql`${memoryContext.keywords} LIKE ${`%${ticker.toUpperCase()}%`}`
+      )
+    )
+    .orderBy(desc(memoryContext.createdAt))
+    .limit(limit);
+  return rows.filter(r => r.agentSignals !== null) as Array<{ taskTitle: string; agentSignals: string; createdAt: Date }>;
 }
 
 // ─── Conversation Group helpers ───────────────────────────────────────────────

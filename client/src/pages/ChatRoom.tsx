@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
+import AlphaFactorCard, { parseAlphaFactors } from "@/components/AlphaFactorCard";
+import HealthScoreCard, { parseHealthScore } from "@/components/HealthScoreCard";
 import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -544,7 +546,19 @@ function AnswerHeader({ answerObject, outputMode }: {
 function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: string; onFollowup?: (q: string) => void }) {
   const isAssistant = msg.role === "assistant";
   const { cleanContent, followups } = React.useMemo(() => parseFollowups(msg.content), [msg.content]);
-  const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
+  // 解析 Alpha 因子和健康评分标记
+  const alphaFactorsData = React.useMemo(() => parseAlphaFactors(cleanContent), [cleanContent]);
+  const healthScoreData = React.useMemo(() => parseHealthScore(
+    alphaFactorsData ? alphaFactorsData.rest : cleanContent
+  ), [alphaFactorsData, cleanContent]);
+  // 移除标记后的内容供图表解析
+  const contentForCharts = React.useMemo(() => {
+    let c = cleanContent;
+    if (alphaFactorsData) c = alphaFactorsData.rest;
+    if (healthScoreData) c = healthScoreData.rest;
+    return c;
+  }, [cleanContent, alphaFactorsData, healthScoreData]);
+  const chartBlocks = React.useMemo(() => parseChartBlocks(contentForCharts), [contentForCharts]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = "投资研究助手";
   const abbr = "AI";
@@ -576,6 +590,10 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           />
         )}
         <div className="prose-chat w-full" ref={msgRef}>
+          {/* Alpha 因子可视化卡片 */}
+          {alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
+          {/* 财务健康评分卡片 */}
+          {healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
               <InlineChart key={idx} raw={block.raw} />

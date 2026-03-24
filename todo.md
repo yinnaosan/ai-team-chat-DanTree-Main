@@ -2242,3 +2242,11 @@
 - [x] 子图骨架屏：RSI/MACD/KDJ切换时显示骨架屏动画
 - [x] BULL/BEAR卡片置信度进度条（基于confidence+verdict字段动态计算）
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第二十五轮：统一实时价格数据源 + K线图实时价格闪烁刷新
+- [x] 分析顶部栏与K线图的价格数据流，找出不一致来源
+- [x] 统一价格：unifiedPrice = SSE tick > quoteData.price > candle收盘价
+- [x] OHLCV行收价使用 unifiedPrice，年K模式下不再显示年K收盘价
+- [x] K线图 OHLCV行和LIVE价格标签添加 fxo-flash-up/down 闪烁动画
+- [x] 顶部栏价格也添加 fxo-flash-up/down 闪烁动画，与 K 线图同步
+- [x] 689个测试全部通过，TypeScript 0错误

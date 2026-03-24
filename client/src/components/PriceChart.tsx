@@ -296,6 +296,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const [liveSession, setLiveSession] = useState<string | null>(null);   // trading/lunch/pre_market/post_market/closed
   const [liveIntervalMs, setLiveIntervalMs] = useState<number | null>(null); // 当前轮询间隔
   const [auctionAlert, setAuctionAlert] = useState<{ isAlert: boolean; ratio: number | null } | null>(null); // 港股竞价量异常预警
+  const [priceFlashClass, setPriceFlashClass] = useState<string>(""); // 价格闪烁动画类
+  const prevTickPriceRef = useRef<number | null>(null); // 记录上一次tick价格，用于闪烁方向判断
   const sseRef = useRef<EventSource | null>(null);
   // 对比模式
   const [compareSymbol, setCompareSymbol] = useState<string | null>(null);
@@ -363,6 +365,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         // 实时 trade 事件：更新最后一根 K 线
         if (payload.price && seriesRef.current) {
           const price = payload.price;
+          // 价格闪烁动画：与上一次tick对比决定方向
+          const prevP = prevTickPriceRef.current;
+          if (prevP !== null && price !== prevP) {
+            const flashClass = price > prevP ? "fxo-flash-up" : "fxo-flash-down";
+            setPriceFlashClass(flashClass);
+            // 800ms后清除，与动画时长匹配
+            setTimeout(() => setPriceFlashClass(""), 800);
+          }
+          prevTickPriceRef.current = price;
           setLastTickPrice(price);
           // 将实时价格和涨跌信息传给父组件，用于统一显示
           onLivePrice?.({
@@ -1073,13 +1084,13 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     open: lastCandle.open, high: lastCandle.high,
     low: lastCandle.low,   close: lastCandle.close,
     volume: lastCandle.volume,
-  } : null);
-
-  // live模式下，用实时tick价格与昨收对比决定颜色；非live模式用candle开收对比
-  const liveIsUp = lastTickPrice != null && quoteData?.prevClose != null
-    ? lastTickPrice >= quoteData.prevClose
+  } : null)  // 统一价格显示逻辑：SSE tick > quoteData.price > candle收盘价
+  // 这确保顶部栏与K线图 OHLCV 行显示相同价格
+  const unifiedPrice = lastTickPrice ?? quoteData?.price ?? displayData?.close ?? null;
+  const liveIsUp = unifiedPrice != null && quoteData?.prevClose != null
+    ? unifiedPrice >= quoteData.prevClose
     : (displayData ? displayData.close >= displayData.open : true);
-  const isUp = liveStatus === "live" && lastTickPrice != null ? liveIsUp : (displayData ? displayData.close >= displayData.open : true);
+  const isUp = unifiedPrice != null && quoteData?.prevClose != null ? liveIsUp : (displayData ? displayData.close >= displayData.open : true);
   const priceColor = isUp ? upColor : downColor;
   const mainHeight = isFullscreen ? Math.max(400, window.innerHeight - 280) : height;
 
@@ -1188,9 +1199,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
                     ⚡ 竞价异常{auctionAlert.ratio != null ? ` ${auctionAlert.ratio}x` : ""}
                   </span>
                 )}
-                {/* 实时价格（放大） */}
+                {/* 实时价格（放大），价格变动时闪烁 */}
                 {liveStatus === "live" && lastTickPrice != null && (
-                  <span className="font-bold tabular-nums ml-1 text-[14px]">{lastTickPrice.toFixed(2)}</span>
+                  <span className={`font-bold tabular-nums ml-1 text-[14px] ${priceFlashClass}`} style={{ color: priceColor }}>{lastTickPrice.toFixed(2)}</span>
                 )}
               </div>
             );
@@ -1293,16 +1304,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         {displayData ? (
           <>
-            <span className="font-bold text-[15px] tabular-nums" style={{ color: priceColor }}>
-              {/* live模式下优先显示实时tick价格，非live模式显示candle收盘价 */}
-              {fmtPrice(liveStatus === "live" && lastTickPrice != null ? lastTickPrice : displayData.close)}
+            {/* 统一价格：SSE tick > quoteData.price > candle收盘价 */}
+            <span className={`font-bold text-[15px] tabular-nums transition-colors duration-150 ${priceFlashClass}`} style={{ color: priceColor }}>
+              {unifiedPrice != null ? fmtPrice(unifiedPrice) : fmtPrice(displayData.close)}
             </span>
 {(() => {
-              // live模式下用实时价格重新计算涨跌幅，非 live 模式用快照数据
-              const liveDisplayPrice = liveStatus === "live" && lastTickPrice != null ? lastTickPrice : null;
+              // 统一涨跌幅计算：优先用 unifiedPrice 与昨收对比
               const pc = quoteData?.prevClose;
-              const livePct = liveDisplayPrice != null && pc != null && pc !== 0
-                ? ((liveDisplayPrice - pc) / pc) * 100
+              const livePct = unifiedPrice != null && pc != null && pc !== 0
+                ? ((unifiedPrice - pc) / pc) * 100
                 : null;
               const displayPct = livePct ?? quoteData?.changePercent;
               if (displayPct == null) return null;

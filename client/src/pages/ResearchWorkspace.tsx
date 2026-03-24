@@ -1083,10 +1083,11 @@ export default function ResearchWorkspacePage() {
   const [showNewConvDialog, setShowNewConvDialog] = useState(false);
   const [analysisRefreshed, setAnalysisRefreshed] = useState(false);
   const [deepSectionsTab, setDeepSectionsTab] = useState<"backtest" | "health" | "sentiment" | "alpha" | "portfolio" | "radar">("backtest");
-  const [showDeepSections, setShowDeepSections] = useState(false);
-  // 实时价格（来自SSE流，优先级高于快照数据）
+  const [showDeepSections, setShowDeepSections] = useState(false)  // 实时价格（来自 SSE 流，优先级高于快照数据）
   const [liveTick, setLiveTick] = useState<{ price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null } | null>(null);
   const livePrice = liveTick?.price ?? null;
+  const [topPriceFlash, setTopPriceFlash] = useState<string>(""); // 顶部栏价格闪烁动画
+  const prevLivePriceRef = useRef<number | null>(null); // 记录上一次实时价格
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -1276,6 +1277,19 @@ export default function ResearchWorkspacePage() {
     }
   }, [convMessages]);
 
+  // 顶部栏价格闪烁：当 liveTick 更新时触发
+  useEffect(() => {
+    if (liveTick?.price == null) return;
+    const prev = prevLivePriceRef.current;
+    if (prev !== null && liveTick.price !== prev) {
+      const flashClass = liveTick.price > prev ? "fxo-flash-up" : "fxo-flash-down";
+      setTopPriceFlash(flashClass);
+      const t = setTimeout(() => setTopPriceFlash(""), 800);
+      return () => clearTimeout(t);
+    }
+    prevLivePriceRef.current = liveTick.price;
+  }, [liveTick]);
+
   // ── Submit ──
   const handleSubmit = useCallback((text?: string) => {
     const msg = (text ?? input).trim();
@@ -1405,7 +1419,7 @@ export default function ResearchWorkspacePage() {
                     {livePrice != null && (
                       <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: priceColor }} />
                     )}
-                    <span className="text-base font-mono font-bold" style={{ color: priceColor }}>
+                    <span className={`text-base font-mono font-bold ${topPriceFlash}`} style={{ color: priceColor }}>
                       {displayPrice != null ? `${currencySymbol}${displayPrice.toFixed(2)}` : "—"}
                     </span>
                     {changePct != null && (

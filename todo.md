@@ -2051,3 +2051,12 @@
 - [x] A股实时Tick：识别A股代码格式（sh.6xxxxx / sz.0xxxxx / 6位数字），自动切换到A股SSE
 - [x] A股实时Tick：前端PriceChart根据标的代码自动选择美股SSE或A股SSE
 - [x] 新增 ashare-compare.test.ts，8 个测试全部通过
+
+## 2026-03-24 第十一轮功能批次
+
+- [x] A股Tick节流：实现 getAShareTradingSession() + getASharePollInterval() 函数
+- [x] A股Tick节流：交易时段（09:30-11:30 / 13:00-15:00 周一至周五）使用3秒轮询
+- [x] A股Tick节流：午休（11:30-13:00）和收盘后使用30秒轮询，盘前/盘后用10秒
+- [x] A股Tick节流：用 setTimeout 替换 setInterval，每次轮询后动态重计算间隔
+- [x] A股Tick节流：向前端发送 session + interval_ms 字段
+- [x] 新增 ashare-throttle.test.ts，19 个测试全部通过

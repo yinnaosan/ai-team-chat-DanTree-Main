@@ -969,7 +969,7 @@ export default function Settings() {
       <header className="flex items-center gap-3 px-5 py-3 shrink-0 sticky top-0 z-10"
         style={{ background: "oklch(8.5% 0.015 240 / 0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
         <button
-          onClick={() => navigate("/chat")}
+          onClick={() => navigate("/research")}
           className="w-7 h-7 rounded flex items-center justify-center transition-all"
           style={{ color: "var(--bloomberg-text-tertiary)", background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border-dim)" }}>
           <ArrowLeft className="w-3.5 h-3.5" />

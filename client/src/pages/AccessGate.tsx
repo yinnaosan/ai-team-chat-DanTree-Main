@@ -406,14 +406,14 @@ export default function AccessGate() {
 
   useEffect(() => {
     if (!authLoading && !accessLoading && accessData?.hasAccess) {
-      navigate("/chat");
+      navigate("/research");
     }
   }, [authLoading, accessLoading, accessData, navigate]);
 
   const verifyMutation = trpc.access.verify.useMutation({
     onSuccess: () => {
       toast.success("验证成功！欢迎进入 AI 协作平台");
-      navigate("/chat");
+      navigate("/research");
     },
     onError: (err) => {
       toast.error(err.message || "密码无效，请重试");

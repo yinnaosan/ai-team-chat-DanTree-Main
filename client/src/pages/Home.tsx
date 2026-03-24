@@ -69,11 +69,11 @@ export default function Home() {
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
 
   useEffect(() => {
-    if (!loading && isAuthenticated && accessData?.hasAccess) navigate("/chat");
+    if (!loading && isAuthenticated && accessData?.hasAccess) navigate("/research");
     else if (!loading && isAuthenticated && accessData && !accessData.hasAccess) navigate("/access");
   }, [loading, isAuthenticated, accessData, navigate]);
 
-  if (loading || (!loading && isAuthenticated)) {
+  if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "oklch(4.5% 0.008 240)" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>

@@ -11,18 +11,18 @@ import {
 const COMMANDS = [
   // 导航
   { id: "nav-home",      group: "导航",    icon: LayoutDashboard, label: "首页总览",    desc: "返回主仪表盘",       path: "/",          shortcut: "⌘0" },
-  { id: "nav-chat",      group: "导航",    icon: MessageSquare,   label: "AI 分析对话", desc: "多 Agent 深度分析",  path: "/chat",      shortcut: "⌘1" },
+  { id: "nav-research", group: "导航", icon: MessageSquare, label: "研究工作台", desc: "Bloomberg 四列研究终端", path: "/research", shortcut: "⌘1" },
   { id: "nav-backtest",  group: "导航",    icon: FlaskConical,    label: "因子回测",    desc: "量化因子回测引擎",   path: "/backtest",  shortcut: "⌘2" },
   { id: "nav-networth",  group: "导航",    icon: Wallet,          label: "资产负债表",  desc: "个人资产组合管理",   path: "/networth",  shortcut: "⌘3" },
   { id: "nav-library",   group: "导航",    icon: BookOpen,        label: "投资知识库",  desc: "量化因子 + 投资定律", path: "/library",  shortcut: "⌘4" },
   { id: "nav-settings",  group: "导航",    icon: Settings,        label: "设置",        desc: "系统设置与记忆管理", path: "/settings",  shortcut: "⌘," },
   // 快速分析
-  { id: "analyze-us",    group: "快速分析", icon: TrendingUp,     label: "分析美股",    desc: "输入股票代码开始分析", path: "/chat",     query: "分析美股" },
-  { id: "analyze-cn",    group: "快速分析", icon: TrendingUp,     label: "分析 A 股",   desc: "输入股票代码开始分析", path: "/chat",     query: "分析A股" },
-  { id: "analyze-hk",    group: "快速分析", icon: TrendingUp,     label: "分析港股",    desc: "输入股票代码开始分析", path: "/chat",     query: "分析港股" },
-  { id: "analyze-macro", group: "快速分析", icon: Globe,          label: "宏观经济分析", desc: "美联储、通胀、GDP",  path: "/chat",     query: "宏观经济分析" },
-  { id: "analyze-crypto",group: "快速分析", icon: Database,       label: "加密货币分析", desc: "BTC、ETH 技术面",   path: "/chat",     query: "加密货币分析" },
-  { id: "analyze-market",group: "快速分析", icon: BarChart3,      label: "今日市场概览", desc: "全球市场今日表现",   path: "/chat",     query: "给我一份今日全球市场概览，包括美股、港股和A股" },
+  { id: "analyze-us",    group: "快速分析", icon: TrendingUp,     label: "分析美股",    desc: "输入股票代码开始分析", path: "/research",  query: "分析美股" },
+  { id: "analyze-cn",    group: "快速分析", icon: TrendingUp,     label: "分析 A 股",   desc: "输入股票代码开始分析", path: "/research",  query: "分析A股" },
+  { id: "analyze-hk",    group: "快速分析", icon: TrendingUp,     label: "分析港股",    desc: "输入股票代码开始分析", path: "/research",  query: "分析港股" },
+  { id: "analyze-macro", group: "快速分析", icon: Globe,          label: "宏观经济分析", desc: "美联储、通胀、GDP",  path: "/research",  query: "宏观经济分析" },
+  { id: "analyze-crypto",group: "快速分析", icon: Database,       label: "加密货币分析", desc: "BTC、ETH 技术面",   path: "/research",  query: "加密货币分析" },
+  { id: "analyze-market",group: "快速分析", icon: BarChart3,      label: "今日市场概览", desc: "全球市场今日表现",   path: "/research",  query: "给我一份今日全球市场概览，包括美股、港股和A股" },
 ];
 
 // ── 命令面板组件 ────────────────────────────────────────────────────────────

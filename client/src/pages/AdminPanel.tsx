@@ -75,7 +75,7 @@ export default function AdminPanel() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground">仅限管理员访问</p>
-          <Button variant="ghost" className="mt-4" onClick={() => navigate("/chat")}>
+          <Button variant="ghost" className="mt-4" onClick={() => navigate("/research")}>
             返回聊天室
           </Button>
         </div>
@@ -88,7 +88,7 @@ export default function AdminPanel() {
       {/* 顶部导航 */}
       <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/chat")} className="text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/research")} className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <h1 className="font-semibold text-foreground">管理面板</h1>

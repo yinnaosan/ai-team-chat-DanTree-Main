@@ -2235,3 +2235,10 @@
 - [x] 去除K线图中的TradingView Logo水印（watermark: {visible: false}）
 - [x] 修复牛熊卡片逻辑：更新JSON Schema明确BULL=看多论点/BEAR=看空论点，禁止GPT填写反向内容
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第二十四轮：价格轴遮挡修复 + crosshair联动子图 + 子图骨架屏 + BULL/BEAR置信度
+- [x] 修复价格轴与交易量轴标签遮挡（visible:false隐藏交易量轴刻度）
+- [x] crosshair联动子图：主图 crosshair 事件同步子图指标数值
+- [x] 子图骨架屏：RSI/MACD/KDJ切换时显示骨架屏动画
+- [x] BULL/BEAR卡片置信度进度条（基于confidence+verdict字段动态计算）
+- [x] 689个测试全部通过，TypeScript 0错误

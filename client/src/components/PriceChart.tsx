@@ -665,6 +665,21 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           setHoverData(null);
         }
       }
+
+      // 主图 crosshair 同步到子图：通过子图的 seriesData 读取指标数值
+      const subChart = subChartRef.current;
+      if (subChart && param.time) {
+        const vals: Record<string, number | null> = {};
+        subSeriesRef.current.forEach((s, key) => {
+          // 通过主图 crosshair 的 time 在子图系列中查找对应数据
+          try {
+            const allData = s.data() as Array<{ time: Time; value?: number; close?: number }>;
+            const match = allData.find(pt => String(pt.time) === String(param.time));
+            if (match) vals[key] = match.value ?? match.close ?? null;
+          } catch {}
+        });
+        if (Object.keys(vals).length > 0) setSubHoverData(vals);
+      }
     });
 
     // 主图时间轴变化时同步子图表时间轴（RSI/MACD/KDJ与K线同步）
@@ -778,8 +793,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         priceFormat: { type: "volume" },
       });
       chart.priceScale("volume").applyOptions({
-        scaleMargins: { top: 0.75, bottom: 0 },  // 成交量占主图底郥25%区域
+        scaleMargins: { top: 0.75, bottom: 0 },  // 成交量占主图底部25%区域
         borderVisible: false,
+        visible: false,          // 隐藏交易量轴刻度，避免与价格轴标签重叠
       });
     }
   }, [chartType, upColor, downColor, subIndicator]);
@@ -1422,6 +1438,20 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
               </>
             )}
           </div>
+          {isLoading && (
+            <div className="absolute inset-0 z-10 flex items-end px-2 pb-3 gap-[2px]"
+              style={{ background: "rgba(12,12,14,0.88)" }}>
+              {[40,65,30,55,75,45,60,35,70,50,80,40,65,55,45,70,35,60,75,50,85,40,65,55,45,70,35,60,75,50].map((h, i) => (
+                <div key={i} className="flex-1 rounded-sm animate-pulse"
+                  style={{
+                    height: `${h}%`,
+                    background: "rgba(255,255,255,0.06)",
+                    animationDelay: `${(i * 50) % 700}ms`,
+                    animationDuration: "1.4s",
+                  }} />
+              ))}
+            </div>
+          )}
           <div ref={subContainerRef} style={{ width: "100%", height: "100%" }} />
         </div>
       )}

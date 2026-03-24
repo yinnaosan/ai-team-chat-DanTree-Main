@@ -308,38 +308,78 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
             </div>
 
             {/* Bull / Bear / Key Risk row */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* Bull */}
-              <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.65 0.22 25 / 0.06)", border: "1px solid oklch(0.65 0.22 25 / 0.2)" }}>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" style={{ color: T.up }} />
-                  <span className="text-xs font-semibold uppercase" style={{ color: T.up }}>BULL</span>
+            {/* 置信度计算：基于 confidence 字段 */}
+            {(() => {
+              const conf = answerObject.confidence ?? "medium";
+              // 看多置信度：判断方向和置信度共同决定
+              const isBullVerdict = (answerObject.verdict ?? "").toLowerCase().match(/买入|看多|增持|buy|bullish/);
+              const bullPct = conf === "high" ? (isBullVerdict ? 80 : 30)
+                           : conf === "medium" ? (isBullVerdict ? 60 : 45)
+                           : (isBullVerdict ? 40 : 20);
+              const bearPct = conf === "high" ? (isBullVerdict ? 30 : 80)
+                           : conf === "medium" ? (isBullVerdict ? 45 : 60)
+                           : (isBullVerdict ? 20 : 40);
+              const riskPct = conf === "high" ? 25 : conf === "medium" ? 50 : 75;
+              const confLabel = conf === "high" ? "高" : conf === "medium" ? "中" : "低";
+              return (
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Bull */}
+                  <div className="p-2.5 rounded-lg space-y-1.5" style={{ background: "oklch(0.65 0.22 25 / 0.06)", border: "1px solid oklch(0.65 0.22 25 / 0.2)" }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" style={{ color: T.up }} />
+                        <span className="text-xs font-semibold uppercase" style={{ color: T.up }}>BULL</span>
+                      </div>
+                      <span className="text-[10px] tabular-nums" style={{ color: T.up }}>{bullPct}%</span>
+                    </div>
+                    {(answerObject.key_evidence ?? []).slice(0, 1).map((e, i) => (
+                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
+                    ))}
+                    {/* 置信度进度条 */}
+                    <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${bullPct}%`, background: T.up, opacity: 0.7 }} />
+                    </div>
+                  </div>
+                  {/* Bear */}
+                  <div className="p-2.5 rounded-lg space-y-1.5" style={{ background: "oklch(0.65 0.22 145 / 0.06)", border: "1px solid oklch(0.65 0.22 145 / 0.2)" }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <TrendingDown className="w-3 h-3" style={{ color: T.down }} />
+                        <span className="text-xs font-semibold uppercase" style={{ color: T.down }}>BEAR</span>
+                      </div>
+                      <span className="text-[10px] tabular-nums" style={{ color: T.down }}>{bearPct}%</span>
+                    </div>
+                    {(answerObject.counterarguments ?? []).slice(0, 1).map((e, i) => (
+                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
+                    ))}
+                    {/* 置信度进度条 */}
+                    <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${bearPct}%`, background: T.down, opacity: 0.7 }} />
+                    </div>
+                  </div>
+                  {/* Key Risk */}
+                  <div className="p-2.5 rounded-lg space-y-1.5" style={{ background: "oklch(0.72 0.18 75 / 0.06)", border: "1px solid oklch(0.72 0.18 75 / 0.2)" }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" style={{ color: T.gold }} />
+                        <span className="text-xs font-semibold uppercase" style={{ color: T.gold }}>RISK</span>
+                      </div>
+                      <span className="text-[10px]" style={{ color: T.gold }}>置信:{confLabel}</span>
+                    </div>
+                    {(answerObject.risks ?? []).slice(0, 1).map((r, i) => (
+                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{r.description}</p>
+                    ))}
+                    {/* 风险程度进度条 */}
+                    <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${riskPct}%`, background: T.gold, opacity: 0.7 }} />
+                    </div>
+                  </div>
                 </div>
-                {(answerObject.key_evidence ?? []).slice(0, 1).map((e, i) => (
-                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
-                ))}
-              </div>
-              {/* Bear */}
-              <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.65 0.22 145 / 0.06)", border: "1px solid oklch(0.65 0.22 145 / 0.2)" }}>
-                <div className="flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3" style={{ color: T.down }} />
-                  <span className="text-xs font-semibold uppercase" style={{ color: T.down }}>BEAR</span>
-                </div>
-                {(answerObject.counterarguments ?? []).slice(0, 1).map((e, i) => (
-                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
-                ))}
-              </div>
-              {/* Key Risk */}
-              <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.72 0.18 75 / 0.06)", border: "1px solid oklch(0.72 0.18 75 / 0.2)" }}>
-                <div className="flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" style={{ color: T.gold }} />
-                  <span className="text-xs font-semibold uppercase" style={{ color: T.gold }}>RISK</span>
-                </div>
-                {(answerObject.risks ?? []).slice(0, 1).map((r, i) => (
-                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{r.description}</p>
-                ))}
-              </div>
-            </div>
+              );
+            })()}
 
             {/* One-click Trade Buttons */}
             {ticker && (

@@ -14,7 +14,7 @@ function getKey(): string {
   return key;
 }
 
-async function fetchAV<T>(params: Record<string, string>): Promise<T> {
+export async function fetchAV<T>(params: Record<string, string>): Promise<T> {
   const key = getKey();
   const qs = new URLSearchParams({ ...params, apikey: key }).toString();
   const url = `${AV_BASE}?${qs}`;

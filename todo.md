@@ -1975,3 +1975,13 @@
 - [x] 问题1+2：全局设计系统升级——背景#0c0c0e、卡片#131318、金色主强调色#C9A84C、字体Inter、正文13-14px、数字16-24px、卡片材质感（极细边框+内发光+噪点纹理）、FXology设计哲学（克制留白、字体层级、材质感）
 - [x] 问题4：智能风险分析——优化AI提示词要求基于真实数据生成个性化风险，前端展示升级（类型标签+数据依据+颜色边框）
 - [x] 问题3：富途牛牛风格K线图表——集成TradingView Lightweight Charts v4，K线/折线/面积切换，时间周期，成交量子图，技术指标（RSI/MACD/KDJ/BOLL），参数编辑，缩放拖动，盘口数据2列网格
+
+## 2026-03-24 第二轮升级批次（用户确认执行）
+
+- [x] 任务G：修复AI对话中%%CHART%%/%%FOLLOWUP%%标记直接显示为乱码，解析渲染为图表和按钮
+- [x] 任务B：修复K线图「暂无图表数据」，增加多数据源fallback（TwelveData→Polygon→AlphaVantage→Yahoo Finance）
+- [x] 任务F-补：复查剩余子页面（BalanceSheet/IncomeStatement/CashFlow/OptionChain）——均为DashboardLayout内嵌卡片，无需独立返回按钮
+- [x] 任务C：标的物代码旁边添加市场状态标签（绿OPEN/红CLOSED/黄PRE-POST/蓝24H/橙NIGHT）
+- [x] 任务D：临近开收盘30min/15min弹窗提醒+ticker旁倒计时+节假日熔断提示
+- [x] 任务E：右上角全球主要市场开收盘状态悬浮面板（A股/港股/英股/美股/欧股）
+- [x] 任务A：品牌重定义落地页（DanTree Terminal·重新定义的AI版本，黑底网格+金色标题+交互机器人+全球市场面板）

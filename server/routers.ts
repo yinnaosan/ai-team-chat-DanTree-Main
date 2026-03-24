@@ -3806,6 +3806,9 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         const sym = input.symbol.toUpperCase().trim();
+        const errors: string[] = [];
+
+        // ── Source 1: TwelveData ─────────────────────────────────────────────
         try {
           const { fetchTwelveData } = await import("./twelveDataApi") as any;
           const data = await fetchTwelveData("time_series", {
@@ -3813,22 +3816,129 @@ export const appRouter = router({
             interval: input.interval,
             outputsize: String(input.outputsize),
           });
-          if (!data?.values || !Array.isArray(data.values)) {
-            return { symbol: sym, interval: input.interval, candles: [] as any[] };
+          if (data?.values && Array.isArray(data.values) && data.values.length > 0) {
+            const candles = [...data.values].reverse().map((v: any) => ({
+              time: v.datetime.length > 10 ? v.datetime.substring(0, 10) : v.datetime,
+              open: parseFloat(v.open),
+              high: parseFloat(v.high),
+              low: parseFloat(v.low),
+              close: parseFloat(v.close),
+              volume: v.volume ? parseInt(v.volume) : undefined,
+            }));
+            return { symbol: sym, interval: input.interval, candles, source: "twelve_data" };
           }
-          // Twelve Data returns newest first, reverse for chart (oldest first)
-          const candles = [...data.values].reverse().map((v: any) => ({
-            time: v.datetime.length > 10 ? v.datetime.substring(0, 10) : v.datetime,
-            open: parseFloat(v.open),
-            high: parseFloat(v.high),
-            low: parseFloat(v.low),
-            close: parseFloat(v.close),
-            volume: v.volume ? parseInt(v.volume) : undefined,
-          }));
-          return { symbol: sym, interval: input.interval, candles };
-        } catch (e) {
-          return { symbol: sym, interval: input.interval, candles: [] as any[] };
+          errors.push("TwelveData: empty values");
+        } catch (e: any) {
+          errors.push(`TwelveData: ${e?.message ?? e}`);
         }
+
+        // ── Source 2: Polygon.io (日线/周线 only, US stocks) ─────────────────
+        if (["1day", "1week", "1month"].includes(input.interval)) {
+          try {
+            const { getAggregates } = await import("./polygonApi");
+            const toDate = new Date().toISOString().split("T")[0];
+            const fromDate = new Date(Date.now() - input.outputsize * 2 * 24 * 60 * 60 * 1000)
+              .toISOString().split("T")[0];
+            const timespan = input.interval === "1day" ? "day"
+              : input.interval === "1week" ? "week" : "month";
+            const bars = await getAggregates(sym, fromDate, toDate, 1, timespan as any);
+            if (bars && bars.length > 0) {
+              const candles = bars.slice(-input.outputsize).map((b: any) => ({
+                time: new Date(b.t).toISOString().split("T")[0],
+                open: b.o,
+                high: b.h,
+                low: b.l,
+                close: b.c,
+                volume: b.v,
+              }));
+              return { symbol: sym, interval: input.interval, candles, source: "polygon" };
+            }
+            errors.push("Polygon: empty bars");
+          } catch (e: any) {
+            errors.push(`Polygon: ${e?.message ?? e}`);
+          }
+        }
+
+        // ── Source 3: Alpha Vantage (日线 only) ──────────────────────────────
+        if (input.interval === "1day") {
+          try {
+            const { fetchAV } = await import("./alphaVantageApi") as any;
+            const avData = await fetchAV({
+              function: "TIME_SERIES_DAILY",
+              symbol: sym,
+              outputsize: input.outputsize > 100 ? "full" : "compact",
+            });
+            const series = avData?.["Time Series (Daily)"] as Record<string, any> | undefined;
+            if (series && Object.keys(series).length > 0) {
+              const candles = Object.entries(series)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .slice(-input.outputsize)
+                .map(([date, v]: [string, any]) => ({
+                  time: date,
+                  open: parseFloat(v["1. open"]),
+                  high: parseFloat(v["2. high"]),
+                  low: parseFloat(v["3. low"]),
+                  close: parseFloat(v["4. close"]),
+                  volume: parseInt(v["5. volume"]),
+                }));
+              return { symbol: sym, interval: input.interval, candles, source: "alpha_vantage" };
+            }
+            errors.push("AlphaVantage: empty series");
+          } catch (e: any) {
+            errors.push(`AlphaVantage: ${e?.message ?? e}`);
+          }
+        }
+
+        // ── Source 4: Yahoo Finance (via yfinance-compatible endpoint) ────────
+        try {
+          const yahooInterval = input.interval === "1day" ? "1d"
+            : input.interval === "1week" ? "1wk"
+            : input.interval === "1month" ? "1mo"
+            : input.interval === "1h" ? "1h"
+            : input.interval === "4h" ? "1h"
+            : "1d";
+          const yahooRange = input.outputsize > 200 ? "5y"
+            : input.outputsize > 100 ? "2y"
+            : input.outputsize > 60 ? "1y"
+            : "6mo";
+          const yahooSym = sym.includes(".") ? sym : sym;
+          const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${yahooInterval}&range=${yahooRange}&includePrePost=false`;
+          const yahooRes = await fetch(yahooUrl, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (yahooRes.ok) {
+            const yahooData = await yahooRes.json() as any;
+            const result = yahooData?.chart?.result?.[0];
+            const timestamps: number[] = result?.timestamp ?? [];
+            const ohlcv = result?.indicators?.quote?.[0];
+            if (timestamps.length > 0 && ohlcv) {
+              const candles = timestamps
+                .slice(-input.outputsize)
+                .map((ts: number, i: number) => ({
+                  time: new Date(ts * 1000).toISOString().split("T")[0],
+                  open: ohlcv.open?.[i] ?? 0,
+                  high: ohlcv.high?.[i] ?? 0,
+                  low: ohlcv.low?.[i] ?? 0,
+                  close: ohlcv.close?.[i] ?? 0,
+                  volume: ohlcv.volume?.[i] ?? 0,
+                }))
+                .filter((c: any) => c.open > 0 && c.close > 0);
+              if (candles.length > 0) {
+                return { symbol: sym, interval: input.interval, candles, source: "yahoo_finance" };
+              }
+            }
+            errors.push("Yahoo Finance: empty candles");
+          } else {
+            errors.push(`Yahoo Finance: HTTP ${yahooRes.status}`);
+          }
+        } catch (e: any) {
+          errors.push(`Yahoo Finance: ${e?.message ?? e}`);
+        }
+
+        // All sources failed
+        console.warn(`[getPriceHistory] All sources failed for ${sym}:`, errors);
+        return { symbol: sym, interval: input.interval, candles: [] as any[], errors };
       }),
   }),
 

@@ -34,6 +34,11 @@ import AlphaFactorCard, { parseAlphaFactors } from "@/components/AlphaFactorCard
 import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import { TrendRadarCard } from "@/components/TrendRadarCard";
 import { PriceChart } from "@/components/PriceChart";
+import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { TickerMarketStatus, MarketAlertManager } from "@/components/MarketStatus";
+import { GlobalMarketPanel } from "@/components/GlobalMarketPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +148,8 @@ function ResearchHeader({ ticker, quoteData, answerObject, onSelectTicker, onTra
           {ticker || "SELECT"}
         </span>
       </button>
+      {/* Market status badge next to ticker */}
+      {ticker && <TickerMarketStatus symbol={ticker} showCountdown={true} />}
 
       {/* Price */}
       {quoteData?.price != null && (
@@ -1154,8 +1161,11 @@ export default function ResearchWorkspacePage() {
     "美联储政策对市场的影响",
     "当前最值得关注的行业机会",
     "全球市场风险评估",
-  ], [currentTicker]);
-
+   ], [currentTicker]);
+  // ── Auth redirect — MUST be before any early return (Rules of Hooks) ──
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) navigate("/");
+  }, [authLoading, isAuthenticated, navigate]);
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: T.bg0 }}>
@@ -1163,12 +1173,12 @@ export default function ResearchWorkspacePage() {
       </div>
     );
   }
-  if (!isAuthenticated) { navigate("/"); return null; }
-
-  // ── Render ──
-  return (
+  if (!isAuthenticated) return null;
+  // ── Render ───
+   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: T.bg0, fontFamily: "var(--font-sans)" }}>
-
+      {/* Global market alert manager — fires toast when 30/15min to open/close */}
+      <MarketAlertManager markets={["us", "cn", "hk"]} />
       {/* ── Top Bar: Ticker Strip + Nav ── */}
       <div className="flex items-center gap-3 px-4 py-2 shrink-0"
         style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
@@ -1216,12 +1226,10 @@ export default function ResearchWorkspacePage() {
 
         {/* Market status + nav */}
         <div className="flex items-center gap-2 ml-auto shrink-0">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
-            style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.72 0.18 142)" }} />
-            <span className="text-[12px] font-medium" style={{ color: T.text2 }}>MARKET OPEN</span>
-          </div>
-
+           {/* Global market panel */}
+          <GlobalMarketPanel />
+          {/* Dynamic market status badge */}
+          <TickerMarketStatus symbol={currentTicker || "AAPL"} showCountdown={true} />
           {/* Install to Desktop button */}
           <button
             onClick={handleInstall}
@@ -1913,16 +1921,33 @@ function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete 
 
 // ─── Discussion Message ────────────────────────────────────────────────────────
 
+/** 解析 %%FOLLOWUP%%...%%END%% 标记，提取追问按钮并清理内容 */
+function parseFollowupsForDiscussion(content: string): { cleanContent: string; followups: string[] } {
+  const followups: string[] = [];
+  const cleanContent = content.replace(/%%FOLLOWUP%%([\s\S]*?)%%END%%/g, (_, q) => {
+    const trimmed = q.trim();
+    if (trimmed) followups.push(trimmed);
+    return "";
+  });
+  return { cleanContent: cleanContent.trim(), followups };
+}
+
 function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: string) => void }) {
   const isUser = msg.role === "user";
   const isSystem = msg.role === "system";
   const [copied, setCopied] = useState(false);
-
   const handleCopy = () => {
     navigator.clipboard.writeText(msg.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  // Parse %%FOLLOWUP%% and %%CHART%% markers from raw content
+  const { cleanContent, followups } = React.useMemo(
+    () => parseFollowupsForDiscussion(msg.content),
+    [msg.content]
+  );
+  const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
 
   if (isSystem) {
     return (
@@ -1934,7 +1959,6 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
       </div>
     );
   }
-
   if (isUser) {
     return (
       <div className="flex justify-end" data-pdf-message data-pdf-role="user">
@@ -1946,12 +1970,67 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
     );
   }
 
+  // Collect followup questions from both parsed content and metadata
+  const allFollowups = [
+    ...followups,
+    ...(msg.metadata?.discussionObject?.follow_up_questions ?? []),
+  ];
+
   return (
     <div className="space-y-2" data-pdf-message data-pdf-role="assistant">
       <div className="group relative">
+        {/* Render chart blocks and text blocks with proper markdown */}
         <div className="text-xs leading-relaxed prose prose-invert max-w-none"
           style={{ color: "oklch(0.78 0 0)" }}>
-          <Streamdown>{msg.content}</Streamdown>
+          {chartBlocks.map((block, idx) =>
+            block.type === "chart" ? (
+              <InlineChart key={idx} raw={block.raw} />
+            ) : block.type === "pyimage" ? (
+              <PyImageChart key={idx} base64={(block as { type: "pyimage"; base64: string }).base64} />
+            ) : (
+              <ReactMarkdown
+                key={idx}
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-2">
+                      <table className="min-w-full border-collapse text-[11px]">{children}</table>
+                    </div>
+                  ),
+                  th: ({ children }) => (
+                    <th className="border px-2 py-1 text-left font-semibold" style={{ borderColor: "oklch(0.28 0 0)", background: "oklch(0.16 0 0)" }}>{children}</th>
+                  ),
+                  td: ({ children }) => (
+                    <td className="border px-2 py-1" style={{ borderColor: "oklch(0.28 0 0)" }}>{children}</td>
+                  ),
+                  code: ({ className, children }) => {
+                    const isBlock = className?.includes("language-");
+                    return isBlock ? (
+                      <pre className="rounded-lg p-2 my-1.5 overflow-x-auto text-[11px]" style={{ background: "oklch(0.12 0 0)" }}>
+                        <code>{children}</code>
+                      </pre>
+                    ) : (
+                      <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: "oklch(0.16 0 0)", color: T.gold }}>{children}</code>
+                    );
+                  },
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-2 pl-3 my-1.5 italic" style={{ borderColor: T.gold, color: T.text2 }}>{children}</blockquote>
+                  ),
+                  h1: ({ children }) => <h1 className="text-sm font-bold mt-3 mb-1" style={{ color: T.text1 }}>{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-xs font-bold mt-2.5 mb-1" style={{ color: T.text1 }}>{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-xs font-semibold mt-2 mb-0.5" style={{ color: T.text2 }}>{children}</h3>,
+                  strong: ({ children }) => <strong style={{ color: T.text1, fontWeight: 600 }}>{children}</strong>,
+                  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: T.blue }}>{children}</a>,
+                  ul: ({ children }) => <ul className="list-disc pl-4 space-y-0.5 my-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-4 space-y-0.5 my-1">{children}</ol>,
+                  li: ({ children }) => <li className="text-[11px]">{children}</li>,
+                  p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                }}
+              >
+                {(block as { type: "text"; text: string }).text}
+              </ReactMarkdown>
+            )
+          )}
         </div>
         <button onClick={handleCopy}
           className="absolute top-0 right-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1959,13 +2038,14 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
           {copied ? <CheckCircle className="w-3 h-3" style={{ color: "oklch(0.72 0.18 142)" }} /> : <Copy className="w-3 h-3" />}
         </button>
       </div>
-      {msg.metadata?.discussionObject?.follow_up_questions && msg.metadata.discussionObject.follow_up_questions.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-1">
-          {msg.metadata.discussionObject.follow_up_questions.slice(0, 2).map((q, i) => (
+      {/* Followup question buttons — parsed from %%FOLLOWUP%% tags + metadata */}
+      {allFollowups.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1.5">
+          {allFollowups.slice(0, 3).map((q, i) => (
             <button key={i} onClick={() => onFollowup?.(q)}
-              className="px-2 py-0.5 rounded-full text-[12px] transition-all hover:scale-[1.02]"
-              style={{ background: `${T.blue.replace(")", " / 0.08)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.2)")}` }}>
-              {q.slice(0, 28)}{q.length > 28 ? "…" : ""}
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+              style={{ background: `${T.blue.replace(")", " / 0.10)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.25)")}` }}>
+              {q.length > 32 ? q.slice(0, 32) + "…" : q}
             </button>
           ))}
         </div>

@@ -1416,7 +1416,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             style={{
               right: 0,
               top: livePriceY - 11,
-              transform: "translateY(0)",
+              transition: "top 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
             }}
           >
             {/* 连接线：从价格点到标签 */}

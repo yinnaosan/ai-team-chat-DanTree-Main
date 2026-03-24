@@ -233,6 +233,9 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
 }) {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeSide, setTradeSide] = useState<"buy" | "sell">("buy");
+  const [bullExpanded, setBullExpanded] = useState(false);
+  const [bearExpanded, setBearExpanded] = useState(false);
+  const [riskExpanded, setRiskExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -332,9 +335,21 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                       </div>
                       <span className="text-[10px] tabular-nums" style={{ color: T.up }}>{bullPct}%</span>
                     </div>
-                    {(answerObject.bull_case ?? []).slice(0, 1).map((e: string, i: number) => (
-                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
-                    ))}
+                    {/* 展开/折叠内容 */}
+                    <div>
+                      {(answerObject.bull_case ?? []).slice(0, bullExpanded ? undefined : 1).map((e: string, i: number) => (
+                        <p key={i} className="text-[12px] leading-snug mb-1" style={{ color: T.text2 }}>{e}</p>
+                      ))}
+                      {(answerObject.bull_case ?? []).length > 1 && (
+                        <button
+                          onClick={() => setBullExpanded(v => !v)}
+                          className="text-[10px] font-medium mt-0.5 hover:opacity-80 transition-opacity"
+                          style={{ color: T.up }}
+                        >
+                          {bullExpanded ? "▲ 收起" : `▼ +${(answerObject.bull_case ?? []).length - 1}条`}
+                        </button>
+                      )}
+                    </div>
                     {/* 置信度进度条 */}
                     <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
                       <div className="h-full rounded-full transition-all duration-700"
@@ -350,9 +365,21 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                       </div>
                       <span className="text-[10px] tabular-nums" style={{ color: T.down }}>{bearPct}%</span>
                     </div>
-                    {(answerObject.bear_case ?? []).slice(0, 1).map((e: string, i: number) => (
-                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
-                    ))}
+                    {/* 展开/折叠内容 */}
+                    <div>
+                      {(answerObject.bear_case ?? []).slice(0, bearExpanded ? undefined : 1).map((e: string, i: number) => (
+                        <p key={i} className="text-[12px] leading-snug mb-1" style={{ color: T.text2 }}>{e}</p>
+                      ))}
+                      {(answerObject.bear_case ?? []).length > 1 && (
+                        <button
+                          onClick={() => setBearExpanded(v => !v)}
+                          className="text-[10px] font-medium mt-0.5 hover:opacity-80 transition-opacity"
+                          style={{ color: T.down }}
+                        >
+                          {bearExpanded ? "▲ 收起" : `▼ +${(answerObject.bear_case ?? []).length - 1}条`}
+                        </button>
+                      )}
+                    </div>
                     {/* 置信度进度条 */}
                     <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
                       <div className="h-full rounded-full transition-all duration-700"
@@ -368,9 +395,21 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                       </div>
                       <span className="text-[10px]" style={{ color: T.gold }}>置信:{confLabel}</span>
                     </div>
-                    {(answerObject.risks ?? []).slice(0, 1).map((r, i) => (
-                      <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{r.description}</p>
-                    ))}
+                    {/* 展开/折叠内容 */}
+                    <div>
+                      {(answerObject.risks ?? []).slice(0, riskExpanded ? undefined : 1).map((r, i) => (
+                        <p key={i} className="text-[12px] leading-snug mb-1" style={{ color: T.text2 }}>{r.description}</p>
+                      ))}
+                      {(answerObject.risks ?? []).length > 1 && (
+                        <button
+                          onClick={() => setRiskExpanded(v => !v)}
+                          className="text-[10px] font-medium mt-0.5 hover:opacity-80 transition-opacity"
+                          style={{ color: T.gold }}
+                        >
+                          {riskExpanded ? "▲ 收起" : `▼ +${(answerObject.risks ?? []).length - 1}条`}
+                        </button>
+                      )}
+                    </div>
                     {/* 风险程度进度条 */}
                     <div className="w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
                       <div className="h-full rounded-full transition-all duration-700"
@@ -488,7 +527,8 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
 }
 
 /** Main Chart Card */
-function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any; onLivePrice?: (data: { price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null }) => void }) {
+function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice, alertSoundMuted, onToggleAlertMute }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any; onLivePrice?: (data: { price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null }) => void; alertSoundMuted?: boolean; onToggleAlertMute?: () => void }) {
+  const isAStock = detectMarketType(ticker) === "cn";
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center justify-between px-4 py-2.5"
@@ -501,6 +541,17 @@ function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice }: { ticker
           {ticker && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded" style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>{ticker}</span>}
         </div>
         <div className="flex items-center gap-1">
+          {/* A股预警音效静音开关（仅A股市场显示） */}
+          {isAStock && onToggleAlertMute && (
+            <button
+              onClick={onToggleAlertMute}
+              className="p-1 rounded hover:bg-white/5 transition-colors"
+              style={{ color: alertSoundMuted ? T.text4 : T.gold }}
+              title={alertSoundMuted ? "预警音效已静音，点击开启" : "预警音效已开启，点击静音"}
+            >
+              <span className="text-sm leading-none">{alertSoundMuted ? "🔕" : "🔔"}</span>
+            </button>
+          )}
           <button className="p-1 rounded hover:bg-white/5 transition-colors" style={{ color: T.text3 }}>
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -1087,6 +1138,9 @@ export default function ResearchWorkspacePage() {
   const [liveTick, setLiveTick] = useState<{ price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null } | null>(null);
   const livePrice = liveTick?.price ?? null;
   const [topPriceFlash, setTopPriceFlash] = useState<string>(""); // 顶部栏价格闪烁动画
+  const [alertSoundMuted, setAlertSoundMuted] = useState<boolean>(() => {
+    try { return localStorage.getItem("fxo_alert_muted") === "true"; } catch { return false; }
+  }); // 预警音效静音开关
   const prevLivePriceRef = useRef<number | null>(null); // 记录上一次实时价格
   const audioCtxRef = useRef<AudioContext | null>(null); // Web Audio API context
   const limitAlertPlayedRef = useRef<boolean>(false); // 防重复触发：记录是否已播放预警音
@@ -1287,8 +1341,18 @@ export default function ResearchWorkspacePage() {
     return audioCtxRef.current;
   };
 
+  // 切换静音开关
+  const toggleAlertMute = () => {
+    setAlertSoundMuted(prev => {
+      const next = !prev;
+      try { localStorage.setItem("fxo_alert_muted", String(next)); } catch {}
+      return next;
+    });
+  };
+
   // 播放预警音效（Web Audio API 合成）
   const playLimitAlert = (type: "up" | "down") => {
+    if (alertSoundMuted) return; // 已静音则不播放
     try {
       const ctx = getAudioCtx();
       // 涨停：两声上升音调（880Hz → 1100Hz），清脆短促
@@ -1847,7 +1911,7 @@ export default function ResearchWorkspacePage() {
             />
 
             {/* Main Chart */}
-            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} />
+            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} alertSoundMuted={alertSoundMuted} onToggleAlertMute={toggleAlertMute} />
 
             {/* Risk Panel */}
             {risks && risks.length > 0 && (

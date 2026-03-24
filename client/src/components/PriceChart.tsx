@@ -19,6 +19,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   createChart,
   CandlestickSeries,
@@ -73,17 +74,50 @@ const INTERVALS: { label: string; value: Interval; outputsize: number }[] = [
 type ChartType = "candlestick" | "line" | "area";
 type IndicatorKey = "MA5" | "MA10" | "MA20" | "MA60" | "BOLL" | "VOL" | "MACD" | "RSI" | "KDJ";
 
-const INDICATORS: { key: IndicatorKey; label: string; color: string; panel: "main" | "sub" }[] = [
-  { key: "MA5",  label: "MA5",   color: "#f59e0b", panel: "main" },
-  { key: "MA10", label: "MA10",  color: "#60a5fa", panel: "main" },
-  { key: "MA20", label: "MA20",  color: "#a78bfa", panel: "main" },
-  { key: "MA60", label: "MA60",  color: "#f97316", panel: "main" },
-  { key: "BOLL", label: "BOLL",  color: "#22d3ee", panel: "main" },
-  { key: "VOL",  label: "成交量", color: "#6b7280", panel: "sub"  },
-  { key: "MACD", label: "MACD",  color: "#10b981", panel: "sub"  },
-  { key: "RSI",  label: "RSI",   color: "#f59e0b", panel: "sub"  },
-  { key: "KDJ",  label: "KDJ",   color: "#ec4899", panel: "sub"  },
+// 日期范围快捷选项
+type DateRange = "1Y" | "3Y" | "5Y" | "ALL";
+const DATE_RANGES: { label: string; value: DateRange }[] = [
+  { label: "1年", value: "1Y" },
+  { label: "3年", value: "3Y" },
+  { label: "5年", value: "5Y" },
+  { label: "全部", value: "ALL" },
 ];
+
+// 根据日期范围计算 outputsize（日K）
+function dateRangeToOutputsize(range: DateRange, interval: Interval): number {
+  const dayMap: Record<DateRange, number> = { "1Y": 260, "3Y": 780, "5Y": 1300, "ALL": 2000 };
+  const days = dayMap[range];
+  // 周K、月K、年K 数据量相应缩小
+  if (interval === "1week")  return Math.ceil(days / 5);
+  if (interval === "1month") return Math.ceil(days / 22);
+  if (interval === "1year")  return 30;
+  return days;
+}
+
+// 均线参数类型（支持自定义周期）
+interface MAParams {
+  ma1: number; // 默认5
+  ma2: number; // 默认10
+  ma3: number; // 默认20
+  ma4: number; // 默认60
+}
+
+// 指标参数类型
+interface IndicatorParams {
+  boll: { period: number; mult: number };
+  rsi: { period: number };
+  macd: { fast: number; slow: number; signal: number };
+  kdj: { period: number };
+}
+
+const INDICATOR_COLORS: Record<IndicatorKey, string> = {
+  MA5: "#f59e0b", MA10: "#60a5fa", MA20: "#a78bfa", MA60: "#f97316",
+  BOLL: "#22d3ee", VOL: "#6b7280", MACD: "#10b981", RSI: "#f59e0b", KDJ: "#ec4899",
+};
+const INDICATOR_PANEL: Record<IndicatorKey, "main" | "sub"> = {
+  MA5: "main", MA10: "main", MA20: "main", MA60: "main",
+  BOLL: "main", VOL: "sub", MACD: "sub", RSI: "sub", KDJ: "sub",
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 技术指标计算
@@ -334,7 +368,23 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   } | null>(null);
   const [compareHover, setCompareHover] = useState<{
     time: string; mainPct: number | null; comparePct: number | null;
-  } | null>(null);  // ── 日内周期判断 ─────────────────────────────────────────────────────────────
+  } | null>(null);
+  // 均线参数（自定义周期）
+  const [maParams, setMaParams] = useState<MAParams>({ ma1: 5, ma2: 10, ma3: 20, ma4: 60 });
+  // 指标参数（BOLL/RSI/MACD/KDJ）
+  const [indicatorParams, setIndicatorParams] = useState<IndicatorParams>({
+    boll: { period: 20, mult: 2 },
+    rsi: { period: 14 },
+    macd: { fast: 12, slow: 26, signal: 9 },
+    kdj: { period: 9 },
+  });
+  // 日期范围快捷选择
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  // 指标参数设置弹窗
+  const [showIndicatorSettings, setShowIndicatorSettings] = useState(false);
+  // MA 参数单独编辑弹窗
+  const [maEditOpen, setMaEditOpen] = useState<IndicatorKey | null>(null);
+  // ── 日内周期判断 ─────────────────────────────────────────────────────────────
   const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
   const isCompareMode = !!compareSymbol;
 
@@ -523,36 +573,52 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const candles = useMemo(() => {
     const raw = data?.candles ?? [];
     // 过滤掉 OHLC 全为 0 的无效 bar（休盘填充数据）
-    return raw.filter(c => c.open > 0 && c.close > 0 && c.high > 0 && c.low > 0);
+    // 并按时间升序排列，确保 lightweight-charts 不报重复时间戳错误
+    return raw
+      .filter(c => c.open > 0 && c.close > 0 && c.high > 0 && c.low > 0)
+      .sort((a, b) => {
+        const ta = typeof a.time === "number" ? a.time : new Date(String(a.time)).getTime() / 1000;
+        const tb = typeof b.time === "number" ? b.time : new Date(String(b.time)).getTime() / 1000;
+        return ta - tb;
+      });
   }, [data]);
 
-  // ── 技术指标计算 ──────────────────────────────────────────────────────────
+  // ── 技术指标计算 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   const indicatorData = useMemo(() => {
     if (!candles.length) return null;
-    const closes = candles.map(c => c.close);
-    const highs   = candles.map(c => c.high);
-    const lows    = candles.map(c => c.low);
-    const times   = candles.map(c => c.time as Time);
+    // 数据必须按时间升序排列（修复绘图错误）
+    const sorted = [...candles].sort((a, b) => {
+      const ta = typeof a.time === "number" ? a.time : new Date(String(a.time)).getTime() / 1000;
+      const tb = typeof b.time === "number" ? b.time : new Date(String(b.time)).getTime() / 1000;
+      return ta - tb;
+    });
+    const closes = sorted.map(c => c.close);
+    const highs   = sorted.map(c => c.high);
+    const lows    = sorted.map(c => c.low);
+    const times   = sorted.map(c => c.time as Time);
 
     const toSeries = (vals: (number | null)[]) =>
       vals.map((v, i) => v != null ? { time: times[i], value: v } : null)
           .filter(Boolean) as { time: Time; value: number }[];
 
-    const ma5  = calcMA(closes, 5);
-    const ma10 = calcMA(closes, 10);
-    const ma20 = calcMA(closes, 20);
-    const ma60 = calcMA(closes, 60);
-    const boll = calcBOLL(closes);
-    const rsi  = calcRSI(closes);
-    const macd = calcMACD(closes);
-    const kdj  = calcKDJ(highs, lows, closes);
+    // 使用自定义周期计算均线
+    const ma1  = calcMA(closes, maParams.ma1);
+    const ma2  = calcMA(closes, maParams.ma2);
+    const ma3  = calcMA(closes, maParams.ma3);
+    const ma4  = calcMA(closes, maParams.ma4);
+    // 使用自定义参数计算 BOLL/RSI/MACD/KDJ
+    const boll = calcBOLL(closes, indicatorParams.boll.period, indicatorParams.boll.mult);
+    const rsi  = calcRSI(closes, indicatorParams.rsi.period);
+    const macd = calcMACD(closes, indicatorParams.macd.fast, indicatorParams.macd.slow, indicatorParams.macd.signal);
+    const kdj  = calcKDJ(highs, lows, closes, indicatorParams.kdj.period);
 
     return {
       times,
-      ma5:  toSeries(ma5),
-      ma10: toSeries(ma10),
-      ma20: toSeries(ma20),
-      ma60: toSeries(ma60),
+      sorted,  // 已排序的 candles，供主图使用
+      ma5:  toSeries(ma1),
+      ma10: toSeries(ma2),
+      ma20: toSeries(ma3),
+      ma60: toSeries(ma4),
       bollMid:   toSeries(boll.mid),
       bollUpper: toSeries(boll.upper),
       bollLower: toSeries(boll.lower),
@@ -567,9 +633,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       kdjD: times.map((t, i) => ({ time: t, value: kdj.d[i] })),
       kdjJ: times.map((t, i) => ({ time: t, value: kdj.j[i] })),
     };
-  }, [candles, upColor, downColor]);
-
-  // ── 对比图归一化数据计算（先对齐时间轴，再归一化）──────────────────────────────────────────────────────────
+  }, [candles, upColor, downColor, maParams, indicatorParams]);
+  // ── 对比模式时间轴对齐，再归一化 ──────────────────────────────────────────────────────────────────
   /**
    * 对齐两个标的的时间轴：取交集（共同交易时段），裁剪后分别归一化为百分比变化
    * 处理美股 vs A股等交易时段不同的情况
@@ -907,9 +972,14 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         indicatorSeriesRef.current.set("BOLL_LO",  bLo);
       }
 
-      chart.timeScale().fitContent();
+      // 日内周期：数据加载后自动定位到最新数据，修复非交易时段大片空白
+      if (isIntraday) {
+        try { chart.timeScale().scrollToRealTime(); } catch {}
+      } else {
+        chart.timeScale().fitContent();
+      }
     } catch {}
-  }, [candles, indicatorData, chartType, activeIndicators, upColorDim, downColorDim]);
+  }, [candles, indicatorData, chartType, activeIndicators, upColorDim, downColorDim, isIntraday]);
 
   // ── 对比图渲染（归一化双色折线叠加）──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1108,6 +1178,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const handleIntervalChange = (iv: Interval, size: number) => {
     setIntervalState(iv);
     setOutputsize(size);
+    // 切换周期时重置日期范围快捷选择
+    setDateRange(null);
   };
 
   // ── 盘口悬停数据 ──────────────────────────────────────────────────────────
@@ -1163,6 +1235,26 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
 
         {/* 图表类型 + 操作按钮 */}
         <div className="flex items-center gap-1">
+          {/* 日期范围快捷按钮：仅在日K/周K/月K显示 */}
+          {!["1min","5min","15min","30min","1h","4h"].includes(interval) && (
+            <div className="flex items-center gap-0.5">
+              {DATE_RANGES.map(({ label, value: dr }) => (
+                <button key={dr}
+                  onClick={() => {
+                    setDateRange(dr);
+                    setOutputsize(dateRangeToOutputsize(dr, interval));
+                  }}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono transition-all"
+                  style={{
+                    background: dateRange === dr ? "rgba(201,168,76,0.15)" : "transparent",
+                    color:      dateRange === dr ? "#c9a84c" : "rgba(90,90,90,0.9)",
+                    border:     dateRange === dr ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-0.5 p-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)" }}>
             {([
               { type: "candlestick" as ChartType, icon: <BarChart2 className="w-3 h-3" /> },
@@ -1533,18 +1625,160 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       {/* ── 指标选择工具栏 ───────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 pt-1 flex-wrap"
         style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-        <Settings2 className="w-3 h-3 shrink-0" style={{ color: "rgba(80,80,80,0.5)" }} />
-        {INDICATORS.map(ind => (
-          <button key={ind.key} onClick={() => toggleIndicator(ind.key)}
-            className="px-2 py-0.5 rounded text-[10px] font-mono transition-all"
-            style={{
-              background: activeIndicators.has(ind.key) ? `${ind.color}1a` : "transparent",
-              color:      activeIndicators.has(ind.key) ? ind.color : "rgba(80,80,80,0.9)",
-              border:     activeIndicators.has(ind.key) ? `1px solid ${ind.color}44` : "1px solid rgba(50,50,50,0.5)",
-            }}>
-            {ind.label}
-          </button>
-        ))}
+        {/* Settings2 图标：点击打开指标参数设置弹窗 */}
+        <Popover open={showIndicatorSettings} onOpenChange={setShowIndicatorSettings}>
+          <PopoverTrigger asChild>
+            <button title="指标参数设置" className="p-0.5 rounded transition-all hover:opacity-80"
+              style={{ color: showIndicatorSettings ? "#c9a84c" : "rgba(80,80,80,0.5)" }}>
+              <Settings2 className="w-3 h-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-3" style={{ background: "#1a1a1e", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }}>
+            <div className="text-[11px] font-mono font-semibold mb-2" style={{ color: "#c9a84c" }}>指标参数设置</div>
+            {/* 均线参数 */}
+            <div className="mb-3">
+              <div className="text-[10px] mb-1" style={{ color: "rgba(120,120,120,0.9)" }}>均线周期</div>
+              <div className="grid grid-cols-4 gap-1">
+                {(["ma1","ma2","ma3","ma4"] as const).map((k, i) => (
+                  <div key={k} className="flex flex-col gap-0.5">
+                    <span className="text-[9px] text-center" style={{ color: ["#f59e0b","#60a5fa","#a78bfa","#f97316"][i] }}>MA{i+1}</span>
+                    <input type="number" min={1} max={500} value={maParams[k]}
+                      onChange={e => setMaParams(p => ({ ...p, [k]: Math.max(1, Math.min(500, parseInt(e.target.value)||1)) }))}
+                      className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* BOLL 参数 */}
+            <div className="mb-2">
+              <div className="text-[10px] mb-1" style={{ color: "rgba(120,120,120,0.9)" }}>BOLL 布林带</div>
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-0.5 flex-1">
+                  <span className="text-[9px]" style={{ color: "rgba(100,100,100,0.8)" }}>周期</span>
+                  <input type="number" min={2} max={200} value={indicatorParams.boll.period}
+                    onChange={e => setIndicatorParams(p => ({ ...p, boll: { ...p.boll, period: Math.max(2, parseInt(e.target.value)||20) } }))}
+                    className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                </div>
+                <div className="flex flex-col gap-0.5 flex-1">
+                  <span className="text-[9px]" style={{ color: "rgba(100,100,100,0.8)" }}>倍数</span>
+                  <input type="number" min={0.5} max={5} step={0.1} value={indicatorParams.boll.mult}
+                    onChange={e => setIndicatorParams(p => ({ ...p, boll: { ...p.boll, mult: Math.max(0.5, parseFloat(e.target.value)||2) } }))}
+                    className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                </div>
+              </div>
+            </div>
+            {/* RSI 参数 */}
+            <div className="mb-2">
+              <div className="text-[10px] mb-1" style={{ color: "rgba(120,120,120,0.9)" }}>RSI 相对强弱</div>
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-0.5 flex-1">
+                  <span className="text-[9px]" style={{ color: "rgba(100,100,100,0.8)" }}>周期</span>
+                  <input type="number" min={2} max={100} value={indicatorParams.rsi.period}
+                    onChange={e => setIndicatorParams(p => ({ ...p, rsi: { period: Math.max(2, parseInt(e.target.value)||14) } }))}
+                    className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                </div>
+              </div>
+            </div>
+            {/* MACD 参数 */}
+            <div className="mb-2">
+              <div className="text-[10px] mb-1" style={{ color: "rgba(120,120,120,0.9)" }}>MACD</div>
+              <div className="grid grid-cols-3 gap-1">
+                {(["fast","slow","signal"] as const).map(k => (
+                  <div key={k} className="flex flex-col gap-0.5">
+                    <span className="text-[9px]" style={{ color: "rgba(100,100,100,0.8)" }}>{k === "fast" ? "快线" : k === "slow" ? "慢线" : "信号"}</span>
+                    <input type="number" min={1} max={100} value={indicatorParams.macd[k]}
+                      onChange={e => setIndicatorParams(p => ({ ...p, macd: { ...p.macd, [k]: Math.max(1, parseInt(e.target.value)||12) } }))}
+                      className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* KDJ 参数 */}
+            <div className="mb-3">
+              <div className="text-[10px] mb-1" style={{ color: "rgba(120,120,120,0.9)" }}>KDJ 随机指标</div>
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-0.5 flex-1">
+                  <span className="text-[9px]" style={{ color: "rgba(100,100,100,0.8)" }}>周期</span>
+                  <input type="number" min={2} max={100} value={indicatorParams.kdj.period}
+                    onChange={e => setIndicatorParams(p => ({ ...p, kdj: { period: Math.max(2, parseInt(e.target.value)||9) } }))}
+                    className="w-full text-center text-[11px] font-mono rounded px-1 py-0.5 outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }} />
+                </div>
+              </div>
+            </div>
+            <button onClick={() => {
+              setMaParams({ ma1: 5, ma2: 10, ma3: 20, ma4: 60 });
+              setIndicatorParams({ boll: { period: 20, mult: 2 }, rsi: { period: 14 }, macd: { fast: 12, slow: 26, signal: 9 }, kdj: { period: 9 } });
+            }} className="w-full py-1 rounded text-[10px] font-mono transition-all"
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(150,150,150,0.8)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              恢复默认
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        {/* MA 按钮：点击切换，右键/长按弹出参数编辑 */}
+        {(["MA5","MA10","MA20","MA60"] as IndicatorKey[]).map((key, i) => {
+          const period = [maParams.ma1, maParams.ma2, maParams.ma3, maParams.ma4][i];
+          const color = INDICATOR_COLORS[key];
+          const isActive = activeIndicators.has(key);
+          const editKey = `ma${i+1}` as keyof MAParams;
+          return (
+            <Popover key={key} open={maEditOpen === key} onOpenChange={open => setMaEditOpen(open ? key : null)}>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={() => toggleIndicator(key)}
+                  onContextMenu={e => { e.preventDefault(); setMaEditOpen(key); }}
+                  title={`MA${period} — 右键修改周期`}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono transition-all"
+                  style={{
+                    background: isActive ? `${color}1a` : "transparent",
+                    color:      isActive ? color : "rgba(80,80,80,0.9)",
+                    border:     isActive ? `1px solid ${color}44` : "1px solid rgba(50,50,50,0.5)",
+                  }}>
+                  MA{period}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-2" style={{ background: "#1a1a1e", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(200,200,200,0.9)" }}>
+                <div className="text-[10px] mb-1.5" style={{ color: color }}>MA{period} 周期设置</div>
+                <div className="flex gap-1 items-center">
+                  <input type="number" min={1} max={500} value={maParams[editKey]}
+                    autoFocus
+                    onChange={e => setMaParams(p => ({ ...p, [editKey]: Math.max(1, Math.min(500, parseInt(e.target.value)||1)) }))}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setMaEditOpen(null); }}
+                    className="flex-1 text-center text-[11px] font-mono rounded px-2 py-1 outline-none"
+                    style={{ background: "rgba(255,255,255,0.08)", border: `1px solid ${color}44`, color: "rgba(200,200,200,0.9)" }} />
+                  <button onClick={() => setMaEditOpen(null)}
+                    className="px-2 py-1 rounded text-[10px] font-mono"
+                    style={{ background: `${color}22`, color, border: `1px solid ${color}44` }}>确定</button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        })}
+
+        {/* 非MA指标按钮 */}
+        {(["BOLL","VOL","MACD","RSI","KDJ"] as IndicatorKey[]).map(key => {
+          const color = INDICATOR_COLORS[key];
+          const isActive = activeIndicators.has(key);
+          const label = key === "VOL" ? "成交量" : key;
+          return (
+            <button key={key} onClick={() => toggleIndicator(key)}
+              className="px-2 py-0.5 rounded text-[10px] font-mono transition-all"
+              style={{
+                background: isActive ? `${color}1a` : "transparent",
+                color:      isActive ? color : "rgba(80,80,80,0.9)",
+                border:     isActive ? `1px solid ${color}44` : "1px solid rgba(50,50,50,0.5)",
+              }}>
+              {label}
+            </button>
+          );
+        })}
+
         {/* MA 图例 / 对比图例 */}
         <div className="ml-auto flex items-center gap-2 text-[10px] font-mono">
           {/* 数据来源 + 条数 */}
@@ -1576,10 +1810,10 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             </>
           ) : (
             <>
-              {activeIndicators.has("MA5")  && <span style={{ color: "#f59e0b" }}>MA5</span>}
-              {activeIndicators.has("MA10") && <span style={{ color: "#60a5fa" }}>MA10</span>}
-              {activeIndicators.has("MA20") && <span style={{ color: "#a78bfa" }}>MA20</span>}
-              {activeIndicators.has("MA60") && <span style={{ color: "#f97316" }}>MA60</span>}
+              {activeIndicators.has("MA5")  && <span style={{ color: "#f59e0b" }}>MA{maParams.ma1}</span>}
+              {activeIndicators.has("MA10") && <span style={{ color: "#60a5fa" }}>MA{maParams.ma2}</span>}
+              {activeIndicators.has("MA20") && <span style={{ color: "#a78bfa" }}>MA{maParams.ma3}</span>}
+              {activeIndicators.has("MA60") && <span style={{ color: "#f97316" }}>MA{maParams.ma4}</span>}
             </>
           )}
         </div>

@@ -2299,3 +2299,10 @@
 ## Bug修复：PriceChart timeFormatter字符串/BusinessDay类型错误
 - [x] makeTimeFormatter复用timeToDate函数，支持所有Time类型（number/string/BusinessDay）
 - [x] TypeScript 0错误，浏览器控制台无新错误（21:09:44后无getUTCFullYear报错）
+
+## 第三十二轮：K线图工具栏增强 + 绘图逻辑修复
+- [x] 日期范围快捷按钮：工具栏右侧加 1Y/3Y/5Y/全部，切换时自动调整outputsize和interval
+- [x] 修复日内图表空白：数据加载后自动调用 scrollToRealTime() 定位到最新数据
+- [x] 均线参数自定义：点击 MA按钮弹出输入框，允许修改 MA 周期（富途牛牛风格）
+- [x] 指标参数设置弹窗：Settings2图标点击打开全局指标参数配置面板（BOLL/RSI/MACD/KDJ参数）
+- [x] 彻底修复绘图逻辑：图表X轴时间顺序正确（旧→新从左到右）、数据排序、空白消除

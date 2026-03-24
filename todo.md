@@ -1889,3 +1889,10 @@
 - [x] 数据联动：发送消息后分析列 AIVerdictCard/RiskPanel 自动更新（SSE 状态驱动 + convMessages 响应式绑定）
 - [x] Pinned Metrics 实时行情：顶部栏展示当前标的实时价格/涨跌幅/PE（后端 tRPC + Finnhub/Twelve Data API）
 - [x] WorkspaceCustomizeModal：拖拽调整 4 列宽度比例并持久化到 rpaConfig（DB + API 全链路）
+
+## 布局优化（2026-03-24）
+
+- [ ] 修复 Pinned Metrics 栏：指标间距、字体大小、ROE/PB 数值格式化
+- [ ] 优化 Analysis Column 卡片间距和内边距
+- [ ] 精简 Discussion 标题栏（减少拥挤）
+- [ ] 优化 Insights Column：Decision Signals 三卡片均衡布局

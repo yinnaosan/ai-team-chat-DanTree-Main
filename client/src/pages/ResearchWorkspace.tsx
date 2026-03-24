@@ -380,11 +380,14 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
         {signals.map((s) => {
           const Icon = s.icon;
           return (
-            <div key={s.label} className="p-2.5 rounded-lg flex flex-col items-center gap-1.5"
-              style={{ background: `${s.color.replace(")", " / 0.08)")}`, border: `1px solid ${s.color.replace(")", " / 0.2)")}` }}>
-              <Icon className="w-4 h-4" style={{ color: s.color }} />
-              <span className="text-[11px] font-bold font-mono" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(40% 0 0)" }}>{s.label}</span>
+            <div key={s.label} className="p-3 rounded-lg flex flex-col items-center gap-2"
+              style={{ background: `${s.color.replace(")", " / 0.1)")}`, border: `1px solid ${s.color.replace(")", " / 0.25)")}` }}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: `${s.color.replace(")", " / 0.15)")}` }}>
+                <Icon className="w-4.5 h-4.5" style={{ color: s.color }} />
+              </div>
+              <span className="text-[12px] font-extrabold font-mono leading-none text-center" style={{ color: s.color }}>{s.value}</span>
+              <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: "oklch(42% 0 0)" }}>{s.label}</span>
             </div>
           );
         })}
@@ -1023,12 +1026,14 @@ export default function ResearchWorkspacePage() {
             { label: "前收", value: quoteData.prevClose != null ? `$${quoteData.prevClose.toFixed(2)}` : "—" },
             { label: "PE", value: quoteData.pe != null ? quoteData.pe.toFixed(1) : "—" },
             { label: "PB", value: quoteData.pb != null ? quoteData.pb.toFixed(2) : "—" },
-            { label: "ROE", value: quoteData.roe != null ? `${(quoteData.roe * 100).toFixed(1)}%` : "—" },
+            // Finnhub roeTTM is already a percentage value (e.g. 159.94 = 159.94%), NOT a decimal
+            { label: "ROE", value: quoteData.roe != null ? `${quoteData.roe.toFixed(1)}%` : "—" },
             { label: "EPS", value: quoteData.eps != null ? `$${quoteData.eps.toFixed(2)}` : "—" },
           ].map(m => (
-            <div key={m.label} className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(35% 0 0)" }}>{m.label}</span>
-              <span className="text-[11px] font-mono" style={{ color: "var(--bloomberg-text-secondary)" }}>{m.value}</span>
+            <div key={m.label} className="flex items-center gap-2 shrink-0 px-2 py-0.5 rounded"
+              style={{ background: "oklch(12% 0 0 / 0.5)" }}>
+              <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: "oklch(38% 0 0)" }}>{m.label}</span>
+              <span className="text-[12px] font-mono font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{m.value}</span>
             </div>
           ))}
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -1268,7 +1273,7 @@ export default function ResearchWorkspacePage() {
         </div>
 
         {/* Analysis Panels — scrollable */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {panelVisibility.verdict && (
             <AIVerdictCard
               answerObject={answerObject}
@@ -1382,48 +1387,48 @@ export default function ResearchWorkspacePage() {
           borderRight: "1px solid var(--bloomberg-border-dim)",
         }}>
         {/* Discussion Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 shrink-0"
+        <div className="flex items-center justify-between px-3 py-2 shrink-0"
           style={{ background: "var(--bloomberg-surface-1)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
-          <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
             <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.72 0.18 250)" }} />
             <span className="text-xs font-semibold shrink-0" style={{ color: "var(--bloomberg-text-primary)" }}>Discussion</span>
-            {/* Context chips */}
             {currentTicker && (
               <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0"
                 style={{ background: "oklch(0.72 0.18 75 / 0.12)", color: "var(--bloomberg-gold)", border: "1px solid oklch(0.72 0.18 75 / 0.3)" }}>
                 {currentTicker}
               </span>
             )}
-            <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-              style={{ background: "var(--bloomberg-surface-2)", color: "oklch(40% 0 0)", border: "1px solid var(--bloomberg-border-dim)" }}>
-              Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
-            </span>
-            {/* Active conversation title */}
+            {/* Active conversation title — truncated, shown as tooltip */}
             {activeConvId && allConversations && (() => {
               const conv = allConversations.find(c => c.id === activeConvId);
               return conv?.title ? (
-                <span className="text-[10px] truncate max-w-[100px]" style={{ color: "oklch(35% 0 0)" }}
+                <span className="text-[10px] truncate" style={{ color: "oklch(38% 0 0)", maxWidth: 120 }}
                   title={conv.title}>
-                  · {conv.title}
+                  {conv.title}
                 </span>
               ) : null;
             })()}
           </div>
-          {/* Pipeline indicator */}
-          {isTyping && (
-            <div className="flex items-center gap-1">
+          {/* Pipeline indicator OR mode badge */}
+          {isTyping ? (
+            <div className="flex items-center gap-1 shrink-0">
               <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--bloomberg-gold)" }} />
-              <span className="text-[10px] font-mono" style={{ color: "oklch(40% 0 0)" }}>
-                {taskPhase === "manus_working" ? "理解中" :
-                  taskPhase === "planning" ? "规划中" :
-                  taskPhase === "source_selection" ? "选源中" :
-                  taskPhase === "manus_analyzing" ? "获取中" :
-                  taskPhase === "evidence_eval" ? "验证中" :
-                  taskPhase === "multi_agent" ? "多智能体" :
-                  taskPhase === "gpt_reviewing" ? "综合中" :
-                  taskPhase === "discussion" ? "生成讨论" : "处理中"}
+              <span className="text-[10px] font-mono" style={{ color: "var(--bloomberg-gold)" }}>
+                {taskPhase === "manus_working" ? "理解" :
+                  taskPhase === "planning" ? "规划" :
+                  taskPhase === "source_selection" ? "选源" :
+                  taskPhase === "manus_analyzing" ? "获取" :
+                  taskPhase === "evidence_eval" ? "验证" :
+                  taskPhase === "multi_agent" ? "协作" :
+                  taskPhase === "gpt_reviewing" ? "综合" :
+                  taskPhase === "discussion" ? "生成" : "处理"}
               </span>
             </div>
+          ) : (
+            <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+              style={{ background: "var(--bloomberg-surface-2)", color: "oklch(40% 0 0)", border: "1px solid var(--bloomberg-border-dim)" }}>
+              Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
+            </span>
           )}
         </div>
 
@@ -1584,7 +1589,7 @@ export default function ResearchWorkspacePage() {
 
         {/* Insight Panels */}
         {!insightCollapsed && (
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {panelVisibility.decisionSignals && (
               <DecisionSignalsCard answerObject={answerObject} isLoading={isTyping && !answerObject} />
             )}

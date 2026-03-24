@@ -773,63 +773,91 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
 
   // line / bar / area
   const showDots = shouldShowDots(data.length);
-  return (
-    <ResponsiveContainer width="100%" height={340}>
-      {type === "bar" ? (
-        <BarChart data={data} barCategoryGap="20%">
+
+  // 柱状图单独处理（避免JSX三元表达式IIFE语法问题）
+  if (type === "bar") {
+    const allBarVals = seriesList.flatMap(s =>
+      data.map(d => Number((d as Record<string, unknown>)[s.key]))
+    ).filter(v => !isNaN(v));
+    const hasNegative = allBarVals.some(v => v < 0);
+    const maxBarVal = allBarVals.length > 0 ? Math.max(...allBarVals) : 0;
+    // 柱状图Y轴必须从0开始（数学正确比例）
+    const yMin = hasNegative ? Math.min(...allBarVals) * 1.15 : 0;
+    const yMax = maxBarVal * 1.25; // 顶部留白25%用于标签
+    const avgBarVal = allBarVals.length > 0
+      ? allBarVals.reduce((a, b) => a + b, 0) / allBarVals.length : 0;
+    const fmtVal = (n: number) => {
+      if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿${unit}`;
+      if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万${unit}`;
+      return `${n}${unit}`;
+    };
+    // 两柱对比时计算差异
+    let diffLabel: string | null = null;
+    let diffColor = "#f59e0b";
+    if (seriesList.length === 1 && data.length === 2) {
+      const v0 = Number((data[0] as Record<string, unknown>)[seriesList[0].key]);
+      const v1 = Number((data[1] as Record<string, unknown>)[seriesList[0].key]);
+      if (!isNaN(v0) && !isNaN(v1) && v1 !== 0) {
+        const diff = v0 - v1;
+        const pct = ((diff / v1) * 100).toFixed(1);
+        const isHigher = diff > 0;
+        diffLabel = `差异 ${isHigher ? "+" : ""}${fmtVal(diff)} (${isHigher ? "+" : ""}${pct}%)`;
+        diffColor = isHigher ? "#f59e0b" : "#96a0b2";
+      }
+    }
+    return (
+      <ResponsiveContainer width="100%" height={340}>
+        <BarChart data={data} barCategoryGap="30%" margin={{ top: 28, right: 20, bottom: 4, left: 4 }}>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
-          <YAxis tick={axisStyle} tickFormatter={(v: number) => {
-            if (Math.abs(v) >= 1e8) return `${(v/1e8).toFixed(1)}亿${unit}`;
-            if (Math.abs(v) >= 1e4) return `${(v/1e4).toFixed(1)}万${unit}`;
-            return `${v}${unit}`;
-          }} width={62} domain={['auto', 'auto']} />
-          <Tooltip {...tooltipStyle} formatter={(v: unknown) => {
-            const n = Number(v);
-            const fmt = Math.abs(n) >= 1e8 ? `${(n/1e8).toFixed(2)}亿${unit}` :
-              Math.abs(n) >= 1e4 ? `${(n/1e4).toFixed(1)}万${unit}` : `${n}${unit}`;
-            return [fmt, ""];
-          }} />
+          <YAxis tick={axisStyle} tickFormatter={fmtVal} width={62} domain={[yMin, yMax]} />
+          <Tooltip {...tooltipStyle}
+            formatter={(v: unknown, name: unknown) => [fmtVal(Number(v)), String(name)]}
+            labelStyle={{ color: "#c8d8f0", fontSize: 13, fontWeight: 600 }}
+          />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
+          {/* 均值参考线 */}
+          {allBarVals.length >= 2 && (
+            <ReferenceLine y={avgBarVal} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
+              label={{ value: `均值 ${fmtVal(avgBarVal)}`, fill: "#f59e0b", fontSize: 11, position: "insideTopRight" }} />
+          )}
+          {referenceLines.map((rl, i) => (
+            <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2"
+              label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />
+          ))}
+          {/* 两柱对比差异标注 */}
+          {diffLabel && (
+            <ReferenceLine y={maxBarVal * 1.1} stroke="transparent"
+              label={{ value: diffLabel, fill: diffColor, fontSize: 12, fontWeight: 700, position: "center" }} />
+          )}
           {seriesList.map((s, i) => {
             const baseColor = s.color || colors[i % colors.length];
-            // 多系列时每个系列用不同颜色；单系列时根据数值正负着色
             const useCellColor = seriesList.length === 1;
             return (
               <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
                 fill={baseColor} radius={[5, 5, 0, 0] as [number, number, number, number]} opacity={0.92}>
-                {/* 单系列时：正值绿色，负值红色，最大值金色高亮 */}
                 {useCellColor && data.map((entry, idx) => {
                   const v = Number((entry as Record<string, unknown>)[s.key]);
-                  const allVals = data.map(d => Number((d as Record<string, unknown>)[s.key]));
-                  const maxVal = Math.max(...allVals);
-                  const isMax = v === maxVal && allVals.filter(x => x === maxVal).length === 1;
-                  const cellColor = isMax ? "#f59e0b" : v < 0 ? "#ef4444" : baseColor;
+                  const isMax = v === maxBarVal && data.filter(d => Number((d as Record<string, unknown>)[s.key]) === maxBarVal).length === 1;
+                  const cellColor = isMax ? "#f59e0b" : v < 0 ? "#ef4444" : v > avgBarVal ? "#22c55e" : "#3b82f6";
                   return <Cell key={idx} fill={cellColor} opacity={isMax ? 1 : 0.88} />;
                 })}
-                {/* 多系列时渐变色 */}
-                {!useCellColor && (
-                  <defs>
-                    <linearGradient id={`bar-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={baseColor} stopOpacity={1} />
-                      <stop offset="100%" stopColor={baseColor} stopOpacity={0.65} />
-                    </linearGradient>
-                  </defs>
+                {data.length <= 20 && (
+                  <LabelList dataKey={s.key} position="top"
+                    style={{ fill: "#c8d8f0", fontSize: 12, fontWeight: 700 }}
+                    formatter={(v: unknown) => fmtVal(Number(v))} />
                 )}
-                {data.length <= 20 && <LabelList dataKey={s.key} position="top"
-                  style={{ fill: "#c8d8f0", fontSize: 12, fontWeight: 700 }}
-                  formatter={(v: unknown) => {
-                    const n = Number(v);
-                    if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿`;
-                    if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万`;
-                    return `${n}${unit}`;
-                  }} />}
               </Bar>
             );
           })}
         </BarChart>
-      ) : type === "area" ? (
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={340}>
+      {type === "area" ? (
         <AreaChart data={data} margin={{ top: 20, right: 16, bottom: 4, left: 4 }}>
           <defs>
             {seriesList.map((s, i) => {

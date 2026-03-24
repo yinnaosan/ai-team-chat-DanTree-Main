@@ -3738,7 +3738,24 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const { runTrendRadar } = await import("./trendRadarApi");
-        return runTrendRadar(input.ticker, input.newsItems, input.maxItems ?? 8);
+        // 若前端未传入新闻，自动从 NewsAPI 拉取最新相关新闻
+        let newsItems = input.newsItems;
+        if (!newsItems || newsItems.length === 0) {
+          try {
+            const { searchNews } = await import("./newsApi");
+            const articles = await searchNews(input.ticker, 15);
+            newsItems = articles.map(a => ({
+              title: a.title,
+              description: a.description ?? undefined,
+              source: a.source?.name ?? undefined,
+              url: a.url ?? undefined,
+              publishedAt: a.publishedAt ?? undefined,
+            }));
+          } catch {
+            // 若新闻获取失败，继续使用空数组（服务端会返回 neutral 结果）
+          }
+        }
+        return runTrendRadar(input.ticker, newsItems, input.maxItems ?? 8);
       }),
   }),
   worldMonitor: router({

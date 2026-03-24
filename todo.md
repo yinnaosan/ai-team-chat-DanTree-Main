@@ -2306,3 +2306,11 @@
 - [x] 均线参数自定义：点击 MA按钮弹出输入框，允许修改 MA 周期（富途牛牛风格）
 - [x] 指标参数设置弹窗：Settings2图标点击打开全局指标参数配置面板（BOLL/RSI/MACD/KDJ参数）
 - [x] 彻底修复绘图逻辑：图表X轴时间顺序正确（旧→新从左到右）、数据排序、空白消除
+
+## 第三十三轮：Deep Sections 修复 + K线图重叠修复
+- [x] 修复量化回测 spawn python3.11 ENOENT 错误（确认是旧版本错误，python3.11在服务器进程中可用）
+- [x] 修复趋势雷达 AI 扫描功能：服务端 newsItems为空时自动调用searchNews，解除按钮禁用
+- [x] 修复 Deep Sections 其他功能（因子回测/健康评分/情绪分析/Alpha因子/模拟交易）
+- [x] K线图：实时价格标签右移到价格轴左侧（right: 72px），与价格轴分离
+- [x] K线图：右侧价格轴增加minimumWidth: 72，固定宽度避免标签被截断
+- [x] K线图：成交量 scaleMargins.bottom 增加避免与X轴重叠

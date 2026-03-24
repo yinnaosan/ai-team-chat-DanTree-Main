@@ -704,6 +704,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       borderColor: "rgba(255,255,255,0.06)",
       textColor: "rgba(150,150,150,0.7)",
       scaleMargins: { top: 0.08, bottom: 0.08 },
+      minimumWidth: 72,  // 固定价格轴宽度，防止标签被截断
     },
     timeScale: {
       borderColor: "rgba(255,255,255,0.06)",
@@ -905,7 +906,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         priceLineVisible: false,   // 隐藏成交量水平参考线
       });
       chart.priceScale("volume").applyOptions({
-        scaleMargins: { top: 0.75, bottom: 0 },  // 成交量占主图底部25%区域
+        scaleMargins: { top: 0.78, bottom: 0.02 },  // 成交量占主图底郥20%，留出底郥间距避免与X轴重叠
         borderVisible: false,
         visible: false,          // 隐藏交易量轴刻度，避免与价格轴标签重叠
       });
@@ -1512,18 +1513,19 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         )}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         {/* 右侧实时价格标签浮层：实时价格 + 闪烁动画（券商风格） */}
+        {/* 定位在价格轴左侧（right: 72px），避免与价格轴刻度重叠 */}
         {liveStatus === "live" && lastTickPrice != null && livePriceY != null && !isCompareMode && (
           <div
             className="absolute z-20 pointer-events-none"
             style={{
-              right: 0,
+              right: 72,  // 与 minimumWidth: 72 对齐，标签显示在价格轴左侧
               top: livePriceY - 11,
               transition: "top 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
             }}
           >
             {/* 连接线：从价格点到标签 */}
             <div className="flex items-center">
-              <div className="h-[1px] w-4" style={{ background: priceColor, opacity: 0.6 }} />
+              <div className="h-[1px] w-3" style={{ background: priceColor, opacity: 0.6 }} />
               <div
                 className={`px-1.5 py-0.5 rounded-sm text-[11px] font-mono font-bold tabular-nums ${priceFlashClass}`}
                 style={{

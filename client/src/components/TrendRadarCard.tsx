@@ -142,7 +142,7 @@ export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatch
         </div>
         <button
           onClick={handleScan}
-          disabled={scanMutation.isPending || newsItems.length === 0}
+          disabled={scanMutation.isPending}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50"
         >
           {scanMutation.isPending ? (
@@ -166,8 +166,8 @@ export function TrendRadarCard({ ticker, newsItems, onWatchlistClick, extraWatch
         {!result && !scanMutation.isPending && (
           <div className="text-center py-6 text-muted-foreground">
             <Radio className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-xs">点击「AI 扫描」分析 {newsItems.length} 条新闻热点</p>
-            <p className="text-[10px] mt-1 opacity-60">基于 TrendRadar 热点聚合框架</p>
+            <p className="text-xs">点击「AI 扫描」获取 {ticker} 最新热点</p>
+            <p className="text-[10px] mt-1 opacity-60">{newsItems.length > 0 ? `已有 ${newsItems.length} 条新闻` : "自动获取最新新闻"} · 基于 TrendRadar 框架</p>
           </div>
         )}
 

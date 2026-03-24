@@ -3148,6 +3148,8 @@ export const appRouter = router({
         researchStyle: (config?.researchStyle as {outputStyle?: string; analysisEmphasis?: string[]} | null) ?? null,
         // AI 行为配置
         aiBehavior: (config?.aiBehavior as {responseStyle?: string; initiativeLevel?: string; decisionStyle?: string} | null) ?? null,
+        // 图表涨跌颜色方案：cn=红涨绿跌（中国），us=绿涨红跌（美国）
+        chartColorScheme: (config?.chartColorScheme as "cn" | "us" | null) ?? "cn",
       };
     }),
     // 保存 API Key 和模型选择
@@ -3216,6 +3218,8 @@ export const appRouter = router({
           initiativeLevel: z.string().optional(),
           decisionStyle: z.string().optional(),
         }).optional().nullable(),
+        // 图表涨跌颜色方案
+        chartColorScheme: z.enum(["cn", "us"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3244,6 +3248,8 @@ export const appRouter = router({
           researchStyle: input.researchStyle ?? undefined,
           // AI 行为配置
           aiBehavior: input.aiBehavior ?? undefined,
+          // 图表涨跌颜色方案
+          chartColorScheme: input.chartColorScheme,
         });
         return { success: true };
       }),
@@ -3789,6 +3795,40 @@ export const appRouter = router({
           }
           return { symbol: sym.toUpperCase(), price: null, change: null, changePercent: null, prevClose: null };
         });
+      }),
+    // 获取股价历史 OHLCV 数据（用于图表）
+    getPriceHistory: protectedProcedure
+      .input(z.object({
+        symbol: z.string().min(1).max(20),
+        interval: z.enum(["1min", "5min", "15min", "30min", "1h", "4h", "1day", "1week", "1month"]).default("1day"),
+        outputsize: z.number().min(20).max(500).default(120),
+      }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const sym = input.symbol.toUpperCase().trim();
+        try {
+          const { fetchTwelveData } = await import("./twelveDataApi") as any;
+          const data = await fetchTwelveData("time_series", {
+            symbol: sym,
+            interval: input.interval,
+            outputsize: String(input.outputsize),
+          });
+          if (!data?.values || !Array.isArray(data.values)) {
+            return { symbol: sym, interval: input.interval, candles: [] as any[] };
+          }
+          // Twelve Data returns newest first, reverse for chart (oldest first)
+          const candles = [...data.values].reverse().map((v: any) => ({
+            time: v.datetime.length > 10 ? v.datetime.substring(0, 10) : v.datetime,
+            open: parseFloat(v.open),
+            high: parseFloat(v.high),
+            low: parseFloat(v.low),
+            close: parseFloat(v.close),
+            volume: v.volume ? parseInt(v.volume) : undefined,
+          }));
+          return { symbol: sym, interval: input.interval, candles };
+        } catch (e) {
+          return { symbol: sym, interval: input.interval, candles: [] as any[] };
+        }
       }),
   }),
 

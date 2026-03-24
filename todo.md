@@ -1896,3 +1896,20 @@
 - [ ] 优化 Analysis Column 卡片间距和内边距
 - [ ] 精简 Discussion 标题栏（减少拥挤）
 - [ ] 优化 Insights Column：Decision Signals 三卡片均衡布局
+
+## 布局重构 v2（2026-03-24）
+
+- [ ] 股价图表组件：K线/折线/面积图切换按钮，时间周期（1分/5分/15分/1时/1日/1周/1月/1年），中式红涨绿跌默认配色
+- [ ] Settings 涨跌颜色设置（红涨绿跌 / 绿涨红跌），保存到 rpaConfig
+- [ ] 主布局重构：左侧 Watchlist 侧边栏（标的+价格+涨跌）、中间主分析区（AI Verdict+图表）、右侧 Insights（Decision Signals+Price Targets+Analyst Ratings+Key Forecasts）
+- [ ] 对话框改为浮动面板（点击「Discuss with AI」按钮弹出，可拖拽/关闭，叠加在中间区域上方）
+- [ ] 一键交易功能：分析完后 AIVerdictCard 底部显示「买入」/「卖出」按钮，弹出 Alpaca 下单确认框
+
+## 股价图表类型切换 + 涨跌颜色设置
+- [x] PriceChart 组件：图表类型切换按钮（K线/折线/面积）
+- [x] PriceChart 组件：时间周期选择（1分/5分/15分/30分/1时/4时/日/周/月）
+- [x] PriceChart 组件：默认中国风格红涨绿跌，支持 colorScheme prop
+- [x] 数据库：rpa_configs 表新增 chartColorScheme 字段（cn/us）
+- [x] 后端：getConfig/setConfig 支持 chartColorScheme
+- [x] Settings 页面：添加「图表涨跌颜色」设置卡片（中国/美国风格选择）
+- [x] ResearchWorkspace：colorScheme 从 rpaConfig 读取，实时生效

@@ -2054,9 +2054,51 @@ export default function Settings() {
                 })}
               </div>
             </div>
+
+            {/* 图表涨跌颜色方案 */}
+            <div className="p-4 rounded-2xl space-y-4"
+              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+              <div>
+                <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>图表涨跌颜色</h2>
+                <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>设置股价图表中涨跌的颜色风格，默认中国风格（红涨绿跌）</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { scheme: "cn" as const, label: "中国风格", desc: "红色上涨，绿色下跌", upColor: "#ef4444", downColor: "#22c55e" },
+                  { scheme: "us" as const, label: "美国风格", desc: "绿色上涨，红色下跌", upColor: "#22c55e", downColor: "#ef4444" },
+                ]).map(({ scheme, label, desc, upColor, downColor }) => {
+                  const isSelected = (savedConfig?.chartColorScheme ?? "cn") === scheme;
+                  return (
+                    <button
+                      key={scheme}
+                      onClick={() => saveConfigMutation.mutate({ chartColorScheme: scheme })}
+                      className="p-3 rounded-xl text-left transition-all"
+                      style={{
+                        background: isSelected ? "oklch(0.72 0.18 75 / 0.12)" : "oklch(100% 0 0 / 0.02)",
+                        border: `1px solid ${isSelected ? "oklch(0.72 0.18 75 / 0.5)" : "oklch(100% 0 0 / 0.08)"}`,
+                      }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold" style={{ color: isSelected ? "oklch(0.78 0.18 85)" : "oklch(82% 0 0)" }}>{label}</span>
+                        {isSelected && <div className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.18 85)" }} />}
+                      </div>
+                      <p className="text-[10px] mb-2" style={{ color: "oklch(42% 0 0)" }}>{desc}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-sm" style={{ background: upColor }} />
+                          <span className="text-[10px]" style={{ color: "oklch(55% 0 0)" }}>涨</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-sm" style={{ background: downColor }} />
+                          <span className="text-[10px]" style={{ color: "oklch(55% 0 0)" }}>跌</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
-
         {/* ── Tab: AI 记忆管理 ── */}
         {activeTab === "memory" && <MemoryManager />}
 

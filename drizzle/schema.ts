@@ -164,6 +164,8 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   researchStyle: json("researchStyle"),
   // AI 行为配置：responseStyle / initiativeLevel / decisionStyle
   aiBehavior: json("aiBehavior"),
+  // 图表涨跌颜色方案：cn=红涨绿跌（中国），us=绿涨红跌（美国）
+  chartColorScheme: varchar("chartColorScheme", { length: 8 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

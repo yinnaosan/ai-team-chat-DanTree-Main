@@ -41,11 +41,25 @@ import {
 } from "recharts";
 import { Download, TrendingUp, TrendingDown, Maximize2, Minimize2 } from "lucide-react";
 
-// ── 颜色系统 ──────────────────────────────────────────────────────────────────
+// ── 颜色系统 ──────────────────────────────────────────────────────────────────────────────
 const DEFAULT_COLORS = [
   "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4",
   "#a855f7", "#ec4899", "#14b8a6", "#f97316", "#84cc16",
 ];
+// 季度语义颜色：Q1蓝/Q2绿/Q3橙/Q4紫
+const QUARTER_COLORS: Record<string, string> = {
+  "q1": "#3b82f6", "Q1": "#3b82f6", "1Q": "#3b82f6",
+  "q2": "#22c55e", "Q2": "#22c55e", "2Q": "#22c55e",
+  "q3": "#f97316", "Q3": "#f97316", "3Q": "#f97316",
+  "q4": "#a855f7", "Q4": "#a855f7", "4Q": "#a855f7",
+};
+// 匹配季度语义颜色
+function getSemanticColor(name: string, fallback: string): string {
+  for (const [key, color] of Object.entries(QUARTER_COLORS)) {
+    if (name.includes(key)) return color;
+  }
+  return fallback;
+}
 
 const CHART_BG = "#141418";
 const AXIS_COLOR = "#8a96b0";
@@ -754,19 +768,58 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   }
 
   if (type === "scatter") {
+    // 线性回归计算
+    const scatterXVals = data.map(d => Number((d as Record<string, unknown>)[xKey])).filter(v => !isNaN(v));
+    const scatterYVals = data.map(d => Number((d as Record<string, unknown>)[yKey])).filter(v => !isNaN(v));
+    const n = Math.min(scatterXVals.length, scatterYVals.length);
+    let trendData: Array<Record<string, number>> = [];
+    let r2Label = "";
+    if (n >= 3) {
+      const meanX = scatterXVals.slice(0,n).reduce((a,b)=>a+b,0)/n;
+      const meanY = scatterYVals.slice(0,n).reduce((a,b)=>a+b,0)/n;
+      const ssXY = scatterXVals.slice(0,n).reduce((s,x,i)=>s+(x-meanX)*(scatterYVals[i]-meanY),0);
+      const ssXX = scatterXVals.slice(0,n).reduce((s,x)=>s+(x-meanX)**2,0);
+      const ssYY = scatterYVals.slice(0,n).reduce((s,_,i)=>s+(scatterYVals[i]-meanY)**2,0);
+      if (ssXX !== 0) {
+        const slope = ssXY/ssXX;
+        const intercept = meanY - slope*meanX;
+        const r2 = ssXX !== 0 && ssYY !== 0 ? (ssXY**2)/(ssXX*ssYY) : 0;
+        r2Label = `R² = ${r2.toFixed(3)}`;
+        const minX = Math.min(...scatterXVals.slice(0,n));
+        const maxX = Math.max(...scatterXVals.slice(0,n));
+        trendData = [
+          { [xKey]: minX, trend: parseFloat((slope*minX+intercept).toFixed(4)) },
+          { [xKey]: maxX, trend: parseFloat((slope*maxX+intercept).toFixed(4)) },
+        ];
+      }
+    }
     return (
       <ResponsiveContainer width="100%" height={340}>
-        <ScatterChart margin={{ top: 16, right: 16, bottom: 4, left: 4 }}>
+        <ComposedChart margin={{ top: 16, right: 16, bottom: 4, left: 4 }}>
           <CartesianGrid {...gridStyle} />
-          <XAxis dataKey={xKey} tick={axisStyle} name={xKey} />
+          <XAxis dataKey={xKey} tick={axisStyle} name={xKey} type="number" domain={['auto','auto']} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} name={yKey} domain={['auto', 'auto']} width={62} />
-          <Tooltip {...tooltipStyle} cursor={{ strokeDasharray: "3 3", stroke: GRID_COLOR }} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
+          <Tooltip {...tooltipStyle} cursor={{ strokeDasharray: "3 3", stroke: GRID_COLOR }}
+            formatter={(v: unknown, name: unknown) => [`${Number(v).toFixed(2)}${unit}`, String(name)]} />
           {seriesList.map((s, i) => (
             <Scatter key={s.key} name={s.name || s.key} data={data}
-              fill={s.color || colors[i % colors.length]} opacity={0.9} />
+              fill={s.color || colors[i % colors.length]} opacity={0.85} />
           ))}
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
-        </ScatterChart>
+          {/* 趋势线 + R² */}
+          {trendData.length === 2 && (
+            <Line
+              data={trendData}
+              dataKey="trend"
+              name={r2Label}
+              dot={false}
+              strokeWidth={2}
+              stroke="#f59e0b"
+              strokeDasharray="6 3"
+              type="linear"
+            />
+          )}
+          <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />
+        </ComposedChart>
       </ResponsiveContainer>
     );
   }
@@ -787,9 +840,11 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
     const avgBarVal = allBarVals.length > 0
       ? allBarVals.reduce((a, b) => a + b, 0) / allBarVals.length : 0;
     const fmtVal = (n: number) => {
-      if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿${unit}`;
-      if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万${unit}`;
-      return `${n}${unit}`;
+      if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(2).replace(/\.?0+$/, '')}亿${unit}`;
+      if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(2).replace(/\.?0+$/, '')}万${unit}`;
+      // 小数点精度控制：最多保扤2位小数，去除末尾零
+      const rounded = parseFloat(n.toFixed(2));
+      return `${rounded}${unit}`;
     };
     // 两柱对比时计算差异
     let diffLabel: string | null = null;
@@ -831,10 +886,12 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
               label={{ value: diffLabel, fill: diffColor, fontSize: 12, fontWeight: 700, position: "center" }} />
           )}
           {seriesList.map((s, i) => {
-            const baseColor = s.color || colors[i % colors.length];
+            // 多系列时优先使用语义颜色（季度等），其次使用指定颜色，最后使用默认色板
+            const seriesName = s.name || s.key;
+            const baseColor = s.color || getSemanticColor(seriesName, colors[i % colors.length]);
             const useCellColor = seriesList.length === 1;
             return (
-              <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
+              <Bar key={s.key} dataKey={s.key} name={seriesName}
                 fill={baseColor} radius={[5, 5, 0, 0] as [number, number, number, number]} opacity={0.92}>
                 {useCellColor && data.map((entry, idx) => {
                   const v = Number((entry as Record<string, unknown>)[s.key]);
@@ -1098,7 +1155,7 @@ export function InlineChart({ raw }: InlineChartProps) {
         background: CHART_BG,
         border: "1px solid #22252e",
         overflow: expanded ? "auto" : "hidden",
-        ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16 } : {}),
+        ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16, display: "flex", flexDirection: "column" } : {}),
       }}
     >
       {/* 标题栏 */}
@@ -1142,14 +1199,19 @@ export function InlineChart({ raw }: InlineChartProps) {
         </div>
       </div>
 
-      {/* 图表区域 */}
-      <div className="px-2 pb-3">
-        <ChartRenderer config={config} />
+      {/* 图表区域 - 全屏时flex-1填充剩余空间 */}
+      <div className={expanded ? "flex-1 px-2 pb-2 min-h-0" : "px-2 pb-3"}
+        style={expanded ? { display: "flex", flexDirection: "column" } : {}}>
+        <div style={expanded ? { flex: 1, minHeight: 0 } : {}}>
+          <ChartRenderer config={config} />
+        </div>
       </div>
 
       {/* 注释 */}
       {config.annotations && (
-        <div className="px-4 pb-3 text-xs" style={{ color: "#6e7d90", borderTop: "1px solid #1e2028", paddingTop: 8 }}>
+        <div className="px-4 pb-3 text-xs shrink-0"
+          style={{ color: "#8a9ab8", borderTop: "1px solid #1e2028", paddingTop: 8, background: "#1a1d2a", borderRadius: "0 0 16px 16px" }}>
+          <span style={{ color: "#f59e0b", fontWeight: 600, marginRight: 4 }}>ℹ️解读：</span>
           {config.annotations}
         </div>
       )}

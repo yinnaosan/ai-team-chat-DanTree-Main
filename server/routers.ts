@@ -551,7 +551,15 @@ DATA_INTEGRITY[MAX]:
 %%CHART%%
 {"type":"combo","title":"营收与增速","data":[{"name":"${twoYearsAgoStr}Q1","revenue":500,"growth":12},{"name":"${twoYearsAgoStr}Q2","revenue":550,"growth":15}],"xKey":"name","bars":[{"key":"revenue","name":"营收","color":"#6366f1"}],"lines":[{"key":"growth","name":"增速","color":"#22c55e","unit":"%"}]}
 %%END_CHART%%
-- data 数组最多 24 个数据点（热力图可到 30 个）
+**annotations 字段（必填）：** 每个图表必须包含 "annotations" 字段，提供简洁专业的数据解读和投资启示（不超过 60 字）。
+示例："annotations": "NVDA市盈率为行业均値的1.97倍，处于历史高位区间，高溢价反映市场对其AI节带市场地位的高预期"
+
+**散点图示例（相关性分析）：**
+%%CHART%%
+{"type":"scatter","title":"市盈率 vs 成长率关系","data":[{"pe":15,"growth":8},{"pe":25,"growth":18},{"pe":35,"growth":28}],"xKey":"pe","yKey":"growth","unit":"%","annotations":"正相关（R²>0.7）说明市场对成长定价合理，R²越高越具投资参考价値"}
+%%END_CHART%%
+
+- data 数组最多 24 个数据点（热力图可到30 个）
 - 图表必须紧跟相关文字分析，不能孤立出现
 - 每次回复至少包含 1 个图表（如果有任何数据可视化机会）
 - 分析板块行情时优先使用 heatmap；分析个股走势时优先使用 candlestick；分析财务结构时使用 waterfall；给出综合评分时使用 gauge；分析营收趋势时使用 combo` + USER_CORE_RULES;

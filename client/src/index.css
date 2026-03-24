@@ -54,11 +54,11 @@
   --radius: 0.5rem;
 
   /* ── 背景层级 — 深蓝黑 Bloomberg 风格 ── */
-  --background: oklch(8.5% 0.015 240);
+  --background: oklch(4.5% 0.008 240);
   --foreground: oklch(92% 0.008 220);
 
   /* 卡片/面板 */
-  --card: oklch(11% 0.018 240);
+  --card: oklch(8% 0.012 240);
   --card-foreground: oklch(92% 0.008 220);
 
   /* 弹出层 */
@@ -116,10 +116,10 @@
   --bloomberg-green: oklch(65% 0.20 155);
   --bloomberg-red: oklch(62% 0.22 25);
   --bloomberg-blue: oklch(68% 0.18 250);
-  --bloomberg-surface-0: oklch(8.5% 0.015 240);   /* 最底层 */
-  --bloomberg-surface-1: oklch(10.5% 0.018 240);  /* 面板 */
-  --bloomberg-surface-2: oklch(13% 0.018 240);    /* 卡片 */
-  --bloomberg-surface-3: oklch(16% 0.02 240);     /* hover */
+  --bloomberg-surface-0: oklch(4.5% 0.008 240);   /* 最底层 */
+  --bloomberg-surface-1: oklch(7% 0.012 240);     /* 面板 */
+  --bloomberg-surface-2: oklch(10% 0.015 240);    /* 卡片 */
+  --bloomberg-surface-3: oklch(13% 0.018 240);    /* hover */
   --bloomberg-border-dim: oklch(18% 0.02 240);
   --bloomberg-border: oklch(22% 0.022 240);
   --bloomberg-border-bright: oklch(30% 0.025 240);
@@ -148,7 +148,7 @@
 
 /* Dark class kept for compatibility */
 .dark {
-  --background: oklch(8.5% 0.015 240);
+  --background: oklch(4.5% 0.008 240);
   --foreground: oklch(92% 0.008 220);
 }
 

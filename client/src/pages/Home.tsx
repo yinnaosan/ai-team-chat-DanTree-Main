@@ -176,16 +176,22 @@ function MarketStatusRow({ type, label, flag }: { type: MarketType; label: strin
     return () => clearInterval(t);
   }, [type]);
   const color = STATUS_COLOR[info.status];
-  const countdown = info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 12 * 3600
-    ? formatSecs(info.secondsToNext) : "";
+  const hasCountdown = info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 12 * 3600;
+  const countdown = hasCountdown ? formatSecs(info.secondsToNext) : "";
+  const nextLabel = info.nextEvent ?? (info.status === "open" || info.status === "pre" ? "收盘" : "开盘");
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "oklch(100% 0 0 / 0.02)", border: "1px solid oklch(100% 0 0 / 0.05)" }}>
-      <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0 }}>{flag}</span>
-      <span style={{ flex: 1, fontSize: 10, fontWeight: 500, color: "oklch(58% 0.007 240)" }}>{label}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} className={info.status === "open" || info.status === "24h" ? "animate-pulse" : ""} />
-        <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color, letterSpacing: "0.06em" }}>{STATUS_LABEL[info.status]}</span>
-        {countdown && <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color, opacity: 0.6 }}>{countdown}</span>}
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, background: "oklch(100% 0 0 / 0.025)", border: "1px solid oklch(100% 0 0 / 0.06)" }}>
+      <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>{flag}</span>
+      <span style={{ flex: 1, fontSize: 11, fontWeight: 500, color: "oklch(62% 0.007 240)" }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} className={info.status === "open" || info.status === "24h" ? "animate-pulse" : ""} />
+        <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color, letterSpacing: "0.06em" }}>{STATUS_LABEL[info.status]}</span>
+        {hasCountdown && (
+          <>
+            <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color, opacity: 0.55 }}>距{nextLabel}</span>
+            <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color, fontWeight: 700 }}>{countdown}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -314,15 +320,15 @@ export default function Home() {
         {/* Right: Robot + Market Status */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, flexShrink: 0, position: "relative", zIndex: 10 }}>
           <AIRobot />
-          <div style={{ width: 210, padding: "10px", borderRadius: 12, background: "oklch(100% 0 0 / 0.025)", border: "1px solid oklch(100% 0 0 / 0.07)", backdropFilter: "blur(12px)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: "oklch(38% 0.006 240)", fontFamily: "'IBM Plex Mono', monospace" }}>GLOBAL MARKETS</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div className="animate-pulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "oklch(68% 0.18 145)" }} />
-                <span style={{ fontSize: 8, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(68% 0.18 145)" }}>LIVE</span>
+          <div style={{ width: 320, padding: "16px", borderRadius: 14, background: "oklch(100% 0 0 / 0.03)", border: "1px solid oklch(100% 0 0 / 0.09)", backdropFilter: "blur(16px)", boxShadow: "0 8px 32px oklch(0% 0 0 / 0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "oklch(45% 0.006 240)", fontFamily: "'IBM Plex Mono', monospace" }}>GLOBAL MARKETS</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div className="animate-pulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(68% 0.18 145)" }} />
+                <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(68% 0.18 145)", fontWeight: 700 }}>LIVE</span>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {MARKET_LIST.map(m => <MarketStatusRow key={m.type} type={m.type} label={m.label} flag={m.flag} />)}
             </div>
           </div>

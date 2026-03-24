@@ -48,7 +48,7 @@ function TickerStrip() {
 const FEATURES = [
   { icon: Brain, title: "双引擎 AI 协作", desc: "Manus + GPT 同时分析，交叉验证，自动生成反驳论点，避免确认偏误", tag: "CORE", accent: "oklch(78% 0.18 75)", bg: "oklch(78% 0.18 75 / 0.08)", border: "oklch(78% 0.18 75 / 0.2)" },
   { icon: Database, title: "30+ 专业数据源", desc: "Finnhub · Twelve Data · FRED · Alpha Vantage · SEC EDGAR 实时接入", tag: "DATA", accent: "oklch(68% 0.18 250)", bg: "oklch(68% 0.18 250 / 0.08)", border: "oklch(68% 0.18 250 / 0.2)" },
-  { icon: BarChart3, title: "Bloomberg 四列终端", desc: "侧边栏 · 分析列 · 讨论列 · 洞察列，专业级工作台布局", tag: "LAYOUT", accent: "oklch(65% 0.20 155)", bg: "oklch(65% 0.20 155 / 0.08)", border: "oklch(65% 0.20 155 / 0.2)" },
+  { icon: BarChart3, title: "DanTree 四列终端", desc: "侧边栏 · 分析列 · 讨论列 · 洞察列，专业级工作台布局", tag: "LAYOUT", accent: "oklch(65% 0.20 155)", bg: "oklch(65% 0.20 155 / 0.08)", border: "oklch(65% 0.20 155 / 0.2)" },
   { icon: FlaskConical, title: "Alpha 因子回测", desc: "健康评分 · 情绪分析 · 趋势雷达 · 模拟交易，量化研究全套", tag: "QUANT", accent: "oklch(72% 0.18 300)", bg: "oklch(72% 0.18 300 / 0.08)", border: "oklch(72% 0.18 300 / 0.2)" },
   { icon: Shield, title: "风险矩阵分析", desc: "自动识别 5 大风险维度，量化评分，生成对冲建议", tag: "RISK", accent: "oklch(62% 0.22 25)", bg: "oklch(62% 0.22 25 / 0.08)", border: "oklch(62% 0.22 25 / 0.2)" },
   { icon: Activity, title: "实时行情监控", desc: "Pinned Metrics 栏实时显示价格、涨跌幅、PE、PB、ROE", tag: "LIVE", accent: "oklch(65% 0.20 155)", bg: "oklch(65% 0.20 155 / 0.08)", border: "oklch(65% 0.20 155 / 0.2)" },
@@ -133,7 +133,7 @@ export default function Home() {
 
         {/* Headline */}
         <h1 style={{ position: "relative", zIndex: 10, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, letterSpacing: "-0.04em", fontSize: "clamp(52px, 7.5vw, 88px)", color: "oklch(91% 0.004 240)", lineHeight: 1.05, marginBottom: 24, maxWidth: 960 }}>
-          Bloomberg Terminal
+          DanTree Terminal
           <br />
           <span style={{ color: "oklch(78% 0.18 75)", textShadow: "0 0 80px oklch(78% 0.18 75 / 0.5)" }}>重新定义</span>
           {" "}的 AI 版本

@@ -2164,3 +2164,10 @@
 - [x] 折线图最高/最低点高亮（绿色/红色圆点+标签）
 - [x] 折线图均值参考线（金色虚线）
 - [x] 689个测试全部通过
+
+## 第十七轮：彻底修复全屏展开变暗问题
+- [x] 根本原因：遮罩div嵌套在overflow:hidden容器内，fixed定位被父级层叠上下文裁剪
+- [x] 修复方案：使用createPortal将遮罩渲染到document.body，完全脱离父级层叠上下文
+- [x] InlineChart和PyImageChart两个组件均已修复
+- [x] 图表容器改为overflow:auto（全屏时）/hidden（普通时），不再固定overflow:hidden
+- [x] 689个测试全部通过，TypeScript 0错误

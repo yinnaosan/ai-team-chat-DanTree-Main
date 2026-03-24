@@ -32,6 +32,7 @@
  */
 
 import React, { useRef, useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area, ScatterChart, Scatter,
@@ -1052,12 +1053,23 @@ export function InlineChart({ raw }: InlineChartProps) {
   const noDownload = ["heatmap", "treemap", "gauge"].includes(config.type);
 
   return (
+    <>
+      {/* 全屏遮罩 - 通过Portal渲染到body，避免overflow:hidden裁剪 */}
+      {expanded && createPortal(
+        <div
+          className="fixed inset-0"
+          onClick={() => setExpanded(false)}
+          style={{ zIndex: 9998, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(2px)" }}
+        />,
+        document.body
+      )}
     <div
       ref={containerRef}
-      className="my-4 rounded-xl overflow-hidden transition-all"
+      className="my-4 rounded-xl transition-all"
       style={{
         background: CHART_BG,
         border: "1px solid #22252e",
+        overflow: expanded ? "auto" : "hidden",
         ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16 } : {}),
       }}
     >
@@ -1114,15 +1126,8 @@ export function InlineChart({ raw }: InlineChartProps) {
         </div>
       )}
 
-      {/* 全屏遮罩 - 点击关闭，不遮挡图表本身 */}
-      {expanded && (
-        <div
-          className="fixed inset-0"
-          onClick={() => setExpanded(false)}
-          style={{ zIndex: 9997, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(2px)" }}
-        />
-      )}
     </div>
+    </>
   );
 }
 
@@ -1142,56 +1147,60 @@ export function PyImageChart({ base64 }: { base64: string }) {
   };
 
   return (
-    <div
-      className="my-4 rounded-xl overflow-hidden transition-all"
-      style={{
-        background: CHART_BG,
-        border: "1px solid #22252e",
-        ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16, display: "flex", flexDirection: "column" } : {}),
-      }}
-    >
-      {/* 标题栏 */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-            style={{ background: "#242e28", color: "#70c090", fontSize: 12 }}>
-            技术图表
-          </span>
-          <span className="text-sm font-semibold" style={{ color: "#d8e0ec" }}>
-            K线图 + 技术指标
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={handleDownload}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "#7c8a9e" }} title="下载 PNG">
-            <Download className="w-3 h-3" /><span>PNG</span>
-          </button>
-          <button onClick={() => setExpanded(e => !e)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
-            style={{ color: "#7c8a9e" }} title={expanded ? "收起" : "全屏"}>
-            {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-          </button>
-        </div>
-      </div>
-      {/* 图像区域 */}
-      <div className={expanded ? "flex-1 overflow-auto p-2" : "px-2 pb-3"}>
-        <img
-          src={imgSrc}
-          alt="技术分析图表"
-          className="w-full rounded-lg"
-          style={{ maxHeight: expanded ? "100%" : 500, objectFit: "contain" }}
-        />
-      </div>
-      {/* 全屏遮罩 */}
-      {expanded && (
+    <>
+      {/* 全屏遮罩 - Portal渲染到body */}
+      {expanded && createPortal(
         <div
-          className="fixed inset-0 bg-black/60"
+          className="fixed inset-0"
           onClick={() => setExpanded(false)}
-          style={{ zIndex: 9998 }}
-        />
+          style={{ zIndex: 9998, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(2px)" }}
+        />,
+        document.body
       )}
-    </div>
+      <div
+        className="my-4 rounded-xl transition-all"
+        style={{
+          background: CHART_BG,
+          border: "1px solid #22252e",
+          overflow: expanded ? "auto" : "hidden",
+          ...(expanded ? { position: "fixed", inset: "5%", zIndex: 9999, margin: 0, borderRadius: 16, display: "flex", flexDirection: "column" } : {}),
+        }}
+      >
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+              style={{ background: "#242e28", color: "#70c090", fontSize: 12 }}>
+              技术图表
+            </span>
+            <span className="text-sm font-semibold" style={{ color: "#d8e0ec" }}>
+              K线图 + 技术指标
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={handleDownload}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+              style={{ color: "#7c8a9e" }} title="下载 PNG">
+              <Download className="w-3 h-3" /><span>PNG</span>
+            </button>
+            <button onClick={() => setExpanded(e => !e)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+              style={{ color: "#7c8a9e" }} title={expanded ? "收起" : "全屏"}>
+              {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+            </button>
+          </div>
+        </div>
+        {/* 图像区域 */}
+        <div className={expanded ? "flex-1 overflow-auto p-2" : "px-2 pb-3"}>
+          <img
+            src={imgSrc}
+            alt="技术分析图表"
+            className="w-full rounded-lg"
+            style={{ maxHeight: expanded ? "100%" : 500, objectFit: "contain" }}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 

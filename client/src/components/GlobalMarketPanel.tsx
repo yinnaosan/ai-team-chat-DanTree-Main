@@ -59,7 +59,7 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
       {/* Flag */}
       <span className="text-base w-5 text-center shrink-0">{flag}</span>
       {/* Market name */}
-      <span className="flex-1 text-sm font-medium" style={{ color: "oklch(0.80 0 0)" }}>
+      <span className="flex-1 text-sm font-semibold" style={{ color: "oklch(0.80 0 0)" }}>
         {label}
       </span>
       {/* Status */}

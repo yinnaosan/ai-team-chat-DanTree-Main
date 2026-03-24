@@ -2149,3 +2149,9 @@
 - [ ] Home.tsx：首页市场概览卡片标题/数据加大加粗
 - [ ] 各功能页面（Research/Portfolio/Watchlist）：表格/列表字号统一优化
 - [ ] 数据数字（价格/涨跌幅/成交量）：统一使用 tabular-nums + font-semibold
+
+## 排版深度优化（Round 2）
+
+- [x] 优化K线图和财务图表坐标轴/图例字体（fontSize≥13）
+- [x] 统一卡片标题为font-semibold，强化视觉层次
+- [x] 添加响应式断点类，确保小屏（<1280px）可读性

@@ -221,13 +221,13 @@ function GreeksHeatmap({ calls, puts }: GreeksHeatmapProps) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-            <XAxis dataKey="strike" tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} width={40} />
+            <XAxis dataKey="strike" tick={{ fontSize: 13, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 13, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} width={40} />
             <Tooltip
-              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
               formatter={(value: number, name: string) => [value.toFixed(4), name === "callValue" ? `Call ${activeGreek}` : `Put ${activeGreek}`]}
             />
-            <Legend formatter={(v) => v === "callValue" ? "Call" : "Put"} wrapperStyle={{ fontSize: "11px", color: "rgba(148,163,184,0.8)" }} />
+            <Legend formatter={(v) => v === "callValue" ? "Call" : "Put"} wrapperStyle={{ fontSize: "13px", color: "rgba(148,163,184,0.8)" }} />
             <Bar dataKey="callValue" fill={callColor} opacity={0.85} radius={[2, 2, 0, 0]} />
             <Bar dataKey="putValue" fill={putColor} opacity={0.85} radius={[2, 2, 0, 0]} />
           </BarChart>
@@ -426,21 +426,21 @@ function SensitivityChart({ payload }: SensitivityChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis
               dataKey="spot"
-              tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+              tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `$${v.toFixed(0)}`}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+              tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
               axisLine={false}
               tickLine={false}
               width={44}
               tickFormatter={(v) => v.toFixed(mode === "gamma" ? 5 : 3)}
             />
             <Tooltip
-              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
               formatter={(value: number, name: string) => [
                 value.toFixed(mode === "gamma" ? 6 : 4),
                 name === "payoff" ? "到期盈亏" : name === "currentPnL" ? "当前盈亏" : name,
@@ -450,7 +450,7 @@ function SensitivityChart({ payload }: SensitivityChartProps) {
             {/* 零线 */}
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" />
             {/* 当前价格竖线 */}
-            <ReferenceLine x={S} stroke="rgba(251,191,36,0.5)" strokeDasharray="4 4" label={{ value: "现价", position: "top", fontSize: 9, fill: "rgba(251,191,36,0.7)" }} />
+            <ReferenceLine x={S} stroke="rgba(251,191,36,0.5)" strokeDasharray="4 4" label={{ value: "现价", position: "top", fontSize: 12, fill: "rgba(251,191,36,0.7)" }} />
 
             {mode === "payoff" ? (
               <>
@@ -604,22 +604,22 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis
               dataKey="moneyness"
-              tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+              tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
-              label={{ value: "行权价/现价 (%)", position: "insideBottom", offset: -2, fontSize: 9, fill: "rgba(148,163,184,0.5)" }}
+              label={{ value: "行权价/现价 (%)", position: "insideBottom", offset: -2, fontSize: 12, fill: "rgba(148,163,184,0.5)" }}
             />
             <YAxis
-              tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+              tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
               axisLine={false}
               tickLine={false}
               width={36}
               tickFormatter={(v) => `${v}%`}
-              label={{ value: "隐含波动率", angle: -90, position: "insideLeft", fontSize: 9, fill: "rgba(148,163,184,0.5)" }}
+              label={{ value: "隐含波动率", angle: -90, position: "insideLeft", fontSize: 12, fill: "rgba(148,163,184,0.5)" }}
             />
             <Tooltip
-              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+              contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
               formatter={(value: number, name: string) => [
                 `${value.toFixed(2)}%`,
                 name === "actualIV" ? (hasRealData ? "市场 IV" : "模拟市场 IV") : "BS 理论 IV",
@@ -696,12 +696,12 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
                     dataKey="date"
-                    tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+                    tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 9, fill: "rgba(148,163,184,0.7)" }}
+                    tick={{ fontSize: 12, fill: "rgba(148,163,184,0.7)" }}
                     axisLine={false}
                     tickLine={false}
                     width={32}
@@ -709,7 +709,7 @@ function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
                     domain={["auto", "auto"]}
                   />
                   <Tooltip
-                    contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+                    contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
                     formatter={(v: number) => [`${v.toFixed(1)}%`, "年化波动率 IV"]}
                   />
                   {avgIV !== null && (
@@ -998,16 +998,16 @@ export default function OptionPricingCard({ payload }: { payload: OptionPricingP
                           margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                          <XAxis dataKey="strike" tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} width={40} />
+                          <XAxis dataKey="strike" tick={{ fontSize: 13, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 13, fill: "rgba(148,163,184,0.7)" }} axisLine={false} tickLine={false} width={40} />
                           <Tooltip
-                            contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }}
+                            contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "13px" }}
                             formatter={(v: number, name: string) => [
                               name === "premium" ? `${v}%` : `$${v}`,
                               name === "bs_call" ? "BS Call" : name === "heston_call" ? "Heston Call" : "Heston 溢价"
                             ]}
                           />
-                          <Legend formatter={(v) => v === "bs_call" ? "BS Call" : v === "heston_call" ? "Heston Call" : "Heston 溢价%"} wrapperStyle={{ fontSize: "11px" }} />
+                          <Legend formatter={(v) => v === "bs_call" ? "BS Call" : v === "heston_call" ? "Heston Call" : "Heston 溢价%"} wrapperStyle={{ fontSize: "13px" }} />
                           <Bar dataKey="bs_call" fill="#6366f1" opacity={0.7} radius={[2, 2, 0, 0]} />
                           <Bar dataKey="heston_call" fill="#8b5cf6" opacity={0.9} radius={[2, 2, 0, 0]} />
                         </BarChart>

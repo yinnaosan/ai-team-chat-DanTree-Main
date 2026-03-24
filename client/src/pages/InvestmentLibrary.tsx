@@ -430,7 +430,7 @@ function NewsNowPanel() {
               className="group flex gap-3 p-3 rounded-lg bg-white/3 border border-white/6 hover:bg-white/6 transition-colors"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground/90 group-hover:text-foreground line-clamp-2 leading-snug">
+                <p className="text-sm font-semibold text-foreground/90 group-hover:text-foreground line-clamp-2 leading-snug">
                   {article.title}
                 </p>
                 {article.description && (

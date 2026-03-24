@@ -563,6 +563,59 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE TYPOGRAPHY — 响应式字体适配
+   小屏（< 1280px）适当缩减字体，确保13英寸笔记本可读性
+═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1279px) {
+  /* 全局基础字号：小屏保持15px，不低于可读阈值 */
+  html, body {
+    font-size: 15px;
+  }
+
+  /* Bloomberg终端组件字体适配 */
+  .bloomberg-card-title {
+    font-size: 0.7rem;
+  }
+  .bloomberg-stat-label {
+    font-size: 0.7rem;
+  }
+  .bloomberg-stat-value {
+    font-size: 1.125rem;
+  }
+  .bloomberg-stat-value.lg {
+    font-size: 1.375rem;
+  }
+  .bloomberg-stat-value.xl {
+    font-size: 1.75rem;
+  }
+  .bloomberg-stat-change {
+    font-size: 0.75rem;
+  }
+  .bloomberg-table {
+    font-size: 0.75rem;
+  }
+  .bloomberg-table th {
+    font-size: 0.7rem;
+  }
+  .bloomberg-section-label {
+    font-size: 0.65rem;
+  }
+  .bloomberg-ticker {
+    font-size: 0.75rem;
+  }
+  .bloomberg-nav-item {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* 平板/小屏：进一步压缩 */
+  html, body {
+    font-size: 14px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    BLOOMBERG GLOW EFFECTS — 发光效果
 ═══════════════════════════════════════════════════════════════════════════ */
 .bloomberg-gold-glow {

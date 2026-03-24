@@ -195,7 +195,7 @@ export default function HealthScoreCard({ payload }: { payload: HealthScorePaylo
                 <PolarGrid stroke="rgba(255,255,255,0.1)" />
                 <PolarAngleAxis
                   dataKey="subject"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
+                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 13 }}
                 />
                 <Radar
                   name="评分"

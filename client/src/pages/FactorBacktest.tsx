@@ -194,13 +194,13 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
         <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" opacity={0.5} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
+          tick={{ fontSize: 13, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
+          tick={{ fontSize: 13, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => `${v}%`}
@@ -210,7 +210,7 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
           formatter={(value) =>
             value === "strategy" ? "因子策略" : "基准（买入持有）"
           }
-          wrapperStyle={{ fontSize: 12 }}
+          wrapperStyle={{ fontSize: 13 }}
         />
         <ReferenceLine y={0} stroke="var(--bloomberg-border-dim)" strokeDasharray="4 4" />
         <Line
@@ -622,7 +622,7 @@ export default function FactorBacktest() {
             <TabsContent value="curve" className="mt-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">策略净值 vs 基准（买入持有）</CardTitle>
+                  <CardTitle className="text-sm font-semibold">策略净值 vs 基准（买入持有）</CardTitle>
                   <CardDescription className="text-xs">
                     初始资金 ¥1,000,000，收益率基准为 0%
                   </CardDescription>
@@ -636,7 +636,7 @@ export default function FactorBacktest() {
             <TabsContent value="trades" className="mt-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-sm font-semibold">
                     交易记录（共 {result.trades.length} 笔）
                   </CardTitle>
                 </CardHeader>
@@ -649,7 +649,7 @@ export default function FactorBacktest() {
             <TabsContent value="drawdown" className="mt-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">每日回撤幅度</CardTitle>
+                  <CardTitle className="text-sm font-semibold">每日回撤幅度</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <DrawdownChart dailyResults={result.dailyResults} />
@@ -727,13 +727,13 @@ function DrawdownChart({ dailyResults }: { dailyResults: BacktestDailyResult[] }
         <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" opacity={0.5} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
+          tick={{ fontSize: 13, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "var(--bloomberg-text-dim)" }}
+          tick={{ fontSize: 13, fill: "var(--bloomberg-text-dim)" }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v) => `${v}%`}
@@ -744,7 +744,7 @@ function DrawdownChart({ dailyResults }: { dailyResults: BacktestDailyResult[] }
             background: "var(--bloomberg-surface-2)",
             border: "1px solid var(--bloomberg-border)",
             borderRadius: "8px",
-            fontSize: "12px",
+            fontSize: "13px",
           }}
         />
         <Bar dataKey="drawdown" name="回撤">

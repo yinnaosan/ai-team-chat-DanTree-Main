@@ -252,7 +252,7 @@ export function WorldMonitorCard({ ticker, marketData = {}, onTopCorrelationsFou
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={radarData}>
                       <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 13, fill: "#94a3b8" }} />
                       <Radar
                         name="市场情绪"
                         dataKey="value"
@@ -261,7 +261,7 @@ export function WorldMonitorCard({ ticker, marketData = {}, onTopCorrelationsFou
                         fillOpacity={0.2}
                       />
                       <Tooltip
-                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
+                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "13px" }}
                         formatter={(v: number) => [`${(v * 2 - 100).toFixed(0)}`, "情绪指数"]}
                       />
                     </RadarChart>

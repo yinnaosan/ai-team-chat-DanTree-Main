@@ -144,7 +144,7 @@ export function AlpacaPortfolioCard() {
     <Card className="w-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
             模拟账户
             {clock && (
@@ -314,7 +314,7 @@ export function AlpacaPortfolioCard() {
                 return (
                   <div key={pos.symbol} className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2">
                     <div>
-                      <div className="text-sm font-medium">{pos.symbol}</div>
+                      <div className="text-sm font-semibold">{pos.symbol}</div>
                       <div className="text-xs text-muted-foreground">{pos.qty} 股 @ ${parseFloat(pos.avg_entry_price).toFixed(2)}</div>
                     </div>
                     <div className="text-right">
@@ -345,7 +345,7 @@ export function AlpacaPortfolioCard() {
                         {isBuy ? "买" : "卖"}
                       </Badge>
                       <div>
-                        <div className="text-sm font-medium">{order.symbol}</div>
+                        <div className="text-sm font-semibold">{order.symbol}</div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-2.5 w-2.5" />
                           {order.qty} 股

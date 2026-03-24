@@ -52,7 +52,7 @@ const GRID_COLOR = "#2d3340";
 const TOOLTIP_BG = "#1a1c22";
 const TOOLTIP_BORDER = "#3d4455";
 
-const axisStyle = { fill: AXIS_COLOR, fontSize: 11, fontFamily: "inherit" };
+const axisStyle = { fill: AXIS_COLOR, fontSize: 13, fontFamily: "inherit" };
 const gridStyle = { stroke: GRID_COLOR, strokeDasharray: "3 3" };
 const tooltipStyle = {
   contentStyle: {
@@ -392,7 +392,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
             <BarChart data={volumeData} barCategoryGap="20%">
               <XAxis dataKey="name" tick={false} axisLine={false} tickLine={false} />
               <YAxis
-                tick={{ fill: AXIS_COLOR, fontSize: 9 }}
+                tick={{ fill: AXIS_COLOR, fontSize: 12 }}
                 tickFormatter={(v: number) => v >= 1e8 ? `${(v / 1e8).toFixed(0)}亿` : `${(v / 1e4).toFixed(0)}万`}
                 width={38}
                 domain={[0, maxVolume * 1.2]}
@@ -582,12 +582,12 @@ function GaugeChart({ value, min = 0, max = 100, thresholds, unit = "", title }:
         <text x={cx} y={cy + 28} textAnchor="middle" fontSize={22} fontWeight={700} fill={activeColor}>
           {value}{unit}
         </text>
-        <text x={cx} y={cy + 44} textAnchor="middle" fontSize={11} fill="#8a96a8">
+        <text x={cx} y={cy + 44} textAnchor="middle" fontSize={13} fill="#8a96a8">
           {activeLabel}
         </text>
         {/* 最小/最大标签 */}
-        <text x={cx - r - 4} y={cy + 20} textAnchor="middle" fontSize={10} fill={AXIS_COLOR}>{min}</text>
-        <text x={cx + r + 4} y={cy + 20} textAnchor="middle" fontSize={10} fill={AXIS_COLOR}>{max}</text>
+        <text x={cx - r - 4} y={cy + 20} textAnchor="middle" fontSize={12} fill={AXIS_COLOR}>{min}</text>
+        <text x={cx + r + 4} y={cy + 20} textAnchor="middle" fontSize={12} fill={AXIS_COLOR}>{max}</text>
       </svg>
       {/* 图例 */}
       <div className="flex items-center gap-4 mt-1">
@@ -629,7 +629,7 @@ function DualAxisChart({ config }: { config: ChartConfig }) {
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
           labelStyle={{ color: "#c8d0dc", fontWeight: 600 }}
         />
-        <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
+        <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />
         <Bar yAxisId="right" dataKey={rightKey} fill={colors[1] ?? "#22c55e"} opacity={0.6} radius={[2, 2, 0, 0]} name={rightKey} />
         <Line yAxisId="left" type="monotone" dataKey={leftKey} stroke={colors[0] ?? "#6366f1"} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} name={leftKey} />
       </ComposedChart>
@@ -652,7 +652,7 @@ function ComboChart({ config }: { config: ChartConfig }) {
           contentStyle={{ background: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }}
           labelStyle={{ color: "#c8d0dc", fontWeight: 600 }}
         />
-        <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
+        <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />
         {bars.map((b, i) => (
           <Bar key={b.key} yAxisId="left" dataKey={b.key} name={b.name ?? b.key}
             fill={b.color ?? colors[i % colors.length]} radius={[3, 3, 0, 0]} opacity={0.85} />
@@ -709,7 +709,7 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
             {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="transparent" />)}
           </Pie>
           <Tooltip {...tooltipStyle} formatter={(v) => [`${v}${unit}`, ""]} />
-          <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />
+          <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -726,7 +726,7 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           {seriesList.map((s, i) => (
             <Scatter key={s.key} name={s.name || s.key} data={data} fill={s.color || colors[i % colors.length]} opacity={0.85} />
           ))}
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />}
         </ScatterChart>
       </ResponsiveContainer>
     );
@@ -741,8 +741,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
           {seriesList.map((s, i) => (
             <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
               fill={s.color || colors[i % colors.length]} radius={[3, 3, 0, 0]} />
@@ -765,8 +765,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
           {seriesList.map((s, i) => {
             const c = s.color || colors[i % colors.length];
             return (
@@ -782,8 +782,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => `${v}${unit}`} width={55} />
           <Tooltip {...tooltipStyle} formatter={(v: unknown) => [`${v}${unit}`, ""]} />
-          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#96a0b2" }} />}
-          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 10 }} />)}
+          {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2" }} />}
+          {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
           {seriesList.map((s, i) => (
             <Line key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
               stroke={s.color || colors[i % colors.length]} strokeWidth={2.5}
@@ -896,7 +896,7 @@ export function InlineChart({ raw }: InlineChartProps) {
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-            style={{ background: "#282c3a", color: "#7090d0", fontSize: 10 }}>
+            style={{ background: "#282c3a", color: "#7090d0", fontSize: 12 }}>
             {typeLabels[config.type] || config.type}
           </span>
           {config.title && (
@@ -985,7 +985,7 @@ export function PyImageChart({ base64 }: { base64: string }) {
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-            style={{ background: "#242e28", color: "#70c090", fontSize: 10 }}>
+            style={{ background: "#242e28", color: "#70c090", fontSize: 12 }}>
             技术图表
           </span>
           <span className="text-sm font-semibold" style={{ color: "#d8e0ec" }}>

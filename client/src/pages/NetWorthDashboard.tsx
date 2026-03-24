@@ -337,7 +337,7 @@ export default function NetWorthDashboard() {
           {/* 净资产历史趋势 */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">净资产历史趋势</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">净资产历史趋势</CardTitle>
             </CardHeader>
             <CardContent>
               {historyChartData.length < 2 ? (
@@ -352,9 +352,9 @@ export default function NetWorthDashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--bloomberg-border-dim)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                    <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: "#9ca3af" }} />
-                    <Tooltip formatter={(v: number) => [fmt(v), "净资产"]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11px" }} />
+                    <XAxis dataKey="date" tick={{ fontSize: 13, fill: "#9ca3af" }} />
+                    <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 13, fill: "#9ca3af" }} />
+                    <Tooltip formatter={(v: number) => [fmt(v), "净资产"]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "13px" }} />
                     <Area type="monotone" dataKey="netWorth" stroke="oklch(68% 0.18 250)" fill="url(#nwGrad)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -365,7 +365,7 @@ export default function NetWorthDashboard() {
           {/* 资产分类饼图 */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">资产分类分布</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">资产分类分布</CardTitle>
             </CardHeader>
             <CardContent>
               {assetPieData.length === 0 ? (
@@ -376,8 +376,8 @@ export default function NetWorthDashboard() {
                     <Pie data={assetPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
                       {assetPieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => [fmt(v)]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "11px" }} />
-                    <Legend formatter={(v) => <span style={{ color: "#9ca3af", fontSize: 11 }}>{v}</span>} />
+                    <Tooltip formatter={(v: number) => [fmt(v)]} contentStyle={{ background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border)", borderRadius: "4px", fontFamily: "IBM Plex Mono, monospace", fontSize: "13px" }} />
+                    <Legend formatter={(v) => <span style={{ color: "#9ca3af", fontSize: 13 }}>{v}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               )}

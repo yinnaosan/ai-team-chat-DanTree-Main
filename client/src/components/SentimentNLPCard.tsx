@@ -226,14 +226,14 @@ export default function SentimentNLPCard({ ticker, newsItems }: SentimentNLPCard
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 9, fill: "rgba(148,163,184,0.6)" }}
+                        tick={{ fontSize: 12, fill: "rgba(148,163,184,0.6)" }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v) => v.slice(5)} // MM-DD
                       />
                       <YAxis
                         domain={[-1, 1]}
-                        tick={{ fontSize: 9, fill: "rgba(148,163,184,0.6)" }}
+                        tick={{ fontSize: 12, fill: "rgba(148,163,184,0.6)" }}
                         axisLine={false}
                         tickLine={false}
                         width={28}
@@ -242,7 +242,7 @@ export default function SentimentNLPCard({ ticker, newsItems }: SentimentNLPCard
                       <ReferenceLine y={0.3} stroke="rgba(16,185,129,0.2)" strokeDasharray="2 4" />
                       <ReferenceLine y={-0.3} stroke="rgba(239,68,68,0.2)" strokeDasharray="2 4" />
                       <Tooltip
-                        contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "10px" }}
+                        contentStyle={{ background: "rgba(10,10,20,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px" }}
                         formatter={(v: number) => [v.toFixed(2), "情绪分"]}
                         labelFormatter={(l) => `${l} (${result.timeSeries.find(t => t.date === l)?.articleCount ?? 0} 篇)`}
                       />

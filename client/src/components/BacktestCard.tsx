@@ -430,14 +430,14 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggest
                         <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#94a3b8" }} interval={Math.floor(factorEquityData.length / 6)} />
                         <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={(v) => `${((v - 1) * 100).toFixed(0)}%`} />
                         <Tooltip
-                          contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
+                          contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "13px" }}
                           formatter={(v: number, name: string) => [
                             `${((v - 1) * 100).toFixed(2)}%`,
                             name === "portfolio" ? `${factorResult.factorName} 策略` : "基准买入持有",
                           ]}
                         />
                         <ReferenceLine y={1} stroke="#475569" strokeDasharray="4 4" />
-                        <Legend formatter={(v) => v === "portfolio" ? `${factorResult.factorName} 策略` : "基准买入持有"} wrapperStyle={{ fontSize: "10px" }} />
+                        <Legend formatter={(v) => v === "portfolio" ? `${factorResult.factorName} 策略` : "基准买入持有"} wrapperStyle={{ fontSize: "13px" }} />
                         <Line type="monotone" dataKey="portfolio" stroke="#6366f1" dot={false} strokeWidth={2} />
                         <Line type="monotone" dataKey="benchmark" stroke="#94a3b8" dot={false} strokeWidth={1} strokeDasharray="4 4" />
                       </LineChart>
@@ -579,10 +579,10 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggest
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={mergedEquity} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${(v * 100 - 100).toFixed(0)}%`} />
+                      <XAxis dataKey="day" tick={{ fontSize: 13, fill: "#94a3b8" }} />
+                      <YAxis tick={{ fontSize: 13, fill: "#94a3b8" }} tickFormatter={(v) => `${(v * 100 - 100).toFixed(0)}%`} />
                       <Tooltip
-                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
+                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "13px" }}
                         formatter={(v: number, name: string) => [
                           `${((v - 1) * 100).toFixed(2)}%`,
                           name === "strategy" ? STRATEGY_LABELS[singleResult.strategy] : "买入持有",
@@ -605,14 +605,14 @@ export function BacktestCard({ ticker, spot, sigma, prices, alphaScores, suggest
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={mergedEquity} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `${(v * 100 - 100).toFixed(0)}%`} />
+                      <XAxis dataKey="day" tick={{ fontSize: 13, fill: "#94a3b8" }} />
+                      <YAxis tick={{ fontSize: 13, fill: "#94a3b8" }} tickFormatter={(v) => `${(v * 100 - 100).toFixed(0)}%`} />
                       <Tooltip
-                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "11px" }}
+                        contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", fontSize: "13px" }}
                         formatter={(v: number, name: string) => [`${((v - 1) * 100).toFixed(2)}%`, STRATEGY_LABELS[name] ?? name]}
                       />
                       <ReferenceLine y={1} stroke="#475569" strokeDasharray="4 4" />
-                      <Legend formatter={(v) => STRATEGY_LABELS[v] ?? v} wrapperStyle={{ fontSize: "11px" }} />
+                      <Legend formatter={(v) => STRATEGY_LABELS[v] ?? v} wrapperStyle={{ fontSize: "13px" }} />
                       {compareResults.map((r) => (
                         <Line key={r.strategy} type="monotone" dataKey={r.strategy}
                           stroke={STRATEGY_COLORS[r.strategy] ?? "#94a3b8"} dot={false}

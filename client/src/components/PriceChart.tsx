@@ -552,7 +552,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
       textColor: "rgba(160,160,160,0.85)",
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
     },
     grid: {
@@ -873,7 +873,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
 
     const subOpts = {
       ...chartOpts,
-      layout: { ...chartOpts.layout, fontSize: 10 },
+      layout: { ...chartOpts.layout, fontSize: 12 },
       rightPriceScale: { ...chartOpts.rightPriceScale, scaleMargins: { top: 0.1, bottom: 0.1 } },
     };
     const chart = createChart(subContainerRef.current, subOpts);
@@ -1175,7 +1175,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
           <span style={{ color: "rgba(80,80,80,0.6)" }}>{compareHover.time}</span>
           <span className="flex items-center gap-1">
-            <span style={{ color: "#c9a84c", fontSize: 9 }}>●</span>
+            <span style={{ color: "#c9a84c", fontSize: 12 }}>●</span>
             <span style={{ color: "rgba(160,160,160,0.8)" }}>{symbol}</span>
             {compareHover.mainPct != null && (
               <span className="tabular-nums font-semibold" style={{
@@ -1186,7 +1186,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             )}
           </span>
           <span className="flex items-center gap-1">
-            <span style={{ color: "#60a5fa", fontSize: 9 }}>●</span>
+            <span style={{ color: "#60a5fa", fontSize: 12 }}>●</span>
             <span style={{ color: "rgba(160,160,160,0.8)" }}>{compareSymbol}</span>
             {compareHover.comparePct != null && (
               <span className="tabular-nums font-semibold" style={{
@@ -1231,7 +1231,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
                 <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtVol(displayData.volume)}</span>
               </>
             )}
-            <span className="ml-auto tabular-nums" style={{ color: "rgba(80,80,80,0.7)", fontSize: 10 }}>
+            <span className="ml-auto tabular-nums" style={{ color: "rgba(80,80,80,0.7)", fontSize: 12 }}>
               {displayData.time}
             </span>
           </>

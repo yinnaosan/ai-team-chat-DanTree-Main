@@ -291,7 +291,7 @@ export default function Home() {
           </div>
           <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, letterSpacing: "-0.04em", fontSize: "clamp(42px, 6vw, 72px)", color: "oklch(91% 0.004 240)", lineHeight: 1.05, marginBottom: 20 }}>
             DanTree Terminal<br />
-            <span style={{ color: "oklch(78% 0.18 75)", textShadow: "0 0 60px oklch(78% 0.18 75 / 0.5)" }}>重新定义</span>{" "}的 AI 版本
+            <span style={{ color: "oklch(78% 0.18 75)", textShadow: "0 0 60px oklch(78% 0.18 75 / 0.5)" }}>重新定义</span>{" "}的投研终端
           </h1>
           <p style={{ fontSize: "clamp(13px, 1.4vw, 16px)", color: "oklch(50% 0.007 240)", maxWidth: 480, lineHeight: 1.75, marginBottom: 32 }}>
             多 Agent 协作分析引擎，实时接入 <strong style={{ color: "oklch(78% 0.18 75)" }}>40+</strong> 专业数据源，

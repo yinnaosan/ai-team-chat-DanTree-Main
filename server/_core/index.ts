@@ -12,6 +12,7 @@ import { chatgptProxyRouter } from "../chatgptProxy";
 import { taskStreamRouter } from "../taskStream";
 import { tickerStreamRouter } from "../tickerWs";
 import { tickerCnStreamRouter } from "../tickerWsCn";
+import { tickerHkStreamRouter } from "../tickerWsHk";
 import { checkHealth as checkFinnhubHealth } from "../finnhubApi";
 import { checkHealth as checkFmpHealth } from "../fmpApi";
 import { checkHealth as checkPolygonHealth } from "../polygonApi";
@@ -64,6 +65,8 @@ async function startServer() {
   app.use(tickerStreamRouter);
   // A-share real-time ticker SSE stream (CN stocks via efinance)
   app.use(tickerCnStreamRouter);
+  // HK-share real-time ticker SSE stream (HK stocks via efinance)
+  app.use(tickerHkStreamRouter);
   // 健康检测诊断端点（直接调用 checkHealth 函数，无需认证）
   app.get("/api/health-diag", async (_req, res) => {
     const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 10000): Promise<T> =>

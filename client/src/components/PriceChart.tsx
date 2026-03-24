@@ -275,6 +275,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [liveStatus, setLiveStatus] = useState<"connecting" | "live" | "offline">("offline");
   const [lastTickPrice, setLastTickPrice] = useState<number | null>(null);
+  const [liveSession, setLiveSession] = useState<string | null>(null);   // trading/lunch/pre_market/post_market/closed
+  const [liveIntervalMs, setLiveIntervalMs] = useState<number | null>(null); // 当前轮询间隔
   const sseRef = useRef<EventSource | null>(null);
   // 对比模式
   const [compareSymbol, setCompareSymbol] = useState<string | null>(null);
@@ -286,12 +288,27 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   } | null>(null);
   const [compareHover, setCompareHover] = useState<{
     time: string; mainPct: number | null; comparePct: number | null;
-  } | null>(null);
-
-  // ── 日内周期判断 ──────────────────────────────────────────────────────────
+  } | null>(null);  // ── 日内周期判断 ─────────────────────────────────────────────────────────────
   const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
   const isCompareMode = !!compareSymbol;
 
+  // ── 标的市场判断 ─────────────────────────────────────────────────────────────
+  /** 判断是否为A股代码 */
+  const isAShare = (sym: string) => {
+    const s = sym.toUpperCase();
+    return /^(SH|SZ|BJ)\./i.test(s) || /^\d{6}\.(SS|SZ|BJ)$/i.test(s) || /^\d{6}$/.test(s);
+  };
+  /** 判断是否为港股代码 */
+  const isHKShare = (sym: string) => {
+    const s = sym.toUpperCase();
+    return /^\d{1,5}\.HK$/.test(s) || /^\d{4,5}$/.test(s);
+  };
+  /** 获取实时Tick的SSE端点路径 */
+  const getTickerStreamUrl = (sym: string) => {
+    if (isAShare(sym)) return `/api/ticker-stream-cn/${encodeURIComponent(sym)}`;
+    if (isHKShare(sym)) return `/api/ticker-stream-hk/${encodeURIComponent(sym)}`;
+    return `/api/ticker-stream/${encodeURIComponent(sym)}`; // 美股（Finnhub）
+  };
   // ── 实时 Tick SSE（日内周期时自动连接）────────────────────────────────────
   useEffect(() => {
     if (!isIntraday || !symbol) {
@@ -306,27 +323,30 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     }
 
     setLiveStatus("connecting");
-    // 判断是否为A股代码：6位数字 / sh.6xxxxx / sz.0xxxxx / 600519.SS等
-    const isAShare = /^(sh|sz|bj)\./i.test(symbol)
-      || /^\d{6}\.(SS|SZ|BJ)$/i.test(symbol)
-      || /^\d{6}$/.test(symbol);
-    const sseUrl = isAShare
-      ? `/api/ticker-stream-cn/${encodeURIComponent(symbol)}`
-      : `/api/ticker-stream/${encodeURIComponent(symbol)}`;
+    // 自动识别市场：A股 / 港股 / 美股，选择对应的 SSE 端点
+    const sseUrl = getTickerStreamUrl(symbol);
     const sse = new EventSource(sseUrl, { withCredentials: true });
     sseRef.current = sse;
 
     sse.onmessage = (e) => {
       try {
-        const payload = JSON.parse(e.data) as { type?: string; symbol?: string; price?: number; timestamp?: number; volume?: number };
+        const payload = JSON.parse(e.data) as {
+          type?: string; symbol?: string; price?: number; timestamp?: number; volume?: number;
+          session?: string; interval_ms?: number;
+        };
         if (payload.type === "connected") {
           setLiveStatus("live");
+          if (payload.session) setLiveSession(payload.session);
+          if (payload.interval_ms) setLiveIntervalMs(payload.interval_ms);
           return;
         }
         // 实时 trade 事件：更新最后一根 K 线
         if (payload.price && seriesRef.current) {
           const price = payload.price;
           setLastTickPrice(price);
+          // 更新时段和轮询间隔
+          if (payload.session) setLiveSession(payload.session);
+          if (payload.interval_ms) setLiveIntervalMs(payload.interval_ms);
           const ts = payload.timestamp ?? Date.now();
           // 计算当前 bar 的时间（向下取整到当前 interval）
           const intervalSecs: Record<string, number> = {
@@ -1003,19 +1023,39 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             ))}
           </div>
           {/* 实时状态指示器 */}
-          {isIntraday && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" style={{
-              background: liveStatus === "live" ? "rgba(34,197,94,0.1)" : liveStatus === "connecting" ? "rgba(201,168,76,0.1)" : "rgba(80,80,80,0.08)",
-              border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`,
-              color: liveStatus === "live" ? "#22c55e" : liveStatus === "connecting" ? "#c9a84c" : "rgba(80,80,80,0.7)",
-            }}>
-              <Radio className={`w-2.5 h-2.5 ${liveStatus === "live" ? "animate-pulse" : ""}`} />
-              <span>{liveStatus === "live" ? "LIVE" : liveStatus === "connecting" ? "..." : "OFF"}</span>
-              {liveStatus === "live" && lastTickPrice != null && (
-                <span className="font-bold tabular-nums ml-0.5">{lastTickPrice.toFixed(2)}</span>
-              )}
-            </div>
-          )}
+          {isIntraday && (() => {
+            // 时段标签映射
+            const sessionLabel: Record<string, string> = {
+              trading: "交易中", lunch: "午休",
+              pre_market: "盘前", post_market: "盘后", closed: "休市",
+            };
+            // 轮询频率标签：仅A股有 interval_ms，美股不推送此字段
+            const freqLabel = liveIntervalMs != null
+              ? `${liveIntervalMs >= 1000 ? liveIntervalMs / 1000 + "s" : liveIntervalMs + "ms"}`
+              : null;
+            return (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" style={{
+                background: liveStatus === "live" ? "rgba(34,197,94,0.1)" : liveStatus === "connecting" ? "rgba(201,168,76,0.1)" : "rgba(80,80,80,0.08)",
+                border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`,
+                color: liveStatus === "live" ? "#22c55e" : liveStatus === "connecting" ? "#c9a84c" : "rgba(80,80,80,0.7)",
+              }}>
+                <Radio className={`w-2.5 h-2.5 ${liveStatus === "live" ? "animate-pulse" : ""}`} />
+                <span>{liveStatus === "live" ? "LIVE" : liveStatus === "connecting" ? "..." : "OFF"}</span>
+                {/* 时段标签（仅A股显示） */}
+                {liveStatus === "live" && liveSession && sessionLabel[liveSession] && (
+                  <span className="opacity-70">{sessionLabel[liveSession]}</span>
+                )}
+                {/* 轮询频率 */}
+                {liveStatus === "live" && freqLabel && (
+                  <span className="opacity-60">{freqLabel}</span>
+                )}
+                {/* 实时价格 */}
+                {liveStatus === "live" && lastTickPrice != null && (
+                  <span className="font-bold tabular-nums ml-0.5">{lastTickPrice.toFixed(2)}</span>
+                )}
+              </div>
+            );
+          })()}
           {/* 对比按鈕 */}
           {showCompareInput ? (
             <div className="flex items-center gap-0.5">

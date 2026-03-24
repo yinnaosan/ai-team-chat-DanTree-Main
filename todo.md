@@ -2060,3 +2060,15 @@
 - [x] A股Tick节流：用 setTimeout 替换 setInterval，每次轮询后动态重计算间隔
 - [x] A股Tick节流：向前端发送 session + interval_ms 字段
 - [x] 新增 ashare-throttle.test.ts，19 个测试全部通过
+
+## 2026-03-24 第十二轮功能批次
+
+- [x] LIVE指示器升级：从 SSE payload 读取 session + interval_ms 字段
+- [x] LIVE指示器升级：LIVE徽章旁显示时段标签（交易中/午休/盘前/盘后/休市）
+- [x] LIVE指示器升级：显示当前刷新频率（3s/10s/30s）
+- [x] A股节假日识别：内置2026年A股法定节假日表（春节/清明/五一/端午/中秋/国庆）及调休工作日
+- [x] A股节假日识别：getAShareTradingSession() 在节假日返回 closed
+- [x] 港股实时Tick：新增 server/tickerWsHk.ts，实现 /api/ticker-stream-hk/:symbol SSE路由
+- [x] 港股实时Tick：港股交易时段识别（09:30-12:00 / 13:00-16:00 HKT），内置2026年港股节假日表
+- [x] 港股实时Tick：前端PriceChart识别港股代码格式（00700.HK / 9988.HK / 4-5位数字）
+- [x] 新增 hkshare-session.test.ts，27 个测试全部通过，累计 64 个测试全部通过

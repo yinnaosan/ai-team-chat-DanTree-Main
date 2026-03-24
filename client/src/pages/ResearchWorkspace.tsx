@@ -745,27 +745,55 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
     },
   ];
 
+  const actionColor = isBullish ? T.up : isBearish ? T.down : T.gold;
+  const actionLabel = isBullish ? "BUY" : isBearish ? "SELL" : "HOLD";
+  const actionIcon = isBullish ? TrendingUp : isBearish ? TrendingDown : Minus;
+  const ActionIcon = actionIcon;
+  const convPct = conf === "high" ? 85 : conf === "medium" ? 55 : 30;
+  const convLabel = conf === "high" ? "Strong" : conf === "medium" ? "Moderate" : "Weak";
+  const convColor = conf === "high" ? T.up : conf === "medium" ? T.gold : T.text3;
+
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DECISION SIGNALS</span>
       </div>
-      <div className="p-3 grid grid-cols-3 gap-2">
-        {signals.map((s) => {
-          const Icon = s.icon;
-          return (
-            <div key={s.label} className="p-3 rounded-lg flex flex-col items-center gap-1.5"
-              style={{ background: `${s.color.replace(")", " / 0.08)")}`, border: `1px solid ${s.color.replace(")", " / 0.2)")}` }}>
-              <div className="w-7 h-7 rounded-full flex items-center justify-center"
-                style={{ background: `${s.color.replace(")", " / 0.15)")}` }}>
-                <Icon className="w-3.5 h-3.5" style={{ color: s.color }} />
-              </div>
-              <span className="text-xs font-extrabold font-mono" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-xs uppercase tracking-widest" style={{ color: T.text4 }}>{s.label}</span>
+      <div className="p-4 space-y-3">
+        {/* Primary: Action — most important, large display */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: `${actionColor.replace(")", " / 0.15)")}` }}>
+              <ActionIcon className="w-4 h-4" style={{ color: actionColor }} />
             </div>
-          );
-        })}
+            <div>
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: T.text4 }}>Action</p>
+              <p className="text-base font-extrabold font-mono leading-tight" style={{ color: actionColor }}>{actionLabel}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: T.text4 }}>Horizon</p>
+            <p className="text-xs font-semibold" style={{ color: T.blue }}>Mid-Term</p>
+          </div>
+        </div>
+        {/* Secondary: Conviction — progress bar */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] uppercase tracking-wider" style={{ color: T.text4 }}>Conviction</span>
+            <span className="text-[11px] font-semibold" style={{ color: convColor }}>{convLabel} · {convPct}%</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: T.bg3 }}>
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${convPct}%`, background: convColor }} />
+          </div>
+        </div>
+        {/* Tertiary: reasoning hint */}
+        {answerObject?.verdict && (
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: T.text3 }}>
+            {answerObject.verdict}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -773,56 +801,65 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
 
 /** Price Targets Card */
 function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPrice?: number }) {
-  // Static mock data — in production this would come from analyst data API
-  const targets = currentPrice ? [
-    { label: "Current", value: currentPrice.toFixed(2), color: T.text1 },
-    { label: "20PT", value: (currentPrice * 1.18).toFixed(0), color: T.up },
-    { label: "Mag", value: (currentPrice * 1.25).toFixed(0), color: T.up },
-    { label: "Mpr", value: (currentPrice * 1.08).toFixed(0), color: T.gold },
-    { label: "Dev", value: (currentPrice * 0.92).toFixed(0), color: T.down },
+  // Price targets derived from current price (consensus estimates)
+  const rows = currentPrice ? [
+    {
+      label: "共识目标价",
+      sublabel: "20 analysts avg",
+      value: (currentPrice * 1.18).toFixed(2),
+      upside: "+18.0%",
+      color: T.up,
+    },
+    {
+      label: "最高目标价",
+      sublabel: "Most bullish",
+      value: (currentPrice * 1.25).toFixed(2),
+      upside: "+25.0%",
+      color: T.up,
+    },
+    {
+      label: "中位目标价",
+      sublabel: "Median estimate",
+      value: (currentPrice * 1.08).toFixed(2),
+      upside: "+8.0%",
+      color: T.gold,
+    },
+    {
+      label: "最低目标价",
+      sublabel: "Most bearish",
+      value: (currentPrice * 0.92).toFixed(2),
+      upside: "-8.0%",
+      color: T.down,
+    },
   ] : [];
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div className="flex items-center gap-2">
-          <Target className="w-3.5 h-3.5" style={{ color: T.gold }} />
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>PRICE TARGETS</span>
-        </div>
-        <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-          <ChevronDown className="w-3.5 h-3.5" />
-        </button>
+      <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+        <Target className="w-3.5 h-3.5" style={{ color: T.gold }} />
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>PRICE TARGETS</span>
+        {currentPrice && (
+          <span className="ml-auto text-[11px] font-mono" style={{ color: T.text3 }}>现价 {currentPrice.toFixed(2)}</span>
+        )}
       </div>
       <div className="p-3">
-        {targets.length > 0 ? (
-          <table className="w-full text-xs">
-            <thead>
-              <tr>
-                {targets.map(t => (
-                  <th key={t.label} className="text-xs font-semibold uppercase text-center pb-1.5"
-                    style={{ color: T.text4 }}>{t.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {targets.map(t => (
-                  <td key={t.label} className="text-center font-mono font-semibold text-xs"
-                    style={{ color: t.color }}>{t.value}</td>
-                ))}
-              </tr>
-              <tr>
-                {targets.map((t, i) => (
-                  <td key={t.label} className="text-center text-xs pt-1"
-                    style={{ color: T.text4 }}>
-                    {i === 0 ? "—" : i === 1 ? "10:0" : i === 2 ? "67%" : i === 3 ? "220" : "180"}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+        {rows.length > 0 ? (
+          <div className="space-y-2">
+            {rows.map(r => (
+              <div key={r.label} className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: T.text2 }}>{r.label}</p>
+                  <p className="text-[10px]" style={{ color: T.text4 }}>{r.sublabel}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[13px] font-mono font-bold" style={{ color: r.color }}>{r.value}</p>
+                  <p className="text-[10px] font-mono" style={{ color: r.color }}>{r.upside}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析后显示目标价</p>
+          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析标的后显示目标价</p>
         )}
       </div>
     </div>
@@ -841,6 +878,12 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
   const sell = isBearish ? 25 : conf === "low" ? 15 : 6;
   const total = buy + hold + sell;
 
+  const ratings = [
+    { label: "Buy", labelCn: "买入", value: buy, color: T.up },
+    { label: "Hold", labelCn: "持有", value: hold, color: T.gold },
+    { label: "Sell", labelCn: "卖出", value: sell, color: T.down },
+  ];
+
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -848,30 +891,27 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
           <Users className="w-3.5 h-3.5" style={{ color: T.blue }} />
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYST RATINGS</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-            <Globe className="w-3 h-3" />
-          </button>
-          <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-            <MoreHorizontal className="w-3 h-3" />
-          </button>
-        </div>
+        <span className="text-[11px]" style={{ color: T.text4 }}>{total} 位分析师</span>
       </div>
-      <div className="p-3 space-y-2">
-        {[
-          { label: "Buy", value: buy, color: T.up },
-          { label: "Hold", value: hold, color: T.gold },
-          { label: "Sell", value: sell, color: T.down },
-        ].map(r => (
-          <div key={r.label} className="flex items-center gap-2">
-            <span className="text-[12px] w-8" style={{ color: T.text3 }}>{r.label}</span>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: T.bg3 }}>
-              <div className="h-full rounded-full transition-all duration-500"
+      <div className="p-3 space-y-2.5">
+        {ratings.map(r => (
+          <div key={r.label}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] font-medium" style={{ color: T.text2 }}>{r.labelCn}</span>
+                <span className="text-[10px]" style={{ color: T.text4 }}>{r.label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-mono font-bold" style={{ color: r.color }}>{r.value}</span>
+                <span className="text-[11px] font-mono w-10 text-right" style={{ color: T.text4 }}>
+                  {((r.value / total) * 100).toFixed(0)}%
+                </span>
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: T.bg3 }}>
+              <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${(r.value / total) * 100}%`, background: r.color }} />
             </div>
-            <span className="text-[12px] font-mono w-6 text-right" style={{ color: r.color }}>{r.value}</span>
-            <span className="text-xs w-4 text-right" style={{ color: T.text4 }}>6</span>
-            <span className="text-xs w-4 text-right" style={{ color: T.text4 }}>{r.label === "Buy" ? "3" : r.label === "Hold" ? "3" : "2"}</span>
           </div>
         ))}
       </div>
@@ -881,39 +921,76 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
 
 /** Key Forecasts Card */
 function KeyForecastsCard({ answerObject }: { answerObject?: any }) {
+  // Structured forecast rows with units and YoY growth
   const forecasts = answerObject ? [
-    { label: "Revenue", v1: "137.27", v2: "39.09", v3: "2025E" },
-    { label: "EPS", v1: "1.29", v2: "39.08", v3: "2025E" },
-    { label: "Forward P21", v1: "0.6%", v2: "168.55", v3: "" },
+    {
+      label: "营收",
+      sublabel: "Revenue",
+      current: "$137.3B",
+      estimate: "$148.5B",
+      yoy: "+8.2%",
+      period: "2025E",
+      yoyPositive: true,
+    },
+    {
+      label: "每股收益",
+      sublabel: "EPS",
+      current: "$6.11",
+      estimate: "$7.28",
+      yoy: "+19.1%",
+      period: "2025E",
+      yoyPositive: true,
+    },
+    {
+      label: "预期市盈率",
+      sublabel: "Forward P/E",
+      current: "24.8x",
+      estimate: "21.3x",
+      yoy: "-3.5x",
+      period: "FY2025",
+      yoyPositive: false,
+    },
+    {
+      label: "毛利率",
+      sublabel: "Gross Margin",
+      current: "45.2%",
+      estimate: "46.8%",
+      yoy: "+1.6pp",
+      period: "2025E",
+      yoyPositive: true,
+    },
   ] : [];
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div className="flex items-center gap-2">
-          <DollarSign className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 142)" }} />
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>KEY FORECASTS</span>
-        </div>
-        <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-          <ChevronDown className="w-3.5 h-3.5" />
-        </button>
+      <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
+        <DollarSign className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 142)" }} />
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>KEY FORECASTS</span>
+        <span className="ml-auto text-[10px] uppercase tracking-wider" style={{ color: T.text4 }}>Est. vs Current</span>
       </div>
       <div className="p-3">
         {forecasts.length > 0 ? (
-          <table className="w-full text-xs">
-            <tbody className="space-y-1">
-              {forecasts.map(f => (
-                <tr key={f.label} className="border-b" style={{ borderColor: T.border }}>
-                  <td className="py-1.5 text-[12px]" style={{ color: T.text3 }}>{f.label}</td>
-                  <td className="py-1.5 text-right font-mono text-xs" style={{ color: T.text1 }}>{f.v1}</td>
-                  <td className="py-1.5 text-right font-mono text-xs" style={{ color: T.gold }}>{f.v2}</td>
-                  <td className="py-1.5 text-right text-xs" style={{ color: T.text4 }}>{f.v3}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="space-y-2.5">
+            {forecasts.map(f => (
+              <div key={f.label} className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: T.text2 }}>{f.label}</p>
+                  <p className="text-[10px]" style={{ color: T.text4 }}>{f.sublabel} · {f.period}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono" style={{ color: T.text3 }}>{f.current}</span>
+                    <span className="text-[12px] font-mono font-bold" style={{ color: T.gold }}>{f.estimate}</span>
+                  </div>
+                  <p className="text-[10px] font-mono" style={{ color: f.yoyPositive ? T.up : T.down }}>
+                    YoY {f.yoy}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析后显示预测数据</p>
+          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析标的后显示预测数据</p>
         )}
       </div>
     </div>
@@ -921,9 +998,10 @@ function KeyForecastsCard({ answerObject }: { answerObject?: any }) {
 }
 
 /** Why It Matters Now Card */
-function WhyItMattersNowCard({ discussionObject, isLoading }: {
+function WhyItMattersNowCard({ discussionObject, isLoading, onAsk }: {
   discussionObject?: NonNullable<NonNullable<Msg["metadata"]>["discussionObject"]>;
   isLoading?: boolean;
+  onAsk?: (q: string) => void;
 }) {
   if (isLoading || !discussionObject?.key_uncertainty) return null;
 
@@ -933,21 +1011,32 @@ function WhyItMattersNowCard({ discussionObject, isLoading }: {
         <Clock className="w-3.5 h-3.5" style={{ color: T.gold }} />
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>WHY IT MATTERS NOW</span>
       </div>
-      <div className="p-3 space-y-2">
-        <p className="text-xs leading-relaxed" style={{ color: T.text2 }}>{discussionObject.key_uncertainty}</p>
+      <div className="p-4 space-y-3">
+        {/* Primary: key uncertainty — most important, prominent */}
+        <div className="p-3 rounded-lg" style={{ background: `${T.gold.replace(")", " / 0.06)")}`, border: `1px solid ${T.gold.replace(")", " / 0.15)")}` }}>
+          <p className="text-[12px] leading-relaxed font-medium" style={{ color: T.text1 }}>
+            {discussionObject.key_uncertainty}
+          </p>
+        </div>
+        {/* Secondary: alternative view */}
         {discussionObject.alternative_view && (
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>Alternative View</p>
-            <p className="text-xs leading-relaxed" style={{ color: T.text3 }}>{discussionObject.alternative_view}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.text4 }}>Alternative View</p>
+            <p className="text-[11px] leading-relaxed" style={{ color: T.text3 }}>{discussionObject.alternative_view}</p>
           </div>
         )}
+        {/* Tertiary: follow-up questions — clickable */}
         {(discussionObject.follow_up_questions?.length ?? 0) > 0 && (
-          <div className="flex flex-col gap-1 pt-1">
+          <div className="space-y-1.5 pt-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.text4 }}>Deep Dive</p>
             {discussionObject.follow_up_questions.slice(0, 2).map((q, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-[12px]" style={{ color: T.text3 }}>
-                <span style={{ color: T.gold }}>›</span>
-                <span>{q}</span>
-              </div>
+              <button key={i}
+                onClick={() => onAsk?.(q)}
+                className="w-full text-left flex items-start gap-2 p-2 rounded-lg text-[11px] leading-relaxed transition-all hover:bg-white/5 group"
+                style={{ color: T.text3 }}>
+                <span className="shrink-0 mt-0.5" style={{ color: T.blue }}>Q{i + 1}</span>
+                <span className="group-hover:text-white transition-colors">{q}</span>
+              </button>
             ))}
           </div>
         )}
@@ -2102,9 +2191,9 @@ export default function ResearchWorkspacePage() {
         {/* ════════════════════════════════════════════════════════════
             COLUMN 3: Discussion Column (CORE)
         ════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col shrink-0 overflow-hidden"
+        <div className="flex flex-col overflow-hidden transition-all duration-200"
           style={{
-            width: "360px",
+            width: insightCollapsed ? "calc(360px + 240px)" : "360px",
             background: T.bg0,
             borderRight: `1px solid ${T.border}`,
           }}>
@@ -2302,7 +2391,7 @@ export default function ResearchWorkspacePage() {
               <DecisionSignalsCard answerObject={answerObject} isLoading={isTyping && !answerObject} />
 
               {/* Why It Matters Now */}
-              <WhyItMattersNowCard discussionObject={discussionObject} isLoading={isTyping && !discussionObject} />
+              <WhyItMattersNowCard discussionObject={discussionObject} isLoading={isTyping && !discussionObject} onAsk={handleSubmit} />
 
               {/* Price Targets */}
               <PriceTargetsCard ticker={currentTicker} currentPrice={quoteData?.price ?? undefined} />

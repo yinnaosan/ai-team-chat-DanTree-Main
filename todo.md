@@ -2320,3 +2320,12 @@
 - [x] 日内图表scrollToRealTime修复 - 已实现- [x] 折线图/面积图 annotations增强：趋势方向图标（↑↓）+ 涨跌幅百分比 + 最高/最低点标注
 - [x] 全屏模式「查看数据表」按鈕：标题栏图表/表格切换，支持所有 line/area/bar/scatter 图表
 - [x] 多图表联动：同一回复中多个图表共享 activeXLabel，鼠标悬停时高亮其他图表对应时间点（ChatRoom + ResearchWorkspace）
+
+## 第三十五轮：Insights 面板全面重设计
+- [x] 重设计 Decision Signals 区块：大字 Action 徽章 + 置信度进度条 + 时间维度标签
+- [x] 重设计 Why It Matters Now：主观点大字显示，Alternative View 降级，问题列表可点击发送到聊天区
+- [x] 重设计 Price Targets：清晰列标题（共识目标价/最高/中位/最低）+ 涨幅%
+- [x] 重设计 Analyst Ratings：正确比例进度条 + 百分比 + 移除无意义数字列
+- [x] 重设计 Key Forecasts：加入单位、YoY 增长率、颜色语义、含义说明
+- [x] 折叠 Insights 面板时，聊天区自动扩展（宽度从 360px 增加到 600px）
+- [x] 整体排版：统一间距、字体大小层级、颜色语义（绿=正面/上涨，红=负面/下跌，黄=中性/注意）

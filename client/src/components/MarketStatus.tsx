@@ -9,7 +9,8 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import { Clock } from "lucide-react";
+import { Clock, CalendarOff } from "lucide-react";
+import { getHoliday, type MarketHolidayKey } from "@/lib/marketHolidays";
 
 // ─── 市场定义 ──────────────────────────────────────────────────────────────────
 export type MarketType = "us" | "cn" | "hk" | "crypto" | "uk" | "eu";
@@ -105,6 +106,14 @@ export interface MarketStatusInfo {
   nextEvent: string;
   market: MarketSession;
   marketType: MarketType;
+  /** 节假日名称（如果今天是节假日） */
+  holidayName?: string;
+}
+
+/** 将 MarketType 映射到 MarketHolidayKey（crypto 无节假日） */
+function toHolidayKey(marketType: MarketType): MarketHolidayKey | null {
+  if (marketType === "crypto") return null;
+  return marketType as MarketHolidayKey;
 }
 
 /** 根据当前 UTC 时间判断市场状态 */
@@ -123,6 +132,24 @@ export function getMarketStatus(marketType: MarketType): MarketStatusInfo {
       market,
       marketType,
     };
+  }
+
+  // 节假日检测
+  const holidayKey = toHolidayKey(marketType);
+  if (holidayKey) {
+    const holiday = getHoliday(holidayKey, now);
+    if (holiday) {
+      // 计算到明天开盘的时间
+      const secsToTomorrow = (24 * 60 - utcMin) * 60 - now.getUTCSeconds();
+      return {
+        status: "closed",
+        secondsToNext: Math.max(0, secsToTomorrow),
+        nextEvent: "节后开盘",
+        market,
+        marketType,
+        holidayName: holiday.name,
+      };
+    }
   }
 
   const isWeekday = market.tradingDays.includes(dayOfWeek);
@@ -345,17 +372,29 @@ export function MarketStatusBadge({
         border: `1px solid ${cfg.border}`,
         color: cfg.color,
       }}
-      title={`${info.market.name} · ${cfg.label} · 距${info.nextEvent}: ${formatCountdown(info.secondsToNext)}`}
+      title={info.holidayName
+        ? `${info.market.name} · 节假日: ${info.holidayName}`
+        : `${info.market.name} · ${cfg.label} · 距${info.nextEvent}: ${formatCountdown(info.secondsToNext)}`
+      }
     >
-      {/* 状态指示点 */}
-      <span
-        className={`inline-block rounded-full ${isSmall ? "w-1 h-1" : "w-1.5 h-1.5"} ${cfg.pulse ? "animate-pulse" : ""}`}
-        style={{ background: cfg.color, flexShrink: 0 }}
-      />
+      {/* 节假日图标 or 状态指示点 */}
+      {info.holidayName ? (
+        <CalendarOff className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} style={{ color: cfg.color, flexShrink: 0 }} />
+      ) : (
+        <span
+          className={`inline-block rounded-full ${isSmall ? "w-1 h-1" : "w-1.5 h-1.5"} ${cfg.pulse ? "animate-pulse" : ""}`}
+          style={{ background: cfg.color, flexShrink: 0 }}
+        />
+      )}
       {/* 状态标签 */}
-      <span className="font-bold tracking-wider">{cfg.label}</span>
-      {/* 倒计时 */}
-      {showCountdown && info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 4 * 3600 && (
+      <span className="font-bold tracking-wider">
+        {info.holidayName ? "HOLIDAY" : cfg.label}
+      </span>
+      {/* 节假日名称 or 倒计时 */}
+      {info.holidayName && !isSmall && (
+        <span className="opacity-70 ml-0.5 max-w-[80px] truncate">{info.holidayName}</span>
+      )}
+      {!info.holidayName && showCountdown && info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 4 * 3600 && (
         <span className="opacity-70 ml-0.5">{formatCountdown(info.secondsToNext)}</span>
       )}
     </div>

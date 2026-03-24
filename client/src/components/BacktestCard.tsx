@@ -137,7 +137,8 @@ const PERIOD_LABELS: Record<string, string> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function fmtPct(v: number) {
+function fmtPct(v: number | null | undefined) {
+  if (v == null || !isFinite(v)) return "N/A";
   const sign = v >= 0 ? "+" : "";
   return `${sign}${v.toFixed(2)}%`;
 }
@@ -163,7 +164,7 @@ function MetricBadge({
     <div className="flex flex-col items-center p-2 rounded-lg bg-muted/30 min-w-[80px]">
       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
       <span className={`text-sm font-bold ${color}`}>
-        {value.toFixed(2)}{unit}
+        {(value != null && isFinite(value)) ? value.toFixed(2) : "N/A"}{unit}
       </span>
     </div>
   );

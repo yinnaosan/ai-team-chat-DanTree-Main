@@ -1985,3 +1985,12 @@
 - [x] 任务D：临近开收盘30min/15min弹窗提醒+ticker旁倒计时+节假日熔断提示
 - [x] 任务E：右上角全球主要市场开收盘状态悬浮面板（A股/港股/英股/美股/欧股）
 - [x] 任务A：品牌重定义落地页（DanTree Terminal·重新定义的AI版本，黑底网格+金色标题+交互机器人+全球市场面板）
+
+## 2026-03-24 第三轮升级批次
+
+- [x] 节假日/休市日历：在 MarketStatus 组件中集成美股/A股/港股/英股/欧股节假日数据库，节假日显示 HOLIDAY 状态
+- [x] 模拟交易一键下单：在 AIVerdictCard 添加「模拟买入/卖出」按钮，接入 Alpaca Paper Trading API
+- [x] 模拟交易后端：新增 trade.placeOrder / trade.getPositions / trade.getOrders tRPC procedure（已在 alpaca router 内实现）
+- [x] 模拟交易前端：下单确认弹窗（显示标的/方向/数量/预估金额），下单成功 toast 提示
+- [x] 修复 Error 1：lightweight-charts "Object is disposed" — 图表组件 cleanup 时序问题
+- [x] 修复 Error 2：MetricBadge toFixed undefined — 数值未做空值保护

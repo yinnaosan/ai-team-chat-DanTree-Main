@@ -217,6 +217,9 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
   ticker?: string;
   quoteData?: any;
 }) {
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [tradeSide, setTradeSide] = useState<"buy" | "sell">("buy");
+
   if (isLoading) {
     return (
       <div className="rounded-xl p-4 space-y-3 animate-pulse" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
@@ -323,9 +326,63 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                 ))}
               </div>
             </div>
+
+            {/* One-click Trade Buttons */}
+            {ticker && (
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={() => { setTradeSide("buy"); setShowTradeModal(true); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
+                  style={{
+                    background: isBullish ? "oklch(0.65 0.22 25 / 0.25)" : "oklch(0.65 0.22 25 / 0.08)",
+                    color: T.up,
+                    border: `1px solid ${isBullish ? T.up : "oklch(0.65 0.22 25 / 0.3)"}`,
+                    boxShadow: isBullish ? `0 0 12px oklch(0.65 0.22 25 / 0.2)` : undefined,
+                  }}>
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  买入 BUY
+                  {isBullish && (
+                    <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
+                      style={{ background: "oklch(0.65 0.22 25 / 0.2)", color: T.up }}>
+                      AI推荐
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setTradeSide("sell"); setShowTradeModal(true); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
+                  style={{
+                    background: isBearish ? "oklch(0.65 0.22 145 / 0.25)" : "oklch(0.65 0.22 145 / 0.08)",
+                    color: T.down,
+                    border: `1px solid ${isBearish ? T.down : "oklch(0.65 0.22 145 / 0.3)"}`,
+                    boxShadow: isBearish ? `0 0 12px oklch(0.65 0.22 145 / 0.2)` : undefined,
+                  }}>
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  卖出 SELL
+                  {isBearish && (
+                    <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
+                      style={{ background: "oklch(0.65 0.22 145 / 0.2)", color: T.down }}>
+                      AI推荐
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {/* Trade Modal */}
+      {ticker && (
+        <TradeModal
+          open={showTradeModal}
+          onClose={() => setShowTradeModal(false)}
+          ticker={ticker}
+          price={quoteData?.price ?? undefined}
+          verdict={answerObject?.verdict}
+          defaultSide={tradeSide}
+        />
+      )}
     </div>
   );
 }
@@ -735,14 +792,20 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
 }
 
 /** One-Click Trade Modal */
-function TradeModal({ open, onClose, ticker, price, verdict }: {
+function TradeModal({ open, onClose, ticker, price, verdict, defaultSide }: {
   open: boolean;
   onClose: () => void;
   ticker: string;
   price?: number;
   verdict?: string;
+  defaultSide?: "buy" | "sell";
 }) {
-  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [side, setSide] = useState<"buy" | "sell">(defaultSide ?? "buy");
+
+  // Sync side when defaultSide changes (e.g. user clicks BUY vs SELL button)
+  useEffect(() => {
+    if (defaultSide) setSide(defaultSide);
+  }, [defaultSide, open]);
   const [qty, setQty] = useState("10");
   const [confirmed, setConfirmed] = useState(false);
 

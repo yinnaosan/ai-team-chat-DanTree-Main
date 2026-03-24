@@ -69,13 +69,18 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
           style={{ background: style.dot }}
         />
         <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: style.text }}>
-          {style.label}
+          {info.holidayName ? "节假日" : style.label}
         </span>
-        {countdown && (
+        {info.holidayName ? (
+          <span className="text-[10px] font-mono opacity-60 max-w-[72px] truncate" style={{ color: style.text }}
+            title={info.holidayName}>
+            {info.holidayName}
+          </span>
+        ) : countdown ? (
           <span className="text-[10px] font-mono opacity-60" style={{ color: style.text }}>
             {info.nextEvent === "收盘" ? "-" : "+"}{countdown}
           </span>
-        )}
+        ) : null}
       </div>
     </div>
   );

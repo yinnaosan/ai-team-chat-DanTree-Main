@@ -252,11 +252,14 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       }
     });
 
+    let disposed = false;
     const ro = new ResizeObserver(() => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
+      if (!disposed && containerRef.current) {
+        try { chart.applyOptions({ width: containerRef.current.clientWidth }); } catch {}
+      }
     });
     ro.observe(containerRef.current);
-    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; };
+    return () => { disposed = true; ro.disconnect(); try { chart.remove(); } catch {} chartRef.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -364,11 +367,14 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     subChartRef.current = chart;
     subSeriesRef.current.clear();
 
+    let subDisposed = false;
     const ro = new ResizeObserver(() => {
-      if (subContainerRef.current) chart.applyOptions({ width: subContainerRef.current.clientWidth });
+      if (!subDisposed && subContainerRef.current) {
+        try { chart.applyOptions({ width: subContainerRef.current.clientWidth }); } catch {}
+      }
     });
     ro.observe(subContainerRef.current);
-    return () => { ro.disconnect(); if (subChartRef.current) { subChartRef.current.remove(); subChartRef.current = null; } };
+    return () => { subDisposed = true; ro.disconnect(); if (subChartRef.current) { try { subChartRef.current.remove(); } catch {} subChartRef.current = null; } };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSubChart]);
 

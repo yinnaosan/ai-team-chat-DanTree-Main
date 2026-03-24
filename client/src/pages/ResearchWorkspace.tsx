@@ -223,19 +223,27 @@ function ResearchHeader({ ticker, quoteData, answerObject, onSelectTicker, onTra
 }
 
 /** AI Verdict Card */
-function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, ticker, quoteData }: {
+function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, ticker, quoteData, resetKey }: {
   answerObject?: NonNullable<NonNullable<Msg["metadata"]>["answerObject"]>;
   outputMode?: string;
   evidenceScore?: number;
   isLoading?: boolean;
   ticker?: string;
   quoteData?: any;
+  resetKey?: string | number; // 切换股票或新分析时传入新key，自动重置展开状态
 }) {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeSide, setTradeSide] = useState<"buy" | "sell">("buy");
   const [bullExpanded, setBullExpanded] = useState(false);
   const [bearExpanded, setBearExpanded] = useState(false);
   const [riskExpanded, setRiskExpanded] = useState(false);
+
+  // 当 resetKey 变化时自动重置所有展开状态
+  useEffect(() => {
+    setBullExpanded(false);
+    setBearExpanded(false);
+    setRiskExpanded(false);
+  }, [resetKey]);
 
   if (isLoading) {
     return (
@@ -576,29 +584,44 @@ function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice, alertSound
   );
 }
 
-/** Risk Panel */
+/** Risk Panel — 支持 reason 展开 Popover */
 function RiskPanel({ risks, isLoading }: {
-  risks?: Array<{ description: string; magnitude?: "high" | "medium" | "low" }>;
+  risks?: Array<{ description: string; reason?: string; magnitude?: "high" | "medium" | "low" }>;
   isLoading?: boolean;
 }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 点击面板外自动收起
+  useEffect(() => {
+    if (openIdx === null) return;
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpenIdx(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openIdx]);
+
   if (isLoading) {
     return (
       <div className="rounded-xl p-4 space-y-2 animate-pulse" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
         <div className="h-4 rounded w-20" style={{ background: T.bg3 }} />
-        {[0, 1].map(i => <div key={i} className="h-8 rounded" style={{ background: T.bg3 }} />)}
+        {[0, 1, 2].map(i => <div key={i} className="h-10 rounded" style={{ background: T.bg3 }} />)}
       </div>
     );
   }
   if (!risks || risks.length === 0) return null;
 
   const magMap = {
-    high: { color: T.up, bg: "oklch(0.65 0.22 25 / 0.08)", border: "oklch(0.65 0.22 25 / 0.25)", label: "HIGH" },
-    medium: { color: T.gold, bg: "oklch(0.72 0.18 75 / 0.08)", border: "oklch(0.72 0.18 75 / 0.25)", label: "MED" },
-    low: { color: T.blue, bg: "oklch(0.65 0.18 250 / 0.08)", border: "oklch(0.65 0.18 250 / 0.25)", label: "LOW" },
+    high: { color: T.up, bg: "oklch(0.65 0.22 25 / 0.08)", border: "oklch(0.65 0.22 25 / 0.25)", label: "HIGH", activeBg: "oklch(0.65 0.22 25 / 0.14)" },
+    medium: { color: T.gold, bg: "oklch(0.72 0.18 75 / 0.08)", border: "oklch(0.72 0.18 75 / 0.25)", label: "MED", activeBg: "oklch(0.72 0.18 75 / 0.14)" },
+    low: { color: T.blue, bg: "oklch(0.65 0.18 250 / 0.08)", border: "oklch(0.65 0.18 250 / 0.25)", label: "LOW", activeBg: "oklch(0.65 0.18 250 / 0.14)" },
   };
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
+    <div ref={panelRef} className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <AlertTriangle className="w-3.5 h-3.5" style={{ color: T.up }} />
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>RISK PANEL</span>
@@ -608,16 +631,69 @@ function RiskPanel({ risks, isLoading }: {
         </span>
       </div>
       <div className="p-3 space-y-2">
-        {risks.slice(0, 4).map((r, i) => {
+        {risks.map((r, i) => {
           const mag = magMap[r.magnitude ?? "medium"];
+          const isOpen = openIdx === i;
+          const hasReason = !!r.reason;
           return (
-            <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg"
-              style={{ background: mag.bg, border: `1px solid ${mag.border}` }}>
-              <span className="text-xs font-mono font-bold px-1 py-0.5 rounded shrink-0 mt-0.5"
-                style={{ background: `${mag.color.replace(")", " / 0.2)")}`, color: mag.color }}>
-                {mag.label}
-              </span>
-              <p className="text-xs leading-relaxed" style={{ color: T.text2 }}>{r.description}</p>
+            <div key={i}>
+              {/* 风险主行 */}
+              <div
+                className="flex items-start gap-2 p-2.5 rounded-lg transition-colors"
+                style={{
+                  background: isOpen ? mag.activeBg : mag.bg,
+                  border: `1px solid ${isOpen ? mag.color.replace(")", " / 0.5)") : mag.border}`,
+                  borderBottomLeftRadius: isOpen ? 0 : undefined,
+                  borderBottomRightRadius: isOpen ? 0 : undefined,
+                  borderBottom: isOpen ? "none" : undefined,
+                }}>
+                <span className="text-xs font-mono font-bold px-1 py-0.5 rounded shrink-0 mt-0.5"
+                  style={{ background: `${mag.color.replace(")", " / 0.2)")}`, color: mag.color }}>
+                  {mag.label}
+                </span>
+                <p className="text-xs leading-relaxed flex-1" style={{ color: T.text2 }}>{r.description}</p>
+                {/* 展开按鈕：仅当 reason 存在时显示 */}
+                {hasReason && (
+                  <button
+                    onClick={() => setOpenIdx(isOpen ? null : i)}
+                    className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ml-1"
+                    style={{
+                      background: isOpen ? mag.color.replace(")", " / 0.2)") : "rgba(255,255,255,0.06)",
+                      color: isOpen ? mag.color : T.text4,
+                      border: `1px solid ${isOpen ? mag.color.replace(")", " / 0.4)") : "rgba(255,255,255,0.08)"}`,
+                    }}
+                    title="查看详细分析"
+                  >
+                    {isOpen ? (
+                      <><ChevronUp className="w-3 h-3" />收起</>
+                    ) : (
+                      <><ChevronDown className="w-3 h-3" />详情</>
+                    )}
+                  </button>
+                )}
+              </div>
+              {/* 展开的详细原因区域 */}
+              {isOpen && hasReason && (
+                <div
+                  className="px-3 py-2.5 text-xs leading-relaxed"
+                  style={{
+                    background: mag.activeBg,
+                    border: `1px solid ${mag.color.replace(")", " / 0.4)")}`,
+                    borderTop: `1px solid ${mag.color.replace(")", " / 0.15)")}`,
+                    borderTopLeftRadius: 0,
+                    borderTopRightRadius: 0,
+                    borderBottomLeftRadius: 8,
+                    borderBottomRightRadius: 8,
+                    color: T.text2,
+                  }}
+                >
+                  <div className="flex items-center gap-1 mb-1.5">
+                    <AlertTriangle className="w-3 h-3 shrink-0" style={{ color: mag.color }} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: mag.color }}>详细分析</span>
+                  </div>
+                  {r.reason}
+                </div>
+              )}
             </div>
           );
         })}
@@ -1908,6 +1984,7 @@ export default function ResearchWorkspacePage() {
               isLoading={isTyping && !answerObject}
               ticker={currentTicker}
               quoteData={quoteData}
+              resetKey={`${currentTicker}-${activeConvId ?? ""}-${convMessages.length}`}
             />
 
             {/* Main Chart */}

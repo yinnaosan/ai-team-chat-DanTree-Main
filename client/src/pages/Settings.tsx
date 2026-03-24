@@ -993,32 +993,47 @@ export default function Settings() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-5 py-8">
-        {/* 标签页导航 — Apple 分段控制器风格 */}
-        <div className="flex gap-0 mb-6 p-0"
-          style={{ borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
-          {tabs.map(({ id, label, icon: Icon, badge }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-all"
-              style={{
-                background: "transparent",
-                color: activeTab === id ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)",
-                borderBottom: activeTab === id ? "2px solid var(--bloomberg-gold)" : "2px solid transparent",
-                marginBottom: "-1px",
-              }}>
-              <Icon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{label}</span>
-              {badge && (
-                <span className="bloomberg-badge green ml-1">{badge}</span>
-              )}
-              {(tabs.find(t => t.id === id) as any)?.ownerOnly && (
-                <span className="bloomberg-badge gold ml-1">Owner</span>
-              )}
-            </button>
-          ))}
-        </div>
+      {/* 主体：左侧导航 + 右侧内容 */}
+      <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
+        {/* 左侧垂直导航栏 */}
+        <nav className="w-48 shrink-0 flex flex-col py-4 px-3 overflow-y-auto"
+          style={{ background: "oklch(7% 0.01 240)", borderRight: "1px solid var(--bloomberg-border-dim)" }}>
+          <div className="space-y-0.5">
+            {tabs.map(({ id, label, icon: Icon, badge, ownerOnly }) => {
+              const isActive = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all"
+                  style={{
+                    background: isActive ? "oklch(0.72 0.18 75 / 0.12)" : "transparent",
+                    color: isActive ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)",
+                    border: isActive ? "1px solid oklch(0.72 0.18 75 / 0.2)" : "1px solid transparent",
+                  }}>
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-xs font-medium truncate">{label}</span>
+                  {badge && (
+                    <span className="ml-auto bloomberg-badge green text-[9px] px-1">{badge}</span>
+                  )}
+                  {ownerOnly && (
+                    <span className="ml-auto bloomberg-badge gold text-[9px] px-1">Owner</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {/* 底部版本信息 */}
+          <div className="mt-auto pt-4 px-1">
+            <div className="text-[10px] leading-relaxed" style={{ color: "oklch(35% 0 0)" }}>
+              <div className="font-medium mb-0.5" style={{ color: "oklch(45% 0 0)" }}>AI Team Chat</div>
+              <div>Bloomberg Terminal</div>
+            </div>
+          </div>
+        </nav>
+        {/* 右侧内容区 */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-6 py-6">
 
         {/* ── Tab: ChatGPT API 配置 ── */}
         {activeTab === "api" && (
@@ -2257,6 +2272,8 @@ export default function Settings() {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2914,3 +2931,4 @@ function HolidaySyncPanel() {
     </div>
   );
 }
+

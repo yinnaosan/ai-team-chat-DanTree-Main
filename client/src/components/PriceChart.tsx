@@ -215,12 +215,14 @@ function makeTickMarkFormatter(interval: Interval) {
  * 十字线时间格式化
  */
 function makeTimeFormatter(interval: Interval) {
-  return (t: Date): string => {
-    const yy = t.getUTCFullYear();
-    const mm = String(t.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(t.getUTCDate()).padStart(2, "0");
-    const hh = String(t.getUTCHours()).padStart(2, "0");
-    const mi = String(t.getUTCMinutes()).padStart(2, "0");
+  return (t: Date | number): string => {
+    // lightweight-charts v4+ passes Unix timestamp (seconds) instead of Date
+    const d: Date = typeof t === "number" ? new Date(t * 1000) : t;
+    const yy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mi = String(d.getUTCMinutes()).padStart(2, "0");
     const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
     if (isIntraday) return `${yy}/${mm}/${dd} ${hh}:${mi}`;
     if (interval === "1month") return `${yy}/${mm}`;

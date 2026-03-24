@@ -791,18 +791,42 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           }} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
           {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
-          {seriesList.map((s, i) => (
-            <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
-              fill={s.color || colors[i % colors.length]} radius={[4, 4, 0, 0]} opacity={0.9}>
-              {data.length <= 16 && <LabelList dataKey={s.key} position="top" style={{ fill: "#b0c0e0", fontSize: 11, fontWeight: 600 }}
-                formatter={(v: unknown) => {
-                  const n = Number(v);
-                  if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿`;
-                  if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万`;
-                  return `${n}${unit}`;
-                }} />}
-            </Bar>
-          ))}
+          {seriesList.map((s, i) => {
+            const baseColor = s.color || colors[i % colors.length];
+            // 多系列时每个系列用不同颜色；单系列时根据数值正负着色
+            const useCellColor = seriesList.length === 1;
+            return (
+              <Bar key={s.key} dataKey={s.key} name={s.name || s.key}
+                fill={baseColor} radius={[5, 5, 0, 0] as [number, number, number, number]} opacity={0.92}>
+                {/* 单系列时：正值绿色，负值红色，最大值金色高亮 */}
+                {useCellColor && data.map((entry, idx) => {
+                  const v = Number((entry as Record<string, unknown>)[s.key]);
+                  const allVals = data.map(d => Number((d as Record<string, unknown>)[s.key]));
+                  const maxVal = Math.max(...allVals);
+                  const isMax = v === maxVal && allVals.filter(x => x === maxVal).length === 1;
+                  const cellColor = isMax ? "#f59e0b" : v < 0 ? "#ef4444" : baseColor;
+                  return <Cell key={idx} fill={cellColor} opacity={isMax ? 1 : 0.88} />;
+                })}
+                {/* 多系列时渐变色 */}
+                {!useCellColor && (
+                  <defs>
+                    <linearGradient id={`bar-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={baseColor} stopOpacity={1} />
+                      <stop offset="100%" stopColor={baseColor} stopOpacity={0.65} />
+                    </linearGradient>
+                  </defs>
+                )}
+                {data.length <= 20 && <LabelList dataKey={s.key} position="top"
+                  style={{ fill: "#c8d8f0", fontSize: 12, fontWeight: 700 }}
+                  formatter={(v: unknown) => {
+                    const n = Number(v);
+                    if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿`;
+                    if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万`;
+                    return `${n}${unit}`;
+                  }} />}
+              </Bar>
+            );
+          })}
         </BarChart>
       ) : type === "area" ? (
         <AreaChart data={data} margin={{ top: 20, right: 16, bottom: 4, left: 4 }}>
@@ -851,7 +875,18 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           })}
         </AreaChart>
       ) : (
-        <LineChart data={data} margin={{ top: 20, right: 16, bottom: 4, left: 4 }}>
+        <LineChart data={data} margin={{ top: 24, right: 20, bottom: 4, left: 4 }}>
+          <defs>
+            {seriesList.map((s, i) => {
+              const c = s.color || colors[i % colors.length];
+              return (
+                <linearGradient key={s.key} id={`line-grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={c} stopOpacity={0.18} />
+                  <stop offset="95%" stopColor={c} stopOpacity={0.01} />
+                </linearGradient>
+              );
+            })}
+          </defs>
           <CartesianGrid {...gridStyle} />
           <XAxis dataKey={xKey} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v: number) => {
@@ -866,21 +901,63 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
             return [fmt, ""];
           }} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
+          {/* 自动添加均值参考线（单系列时） */}
+          {seriesList.length === 1 && (() => {
+            const vals = data.map(d => Number((d as Record<string, unknown>)[seriesList[0].key])).filter(v => !isNaN(v));
+            if (vals.length < 3) return null;
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            const fmtAvg = Math.abs(avg) >= 1e8 ? `均值 ${(avg/1e8).toFixed(1)}亿` :
+              Math.abs(avg) >= 1e4 ? `均值 ${(avg/1e4).toFixed(1)}万` : `均值 ${avg.toFixed(1)}${unit}`;
+            return <ReferenceLine y={avg} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.5}
+              label={{ value: fmtAvg, fill: "#f59e0b", fontSize: 11, position: "insideTopRight" }} />;
+          })()}
           {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
-          {seriesList.map((s, i) => (
-            <Line key={s.key} type="monotone" dataKey={s.key} name={s.name || s.key}
-              stroke={s.color || colors[i % colors.length]} strokeWidth={3}
-              dot={showDots ? { r: 4.5, fill: s.color || colors[i % colors.length], strokeWidth: 2, stroke: "#141418" } : false}
-              activeDot={{ r: 6, strokeWidth: 2, stroke: "#141418" }}>
-              {showDots && <LabelList dataKey={s.key} position="top" style={{ fill: "#b0c0e0", fontSize: 11, fontWeight: 600 }}
-                formatter={(v: unknown) => {
-                  const n = Number(v);
-                  if (Math.abs(n) >= 1e8) return `${(n/1e8).toFixed(1)}亿`;
-                  if (Math.abs(n) >= 1e4) return `${(n/1e4).toFixed(1)}万`;
-                  return `${n}${unit}`;
-                }} />}
-            </Line>
-          ))}
+          {seriesList.map((s, i) => {
+            const c = s.color || colors[i % colors.length];
+            // 计算最高最低点索引（单系列时标注）
+            const vals = seriesList.length === 1
+              ? data.map(d => Number((d as Record<string, unknown>)[s.key]))
+              : [];
+            const maxIdx = vals.length > 0 ? vals.indexOf(Math.max(...vals)) : -1;
+            const minIdx = vals.length > 0 ? vals.indexOf(Math.min(...vals)) : -1;
+            return (
+              <Line key={s.key} dataKey={s.key} name={s.name || s.key}
+                stroke={c} strokeWidth={3} type="monotone"
+                dot={(props: { index?: number; cx?: number; cy?: number }) => {
+                  const { index, cx, cy } = props;
+                  if (index === maxIdx || index === minIdx) {
+                    return <circle key={index} cx={cx} cy={cy} r={5}
+                      fill={index === maxIdx ? "#22c55e" : "#ef4444"}
+                      stroke="#141418" strokeWidth={2} />;
+                  }
+                  if (showDots) {
+                    return <circle key={index} cx={cx} cy={cy} r={3.5}
+                      fill={c} stroke="#141418" strokeWidth={1.5} />;
+                  }
+                  return <g key={index} />;
+                }}
+                activeDot={{ r: 6, strokeWidth: 2, stroke: "#141418" }}>
+                <LabelList dataKey={s.key} position="top"
+                  content={(props: { index?: number; x?: string | number; y?: string | number; value?: unknown }) => {
+                    const { index, value } = props;
+                    const x = typeof props.x === 'number' ? props.x : Number(props.x ?? 0);
+                    const y = typeof props.y === 'number' ? props.y : Number(props.y ?? 0);
+                    if (index !== maxIdx && index !== minIdx) return null;
+                    const n = Number(value);
+                    const label = Math.abs(n) >= 1e8 ? `${(n/1e8).toFixed(1)}亿` :
+                      Math.abs(n) >= 1e4 ? `${(n/1e4).toFixed(1)}万` : `${n}${unit}`;
+                    const color = index === maxIdx ? "#22c55e" : "#ef4444";
+                    const tag = index === maxIdx ? "最高" : "最低";
+                    return (
+                      <text x={x} y={(y ?? 0) - 8} textAnchor="middle"
+                        fill={color} fontSize={11} fontWeight={700}>
+                        {tag} {label}
+                      </text>
+                    );
+                  }} />
+              </Line>
+            );
+          })}
         </LineChart>
       )}
     </ResponsiveContainer>
@@ -1037,12 +1114,12 @@ export function InlineChart({ raw }: InlineChartProps) {
         </div>
       )}
 
-      {/* 全屏遮罩 */}
+      {/* 全屏遮罩 - 点击关闭，不遮挡图表本身 */}
       {expanded && (
         <div
-          className="fixed inset-0 bg-black/60 -z-10"
+          className="fixed inset-0"
           onClick={() => setExpanded(false)}
-          style={{ zIndex: 9998 }}
+          style={{ zIndex: 9997, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(2px)" }}
         />
       )}
     </div>

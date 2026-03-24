@@ -3818,7 +3818,11 @@ export const appRouter = router({
           });
           if (data?.values && Array.isArray(data.values) && data.values.length > 0) {
             const candles = [...data.values].reverse().map((v: any) => ({
-              time: v.datetime.length > 10 ? v.datetime.substring(0, 10) : v.datetime,
+              // TwelveData datetime: "2024-01-15 09:30:00" (intraday) or "2024-01-15" (daily)
+              // For intraday, convert to Unix seconds so lightweight-charts handles time axis correctly
+              time: (v.datetime.length > 10 && ["1min","5min","15min","30min","1h","4h"].includes(input.interval))
+                ? Math.floor(new Date(v.datetime.replace(" ", "T") + "Z").getTime() / 1000)
+                : v.datetime.substring(0, 10),
               open: parseFloat(v.open),
               high: parseFloat(v.high),
               low: parseFloat(v.low),
@@ -3913,10 +3917,12 @@ export const appRouter = router({
             const timestamps: number[] = result?.timestamp ?? [];
             const ohlcv = result?.indicators?.quote?.[0];
             if (timestamps.length > 0 && ohlcv) {
+              const isIntradayYahoo = ["1min","5min","15min","30min","1h","4h"].includes(input.interval);
               const candles = timestamps
                 .slice(-input.outputsize)
                 .map((ts: number, i: number) => ({
-                  time: new Date(ts * 1000).toISOString().split("T")[0],
+                  // For intraday, keep Unix seconds; for daily+, use date string
+                  time: isIntradayYahoo ? ts : new Date(ts * 1000).toISOString().split("T")[0],
                   open: ohlcv.open?.[i] ?? 0,
                   high: ohlcv.high?.[i] ?? 0,
                   low: ohlcv.low?.[i] ?? 0,

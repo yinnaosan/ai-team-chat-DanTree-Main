@@ -1,4 +1,24 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+/**
+ * PriceChart — 券商平台标准 K 线图
+ * 参照富途牛牛 / 东方财富 / 同花顺布局规范
+ *
+ * 时间轴规则（与 lightweight-charts tickMarkFormatter 对齐）：
+ *   - 月K / 周K：YYYY/MM
+ *   - 日K：MM/DD（跨年时 YYYY/MM/DD）
+ *   - 分钟K：HH:MM（日期变化时显示 MM/DD）
+ *
+ * 休盘处理：后端返回 Unix 时间戳（秒），前端直接交给 lightweight-charts
+ * 的 `tickMarkFormatter`；非交易时段的 gap 由 lightweight-charts 自动跳过
+ * （因为数据本身就没有那些时间点）。
+ */
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -7,6 +27,7 @@ import {
   HistogramSeries,
   ColorType,
   CrosshairMode,
+  TickMarkType,
   type IChartApi,
   type ISeriesApi,
   type Time,
@@ -14,47 +35,55 @@ import {
   type HistogramData,
 } from "lightweight-charts";
 import { trpc } from "@/lib/trpc";
-import { BarChart2, TrendingUp, Activity, RefreshCw, Maximize2, Minimize2, Settings2 } from "lucide-react";
+import {
+  BarChart2,
+  TrendingUp,
+  Activity,
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+  Settings2,
+} from "lucide-react";
 
-// ── 时间周期配置 ──────────────────────────────────────────────────────────────
-type Interval = "1min" | "5min" | "15min" | "30min" | "1h" | "4h" | "1day" | "1week" | "1month";
+// ─────────────────────────────────────────────────────────────────────────────
+// 类型 & 常量
+// ─────────────────────────────────────────────────────────────────────────────
+type Interval =
+  | "1min" | "5min" | "15min" | "30min"
+  | "1h"   | "4h"
+  | "1day" | "1week" | "1month";
 
 const INTERVALS: { label: string; value: Interval; outputsize: number }[] = [
-  { label: "5日",  value: "1min",   outputsize: 390 },
-  { label: "日K",  value: "1day",   outputsize: 180 },
-  { label: "周K",  value: "1week",  outputsize: 104 },
-  { label: "月K",  value: "1month", outputsize: 60  },
-  { label: "1分",  value: "1min",   outputsize: 120 },
-  { label: "5分",  value: "5min",   outputsize: 120 },
-  { label: "15分", value: "15min",  outputsize: 120 },
-  { label: "30分", value: "30min",  outputsize: 120 },
-  { label: "1时",  value: "1h",     outputsize: 120 },
-  { label: "4时",  value: "4h",     outputsize: 120 },
+  { label: "5日",  value: "1min",   outputsize: 390  },
+  { label: "日K",  value: "1day",   outputsize: 240  },
+  { label: "周K",  value: "1week",  outputsize: 104  },
+  { label: "月K",  value: "1month", outputsize: 60   },
+  { label: "1分",  value: "1min",   outputsize: 120  },
+  { label: "5分",  value: "5min",   outputsize: 120  },
+  { label: "15分", value: "15min",  outputsize: 120  },
+  { label: "30分", value: "30min",  outputsize: 120  },
+  { label: "1时",  value: "1h",     outputsize: 120  },
+  { label: "4时",  value: "4h",     outputsize: 120  },
 ];
 
 type ChartType = "candlestick" | "line" | "area";
 type IndicatorKey = "MA5" | "MA10" | "MA20" | "MA60" | "BOLL" | "VOL" | "MACD" | "RSI" | "KDJ";
 
-interface IndicatorConfig {
-  key: IndicatorKey;
-  label: string;
-  color: string;
-  panel: "main" | "sub";
-}
-
-const INDICATORS: IndicatorConfig[] = [
-  { key: "MA5",  label: "MA5",  color: "#f59e0b", panel: "main" },
-  { key: "MA10", label: "MA10", color: "#60a5fa", panel: "main" },
-  { key: "MA20", label: "MA20", color: "#a78bfa", panel: "main" },
-  { key: "MA60", label: "MA60", color: "#f97316", panel: "main" },
-  { key: "BOLL", label: "BOLL", color: "#22d3ee", panel: "main" },
-  { key: "VOL",  label: "成交量", color: "#6b7280", panel: "sub" },
-  { key: "MACD", label: "MACD", color: "#10b981", panel: "sub" },
-  { key: "RSI",  label: "RSI",  color: "#f59e0b", panel: "sub" },
-  { key: "KDJ",  label: "KDJ",  color: "#ec4899", panel: "sub" },
+const INDICATORS: { key: IndicatorKey; label: string; color: string; panel: "main" | "sub" }[] = [
+  { key: "MA5",  label: "MA5",   color: "#f59e0b", panel: "main" },
+  { key: "MA10", label: "MA10",  color: "#60a5fa", panel: "main" },
+  { key: "MA20", label: "MA20",  color: "#a78bfa", panel: "main" },
+  { key: "MA60", label: "MA60",  color: "#f97316", panel: "main" },
+  { key: "BOLL", label: "BOLL",  color: "#22d3ee", panel: "main" },
+  { key: "VOL",  label: "成交量", color: "#6b7280", panel: "sub"  },
+  { key: "MACD", label: "MACD",  color: "#10b981", panel: "sub"  },
+  { key: "RSI",  label: "RSI",   color: "#f59e0b", panel: "sub"  },
+  { key: "KDJ",  label: "KDJ",   color: "#ec4899", panel: "sub"  },
 ];
 
-// ── 技术指标计算 ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 技术指标计算
+// ─────────────────────────────────────────────────────────────────────────────
 function calcMA(closes: number[], period: number): (number | null)[] {
   return closes.map((_, i) => {
     if (i < period - 1) return null;
@@ -122,12 +151,89 @@ function calcKDJ(highs: number[], lows: number[], closes: number[], period = 9) 
   return { k, d, j };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 时间轴格式化（券商平台标准）
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * 将 lightweight-charts 的 Time（Unix 秒 或 "YYYY-MM-DD" 字符串）转为 Date
+ */
+function timeToDate(t: Time): Date {
+  if (typeof t === "number") return new Date(t * 1000);
+  if (typeof t === "string") return new Date(t + "T00:00:00Z");
+  // BusinessDay { year, month, day }
+  return new Date(Date.UTC(t.year, t.month - 1, t.day));
+}
+
+/**
+ * tickMarkFormatter — 按 TickMarkType 返回对应格式
+ * TickMarkType: Year=0, Month=1, DayOfMonth=2, Time=3, TimeWithSeconds=4
+ */
+function makeTickMarkFormatter(interval: Interval) {
+  return (time: Time, tickType: TickMarkType): string => {
+    const d = timeToDate(time);
+    const yy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mi = String(d.getUTCMinutes()).padStart(2, "0");
+
+    const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
+
+    if (isIntraday) {
+      // 日内：时间变化显示 HH:MM，日期变化显示 MM/DD
+      if (tickType === TickMarkType.DayOfMonth || tickType === TickMarkType.Month || tickType === TickMarkType.Year) {
+        return `${mm}/${dd}`;
+      }
+      return `${hh}:${mi}`;
+    }
+
+    if (interval === "1month" || interval === "1week") {
+      if (tickType === TickMarkType.Year) return `${yy}`;
+      return `${yy}/${mm}`;
+    }
+
+    // 日K
+    if (tickType === TickMarkType.Year) return `${yy}`;
+    if (tickType === TickMarkType.Month) return `${yy}/${mm}`;
+    return `${mm}/${dd}`;
+  };
+}
+
+/**
+ * 十字线时间格式化
+ */
+function makeTimeFormatter(interval: Interval) {
+  return (t: Date): string => {
+    const yy = t.getUTCFullYear();
+    const mm = String(t.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(t.getUTCDate()).padStart(2, "0");
+    const hh = String(t.getUTCHours()).padStart(2, "0");
+    const mi = String(t.getUTCMinutes()).padStart(2, "0");
+    const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
+    if (isIntraday) return `${yy}/${mm}/${dd} ${hh}:${mi}`;
+    if (interval === "1month") return `${yy}/${mm}`;
+    if (interval === "1week") return `${yy}/${mm}/${dd}`;
+    return `${yy}/${mm}/${dd}`;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 辅助
+// ─────────────────────────────────────────────────────────────────────────────
 function fmtVol(v: number): string {
   if (v >= 1e8) return (v / 1e8).toFixed(2) + "亿";
   if (v >= 1e4) return (v / 1e4).toFixed(2) + "万";
   return v.toFixed(0);
 }
 
+function fmtPrice(v: number | null | undefined): string {
+  if (v == null || isNaN(v)) return "--";
+  return v.toFixed(2);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Props
+// ─────────────────────────────────────────────────────────────────────────────
 interface PriceChartProps {
   symbol: string;
   colorScheme?: "cn" | "us";
@@ -143,45 +249,65 @@ interface PriceChartProps {
   };
 }
 
-export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData }: PriceChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+// ─────────────────────────────────────────────────────────────────────────────
+// 主组件
+// ─────────────────────────────────────────────────────────────────────────────
+export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData }: PriceChartProps) {
+  const containerRef    = useRef<HTMLDivElement>(null);
   const subContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const subChartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<any> | null>(null);
-  const volSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const chartRef        = useRef<IChartApi | null>(null);
+  const subChartRef     = useRef<IChartApi | null>(null);
+  const seriesRef       = useRef<ISeriesApi<any> | null>(null);
+  const volSeriesRef    = useRef<ISeriesApi<"Histogram"> | null>(null);
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<any>>>(new Map());
-  const subSeriesRef = useRef<Map<string, ISeriesApi<any>>>(new Map());
+  const subSeriesRef       = useRef<Map<string, ISeriesApi<any>>>(new Map());
 
-  const [interval, setInterval] = useState<Interval>("1day");
-  const [outputsize, setOutputsize] = useState(180);
-  const [chartType, setChartType] = useState<ChartType>("candlestick");
-  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(new Set<IndicatorKey>(["MA5", "MA10", "MA20", "VOL"]));
+  const [interval, setIntervalState]   = useState<Interval>("1day");
+  const [outputsize, setOutputsize]    = useState(240);
+  const [chartType, setChartType]      = useState<ChartType>("candlestick");
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(
+    new Set<IndicatorKey>(["MA5", "MA10", "MA20", "VOL"])
+  );
   const [subIndicator, setSubIndicator] = useState<IndicatorKey | null>("VOL");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState<{
     time: string; open: number; high: number; low: number; close: number; volume?: number;
   } | null>(null);
 
-  const upColor    = colorScheme === "cn" ? "#ef4444" : "#22c55e";
-  const downColor  = colorScheme === "cn" ? "#22c55e" : "#ef4444";
-  const upColorDim    = colorScheme === "cn" ? "rgba(239,68,68,0.2)"  : "rgba(34,197,94,0.2)";
-  const downColorDim  = colorScheme === "cn" ? "rgba(34,197,94,0.2)"  : "rgba(239,68,68,0.2)";
+  // A股红涨绿跌，美股绿涨红跌
+  const upColor       = colorScheme === "cn" ? "#ef4444" : "#22c55e";
+  const downColor     = colorScheme === "cn" ? "#22c55e" : "#ef4444";
+  const upColorDim    = colorScheme === "cn" ? "rgba(239,68,68,0.25)"  : "rgba(34,197,94,0.25)";
+  const downColorDim  = colorScheme === "cn" ? "rgba(34,197,94,0.25)"  : "rgba(239,68,68,0.25)";
 
+  // ── 数据获取 ──────────────────────────────────────────────────────────────
   const { data, isLoading, refetch } = trpc.market.getPriceHistory.useQuery(
     { symbol, interval, outputsize },
-    { enabled: !!symbol, staleTime: 60_000, retry: 1 }
+    {
+      enabled: !!symbol,
+      staleTime: interval === "1day" ? 5 * 60_000 : 60_000,
+      retry: 1,
+      refetchInterval: interval === "1day" ? false : 60_000, // 日内每分钟刷新
+    }
   );
 
-  const candles = data?.candles ?? [];
+  const candles = useMemo(() => {
+    const raw = data?.candles ?? [];
+    // 过滤掉 OHLC 全为 0 的无效 bar（休盘填充数据）
+    return raw.filter(c => c.open > 0 && c.close > 0 && c.high > 0 && c.low > 0);
+  }, [data]);
 
-  // ── 计算指标数据 ──────────────────────────────────────────────────────────
+  // ── 技术指标计算 ──────────────────────────────────────────────────────────
   const indicatorData = useMemo(() => {
     if (!candles.length) return null;
     const closes = candles.map(c => c.close);
     const highs   = candles.map(c => c.high);
     const lows    = candles.map(c => c.low);
     const times   = candles.map(c => c.time as Time);
+
+    const toSeries = (vals: (number | null)[]) =>
+      vals.map((v, i) => v != null ? { time: times[i], value: v } : null)
+          .filter(Boolean) as { time: Time; value: number }[];
 
     const ma5  = calcMA(closes, 5);
     const ma10 = calcMA(closes, 10);
@@ -191,10 +317,6 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     const rsi  = calcRSI(closes);
     const macd = calcMACD(closes);
     const kdj  = calcKDJ(highs, lows, closes);
-
-    const toSeries = (vals: (number | null)[]) =>
-      vals.map((v, i) => v != null ? { time: times[i], value: v } : null)
-          .filter(Boolean) as { time: Time; value: number }[];
 
     return {
       times,
@@ -218,10 +340,11 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     };
   }, [candles, upColor, downColor]);
 
-  const CHART_OPTS = {
+  // ── 图表配置（依赖 interval 变化）────────────────────────────────────────
+  const chartOpts = useMemo(() => ({
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
-      textColor: "rgba(180,180,180,0.7)",
+      textColor: "rgba(160,160,160,0.85)",
       fontSize: 11,
       fontFamily: "'IBM Plex Mono', 'Courier New', monospace",
     },
@@ -229,17 +352,38 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       vertLines: { color: "rgba(255,255,255,0.04)" },
       horzLines: { color: "rgba(255,255,255,0.04)" },
     },
-    crosshair: { mode: CrosshairMode.Normal },
-    rightPriceScale: { borderColor: "rgba(255,255,255,0.08)", textColor: "rgba(180,180,180,0.6)" },
-    timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true, secondsVisible: false },
-    handleScroll: true,
-    handleScale: true,
-  };
+    crosshair: {
+      mode: CrosshairMode.Normal,
+      vertLine: { color: "rgba(201,168,76,0.5)", labelBackgroundColor: "#c9a84c" },
+      horzLine: { color: "rgba(201,168,76,0.5)", labelBackgroundColor: "#c9a84c" },
+    },
+    rightPriceScale: {
+      borderColor: "rgba(255,255,255,0.06)",
+      textColor: "rgba(150,150,150,0.7)",
+      scaleMargins: { top: 0.08, bottom: 0.08 },
+    },
+    timeScale: {
+      borderColor: "rgba(255,255,255,0.06)",
+      timeVisible: true,
+      secondsVisible: false,
+      tickMarkFormatter: makeTickMarkFormatter(interval),
+      rightOffset: 5,
+      barSpacing: 8,
+      minBarSpacing: 2,
+      fixLeftEdge: false,
+      fixRightEdge: false,
+    },
+    localization: {
+      timeFormatter: makeTimeFormatter(interval),
+    },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
+    handleScale:  { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+  }), [interval]);
 
   // ── 初始化主图表 ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
-    const chart = createChart(containerRef.current, CHART_OPTS);
+    const chart = createChart(containerRef.current, chartOpts);
     chartRef.current = chart;
 
     chart.subscribeCrosshairMove(param => {
@@ -248,7 +392,13 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       if (cd && "open" in cd) {
         const volS = volSeriesRef.current;
         const vd = volS ? param.seriesData.get(volS) as HistogramData | undefined : undefined;
-        setHoverData({ time: String(param.time), open: cd.open, high: cd.high, low: cd.low, close: cd.close, volume: vd?.value });
+        const fmt = makeTimeFormatter(interval);
+        const d = timeToDate(param.time as Time);
+        setHoverData({
+          time: fmt(d),
+          open: cd.open, high: cd.high, low: cd.low, close: cd.close,
+          volume: vd?.value,
+        });
       }
     });
 
@@ -259,26 +409,46 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       }
     });
     ro.observe(containerRef.current);
-    return () => { disposed = true; ro.disconnect(); try { chart.remove(); } catch {} chartRef.current = null; };
+    return () => {
+      disposed = true;
+      ro.disconnect();
+      try { chart.remove(); } catch {}
+      chartRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // interval 变化时更新时间轴格式
+  useEffect(() => {
+    if (!chartRef.current) return;
+    try {
+      chartRef.current.applyOptions({
+        timeScale: { tickMarkFormatter: makeTickMarkFormatter(interval) },
+        localization: { timeFormatter: makeTimeFormatter(interval) },
+      });
+    } catch {}
+  }, [interval]);
 
   // ── 重建主系列 ────────────────────────────────────────────────────────────
   const rebuildMainSeries = useCallback(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    if (seriesRef.current) { try { chart.removeSeries(seriesRef.current); } catch {} seriesRef.current = null; }
+    if (seriesRef.current)    { try { chart.removeSeries(seriesRef.current); }    catch {} seriesRef.current = null; }
     if (volSeriesRef.current) { try { chart.removeSeries(volSeriesRef.current); } catch {} volSeriesRef.current = null; }
     indicatorSeriesRef.current.forEach(s => { try { chart.removeSeries(s); } catch {} });
     indicatorSeriesRef.current.clear();
 
     if (chartType === "candlestick") {
       seriesRef.current = chart.addSeries(CandlestickSeries, {
-        upColor, downColor, borderUpColor: upColor, borderDownColor: downColor,
-        wickUpColor: upColor, wickDownColor: downColor, priceScaleId: "right",
+        upColor, downColor,
+        borderUpColor: upColor, borderDownColor: downColor,
+        wickUpColor: upColor, wickDownColor: downColor,
+        priceScaleId: "right",
       });
     } else if (chartType === "line") {
-      seriesRef.current = chart.addSeries(LineSeries, { color: "#c9a84c", lineWidth: 2, priceScaleId: "right" });
+      seriesRef.current = chart.addSeries(LineSeries, {
+        color: "#c9a84c", lineWidth: 2, priceScaleId: "right",
+      });
     } else {
       seriesRef.current = chart.addSeries(AreaSeries, {
         topColor: "rgba(201,168,76,0.3)", bottomColor: "rgba(201,168,76,0.02)",
@@ -287,8 +457,14 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     }
 
     if (subIndicator === "VOL") {
-      volSeriesRef.current = chart.addSeries(HistogramSeries, { priceScaleId: "volume", priceFormat: { type: "volume" } });
-      chart.priceScale("volume").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 }, borderVisible: false });
+      volSeriesRef.current = chart.addSeries(HistogramSeries, {
+        priceScaleId: "volume",
+        priceFormat: { type: "volume" },
+      });
+      chart.priceScale("volume").applyOptions({
+        scaleMargins: { top: 0.80, bottom: 0 },
+        borderVisible: false,
+      });
     }
   }, [chartType, upColor, downColor, subIndicator]);
 
@@ -303,11 +479,13 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     try {
       if (chartType === "candlestick") {
         seriesRef.current.setData(candles.map(c => ({
-          time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close,
+          time: c.time as Time,
+          open: c.open, high: c.high, low: c.low, close: c.close,
         })));
         if (volSeriesRef.current) {
           volSeriesRef.current.setData(candles.map(c => ({
-            time: c.time as Time, value: c.volume ?? 0,
+            time: c.time as Time,
+            value: c.volume ?? 0,
             color: c.close >= c.open ? upColorDim : downColorDim,
           })));
         }
@@ -328,7 +506,10 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       ];
       maConfig.forEach(([key, d, color]) => {
         if (activeIndicators.has(key)) {
-          const s = chart.addSeries(LineSeries, { color, lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
+          const s = chart.addSeries(LineSeries, {
+            color, lineWidth: 1, priceScaleId: "right",
+            lastValueVisible: false, priceLineVisible: false,
+          });
           s.setData(d);
           indicatorSeriesRef.current.set(key, s);
         }
@@ -336,7 +517,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
 
       // BOLL
       if (activeIndicators.has("BOLL")) {
-        const bMid = chart.addSeries(LineSeries, { color: "#22d3ee", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
+        const bMid = chart.addSeries(LineSeries, { color: "#22d3ee",             lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
         const bUp  = chart.addSeries(LineSeries, { color: "rgba(34,211,238,0.5)", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
         const bLo  = chart.addSeries(LineSeries, { color: "rgba(34,211,238,0.5)", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
         bMid.setData(indicatorData.bollMid);
@@ -356,14 +537,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
 
   useEffect(() => {
     if (!subContainerRef.current) return;
-    if (subChartRef.current) { subChartRef.current.remove(); subChartRef.current = null; }
+    if (subChartRef.current) { try { subChartRef.current.remove(); } catch {} subChartRef.current = null; }
     if (!hasSubChart) return;
 
-    const chart = createChart(subContainerRef.current, {
-      ...CHART_OPTS,
-      layout: { ...CHART_OPTS.layout, fontSize: 10 },
-      rightPriceScale: { ...CHART_OPTS.rightPriceScale, scaleMargins: { top: 0.1, bottom: 0.1 } },
-    });
+    const subOpts = {
+      ...chartOpts,
+      layout: { ...chartOpts.layout, fontSize: 10 },
+      rightPriceScale: { ...chartOpts.rightPriceScale, scaleMargins: { top: 0.1, bottom: 0.1 } },
+    };
+    const chart = createChart(subContainerRef.current, subOpts);
     subChartRef.current = chart;
     subSeriesRef.current.clear();
 
@@ -374,7 +556,12 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       }
     });
     ro.observe(subContainerRef.current);
-    return () => { subDisposed = true; ro.disconnect(); if (subChartRef.current) { try { subChartRef.current.remove(); } catch {} subChartRef.current = null; } };
+    return () => {
+      subDisposed = true;
+      ro.disconnect();
+      try { subChartRef.current?.remove(); } catch {}
+      subChartRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSubChart]);
 
@@ -386,9 +573,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
 
     try {
       if (subIndicator === "MACD") {
-        const histS  = chart.addSeries(HistogramSeries, { priceScaleId: "right" });
-        const macdS  = chart.addSeries(LineSeries, { color: "#10b981", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
-        const sigS   = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
+        const histS = chart.addSeries(HistogramSeries, { priceScaleId: "right" });
+        const macdS = chart.addSeries(LineSeries, { color: "#10b981", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
+        const sigS  = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
         histS.setData(indicatorData.macdHist);
         macdS.setData(indicatorData.macdLine);
         sigS.setData(indicatorData.macdSignal);
@@ -396,7 +583,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
         subSeriesRef.current.set("macd", macdS);
         subSeriesRef.current.set("signal", sigS);
       } else if (subIndicator === "RSI") {
-        const rsiS = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2 as any, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false });
+        const rsiS = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false });
         rsiS.setData(indicatorData.rsi);
         subSeriesRef.current.set("rsi", rsiS);
       } else if (subIndicator === "KDJ") {
@@ -414,6 +601,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     } catch {}
   }, [indicatorData, subIndicator, candles]);
 
+  // ── 指标切换 ──────────────────────────────────────────────────────────────
   const toggleIndicator = (key: IndicatorKey) => {
     const subKeys: IndicatorKey[] = ["VOL", "MACD", "RSI", "KDJ"];
     if (subKeys.includes(key)) {
@@ -426,16 +614,20 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     });
   };
 
-  const handleIntervalChange = (iv: Interval, size: number) => { setInterval(iv); setOutputsize(size); };
+  const handleIntervalChange = (iv: Interval, size: number) => {
+    setIntervalState(iv);
+    setOutputsize(size);
+  };
 
   // ── 盘口悬停数据 ──────────────────────────────────────────────────────────
   const lastCandle = candles[candles.length - 1];
   const displayData = hoverData ?? (lastCandle ? {
-    time: lastCandle.time as string,
-    open: lastCandle.open,
-    high: lastCandle.high,
-    low: lastCandle.low,
-    close: lastCandle.close,
+    time: (() => {
+      const fmt = makeTimeFormatter(interval);
+      return fmt(timeToDate(lastCandle.time as Time));
+    })(),
+    open: lastCandle.open, high: lastCandle.high,
+    low: lastCandle.low,   close: lastCandle.close,
     volume: lastCandle.volume,
   } : null);
 
@@ -443,110 +635,126 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
   const priceColor = isUp ? upColor : downColor;
   const mainHeight = isFullscreen ? Math.max(400, window.innerHeight - 280) : height;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // 渲染
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
-      className={`flex flex-col gap-0 w-full ${isFullscreen ? "fixed inset-0 z-50 p-4 overflow-auto" : ""}`}
+      className={`flex flex-col gap-0 w-full select-none ${isFullscreen ? "fixed inset-0 z-50 p-4 overflow-auto" : ""}`}
       style={isFullscreen ? { background: "#0c0c0e" } : {}}
     >
-      {/* ── 盘口数据行 ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-1 py-1.5 flex-wrap text-[11px] font-mono"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        {displayData && (
-          <>
-            <span className="font-bold text-[16px]" style={{ color: priceColor }}>
-              {displayData.close.toFixed(2)}
-            </span>
-            <span style={{ color: "rgba(150,150,150,0.6)" }}>开</span>
-            <span style={{ color: "rgba(200,200,200,0.85)" }}>{displayData.open.toFixed(2)}</span>
-            <span style={{ color: "rgba(150,150,150,0.6)" }}>高</span>
-            <span style={{ color: upColor }}>{displayData.high.toFixed(2)}</span>
-            <span style={{ color: "rgba(150,150,150,0.6)" }}>低</span>
-            <span style={{ color: downColor }}>{displayData.low.toFixed(2)}</span>
-            {displayData.volume != null && (
-              <>
-                <span style={{ color: "rgba(150,150,150,0.6)" }}>量</span>
-                <span style={{ color: "rgba(200,200,200,0.85)" }}>{fmtVol(displayData.volume)}</span>
-              </>
-            )}
-          </>
-        )}
-        {quoteData?.prevClose != null && (
-          <>
-            <span style={{ color: "rgba(150,150,150,0.6)" }}>昨收</span>
-            <span style={{ color: "rgba(200,200,200,0.85)" }}>{quoteData.prevClose.toFixed(2)}</span>
-          </>
-        )}
-        {quoteData?.changePercent != null && (
-          <span className="font-semibold" style={{ color: (quoteData.changePercent ?? 0) >= 0 ? upColor : downColor }}>
-            {(quoteData.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(quoteData.changePercent ?? 0).toFixed(2)}%
-          </span>
-        )}
-        {displayData?.time && (
-          <span className="ml-auto" style={{ color: "rgba(100,100,100,0.6)" }}>{displayData.time}</span>
-        )}
-      </div>
-
-      {/* ── 工具栏 ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap py-1.5">
-        {/* 图表类型 */}
-        <div className="flex items-center gap-0.5 p-0.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
-          {([
-            { type: "candlestick" as ChartType, icon: <BarChart2 className="w-3 h-3" />, label: "K线" },
-            { type: "line"        as ChartType, icon: <TrendingUp className="w-3 h-3" />, label: "折线" },
-            { type: "area"        as ChartType, icon: <Activity   className="w-3 h-3" />, label: "面积" },
-          ] as const).map(({ type, icon, label }) => (
-            <button key={type} onClick={() => setChartType(type)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all"
-              style={{
-                background: chartType === type ? "rgba(201,168,76,0.15)" : "transparent",
-                color: chartType === type ? "#c9a84c" : "rgba(120,120,120,0.8)",
-                border: chartType === type ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
-              }}>
-              {icon} {label}
-            </button>
-          ))}
-        </div>
+      {/* ── 工具栏（时间周期 + 图表类型）─────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-1 py-1 flex-wrap"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
 
         {/* 时间周期 */}
         <div className="flex items-center gap-0.5 flex-wrap">
-          {INTERVALS.map(({ label, value, outputsize: size }) => (
-            <button key={`${value}-${label}`} onClick={() => handleIntervalChange(value, size)}
-              className="px-2 py-0.5 rounded text-[11px] font-mono font-medium transition-all"
-              style={{
-                background: interval === value && outputsize === size ? "rgba(201,168,76,0.15)" : "transparent",
-                color: interval === value && outputsize === size ? "#c9a84c" : "rgba(100,100,100,0.9)",
-                border: interval === value && outputsize === size ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
-              }}>
-              {label}
-            </button>
-          ))}
-          <button onClick={() => refetch()} className="ml-1 p-1 rounded transition-all hover:opacity-80"
-            style={{ color: "rgba(100,100,100,0.8)" }} title="刷新">
+          {INTERVALS.map(({ label, value, outputsize: size }) => {
+            const active = interval === value && outputsize === size;
+            return (
+              <button key={`${value}-${label}`}
+                onClick={() => handleIntervalChange(value, size)}
+                className="px-2 py-0.5 rounded text-[11px] font-mono font-medium transition-all"
+                style={{
+                  background: active ? "rgba(201,168,76,0.15)" : "transparent",
+                  color:      active ? "#c9a84c" : "rgba(110,110,110,0.9)",
+                  border:     active ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
+                }}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 图表类型 + 操作按钮 */}
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 p-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)" }}>
+            {([
+              { type: "candlestick" as ChartType, icon: <BarChart2 className="w-3 h-3" /> },
+              { type: "line"        as ChartType, icon: <TrendingUp className="w-3 h-3" /> },
+              { type: "area"        as ChartType, icon: <Activity   className="w-3 h-3" /> },
+            ] as const).map(({ type, icon }) => (
+              <button key={type} onClick={() => setChartType(type)}
+                className="p-1 rounded transition-all"
+                style={{
+                  background: chartType === type ? "rgba(201,168,76,0.2)" : "transparent",
+                  color:      chartType === type ? "#c9a84c" : "rgba(100,100,100,0.8)",
+                }}>
+                {icon}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => refetch()} title="刷新"
+            className="p-1 rounded transition-all hover:opacity-80"
+            style={{ color: "rgba(100,100,100,0.7)" }}>
             <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
           </button>
-          <button onClick={() => setIsFullscreen(f => !f)} className="ml-0.5 p-1 rounded transition-all hover:opacity-80"
-            style={{ color: "rgba(100,100,100,0.8)" }} title={isFullscreen ? "退出全屏" : "全屏"}>
+          <button onClick={() => setIsFullscreen(f => !f)}
+            title={isFullscreen ? "退出全屏" : "全屏"}
+            className="p-1 rounded transition-all hover:opacity-80"
+            style={{ color: "rgba(100,100,100,0.7)" }}>
             {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
           </button>
         </div>
       </div>
 
+      {/* ── 盘口数据行（OHLCV + 涨跌幅）──────────────────────────────────── */}
+      <div className="flex items-center gap-2 px-0.5 py-1 flex-wrap text-[11px] font-mono"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+        {displayData ? (
+          <>
+            <span className="font-bold text-[15px] tabular-nums" style={{ color: priceColor }}>
+              {fmtPrice(displayData.close)}
+            </span>
+            {quoteData?.changePercent != null && (
+              <span className="font-semibold tabular-nums" style={{ color: (quoteData.changePercent ?? 0) >= 0 ? upColor : downColor }}>
+                {(quoteData.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(quoteData.changePercent ?? 0).toFixed(2)}%
+              </span>
+            )}
+            <span style={{ color: "rgba(100,100,100,0.6)" }}>开</span>
+            <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(displayData.open)}</span>
+            <span style={{ color: "rgba(100,100,100,0.6)" }}>高</span>
+            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(displayData.high)}</span>
+            <span style={{ color: "rgba(100,100,100,0.6)" }}>低</span>
+            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(displayData.low)}</span>
+            {quoteData?.prevClose != null && (
+              <>
+                <span style={{ color: "rgba(100,100,100,0.6)" }}>昨收</span>
+                <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(quoteData.prevClose)}</span>
+              </>
+            )}
+            {displayData.volume != null && (
+              <>
+                <span style={{ color: "rgba(100,100,100,0.6)" }}>量</span>
+                <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtVol(displayData.volume)}</span>
+              </>
+            )}
+            <span className="ml-auto tabular-nums" style={{ color: "rgba(80,80,80,0.7)", fontSize: 10 }}>
+              {displayData.time}
+            </span>
+          </>
+        ) : (
+          <span style={{ color: "rgba(80,80,80,0.6)" }}>--</span>
+        )}
+      </div>
+
       {/* ── 主图表 ───────────────────────────────────────────────────────────── */}
-      <div className="relative w-full rounded-lg overflow-hidden"
-        style={{ height: mainHeight, background: "rgba(255,255,255,0.015)" }}>
+      <div className="relative w-full rounded overflow-hidden"
+        style={{ height: mainHeight, background: "rgba(255,255,255,0.01)" }}>
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center z-10"
-            style={{ background: "rgba(12,12,14,0.8)" }}>
+            style={{ background: "rgba(12,12,14,0.85)" }}>
             <div className="flex flex-col items-center gap-2">
-              <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-                style={{ borderColor: "#c9a84c", borderTopColor: "transparent" }} />
-              <span className="text-[11px]" style={{ color: "rgba(120,120,120,0.8)" }}>加载中...</span>
+              <div className="w-5 h-5 border-2 rounded-full animate-spin"
+                style={{ borderColor: "rgba(201,168,76,0.3)", borderTopColor: "#c9a84c" }} />
+              <span className="text-[11px]" style={{ color: "rgba(100,100,100,0.8)" }}>加载中...</span>
             </div>
           </div>
         )}
         {!isLoading && !candles.length && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs" style={{ color: "rgba(80,80,80,0.8)" }}>暂无图表数据 · 请检查标的代码</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span className="text-xs" style={{ color: "rgba(80,80,80,0.8)" }}>暂无图表数据</span>
+            <span className="text-[10px]" style={{ color: "rgba(60,60,60,0.7)" }}>请检查标的代码或稍后重试</span>
           </div>
         )}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
@@ -554,22 +762,22 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
 
       {/* ── 子图表（MACD / RSI / KDJ）──────────────────────────────────────── */}
       {hasSubChart && (
-        <div className="relative w-full overflow-hidden mt-0.5"
-          style={{ height: 100, background: "rgba(255,255,255,0.01)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <div className="absolute top-1 left-2 z-10 text-[10px] font-mono"
-            style={{ color: "rgba(150,150,150,0.7)" }}>
-            {subIndicator}
+        <div className="relative w-full overflow-hidden"
+          style={{ height: 90, background: "rgba(255,255,255,0.008)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="absolute top-1 left-2 z-10 text-[10px] font-mono flex items-center gap-2"
+            style={{ color: "rgba(140,140,140,0.7)" }}>
+            <span>{subIndicator}</span>
             {subIndicator === "MACD" && (
-              <span style={{ color: "rgba(100,100,100,0.6)" }}>
-                {" "}MACD<span style={{ color: "#10b981" }}>●</span>
-                {" "}Signal<span style={{ color: "#f59e0b" }}>●</span>
+              <span style={{ color: "rgba(90,90,90,0.7)" }}>
+                DIF<span style={{ color: "#10b981" }}>●</span>{" "}
+                DEA<span style={{ color: "#f59e0b" }}>●</span>
               </span>
             )}
             {subIndicator === "KDJ" && (
-              <span style={{ color: "rgba(100,100,100,0.6)" }}>
-                {" "}K<span style={{ color: "#f59e0b" }}>●</span>
-                {" "}D<span style={{ color: "#60a5fa" }}>●</span>
-                {" "}J<span style={{ color: "#ec4899" }}>●</span>
+              <span style={{ color: "rgba(90,90,90,0.7)" }}>
+                K<span style={{ color: "#f59e0b" }}>●</span>{" "}
+                D<span style={{ color: "#60a5fa" }}>●</span>{" "}
+                J<span style={{ color: "#ec4899" }}>●</span>
               </span>
             )}
           </div>
@@ -578,21 +786,22 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
       )}
 
       {/* ── 指标选择工具栏 ───────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 pt-1.5 flex-wrap">
-        <Settings2 className="w-3 h-3 shrink-0" style={{ color: "rgba(100,100,100,0.5)" }} />
+      <div className="flex items-center gap-1 pt-1 flex-wrap"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+        <Settings2 className="w-3 h-3 shrink-0" style={{ color: "rgba(80,80,80,0.5)" }} />
         {INDICATORS.map(ind => (
           <button key={ind.key} onClick={() => toggleIndicator(ind.key)}
             className="px-2 py-0.5 rounded text-[10px] font-mono transition-all"
             style={{
-              background: activeIndicators.has(ind.key) ? `${ind.color}22` : "transparent",
-              color: activeIndicators.has(ind.key) ? ind.color : "rgba(90,90,90,0.9)",
-              border: activeIndicators.has(ind.key) ? `1px solid ${ind.color}55` : "1px solid rgba(60,60,60,0.5)",
+              background: activeIndicators.has(ind.key) ? `${ind.color}1a` : "transparent",
+              color:      activeIndicators.has(ind.key) ? ind.color : "rgba(80,80,80,0.9)",
+              border:     activeIndicators.has(ind.key) ? `1px solid ${ind.color}44` : "1px solid rgba(50,50,50,0.5)",
             }}>
             {ind.label}
           </button>
         ))}
-        {/* 图例 */}
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono">
+        {/* MA 图例 */}
+        <div className="ml-auto flex items-center gap-2 text-[10px] font-mono">
           {activeIndicators.has("MA5")  && <span style={{ color: "#f59e0b" }}>MA5</span>}
           {activeIndicators.has("MA10") && <span style={{ color: "#60a5fa" }}>MA10</span>}
           {activeIndicators.has("MA20") && <span style={{ color: "#a78bfa" }}>MA20</span>}
@@ -602,3 +811,5 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 280, quoteData
     </div>
   );
 }
+
+export default PriceChart;

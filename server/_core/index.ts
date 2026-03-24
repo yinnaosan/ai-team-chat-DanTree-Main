@@ -26,6 +26,7 @@ import { checkBoeHealth } from "../boeApi";
 import { checkHkmaHealth } from "../hkmaApi";
 import { checkGleifHealth } from "../gleifApi";
 import { checkImfApiHealth } from "../imfApi";
+import { warmupHolidayCache } from "../globalHolidays";
 import { ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -161,6 +162,10 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // 预热全球节假日缓存（Nager.Date API：港股/英股/德股/法股）
+    warmupHolidayCache().catch(err => {
+      console.warn("[GlobalHolidays] Warmup failed (non-critical):", err);
+    });
   });
 }
 

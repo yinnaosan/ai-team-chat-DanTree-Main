@@ -381,6 +381,23 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             } else {
               seriesRef.current.update({ time: barTime, value: price });
             }
+            // 更新成交量柱（竞价/撮合时段用黄色区分）
+            if (volSeriesRef.current && payload.volume != null) {
+              const sess = payload.session ?? "";
+              const isAuction = sess === "pre_auction" || sess === "post_auction";
+              const volColor = isAuction
+                ? "rgba(245,158,11,0.6)"   // 黄色：竞价/撮合成交量
+                : (price >= (candles[candles.length - 1]?.open ?? price)
+                    ? "rgba(34,197,94,0.4)"  // 绿色：上涨
+                    : "rgba(239,68,68,0.4)"); // 红色：下跌
+              try {
+                volSeriesRef.current.update({
+                  time: barTime,
+                  value: payload.volume,
+                  color: volColor,
+                });
+              } catch { /* ignore */ }
+            }
           } catch { /* ignore stale update */ }
         }
       } catch { /* ignore parse errors */ }
@@ -1024,26 +1041,48 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           </div>
           {/* 实时状态指示器 */}
           {isIntraday && (() => {
-            // 时段标签映射
+            // 时段标签映射（包含港股竞价/撮合状态）
             const sessionLabel: Record<string, string> = {
-              trading: "交易中", lunch: "午休",
-              pre_market: "盘前", post_market: "盘后", closed: "休市",
+              trading: "交易中",
+              lunch: "午休",
+              pre_market: "盘前",
+              post_market: "盘后",
+              pre_auction: "竞价中",   // 港股盘前竞价 09:00-09:30
+              post_auction: "撮合中",  // 港股盘后撮合 16:00-16:10
+              closed: "休市",
             };
-            // 轮询频率标签：仅A股有 interval_ms，美股不推送此字段
+            // 时段颜色：交易中绿色，竞价/撮合黄色，其他灰色
+            const sessionColor = (() => {
+              if (liveStatus !== "live") return undefined;
+              if (liveSession === "trading") return "#22c55e";
+              if (liveSession === "pre_auction" || liveSession === "post_auction") return "#f59e0b";
+              if (liveSession === "pre_market" || liveSession === "post_market") return "#60a5fa";
+              return undefined;
+            })();
+            // 轮询频率标签：仅A股/港股有 interval_ms，美股不推送此字段
             const freqLabel = liveIntervalMs != null
               ? `${liveIntervalMs >= 1000 ? liveIntervalMs / 1000 + "s" : liveIntervalMs + "ms"}`
               : null;
+            // 根据时段调整指示器整体颜色
+            const indicatorColor = sessionColor ??
+              (liveStatus === "live" ? "#22c55e" : liveStatus === "connecting" ? "#c9a84c" : "rgba(80,80,80,0.7)");
+            const indicatorBg = sessionColor
+              ? `rgba(${sessionColor === "#22c55e" ? "34,197,94" : sessionColor === "#f59e0b" ? "245,158,11" : "96,165,250"},0.1)`
+              : (liveStatus === "live" ? "rgba(34,197,94,0.1)" : liveStatus === "connecting" ? "rgba(201,168,76,0.1)" : "rgba(80,80,80,0.08)");
+            const indicatorBorder = sessionColor
+              ? `1px solid rgba(${sessionColor === "#22c55e" ? "34,197,94" : sessionColor === "#f59e0b" ? "245,158,11" : "96,165,250"},0.3)`
+              : `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`;
             return (
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" style={{
-                background: liveStatus === "live" ? "rgba(34,197,94,0.1)" : liveStatus === "connecting" ? "rgba(201,168,76,0.1)" : "rgba(80,80,80,0.08)",
-                border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`,
-                color: liveStatus === "live" ? "#22c55e" : liveStatus === "connecting" ? "#c9a84c" : "rgba(80,80,80,0.7)",
+                background: indicatorBg,
+                border: indicatorBorder,
+                color: indicatorColor,
               }}>
                 <Radio className={`w-2.5 h-2.5 ${liveStatus === "live" ? "animate-pulse" : ""}`} />
                 <span>{liveStatus === "live" ? "LIVE" : liveStatus === "connecting" ? "..." : "OFF"}</span>
-                {/* 时段标签（仅A股显示） */}
+                {/* 时段标签（A股/港股显示） */}
                 {liveStatus === "live" && liveSession && sessionLabel[liveSession] && (
-                  <span className="opacity-70">{sessionLabel[liveSession]}</span>
+                  <span className="opacity-80" style={{ color: indicatorColor }}>{sessionLabel[liveSession]}</span>
                 )}
                 {/* 轮询频率 */}
                 {liveStatus === "live" && freqLabel && (

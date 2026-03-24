@@ -3946,6 +3946,14 @@ export const appRouter = router({
         console.warn(`[getPriceHistory] All sources failed for ${sym}:`, errors);
         return { symbol: sym, interval: input.interval, candles: [] as any[], errors };
       }),
+
+    // 获取全球主要市场实时状态（A股/港股/美股/英股/德股/法股）
+    getAllMarketStatuses: protectedProcedure
+      .query(async ({ ctx }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { getAllMarketStatuses } = await import("./globalHolidays");
+        return getAllMarketStatuses();
+      }),
   }),
 
 });

@@ -2072,3 +2072,44 @@
 - [x] 港股实时Tick：港股交易时段识别（09:30-12:00 / 13:00-16:00 HKT），内置2026年港股节假日表
 - [x] 港股实时Tick：前端PriceChart识别港股代码格式（00700.HK / 9988.HK / 4-5位数字）
 - [x] 新增 hkshare-session.test.ts，27 个测试全部通过，累计 64 个测试全部通过
+## 2026-03-24 第十三轮功能批次
+
+- [ ] 全球节假日同步：新增 server/globalHolidays.ts，接入 chinese-holiday + Nager.Date API 自动同步
+- [ ] 全球节假日同步：覆盖 A股（CN）/ 港股（HK）/ 美股（US）/ 英股（GB）/ 欧股（DE/FR）
+- [ ] 全球节假日同步：每天凌晨自动刷新，缓存到内存，fallback 到硬编码2026年数据
+- [ ] 全球节假日同步：tickerWsCn.ts / tickerWsHk.ts / tickerWs.ts 统一使用 globalHolidays 判断
+- [ ] 港股竞价/撮合状态：getHKTradingSession() 新增 pre_auction（盘前竞价 09:00-09:30）和 post_auction（盘后撮合 16:00-16:10）
+- [ ] 港股竞价/撮合状态：LIVE指示器显示「竞价中」/「撮合中」标签
+- [ ] 港股竞价/撮合状态：PriceChart 成交量柱在竞价/撮合时段用橙色标注
+- [ ] 多市场LIVE聚合：新增 server/marketSessionService.ts，计算全球各市场当前时段
+- [ ] 多市场LIVE聚合：新增 client/src/components/GlobalMarketStatusBar.tsx，显示各市场状态摘要
+- [ ] 多市场LIVE聚合：在 DashboardLayout 顶部集成 GlobalMarketStatusBar
+
+## 2026-03-24 第十三轮功能批次（修订版：用实时API替换硬编码节假日表）
+
+- [ ] 实时交易日历：新增 server/marketCalendar.ts，统一封装全球市场开闭市状态查询
+- [ ] 实时交易日历：美股/英股/欧股 → 调用 Finnhub /stock/market-status?exchange=US 等接口
+- [ ] 实时交易日历：港股 → 调用 Finnhub /stock/exchange-status?exchange=HKEX
+- [ ] 实时交易日历：A股 → 调用 efinance Python is_trade_date() 判断当天是否为交易日
+- [ ] 实时交易日历：结果缓存5分钟，避免高频调用API
+- [ ] 实时交易日历：tickerWsCn.ts / tickerWsHk.ts / tickerWs.ts 统一使用 marketCalendar 判断
+- [ ] 港股竞价/撮合状态：getHKTradingSession() 新增 pre_auction（09:00-09:30）和 post_auction（16:00-16:10）
+- [ ] 港股竞价/撮合状态：LIVE指示器显示「竞价中」/「撮合中」标签
+- [ ] 多市场LIVE聚合：新增 /api/market-status SSE 路由，推送全球各市场当前时段
+- [ ] 多市场LIVE聚合：新增 client/src/components/GlobalMarketStatusBar.tsx
+- [ ] 多市场LIVE聚合：在 DashboardLayout 顶部集成 GlobalMarketStatusBar
+
+## 2026-03-24 第十三轮功能批次（最终实现版）
+
+- [x] 全球节假日服务：重写 globalHolidays.ts，改用 Baostock+Polygon+Nager.Date 实时API
+- [x] 全球节假日服务：支持 CN/HK/US/GB/DE/FR 六个市场，统一 MarketStatus 接口
+- [x] 全球节假日服务：24小时交易日历缓存 + 5分钟 Polygon 实时状态缓存
+- [x] 全球节假日服务：服务器启动时预热 Nager.Date 节假日缓存
+- [x] tickerWsCn.ts：改用 globalHolidays.getAShareSession() 替换硬编码节假日表
+- [x] tickerWsHk.ts：改用 globalHolidays.getHKSession() + getHKPollIntervalMs()
+- [x] 港股竞价/撮合：LIVE指示器新增 pre_auction（竞价中）/ post_auction（撮合中）标签（黄色）
+- [x] 港股竞价/撮合：竞价/撮合时段成交量柱用橙色区分，上涨绿色/下跌红色
+- [x] 多市场LIVE聚合：新增 GlobalMarketBar.tsx 组件（三色系统：绿/黄/灰）
+- [x] 多市场LIVE聚合：DashboardLayout 顶部嵌入 GlobalMarketBar，60秒自动刷新
+- [x] 多市场LIVE聚合：后端新增 market.getAllMarketStatuses tRPC procedure
+- [x] 新增 global-market-status.test.ts，31 个测试全部通过，累计 95 个测试全部通过

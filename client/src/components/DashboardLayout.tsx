@@ -20,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
+import { GlobalMarketBar } from "@/components/GlobalMarketBar";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen,
@@ -380,7 +381,11 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          {/* 全局市场状态聚合栏 */}
+          <GlobalMarketBar />
+          {children}
+        </main>
       </SidebarInset>
     </>
   );

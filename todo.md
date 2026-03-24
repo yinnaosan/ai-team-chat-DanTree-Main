@@ -1994,3 +1994,8 @@
 - [x] 模拟交易前端：下单确认弹窗（显示标的/方向/数量/预估金额），下单成功 toast 提示
 - [x] 修复 Error 1：lightweight-charts "Object is disposed" — 图表组件 cleanup 时序问题
 - [x] 修复 Error 2：MetricBadge toFixed undefined — 数值未做空值保护
+
+## 2026-03-24 第四轮优化批次
+
+- [x] 优化全球市场面板倒计时显示：改为语义格式「距开盘 33m」「距收盘 1h33m」，一眼看懂
+- [x] 优化 MarketStatusBadge 倒计时显示：同步改为语义格式

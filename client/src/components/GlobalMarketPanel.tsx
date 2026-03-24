@@ -77,8 +77,10 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
             {info.holidayName}
           </span>
         ) : countdown ? (
-          <span className="text-[10px] font-mono opacity-60" style={{ color: style.text }}>
-            {info.nextEvent === "收盘" ? "-" : "+"}{countdown}
+          <span className="text-[10px] font-mono" style={{ color: style.text, opacity: 0.75 }}>
+            <span className="opacity-60">距{info.nextEvent}</span>
+            {" "}
+            <span className="font-bold">{countdown}</span>
           </span>
         ) : null}
       </div>
@@ -172,7 +174,7 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
           {/* 底部说明 */}
           <div className="px-3 py-2 border-t" style={{ borderColor: "oklch(0.18 0 0)" }}>
             <p className="text-[9px] font-mono" style={{ color: "oklch(0.35 0 0)" }}>
-              时间基于 UTC · 夏令时自动调整 · 不含节假日
+              时间基于 UTC · 夏令时自动调整 · 已集成节假日日历
             </p>
           </div>
         </div>

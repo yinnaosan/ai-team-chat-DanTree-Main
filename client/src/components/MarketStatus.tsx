@@ -11,6 +11,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { Clock, CalendarOff } from "lucide-react";
 import { getHoliday, type MarketHolidayKey } from "@/lib/marketHolidays";
+import { detectMarketType as _detectMarketType } from "@/lib/marketUtils";
+// Re-export for backward compatibility
+export { detectMarketType } from "@/lib/marketUtils";
 
 // ─── 市场定义 ──────────────────────────────────────────────────────────────────
 export type MarketType = "us" | "cn" | "hk" | "crypto" | "uk" | "eu";
@@ -220,32 +223,17 @@ export function getMarketStatus(marketType: MarketType): MarketStatusInfo {
   };
 }
 
-/** 根据标的物代码推断市场类型 */
-export function detectMarketType(symbol: string): MarketType {
-  if (!symbol) return "us";
-  const s = symbol.toUpperCase().trim();
-  // 加密货币
-  if (/^(BTC|ETH|BNB|SOL|ADA|XRP|DOGE|MATIC|DOT|AVAX|LINK|UNI|ATOM|LTC|BCH|ALGO|VET|FIL|TRX|EOS)(-USD|-USDT|-BTC)?$/.test(s)) return "crypto";
-  // A股（6位数字，或带sh./sz.前缀）
-  if (/^(SH\.|SZ\.)?[0-9]{6}$/.test(s) || /^(600|601|603|605|000|001|002|003|300|688)[0-9]{3}$/.test(s)) return "cn";
-  // 港股（4-5位数字，或带.HK后缀）
-  if (/^\d{4,5}(\.HK)?$/.test(s) || s.endsWith(".HK")) return "hk";
-  // 英股（带.L后缀）
-  if (s.endsWith(".L") || s.endsWith(".LON")) return "uk";
-  // 欧股（带.DE/.FR/.IT/.ES后缀）
-  if (s.endsWith(".DE") || s.endsWith(".FR") || s.endsWith(".IT") || s.endsWith(".ES")) return "eu";
-  // 默认美股
-  return "us";
-}
+// detectMarketType is now in @/lib/marketUtils and re-exported above
 
-/** 格式化倒计时 */
+/** 格式化倒计时（人可读格式） */
 function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "0:00";
+  if (seconds <= 0) return "";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
 }
 
 // ─── 状态样式配置 ──────────────────────────────────────────────────────────────
@@ -324,7 +312,7 @@ export function MarketStatusBadge({
   size = "sm",
   className = "",
 }: MarketStatusBadgeProps) {
-  const marketType = forcedMarketType ?? detectMarketType(symbol ?? "");
+  const marketType = forcedMarketType ?? _detectMarketType(symbol ?? "");
   const [info, setInfo] = useState<MarketStatusInfo>(() => getMarketStatus(marketType));
   const alertedRef = useRef<Set<string>>(new Set());
 
@@ -395,7 +383,10 @@ export function MarketStatusBadge({
         <span className="opacity-70 ml-0.5 max-w-[80px] truncate">{info.holidayName}</span>
       )}
       {!info.holidayName && showCountdown && info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 4 * 3600 && (
-        <span className="opacity-70 ml-0.5">{formatCountdown(info.secondsToNext)}</span>
+        <span className="opacity-60 ml-0.5">距{info.nextEvent}</span>
+      )}
+      {!info.holidayName && showCountdown && info.status !== "24h" && info.secondsToNext > 0 && info.secondsToNext < 4 * 3600 && (
+        <span className="font-bold ml-0.5">{formatCountdown(info.secondsToNext)}</span>
       )}
     </div>
   );
@@ -463,7 +454,7 @@ interface TickerMarketStatusProps {
 }
 
 export function TickerMarketStatus({ symbol, showCountdown = true, className = "" }: TickerMarketStatusProps) {
-  const marketType = detectMarketType(symbol);
+  const marketType = _detectMarketType(symbol);
   return (
     <MarketStatusBadge
       marketType={marketType}

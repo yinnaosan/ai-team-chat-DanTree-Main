@@ -59,11 +59,11 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
       {/* Flag */}
       <span className="text-base w-5 text-center shrink-0">{flag}</span>
       {/* Market name */}
-      <span className="flex-1 text-sm font-semibold" style={{ color: "oklch(0.80 0 0)" }}>
+      <span className="flex-1 text-sm font-semibold whitespace-nowrap" style={{ color: "oklch(0.80 0 0)" }}>
         {label}
       </span>
       {/* Status */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0 ml-2">
         <span
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${info.status === "open" || info.status === "24h" ? "animate-pulse" : ""}`}
           style={{ background: style.dot }}
@@ -152,7 +152,9 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
           style={{
             background: "oklch(0.12 0 0)",
             border: "1px solid oklch(0.22 0 0)",
-            minWidth: "260px",
+            minWidth: "340px",
+            maxWidth: "min(400px, calc(100vw - 16px))",
+            width: "340px",
             backdropFilter: "blur(12px)",
           }}
         >

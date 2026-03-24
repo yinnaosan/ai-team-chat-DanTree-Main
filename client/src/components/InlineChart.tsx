@@ -39,7 +39,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, ReferenceLine, LabelList,
 } from "recharts";
-import { Download, TrendingUp, TrendingDown, Maximize2, Minimize2 } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Maximize2, Minimize2, Table2, BarChart2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 // ── 颜色系统 ──────────────────────────────────────────────────────────────────────────────
 const DEFAULT_COLORS = [
@@ -720,7 +720,11 @@ function ComboChart({ config }: { config: ChartConfig }) {
 }
 
 // ── 主图表渲染器 ───────────────────────────────────────────────────────────────
-function ChartRenderer({ config }: { config: ChartConfig }) {
+function ChartRenderer({ config, activeXLabel, onXHover }: {
+  config: ChartConfig;
+  activeXLabel?: string | null;
+  onXHover?: (label: string | null) => void;
+}) {
   const {
     type, data = [], xKey = "name", yKey = "value",
     series, color = "#6366f1", colors = DEFAULT_COLORS, unit = "",
@@ -728,6 +732,11 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
   } = config;
 
   const seriesList = series ?? [{ key: yKey, color, name: yKey }];
+
+  // 联动：当 activeXLabel 存在时，在图表中高亮对应数据点
+  const syncTooltipIndex = activeXLabel != null
+    ? data.findIndex(d => String((d as Record<string, unknown>)[xKey]) === activeXLabel)
+    : -1;
 
   if (type === "candlestick") {
     return <CandlestickChart data={data as unknown as CandleData[]} unit={unit} />;
@@ -912,10 +921,19 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
     );
   }
 
+  // 联动：onMouseMove 提取 activeLabel
+  const handleMouseMove = (e: { activeLabel?: string }) => {
+    if (onXHover && e?.activeLabel) onXHover(e.activeLabel);
+  };
+  const handleMouseLeave = () => {
+    if (onXHover) onXHover(null);
+  };
+
   return (
     <ResponsiveContainer width="100%" height={340}>
       {type === "area" ? (
-        <AreaChart data={data} margin={{ top: 20, right: 16, bottom: 4, left: 4 }}>
+        <AreaChart data={data} margin={{ top: 20, right: 16, bottom: 4, left: 4 }}
+          onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
           <defs>
             {seriesList.map((s, i) => {
               const c = s.color || colors[i % colors.length];
@@ -941,6 +959,10 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
             return [fmt, ""];
           }} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
+          {/* 联动高亮线 */}
+          {syncTooltipIndex >= 0 && activeXLabel && (
+            <ReferenceLine x={activeXLabel} stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeDasharray="3 3" />
+          )}
           {referenceLines.map((rl, i) => <ReferenceLine key={i} y={rl.value} stroke={rl.color ?? "#6366f1"} strokeDasharray="4 2" label={{ value: rl.label, fill: "#96a0b2", fontSize: 12 }} />)}
           {seriesList.map((s, i) => {
             const c = s.color || colors[i % colors.length];
@@ -961,7 +983,8 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
           })}
         </AreaChart>
       ) : (
-        <LineChart data={data} margin={{ top: 24, right: 20, bottom: 4, left: 4 }}>
+        <LineChart data={data} margin={{ top: 24, right: 20, bottom: 4, left: 4 }}
+          onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
           <defs>
             {seriesList.map((s, i) => {
               const c = s.color || colors[i % colors.length];
@@ -987,6 +1010,10 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
             return [fmt, ""];
           }} />
           {seriesList.length > 1 && <Legend wrapperStyle={{ fontSize: 13, color: "#96a0b2", paddingTop: 8 }} />}
+          {/* 联动高亮线 */}
+          {syncTooltipIndex >= 0 && activeXLabel && (
+            <ReferenceLine x={activeXLabel} stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeDasharray="3 3" />
+          )}
           {/* 自动添加均值参考线（单系列时） */}
           {seriesList.length === 1 && (() => {
             const vals = data.map(d => Number((d as Record<string, unknown>)[seriesList[0].key])).filter(v => !isNaN(v));
@@ -1053,11 +1080,14 @@ function ChartRenderer({ config }: { config: ChartConfig }) {
 // ── 图表容器 ───────────────────────────────────────────────────────────────────
 interface InlineChartProps {
   raw: string;
+  activeXLabel?: string | null;
+  onXHover?: (label: string | null) => void;
 }
 
-export function InlineChart({ raw }: InlineChartProps) {
+export function InlineChart({ raw, activeXLabel, onXHover }: InlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [showTable, setShowTable] = useState(false);
 
   let config: ChartConfig;
   try {
@@ -1136,6 +1166,51 @@ export function InlineChart({ raw }: InlineChartProps) {
   };
 
   const noDownload = ["heatmap", "treemap", "gauge"].includes(config.type);
+  const hasTableData = ["line", "area", "bar", "scatter", "dual_axis", "combo"].includes(config.type)
+    && (config.data?.length ?? 0) > 0;
+
+  // 数据表格渲染
+  const renderDataTable = () => {
+    const d = config.data ?? [];
+    if (d.length === 0) return null;
+    const keys = Object.keys(d[0]);
+    return (
+      <div className="flex-1 overflow-auto px-3 pb-3" style={{ minHeight: 0 }}>
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr style={{ borderBottom: "1px solid #22252e" }}>
+              {keys.map(k => (
+                <th key={k} className="px-3 py-2 text-left font-semibold"
+                  style={{ color: "#7090d0", background: "#1a1d2a", position: "sticky", top: 0, zIndex: 1 }}>
+                  {k}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {d.map((row, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid #1a1d25" }}
+                className="hover:bg-white/5 transition-colors">
+                {keys.map(k => {
+                  const v = (row as Record<string, unknown>)[k];
+                  const isNum = typeof v === "number";
+                  const isNeg = isNum && (v as number) < 0;
+                  return (
+                    <td key={k} className="px-3 py-1.5"
+                      style={{ color: isNeg ? "#ef4444" : isNum ? "#d8e0ec" : "#8a9ab8", fontVariantNumeric: "tabular-nums" }}>
+                      {isNum ? (Math.abs(v as number) >= 1e8 ? `${((v as number)/1e8).toFixed(2)}亿` :
+                        Math.abs(v as number) >= 1e4 ? `${((v as number)/1e4).toFixed(1)}万` :
+                        (v as number).toFixed(2)) : String(v ?? "")}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -1184,6 +1259,16 @@ export function InlineChart({ raw }: InlineChartProps) {
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {/* 数据表格切换（全屏模式下显示） */}
+          {hasTableData && (
+            <button onClick={() => setShowTable(t => !t)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
+              style={{ color: showTable ? "#6366f1" : "#7c8a9e", background: showTable ? "rgba(99,102,241,0.12)" : "transparent" }}
+              title={showTable ? "查看图表" : "查看数据表"}>
+              {showTable ? <BarChart2 className="w-3 h-3" /> : <Table2 className="w-3 h-3" />}
+              <span>{showTable ? "图表" : "表格"}</span>
+            </button>
+          )}
           {!noDownload && (
             <button onClick={handleDownload}
               className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-white/8"
@@ -1200,21 +1285,66 @@ export function InlineChart({ raw }: InlineChartProps) {
       </div>
 
       {/* 图表区域 - 全屏时flex-1填充剩余空间 */}
-      <div className={expanded ? "flex-1 px-2 pb-2 min-h-0" : "px-2 pb-3"}
-        style={expanded ? { display: "flex", flexDirection: "column" } : {}}>
-        <div style={expanded ? { flex: 1, minHeight: 0 } : {}}>
-          <ChartRenderer config={config} />
-        </div>
-      </div>
-
-      {/* 注释 */}
-      {config.annotations && (
-        <div className="px-4 pb-3 text-xs shrink-0"
-          style={{ color: "#8a9ab8", borderTop: "1px solid #1e2028", paddingTop: 8, background: "#1a1d2a", borderRadius: "0 0 16px 16px" }}>
-          <span style={{ color: "#f59e0b", fontWeight: 600, marginRight: 4 }}>ℹ️解读：</span>
-          {config.annotations}
+      {showTable ? (
+        renderDataTable()
+      ) : (
+        <div className={expanded ? "flex-1 px-2 pb-2 min-h-0" : "px-2 pb-3"}
+          style={expanded ? { display: "flex", flexDirection: "column" } : {}}>
+          <div style={expanded ? { flex: 1, minHeight: 0 } : {}}>
+            <ChartRenderer config={config} activeXLabel={activeXLabel} onXHover={onXHover} />
+          </div>
         </div>
       )}
+
+      {/* 注释 - 增强版：折线图/面积图显示趋势图标和关键转折点 */}
+      {config.annotations && (() => {
+        const isLineLike = ["line", "area"].includes(config.type);
+        const d = config.data ?? [];
+        const yKey = config.yKey || "value";
+        const xKey2 = config.xKey || "name";
+        let trendBadge: React.ReactNode = null;
+        let pivotBadge: React.ReactNode = null;
+        if (isLineLike && d.length >= 2) {
+          const vals = d.map(row => Number((row as Record<string, unknown>)[yKey])).filter(v => !isNaN(v));
+          if (vals.length >= 2) {
+            const first = vals[0], last = vals[vals.length - 1];
+            const pct = first !== 0 ? ((last - first) / Math.abs(first)) * 100 : 0;
+            const up = pct >= 0;
+            trendBadge = (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-bold mr-2 shrink-0"
+                style={{ background: up ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: up ? "#22c55e" : "#ef4444" }}>
+                {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                {up ? "+" : ""}{pct.toFixed(1)}%
+              </span>
+            );
+            // 找最高/最低点
+            const maxVal = Math.max(...vals), minVal = Math.min(...vals);
+            const maxIdx = vals.indexOf(maxVal), minIdx = vals.indexOf(minVal);
+            const maxLabel = String((d[maxIdx] as Record<string, unknown>)[xKey2] ?? "");
+            const minLabel = String((d[minIdx] as Record<string, unknown>)[xKey2] ?? "");
+            const fmt = (v: number) => Math.abs(v) >= 1e8 ? `${(v/1e8).toFixed(1)}亿` : Math.abs(v) >= 1e4 ? `${(v/1e4).toFixed(1)}万` : `${v.toFixed(2)}`;
+            pivotBadge = (
+              <span className="inline-flex items-center gap-2 text-xs shrink-0" style={{ color: "#7c8a9e" }}>
+                <span style={{ color: "#22c55e" }}>▲ 最高 {fmt(maxVal)} ({maxLabel})</span>
+                <span style={{ color: "#ef4444" }}>▼ 最低 {fmt(minVal)} ({minLabel})</span>
+              </span>
+            );
+          }
+        }
+        return (
+          <div className="px-4 pb-3 text-xs shrink-0"
+            style={{ color: "#8a9ab8", borderTop: "1px solid #1e2028", paddingTop: 8, background: "#1a1d2a", borderRadius: "0 0 16px 16px" }}>
+            {(trendBadge || pivotBadge) && (
+              <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                {trendBadge}
+                {pivotBadge}
+              </div>
+            )}
+            <span style={{ color: "#f59e0b", fontWeight: 600, marginRight: 4 }}>ℹ️解读：</span>
+            {config.annotations}
+          </div>
+        );
+      })()}
 
     </div>
     </>

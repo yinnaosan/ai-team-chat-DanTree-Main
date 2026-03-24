@@ -2314,3 +2314,9 @@
 - [x] K线图：实时价格标签右移到价格轴左侧（right: 72px），与价格轴分离
 - [x] K线图：右侧价格轴增加minimumWidth: 72，固定宽度避免标签被截断
 - [x] K线图：成交量 scaleMargins.bottom 增加避免与X轴重叠
+
+## 第三十四轮：图表功能增强（未完成项补全）
+- [x] 日期范围快捷按钮（1Y/3Y/5Y/全部）- 已在PriceChart实现
+- [x] 日内图表scrollToRealTime修复 - 已实现- [x] 折线图/面积图 annotations增强：趋势方向图标（↑↓）+ 涨跌幅百分比 + 最高/最低点标注
+- [x] 全屏模式「查看数据表」按鈕：标题栏图表/表格切换，支持所有 line/area/bar/scatter 图表
+- [x] 多图表联动：同一回复中多个图表共享 activeXLabel，鼠标悬停时高亮其他图表对应时间点（ChatRoom + ResearchWorkspace）

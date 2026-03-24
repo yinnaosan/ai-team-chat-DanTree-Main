@@ -753,6 +753,9 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
     return c;
   }, [cleanContent, alphaFactorsData, healthScoreData, optionPricingData]);
   const chartBlocks = React.useMemo(() => parseChartBlocks(contentForCharts), [contentForCharts]);
+  // 多图表联动：同一回复中所有图表共享 activeX
+  const [activeXLabel, setActiveXLabel] = React.useState<string | null>(null);
+  const chartCount = React.useMemo(() => chartBlocks.filter(b => b.type === "chart").length, [chartBlocks]);
   const colorVar = isAssistant ? "chatgpt" : "manus";
   const label = "投资研究助手";
   const abbr = "AI";
@@ -852,7 +855,10 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           )}
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
-              <InlineChart key={idx} raw={block.raw} />
+              <InlineChart key={idx} raw={block.raw}
+                activeXLabel={chartCount > 1 ? activeXLabel : undefined}
+                onXHover={chartCount > 1 ? setActiveXLabel : undefined}
+              />
             ) : block.type === "pyimage" ? (
               <PyImageChart key={idx} base64={block.base64} />
             ) : (

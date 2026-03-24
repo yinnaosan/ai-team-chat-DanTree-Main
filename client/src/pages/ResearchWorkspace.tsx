@@ -2457,6 +2457,9 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
     [msg.content]
   );
   const chartBlocks = React.useMemo(() => parseChartBlocks(cleanContent), [cleanContent]);
+  // 多图表联动
+  const [activeXLabel, setActiveXLabel] = React.useState<string | null>(null);
+  const chartCount = React.useMemo(() => chartBlocks.filter(b => b.type === "chart").length, [chartBlocks]);
 
   if (isSystem) {
     return (
@@ -2493,7 +2496,10 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
           style={{ color: "oklch(0.78 0 0)" }}>
           {chartBlocks.map((block, idx) =>
             block.type === "chart" ? (
-              <InlineChart key={idx} raw={block.raw} />
+              <InlineChart key={idx} raw={block.raw}
+                activeXLabel={chartCount > 1 ? activeXLabel : undefined}
+                onXHover={chartCount > 1 ? setActiveXLabel : undefined}
+              />
             ) : block.type === "pyimage" ? (
               <PyImageChart key={idx} base64={(block as { type: "pyimage"; base64: string }).base64} />
             ) : (

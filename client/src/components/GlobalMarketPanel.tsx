@@ -59,7 +59,7 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
       {/* Flag */}
       <span className="text-base w-5 text-center shrink-0">{flag}</span>
       {/* Market name */}
-      <span className="flex-1 text-[11px] font-medium" style={{ color: "oklch(0.75 0 0)" }}>
+      <span className="flex-1 text-sm font-medium" style={{ color: "oklch(0.80 0 0)" }}>
         {label}
       </span>
       {/* Status */}
@@ -68,16 +68,16 @@ function MarketRow({ type, label, flag }: { type: MarketType; label: string; fla
           className={`w-1.5 h-1.5 rounded-full shrink-0 ${info.status === "open" || info.status === "24h" ? "animate-pulse" : ""}`}
           style={{ background: style.dot }}
         />
-        <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: style.text }}>
+        <span className="text-xs font-mono font-bold tracking-wider" style={{ color: style.text }}>
           {info.holidayName ? "节假日" : style.label}
         </span>
         {info.holidayName ? (
-          <span className="text-[10px] font-mono opacity-60 max-w-[72px] truncate" style={{ color: style.text }}
+          <span className="text-xs font-mono opacity-60 max-w-[80px] truncate" style={{ color: style.text }}
             title={info.holidayName}>
             {info.holidayName}
           </span>
         ) : countdown ? (
-          <span className="text-[10px] font-mono" style={{ color: style.text, opacity: 0.75 }}>
+          <span className="text-xs font-mono" style={{ color: style.text, opacity: 0.75 }}>
             <span className="opacity-60">距{info.nextEvent}</span>
             {" "}
             <span className="font-bold">{countdown}</span>
@@ -129,7 +129,7 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
       {/* 触发按钮 */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-all hover:bg-white/8"
         style={{
           background: open ? "oklch(0.18 0 0)" : "oklch(0.14 0 0)",
           border: `1px solid ${open ? "oklch(0.30 0 0)" : "oklch(0.22 0 0)"}`,
@@ -158,10 +158,10 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
         >
           {/* 面板标题 */}
           <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: "oklch(0.20 0 0)" }}>
-            <span className="text-[11px] font-semibold tracking-wider uppercase" style={{ color: "oklch(0.55 0 0)" }}>
+            <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: "oklch(0.65 0 0)" }}>
               全球市场状态
             </span>
-            <span className="text-[10px] font-mono" style={{ color: "oklch(0.45 0 0)" }}>
+            <span className="text-xs font-mono" style={{ color: "oklch(0.55 0 0)" }}>
               {new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
@@ -173,7 +173,7 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
           </div>
           {/* 底部说明 */}
           <div className="px-3 py-2 border-t" style={{ borderColor: "oklch(0.18 0 0)" }}>
-            <p className="text-[9px] font-mono" style={{ color: "oklch(0.35 0 0)" }}>
+            <p className="text-[11px] font-mono" style={{ color: "oklch(0.45 0 0)" }}>
               时间基于 UTC · 夏令时自动调整 · 已集成节假日日历
             </p>
           </div>

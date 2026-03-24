@@ -2138,3 +2138,14 @@
 - [x] GlobalMarketBar指数浮层：CN显示上证+深证+沪深300，HK显示恒生+国企+腾讯，US显示 SPY/QQQ/DIA
 - [x] GlobalMarketBar指数浮层：三色涨跌幅（绿/红/灰）+ TrendingUp/Down 图标，点击外部自动关闭
 - [x] 后端新增 market.getMarketIndexSnapshot tRPC procedure，支持 CN/HK/US/GB/DE/FR
+
+## 2026-03-24 字体可读性优化
+
+- [ ] 全局基准字体：index.css 基础字号从 14px 提升到 15-16px，正文字重从 400 提升到 450
+- [ ] 字体层级体系：建立 H1(28px/700) H2(22px/600) H3(18px/600) body(15px/450) small(13px/400) 五级体系
+- [ ] DashboardLayout：侧边栏导航文字加大加粗，用户名/标题更突出
+- [ ] GlobalMarketBar：市场状态徽章字号加大，状态文字更易读
+- [ ] PriceChart：工具栏按钮/标签字号加大，盘口数据价格数字加粗
+- [ ] Home.tsx：首页市场概览卡片标题/数据加大加粗
+- [ ] 各功能页面（Research/Portfolio/Watchlist）：表格/列表字号统一优化
+- [ ] 数据数字（价格/涨跌幅/成交量）：统一使用 tabular-nums + font-semibold

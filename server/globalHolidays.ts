@@ -144,8 +144,10 @@ bs.logout()
   } catch (err) {
     console.warn(`[GlobalHolidays] Baostock query failed for ${dateStr}, falling back to weekday check:`, err);
     // Fallback：按星期几判断（不考虑节假日）
-    const d = new Date(dateStr + "T00:00:00+08:00");
-    const dow = d.getDay();
+    // 直接解析 dateStr (YYYY-MM-DD) 并计算 UTC 日期，避免时区偏移问题
+    const [y, mo, dd] = dateStr.split("-").map(Number);
+    const d = new Date(Date.UTC(y, mo - 1, dd));
+    const dow = d.getUTCDay();
     return dow !== 0 && dow !== 6;
   }
 }

@@ -370,7 +370,7 @@ export function MarketStatusBadge({
 
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-md font-mono ${isSmall ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-xs"} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md font-mono ${isSmall ? "px-1.5 py-0.5 text-xs" : "px-2.5 py-1 text-sm"} ${className}`}
       style={{
         background: cfg.bg,
         border: `1px solid ${cfg.border}`,

@@ -1258,10 +1258,10 @@ export default function ResearchWorkspacePage() {
         <button onClick={() => setShowInstrumentModal(true)}
           className="flex items-center gap-2 px-3 py-1 rounded-lg transition-all hover:scale-[1.02]"
           style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-          <span className="text-xs font-mono font-bold" style={{ color: T.gold }}>
+          <span className="text-sm font-mono font-bold" style={{ color: T.gold }}>
             {currentTicker || "SELECT"}
           </span>
-          <ChevronDown className="w-3 h-3" style={{ color: T.text3 }} />
+          <ChevronDown className="w-3.5 h-3.5" style={{ color: T.text3 }} />
         </button>
 
         {/* Pinned metrics */}
@@ -1277,8 +1277,8 @@ export default function ResearchWorkspacePage() {
               { label: "EPS", value: quoteData.eps != null ? `$${quoteData.eps.toFixed(2)}` : "—" },
             ].map(m => (
               <div key={m.label} className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs uppercase tracking-widest font-medium" style={{ color: T.text4 }}>{m.label}</span>
-                <span className="text-xs font-mono font-semibold"
+                <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.text3 }}>{m.label}</span>
+                <span className="text-sm font-mono font-semibold"
                   style={{ color: (m as any).isChange ? ((m as any).isUp ? T.up : T.down) : T.text1 }}>
                   {m.value}
                 </span>
@@ -1297,7 +1297,7 @@ export default function ResearchWorkspacePage() {
           <button
             onClick={handleInstall}
             title={installPrompt ? "点击安装到桌面" : "已安装"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-all hover:bg-white/8"
             style={{ 
               background: installPrompt ? T.goldDim : T.bg2, 
               border: `1px solid ${installPrompt ? T.goldBorder : T.border}`, 
@@ -1310,7 +1310,7 @@ export default function ResearchWorkspacePage() {
           <button
             onClick={logout}
             title="退出登录"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-all hover:bg-white/8"
             style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">退出</span>
@@ -1318,7 +1318,7 @@ export default function ResearchWorkspacePage() {
 
           <button onClick={() => setShowTradeModal(true)}
             disabled={!currentTicker}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-40"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-40"
             style={{ background: T.gold, color: "oklch(0.08 0 0)" }}>
             <ShoppingCart className="w-3.5 h-3.5" />
             进入交易
@@ -1359,7 +1359,7 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ borderBottom: `1px solid ${T.border}` }}>
             {!sidebarCollapsed && (
-              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
                 Research
               </span>
             )}
@@ -1399,12 +1399,12 @@ export default function ResearchWorkspacePage() {
                   <div className="flex gap-1">
                     <button onClick={() => createConvMutation.mutate({ title: newConvTitle || undefined })}
                       disabled={createConvMutation.isPending}
-                      className="flex-1 h-6 text-[12px] rounded"
+                      className="flex-1 h-7 text-xs rounded"
                       style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
                       创建
                     </button>
                     <button onClick={() => { setShowNewConvDialog(false); setNewConvTitle(""); }}
-                      className="flex-1 h-6 text-[12px] rounded hover:bg-white/5"
+                      className="flex-1 h-7 text-xs rounded hover:bg-white/5"
                       style={{ color: T.text3, border: `1px solid ${T.border}` }}>
                       取消
                     </button>
@@ -1418,7 +1418,7 @@ export default function ResearchWorkspacePage() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: T.text4 }} />
                   <input
                     placeholder="搜索对话..."
-                    className="w-full h-7 pl-7 pr-2 rounded-lg text-xs outline-none"
+                    className="w-full h-8 pl-7 pr-2 rounded-lg text-sm outline-none"
                     style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text2 }}
                   />
                 </div>
@@ -1476,7 +1476,7 @@ export default function ResearchWorkspacePage() {
                 {(!allConversations || allConversations.length === 0) && (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 px-3">
                     <MessageSquare className="w-6 h-6" style={{ color: T.text4 }} />
-                    <p className="text-[12px] text-center" style={{ color: T.text4 }}>点击 + 开始新的研究对话</p>
+                    <p className="text-sm text-center" style={{ color: T.text4 }}>点击 + 开始新的研究对话</p>
                   </div>
                 )}
               </div>
@@ -1489,9 +1489,9 @@ export default function ResearchWorkspacePage() {
                   { icon: Settings, label: "设置", path: "/settings" },
                 ].map(({ icon: Icon, label, path }) => (
                   <button key={path} onClick={() => navigate(path)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/5"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-all hover:bg-white/5"
                     style={{ color: T.text3 }}>
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <Icon className="w-4 h-4 shrink-0" />
                     <span>{label}</span>
                   </button>
                 ))}
@@ -1526,7 +1526,7 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
                 Research Header
               </span>
               {currentTicker && (
@@ -1538,7 +1538,7 @@ export default function ResearchWorkspacePage() {
               {isTyping && (
                 <div className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.gold }} />
-                  <span className="text-[12px] font-mono" style={{ color: T.gold }}>
+                  <span className="text-sm font-mono" style={{ color: T.gold }}>
                     {taskPhase === "manus_working" ? "理解" : taskPhase === "planning" ? "规划" :
                       taskPhase === "source_selection" ? "选源" : taskPhase === "manus_analyzing" ? "获取" :
                       taskPhase === "evidence_eval" ? "验证" : taskPhase === "multi_agent" ? "协作" :
@@ -1553,7 +1553,7 @@ export default function ResearchWorkspacePage() {
                 style={{ background: T.bg0, border: `1px solid ${T.border}` }}>
                 {(["quick", "standard", "deep"] as const).map((m) => (
                   <button key={m} onClick={() => setAnalysisMode(m)}
-                    className="px-2 py-0.5 rounded text-[12px] font-medium transition-all"
+                    className="px-2 py-0.5 rounded text-xs font-medium transition-all"
                     style={{
                       background: analysisMode === m ? T.bg3 : "transparent",
                       color: analysisMode === m ? T.gold : T.text4,
@@ -1614,7 +1614,7 @@ export default function ResearchWorkspacePage() {
                     <div className="flex gap-1 flex-wrap">
                       {(["backtest", "health", "sentiment", "alpha", "portfolio", "radar"] as const).map(t => (
                         <button key={t} onClick={() => setDeepSectionsTab(t)}
-                          className="px-2.5 py-1 rounded text-[12px] font-medium transition-all"
+                          className="px-2.5 py-1 rounded text-xs font-medium transition-all"
                           style={{
                             background: deepSectionsTab === t ? T.bg3 : "transparent",
                             color: deepSectionsTab === t ? T.gold : T.text4,
@@ -1914,7 +1914,7 @@ export default function ResearchWorkspacePage() {
                     <button key={path} onClick={() => navigate(path)}
                       className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/5"
                       style={{ color: T.text3 }}>
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <Icon className="w-4 h-4 shrink-0" />
                       <span>{label}</span>
                     </button>
                   ))}
@@ -1952,7 +1952,7 @@ function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete 
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-xs truncate" style={{ color: isActive ? T.text1 : T.text3 }}>
+        <p className="text-sm truncate" style={{ color: isActive ? T.text1 : T.text2 }}>
           {conv.title ?? `对话 #${conv.id}`}
         </p>
         <p className="text-xs" style={{ color: T.text4 }}>
@@ -1964,17 +1964,17 @@ function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete 
           <button onClick={(e) => { e.stopPropagation(); onPin(); }}
             className="p-0.5 rounded hover:bg-white/10"
             style={{ color: conv.isPinned ? T.gold : T.text4 }}>
-            <Pin className="w-2.5 h-2.5" />
+            <Pin className="w-3 h-3" />
           </button>
           <button onClick={(e) => { e.stopPropagation(); onFavorite(); }}
             className="p-0.5 rounded hover:bg-white/10"
             style={{ color: conv.isFavorited ? T.gold : T.text4 }}>
-            <Star className="w-2.5 h-2.5" />
+            <Star className="w-3 h-3" />
           </button>
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="p-0.5 rounded hover:bg-white/10"
             style={{ color: T.text4 }}>
-            <Trash2 className="w-2.5 h-2.5" />
+            <Trash2 className="w-3 h-3" />
           </button>
         </div>
       )}

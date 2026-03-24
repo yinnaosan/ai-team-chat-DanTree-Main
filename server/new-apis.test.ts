@@ -49,7 +49,7 @@ describe("Frankfurter Exchange Rates API", () => {
     expect(typeof result.ok).toBe("boolean");
     expect(result).toHaveProperty("latencyMs");
     expect(typeof result.latencyMs).toBe("number");
-  });
+  }, 15000);
 
   it("getForexAnalysis 在 API 不可用时不抛出异常", async () => {
     const { getForexAnalysis } = await import("./exchangeRatesApi");
@@ -64,7 +64,7 @@ describe("Frankfurter Exchange Rates API", () => {
     if (result.length > 0) {
       expect(result).not.toMatch(/数据不足|insufficient data/i);
     }
-  });
+  }, 15000);
 
   it("getForexAnalysis 对不相关任务返回空字符串", async () => {
     const { getForexAnalysis } = await import("./exchangeRatesApi");

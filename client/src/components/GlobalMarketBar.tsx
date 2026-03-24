@@ -131,7 +131,7 @@ function IndexSnapshotPopup({
     >
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/8">
-        <span className="text-xs font-semibold text-gray-200">{marketName} 主要指数</span>
+        <span className="text-sm font-semibold text-gray-100">{marketName} 主要指数</span>
         <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
           <X className="w-3.5 h-3.5" />
         </button>
@@ -156,24 +156,24 @@ function IndexSnapshotPopup({
                 style={{ background: "rgba(255,255,255,0.03)" }}
               >
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] font-medium text-gray-200 truncate">{snap.name}</span>
-                  <span className="text-[10px] text-gray-600 font-mono">{snap.symbol}</span>
+                  <span className="text-xs font-semibold text-gray-100 truncate">{snap.name}</span>
+                  <span className="text-[11px] text-gray-500 font-mono">{snap.symbol}</span>
                 </div>
                 <div className="flex flex-col items-end ml-2 flex-shrink-0">
                   {snap.price != null ? (
                     <>
-                      <span className="text-[12px] font-bold font-mono tabular-nums" style={{ color }}>
+                      <span className="text-sm font-bold font-mono tabular-nums" style={{ color }}>
                         {snap.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                       <div className="flex items-center gap-0.5">
                         <Icon className="w-2.5 h-2.5" style={{ color }} />
-                        <span className="text-[10px] font-mono tabular-nums" style={{ color }}>
+                        <span className="text-xs font-mono tabular-nums" style={{ color }}>
                           {snap.pctChange != null ? `${snap.pctChange >= 0 ? "+" : ""}${snap.pctChange.toFixed(2)}%` : "—"}
                         </span>
                       </div>
                     </>
                   ) : (
-                    <span className="text-[11px] text-gray-600">
+                    <span className="text-xs text-gray-500">
                       {snap.error ? "获取失败" : "暂无数据"}
                     </span>
                   )}
@@ -182,13 +182,13 @@ function IndexSnapshotPopup({
             );
           })
         ) : (
-          <div className="text-center py-3 text-xs text-gray-600">暂无数据</div>
+          <div className="text-center py-3 text-sm text-gray-500">暂无数据</div>
         )}
       </div>
 
       {/* 底部提示 */}
       <div className="px-3 py-1.5 border-t border-white/5">
-        <span className="text-[10px] text-gray-700 font-mono">
+        <span className="text-[11px] text-gray-600 font-mono">
           {new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} 快照
         </span>
       </div>
@@ -217,7 +217,7 @@ function MarketBadge({
     <div
       ref={badgeRef}
       onClick={onClick}
-      className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono whitespace-nowrap select-none cursor-pointer transition-all duration-150"
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono whitespace-nowrap select-none cursor-pointer transition-all duration-150"
       style={{
         background: isActive ? `rgba(255,255,255,0.08)` : style.bg,
         border: `1px solid ${isActive ? "rgba(255,255,255,0.2)" : style.border}`,
@@ -226,9 +226,9 @@ function MarketBadge({
       title={`${status.name} · ${status.localTime} 本地时间 · 点击查看主要指数`}
     >
       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot} ${status.session === "trading" ? "animate-pulse" : ""}`} />
-      <span className="text-gray-300 font-medium">{shortName}</span>
-      <span className={`${style.text} opacity-90`}>{label}</span>
-      <span className="text-gray-600 text-[10px]">{status.localTime}</span>
+      <span className="text-gray-200 font-semibold">{shortName}</span>
+      <span className={`${style.text} opacity-90 font-medium`}>{label}</span>
+      <span className="text-gray-500 text-[11px]">{status.localTime}</span>
     </div>
   );
 }
@@ -301,7 +301,7 @@ export function GlobalMarketBar() {
         style={{ minHeight: 28 }}
       >
         <div className="flex items-center gap-1.5 px-3 py-1 overflow-x-auto scrollbar-none">
-          <span className="text-gray-600 text-[10px] font-mono mr-0.5 flex-shrink-0">全球市场</span>
+          <span className="text-gray-500 text-xs font-mono mr-0.5 flex-shrink-0">全球市场</span>
           <div className="w-px h-3 bg-white/10 flex-shrink-0" />
           {statuses.map((s) => {
             if (!badgeRefs.current[s.market]) {
@@ -317,7 +317,7 @@ export function GlobalMarketBar() {
               />
             );
           })}
-          <span className="ml-auto text-gray-700 text-[10px] font-mono flex-shrink-0">
+          <span className="ml-auto text-gray-600 text-[11px] font-mono flex-shrink-0">
             {new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 更新
           </span>
         </div>

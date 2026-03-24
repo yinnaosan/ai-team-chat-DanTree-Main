@@ -204,7 +204,7 @@ function DashboardLayoutContent({
                     style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Space Grotesk', sans-serif" }}>
                     DanTree
                   </span>
-                  <span className="bloomberg-badge gold shrink-0" style={{ fontSize: "0.5625rem" }}>TERM</span>
+                  <span className="bloomberg-badge gold shrink-0">TERM</span>
                 </div>
               )}
               {isCollapsed && (
@@ -242,10 +242,10 @@ function DashboardLayoutContent({
                         paddingLeft: "calc(0.625rem - 2px)",
                       } as CSSProperties}
                     >
-                      <item.icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="text-xs font-medium">{item.label}</span>
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="text-sm font-medium">{item.label}</span>
                       {!isCollapsed && (
-                        <span className="ml-auto bloomberg-command-kbd text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="ml-auto bloomberg-command-kbd text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                           {item.shortcut}
                         </span>
                       )}
@@ -277,8 +277,8 @@ function DashboardLayoutContent({
                         paddingLeft: "calc(0.625rem - 2px)",
                       } as CSSProperties}
                     >
-                      <item.icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="text-xs font-medium">{item.label}</span>
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="text-sm font-medium">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -295,9 +295,9 @@ function DashboardLayoutContent({
                     document.dispatchEvent(event);
                   }}>
                   <div className="flex items-center gap-2">
-                    <Command className="w-3 h-3 shrink-0" style={{ color: "var(--bloomberg-text-dim)" }} />
-                    <span className="text-[10px]" style={{ color: "var(--bloomberg-text-dim)" }}>命令面板</span>
-                    <span className="ml-auto bloomberg-command-kbd text-[10px]">⌘K</span>
+                    <Command className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--bloomberg-text-tertiary)" }} />
+                    <span className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>命令面板</span>
+                    <span className="ml-auto bloomberg-command-kbd text-xs">⌘K</span>
                   </div>
                 </div>
               </div>
@@ -312,7 +312,7 @@ function DashboardLayoutContent({
               <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--bloomberg-green)" }} />
-                  <span className="text-[10px] font-mono" style={{ color: "var(--bloomberg-text-dim)" }}>SYSTEM ONLINE</span>
+                  <span className="text-xs font-mono" style={{ color: "var(--bloomberg-text-tertiary)" }}>SYSTEM ONLINE</span>
                 </div>
               </div>
             )}
@@ -324,18 +324,18 @@ function DashboardLayoutContent({
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   <Avatar className="h-7 w-7 shrink-0" style={{ border: "1px solid var(--bloomberg-border)" }}>
                     <AvatarFallback className="text-xs font-bold"
-                      style={{ background: "oklch(14% 0.025 75)", color: "var(--bloomberg-gold)", fontSize: "0.625rem" }}>
+                      style={{ background: "oklch(14% 0.025 75)", color: "var(--bloomberg-gold)", fontSize: "0.75rem" }}>
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   {!isCollapsed && (
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate leading-none"
+                      <p className="text-sm font-semibold truncate leading-none"
                         style={{ color: "var(--bloomberg-text-primary)" }}>
                         {user?.name || "-"}
                       </p>
-                      <p className="text-[10px] truncate mt-0.5"
-                        style={{ color: "var(--bloomberg-text-dim)" }}>
+                      <p className="text-xs truncate mt-0.5"
+                        style={{ color: "var(--bloomberg-text-secondary)" }}>
                         {user?.email || "-"}
                       </p>
                     </div>
@@ -346,9 +346,9 @@ function DashboardLayoutContent({
                 style={{ background: "var(--bloomberg-surface-1)", border: "1px solid var(--bloomberg-border)" }}>
                 <DropdownMenuItem
                   onClick={logout}
-                  className="cursor-pointer text-xs"
+                  className="cursor-pointer text-sm"
                   style={{ color: "var(--bloomberg-red)" }}>
-                  <LogOut className="mr-2 h-3.5 w-3.5" />
+                  <LogOut className="mr-2 h-4 w-4" />
                   <span>退出登录</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

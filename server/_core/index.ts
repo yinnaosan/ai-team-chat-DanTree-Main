@@ -10,6 +10,7 @@ import { serveStatic, setupVite } from "./vite";
 import { uploadRouter } from "../upload";
 import { chatgptProxyRouter } from "../chatgptProxy";
 import { taskStreamRouter } from "../taskStream";
+import { tickerStreamRouter } from "../tickerWs";
 import { checkHealth as checkFinnhubHealth } from "../finnhubApi";
 import { checkHealth as checkFmpHealth } from "../fmpApi";
 import { checkHealth as checkPolygonHealth } from "../polygonApi";
@@ -58,6 +59,8 @@ async function startServer() {
   app.use(chatgptProxyRouter);
   // SSE task stream (real-time push, replaces polling)
   app.use(taskStreamRouter);
+  // Finnhub real-time ticker SSE stream
+  app.use(tickerStreamRouter);
   // 健康检测诊断端点（直接调用 checkHealth 函数，无需认证）
   app.get("/api/health-diag", async (_req, res) => {
     const withTimeout = <T>(p: Promise<T>, fallback: T, ms = 10000): Promise<T> =>

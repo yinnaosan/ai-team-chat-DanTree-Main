@@ -99,7 +99,7 @@ const MARKETS: Record<MarketType, MarketSession> = {
   },
 };
 
-export type MarketStatusType = "open" | "closed" | "pre" | "post" | "24h";
+export type MarketStatusType = "open" | "closed" | "pre" | "post" | "24h" | "lunch";
 
 export interface MarketStatusInfo {
   status: MarketStatusType;
@@ -174,6 +174,22 @@ export function getMarketStatus(marketType: MarketType): MarketStatusInfo {
   const close = market.closeUtcMin;
   const preOpen = market.preOpenUtcMin;
   const postClose = market.postCloseUtcMin;
+
+  // A股午休：11:30–13:00 CST = 03:30–05:00 UTC
+  if (marketType === "cn" && isWeekday) {
+    const lunchStartUtc = 11 * 60 + 30 - 8 * 60; // 3:30 UTC
+    const lunchEndUtc   = 13 * 60       - 8 * 60; // 5:00 UTC
+    if (utcMin >= lunchStartUtc && utcMin < lunchEndUtc) {
+      const secsToAfternoon = (lunchEndUtc - utcMin) * 60 - now.getUTCSeconds();
+      return {
+        status: "lunch",
+        secondsToNext: Math.max(0, secsToAfternoon),
+        nextEvent: "午后开盘",
+        market,
+        marketType,
+      };
+    }
+  }
 
   // 正常交易时段
   if (utcMin >= open && utcMin < close) {
@@ -278,6 +294,13 @@ const STATUS_CONFIG: Record<MarketStatusType, {
     bg: "oklch(0.65 0.18 250 / 0.12)",
     border: "oklch(0.65 0.18 250 / 0.35)",
     pulse: true,
+  },
+  lunch: {
+    label: "午休",
+    color: "oklch(0.72 0.15 200)",
+    bg: "oklch(0.72 0.15 200 / 0.12)",
+    border: "oklch(0.72 0.15 200 / 0.35)",
+    pulse: false,
   },
 };
 

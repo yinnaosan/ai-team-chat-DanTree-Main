@@ -2025,3 +2025,18 @@
 - [x] 优化缩放灵敏度，对齐 macOS 原生体验
 - [x] 子图表（MACD/RSI/KDJ）与主图表时间轴同步缩放/平移
 - [x] 编写 trackpad-gesture.test.ts，9 个测试全部通过
+
+## 2026-03-24 第九轮功能批次
+
+- [x] A股午休状态：MarketStatus 组件在 11:30–13:00 显示「午休」而非「休市」
+- [x] A股午休状态：GlobalMarketPanel 同步显示「午休」状态
+- [x] A股午休状态：Home.tsx 落地页市场面板同步显示「午休」状态
+- [x] Finnhub WebSocket：后端新增 /api/ticker-stream/:symbol SSE 路由，订阅 Finnhub trade 事件
+- [x] Finnhub WebSocket：前端 PriceChart 日内周期（1min/5min/15min/30min/1h/4h）时自动连接 SSE
+- [x] Finnhub WebSocket：实时更新最新 K 线 bar（最后一根蜡烛实时刷新价格/量）
+- [x] Finnhub WebSocket：连接状态指示器（绿色 LIVE / 黄色 CONNECTING / 灰色 OFFLINE）
+- [x] 多标的对比图：PriceChart 添加「对比」按鈕，弹出标的输入框
+- [x] 多标的对比图：后端同时获取两个标的的历史数据（复用 getPriceHistory）
+- [x] 多标的对比图：归一化处理（以第一根 K 线收盘价为基准，转为百分比变化）
+- [x] 多标的对比图：双色折线叠加显示（主标的金色，对比标的蓝色），右侧显示图例
+- [x] 多标的对比图：对比模式下主图自动切换为归一化折线，取消对比后恢复原始数据

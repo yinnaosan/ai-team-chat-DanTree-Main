@@ -154,11 +154,11 @@ const STATUS_COLOR: Record<string, string> = {
   pre:    "oklch(0.78 0.18 85)",
   post:   "oklch(0.78 0.18 85)",
   closed: "oklch(0.62 0.22 25)",
-  night:  "oklch(0.65 0.18 250)",
   "24h":  "oklch(0.72 0.18 142)",
+  lunch:  "oklch(0.72 0.15 200)",
 };
 const STATUS_LABEL: Record<string, string> = {
-  open: "开盘", pre: "盘前", post: "盘后", closed: "休市", night: "夜盘", "24h": "24H",
+  open: "开盘", pre: "盘前", post: "盘后", closed: "休市", "24h": "24H", lunch: "午休",
 };
 
 function formatSecs(s: number) {

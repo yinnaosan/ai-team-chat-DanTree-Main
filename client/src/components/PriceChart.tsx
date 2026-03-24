@@ -43,6 +43,9 @@ import {
   Maximize2,
   Minimize2,
   Settings2,
+  Radio,
+  GitCompare,
+  X,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,9 +273,100 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   );
   const [subIndicator, setSubIndicator] = useState<IndicatorKey | null>("VOL");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<"connecting" | "live" | "offline">("offline");
+  const [lastTickPrice, setLastTickPrice] = useState<number | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
+  // 对比模式
+  const [compareSymbol, setCompareSymbol] = useState<string | null>(null);
+  const [compareInput, setCompareInput] = useState("");
+  const [showCompareInput, setShowCompareInput] = useState(false);
+  const compareSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const [hoverData, setHoverData] = useState<{
     time: string; open: number; high: number; low: number; close: number; volume?: number;
   } | null>(null);
+
+  // ── 日内周期判断 ──────────────────────────────────────────────────────────
+  const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
+  const isCompareMode = !!compareSymbol;
+
+  // ── 实时 Tick SSE（日内周期时自动连接）────────────────────────────────────
+  useEffect(() => {
+    if (!isIntraday || !symbol) {
+      // 非日内周期：断开 SSE
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+      setLiveStatus("offline");
+      setLastTickPrice(null);
+      return;
+    }
+
+    setLiveStatus("connecting");
+    const sse = new EventSource(`/api/ticker-stream/${encodeURIComponent(symbol)}`, { withCredentials: true });
+    sseRef.current = sse;
+
+    sse.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data) as { type?: string; symbol?: string; price?: number; timestamp?: number; volume?: number };
+        if (payload.type === "connected") {
+          setLiveStatus("live");
+          return;
+        }
+        // 实时 trade 事件：更新最后一根 K 线
+        if (payload.price && seriesRef.current) {
+          const price = payload.price;
+          setLastTickPrice(price);
+          const ts = payload.timestamp ?? Date.now();
+          // 计算当前 bar 的时间（向下取整到当前 interval）
+          const intervalSecs: Record<string, number> = {
+            "1min": 60, "5min": 300, "15min": 900,
+            "30min": 1800, "1h": 3600, "4h": 14400,
+          };
+          const barSecs = intervalSecs[interval] ?? 60;
+          const barTime = Math.floor(ts / 1000 / barSecs) * barSecs as Time;
+
+          try {
+            // 用 update 更新最后一根 bar（lightweight-charts 会自动合并到已有 bar）
+            if (chartType === "candlestick") {
+              const lastCandle = candles[candles.length - 1];
+              if (lastCandle) {
+                const isCurrentBar = (lastCandle.time as number) === barTime;
+                if (isCurrentBar) {
+                  seriesRef.current.update({
+                    time: barTime,
+                    open:  lastCandle.open,
+                    high:  Math.max(lastCandle.high, price),
+                    low:   Math.min(lastCandle.low, price),
+                    close: price,
+                  });
+                } else {
+                  // 新 bar
+                  seriesRef.current.update({
+                    time: barTime,
+                    open: price, high: price, low: price, close: price,
+                  });
+                }
+              }
+            } else {
+              seriesRef.current.update({ time: barTime, value: price });
+            }
+          } catch { /* ignore stale update */ }
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    sse.onerror = () => {
+      setLiveStatus("offline");
+    };
+
+    return () => {
+      sse.close();
+      sseRef.current = null;
+      setLiveStatus("offline");
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIntraday, symbol, interval]);
 
   // A股红涨绿跌，美股绿涨红跌
   const upColor       = colorScheme === "cn" ? "#ef4444" : "#22c55e";
@@ -280,7 +374,19 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const upColorDim    = colorScheme === "cn" ? "rgba(239,68,68,0.25)"  : "rgba(34,197,94,0.25)";
   const downColorDim  = colorScheme === "cn" ? "rgba(34,197,94,0.25)"  : "rgba(239,68,68,0.25)";
 
-  // ── 数据获取 ──────────────────────────────────────────────────────────────
+   // ── 对比标的数据获取 ───────────────────────────────────────────────────────
+  const { data: compareData } = trpc.market.getPriceHistory.useQuery(
+    { symbol: compareSymbol ?? "", interval, outputsize },
+    { enabled: !!compareSymbol, staleTime: 60_000, retry: 1 }
+  );
+
+  const compareCandles = useMemo(() => {
+    if (!compareSymbol) return [];
+    const raw = compareData?.candles ?? [];
+    return raw.filter((c: { open: number; close: number; high: number; low: number }) => c.open > 0 && c.close > 0);
+  }, [compareData, compareSymbol]);
+
+  // ── 数据获取 ──────────────────────────────────────────────────────────
   const { data, isLoading, refetch } = trpc.market.getPriceHistory.useQuery(
     { symbol, interval, outputsize },
     {
@@ -340,7 +446,26 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     };
   }, [candles, upColor, downColor]);
 
-  // ── 图表配置（依赖 interval 变化）────────────────────────────────────────
+  // ── 对比图归一化数据计算 ──────────────────────────────────────────────────────────
+  /** 将 candles 归一化为百分比变化（以第一根 K 线收盘价为基准） */
+  const normalizeCandles = useCallback((cs: typeof candles) => {
+    if (!cs.length) return [];
+    const base = cs[0].close;
+    if (!base) return [];
+    return cs.map(c => ({
+      time: c.time as Time,
+      value: ((c.close - base) / base) * 100,
+    }));
+  }, []);
+
+  const normalizedMain    = useMemo(() => normalizeCandles(candles),        [candles, normalizeCandles]);
+  const normalizedCompare = useMemo(() => normalizeCandles(compareCandles), [compareCandles, normalizeCandles]);
+
+  // 对比模式下主标的当前涨跌幅
+  const mainPct    = normalizedMain.length    ? normalizedMain[normalizedMain.length - 1].value    : null;
+  const comparePct = normalizedCompare.length ? normalizedCompare[normalizedCompare.length - 1].value : null;
+
+  // ── 图表配置（依赖 interval 变化）──────────────────────────────────────────────────────────
   const chartOpts = useMemo(() => ({
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
@@ -574,7 +699,59 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     } catch {}
   }, [candles, indicatorData, chartType, activeIndicators, upColorDim, downColorDim]);
 
-  // ── 子图表（MACD / RSI / KDJ）─────────────────────────────────────────────
+  // ── 对比图渲染（归一化双色折线叠加）──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    // 清除旧对比系列
+    if (compareSeriesRef.current) {
+      try { chart.removeSeries(compareSeriesRef.current); } catch {}
+      compareSeriesRef.current = null;
+    }
+
+    if (!isCompareMode || !normalizedMain.length) {
+      // 非对比模式：正常显示原始数据
+      if (seriesRef.current && candles.length) {
+        try {
+          if (chartType === "candlestick") {
+            seriesRef.current.setData(candles.map(c => ({
+              time: c.time as Time,
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            })));
+          } else {
+            seriesRef.current.setData(candles.map(c => ({ time: c.time as Time, value: c.close })));
+          }
+        } catch {}
+      }
+      return;
+    }
+
+    // 对比模式：主图改为归一化折线
+    try {
+      if (seriesRef.current) {
+        // 将主图改为折线模式并设置归一化数据
+        seriesRef.current.setData(normalizedMain);
+      }
+      // 添加对比标的系列
+      if (normalizedCompare.length) {
+        const cmpSeries = chart.addSeries(LineSeries, {
+          color: "#60a5fa",
+          lineWidth: 2,
+          priceScaleId: "right",
+          lastValueVisible: true,
+          priceLineVisible: false,
+          title: compareSymbol ?? "",
+        });
+        cmpSeries.setData(normalizedCompare);
+        compareSeriesRef.current = cmpSeries;
+      }
+      chart.timeScale().fitContent();
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompareMode, normalizedMain, normalizedCompare, compareSymbol]);
+
+  // ── 子图表（MACD / RSI / KDJ）─────────────────────────────────────────────────────────────────
   const hasSubChart = subIndicator && ["MACD", "RSI", "KDJ"].includes(subIndicator);
 
   useEffect(() => {
@@ -755,6 +932,68 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
               </button>
             ))}
           </div>
+          {/* 实时状态指示器 */}
+          {isIntraday && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" style={{
+              background: liveStatus === "live" ? "rgba(34,197,94,0.1)" : liveStatus === "connecting" ? "rgba(201,168,76,0.1)" : "rgba(80,80,80,0.08)",
+              border: `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`,
+              color: liveStatus === "live" ? "#22c55e" : liveStatus === "connecting" ? "#c9a84c" : "rgba(80,80,80,0.7)",
+            }}>
+              <Radio className={`w-2.5 h-2.5 ${liveStatus === "live" ? "animate-pulse" : ""}`} />
+              <span>{liveStatus === "live" ? "LIVE" : liveStatus === "connecting" ? "..." : "OFF"}</span>
+              {liveStatus === "live" && lastTickPrice != null && (
+                <span className="font-bold tabular-nums ml-0.5">{lastTickPrice.toFixed(2)}</span>
+              )}
+            </div>
+          )}
+          {/* 对比按鈕 */}
+          {showCompareInput ? (
+            <div className="flex items-center gap-0.5">
+              <input
+                autoFocus
+                value={compareInput}
+                onChange={e => setCompareInput(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && compareInput.trim()) {
+                    setCompareSymbol(compareInput.trim());
+                    setShowCompareInput(false);
+                  } else if (e.key === "Escape") {
+                    setShowCompareInput(false);
+                    setCompareInput("");
+                  }
+                }}
+                placeholder="输入标的代码"
+                className="w-20 px-1.5 py-0.5 rounded text-[11px] font-mono outline-none"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(201,168,76,0.4)",
+                  color: "rgba(200,200,200,0.9)",
+                }}
+              />
+              <button onClick={() => { setShowCompareInput(false); setCompareInput(""); }}
+                className="p-0.5 rounded" style={{ color: "rgba(100,100,100,0.7)" }}>
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (isCompareMode) {
+                  setCompareSymbol(null);
+                  setCompareInput("");
+                } else {
+                  setShowCompareInput(true);
+                }
+              }}
+              title={isCompareMode ? `取消对比 ${compareSymbol}` : "对比"}
+              className="p-1 rounded transition-all hover:opacity-80"
+              style={{
+                color: isCompareMode ? "#60a5fa" : "rgba(100,100,100,0.7)",
+                background: isCompareMode ? "rgba(96,165,250,0.1)" : "transparent",
+              }}>
+              <GitCompare className="w-3 h-3" />
+            </button>
+          )}
           <button onClick={() => refetch()} title="刷新"
             className="p-1 rounded transition-all hover:opacity-80"
             style={{ color: "rgba(100,100,100,0.7)" }}>
@@ -871,12 +1110,37 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
             {ind.label}
           </button>
         ))}
-        {/* MA 图例 */}
+        {/* MA 图例 / 对比图例 */}
         <div className="ml-auto flex items-center gap-2 text-[10px] font-mono">
-          {activeIndicators.has("MA5")  && <span style={{ color: "#f59e0b" }}>MA5</span>}
-          {activeIndicators.has("MA10") && <span style={{ color: "#60a5fa" }}>MA10</span>}
-          {activeIndicators.has("MA20") && <span style={{ color: "#a78bfa" }}>MA20</span>}
-          {activeIndicators.has("MA60") && <span style={{ color: "#f97316" }}>MA60</span>}
+          {isCompareMode ? (
+            <>
+              <span className="flex items-center gap-1">
+                <span style={{ color: "#c9a84c" }}>●</span>
+                <span style={{ color: "rgba(180,180,180,0.9)" }}>{symbol}</span>
+                {mainPct != null && (
+                  <span style={{ color: mainPct >= 0 ? upColor : downColor, fontWeight: 600 }}>
+                    {mainPct >= 0 ? "+" : ""}{mainPct.toFixed(2)}%
+                  </span>
+                )}
+              </span>
+              <span className="flex items-center gap-1">
+                <span style={{ color: "#60a5fa" }}>●</span>
+                <span style={{ color: "rgba(180,180,180,0.9)" }}>{compareSymbol}</span>
+                {comparePct != null && (
+                  <span style={{ color: comparePct >= 0 ? upColor : downColor, fontWeight: 600 }}>
+                    {comparePct >= 0 ? "+" : ""}{comparePct.toFixed(2)}%
+                  </span>
+                )}
+              </span>
+            </>
+          ) : (
+            <>
+              {activeIndicators.has("MA5")  && <span style={{ color: "#f59e0b" }}>MA5</span>}
+              {activeIndicators.has("MA10") && <span style={{ color: "#60a5fa" }}>MA10</span>}
+              {activeIndicators.has("MA20") && <span style={{ color: "#a78bfa" }}>MA20</span>}
+              {activeIndicators.has("MA60") && <span style={{ color: "#f97316" }}>MA60</span>}
+            </>
+          )}
         </div>
       </div>
     </div>

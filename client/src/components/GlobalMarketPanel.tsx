@@ -27,6 +27,7 @@ const STATUS_STYLE: Record<MarketStatusType, { dot: string; text: string; label:
   post:   { dot: "oklch(0.78 0.18 85)",  text: "oklch(0.78 0.18 85)",  label: "盘后" },
   closed: { dot: "oklch(0.62 0.22 25)",  text: "oklch(0.55 0.02 240)", label: "休市" },
   "24h":  { dot: "oklch(0.72 0.18 142)", text: "oklch(0.72 0.18 142)", label: "24H" },
+  lunch:  { dot: "oklch(0.72 0.15 200)", text: "oklch(0.72 0.15 200)", label: "午休" },
 };
 
 function formatCountdown(seconds: number): string {

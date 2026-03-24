@@ -1192,6 +1192,8 @@ export default function ResearchWorkspacePage() {
 
   // ── State ──
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [isConvSwitching, setIsConvSwitching] = useState(false);
+  const prevActiveConvIdRef = useRef<number | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -1243,11 +1245,12 @@ export default function ResearchWorkspacePage() {
       staleTime: 25000,
     }
   );
-  const { data: rawConvMsgs, refetch: refetchMsgs } = trpc.chat.getConversationMessages.useQuery(
+  const { data: rawConvMsgs, refetch: refetchMsgs, isFetching: isMsgsFetching } = trpc.chat.getConversationMessages.useQuery(
     { conversationId: activeConvId! },
     {
       enabled: isAuthenticated && !!accessData?.hasAccess && activeConvId !== null,
       refetchInterval: isTyping ? 3000 : 5000,
+      staleTime: 10000,
     }
   );
 
@@ -1356,6 +1359,23 @@ export default function ResearchWorkspacePage() {
       es.close(); sseRef.current = null;
     };
   }, [refetchMsgs, refetchConvs]);
+
+  // ── Conv switch: clear messages immediately for instant feedback ──
+  useEffect(() => {
+    if (activeConvId === prevActiveConvIdRef.current) return;
+    prevActiveConvIdRef.current = activeConvId;
+    if (activeConvId !== null) {
+      setConvMessages([]);
+      setIsConvSwitching(true);
+    }
+  }, [activeConvId]);
+
+  // ── End switching state once data arrives ──
+  useEffect(() => {
+    if (isConvSwitching && !isMsgsFetching && rawConvMsgs !== undefined) {
+      setIsConvSwitching(false);
+    }
+  }, [isConvSwitching, isMsgsFetching, rawConvMsgs]);
 
   // ── Sync messages ──
   useEffect(() => {
@@ -2120,8 +2140,22 @@ export default function ResearchWorkspacePage() {
           </div>
 
           {/* Messages */}
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3 relative">
-            {convMessages.length === 0 && !isTyping ? (
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3 relative"
+            style={{ transition: "opacity 0.2s ease", opacity: isConvSwitching ? 0.4 : 1 }}>
+            {isConvSwitching ? (
+              /* 任务切换骨架屏 */
+              <div className="flex flex-col gap-3 py-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex gap-2 animate-pulse">
+                    <div className="w-6 h-6 rounded-full shrink-0" style={{ background: `oklch(100% 0 0 / 0.06)` }} />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 rounded" style={{ background: `oklch(100% 0 0 / 0.06)`, width: `${60 + i * 10}%` }} />
+                      <div className="h-3 rounded" style={{ background: `oklch(100% 0 0 / 0.04)`, width: `${40 + i * 8}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : convMessages.length === 0 && !isTyping ? (
               <div className="flex flex-col gap-3 py-4 px-1">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-6 h-6 rounded flex items-center justify-center shrink-0"
@@ -2330,7 +2364,7 @@ export default function ResearchWorkspacePage() {
 // ─── Conversation Sidebar Item ────────────────────────────────────────────────
 
 function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete }: {
-  conv: Conversation;
+  conv: Conversation & { lastMessagePreview?: string | null };
   isActive: boolean;
   onClick: () => void;
   onPin: () => void;
@@ -2339,22 +2373,35 @@ function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete 
 }) {
   const [hovered, setHovered] = useState(false);
 
+  // Extract ticker from title (e.g. "深度分析 NVDA" → "NVDA")
+  const tickerMatch = conv.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/);
+  const ticker = tickerMatch?.[0];
+
   return (
     <div
-      className="group relative flex items-center px-3 py-1.5 cursor-pointer transition-all"
+      className="group relative flex items-center px-3 py-2 cursor-pointer transition-all"
       style={{
-        background: isActive ? `${T.gold.replace(")", " / 0.08)")}` : hovered ? "oklch(100% 0 0 / 0.03)" : "transparent",
+        background: isActive ? `${T.gold.replace(")", " / 0.10)")}` : hovered ? "oklch(100% 0 0 / 0.04)" : "transparent",
         borderLeft: isActive ? `2px solid ${T.gold}` : "2px solid transparent",
+        transition: "background 0.15s ease, border-color 0.15s ease",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm truncate" style={{ color: isActive ? T.text1 : T.text2 }}>
-          {conv.title ?? `对话 #${conv.id}`}
-        </p>
-        <p className="text-xs" style={{ color: T.text4 }}>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          {ticker && (
+            <span className="text-[10px] font-bold px-1 py-0 rounded shrink-0"
+              style={{ background: isActive ? T.goldDim : "oklch(100% 0 0 / 0.06)", color: isActive ? T.gold : T.text3 }}>
+              {ticker}
+            </span>
+          )}
+          <p className="text-xs truncate font-medium" style={{ color: isActive ? T.text1 : T.text2 }}>
+            {conv.title ?? `对话 #${conv.id}`}
+          </p>
+        </div>
+        <p className="text-[11px] truncate" style={{ color: T.text4 }}>
           {new Date(conv.lastMessageAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
         </p>
       </div>

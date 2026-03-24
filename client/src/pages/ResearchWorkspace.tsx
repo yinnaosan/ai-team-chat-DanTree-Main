@@ -66,9 +66,9 @@ interface Msg {
     answerObject?: {
       verdict: string;
       confidence: "high" | "medium" | "low";
-      key_evidence?: string[];
+      bull_case?: string[];
       reasoning?: string[];
-      counterarguments?: string[];
+      bear_case?: string[];
       risks?: Array<{ description: string; magnitude?: "high" | "medium" | "low" }>;
       next_steps?: string[];
     };
@@ -332,7 +332,7 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                       </div>
                       <span className="text-[10px] tabular-nums" style={{ color: T.up }}>{bullPct}%</span>
                     </div>
-                    {(answerObject.key_evidence ?? []).slice(0, 1).map((e, i) => (
+                    {(answerObject.bull_case ?? []).slice(0, 1).map((e: string, i: number) => (
                       <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
                     ))}
                     {/* 置信度进度条 */}
@@ -350,7 +350,7 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
                       </div>
                       <span className="text-[10px] tabular-nums" style={{ color: T.down }}>{bearPct}%</span>
                     </div>
-                    {(answerObject.counterarguments ?? []).slice(0, 1).map((e, i) => (
+                    {(answerObject.bear_case ?? []).slice(0, 1).map((e: string, i: number) => (
                       <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
                     ))}
                     {/* 置信度进度条 */}
@@ -1414,14 +1414,47 @@ export default function ResearchWorkspacePage() {
                 const changePct = changeAmt != null && prevClose != null && prevClose !== 0
                   ? (changeAmt / prevClose) * 100
                   : pctFromTick ?? quoteData.changePercent;
+                // A股涨停/跌停预警
+                const isAStockMarket = detectMarketType(currentTicker) === "cn";
+                const isLimitUp = isAStockMarket && changePct != null && changePct >= 9.5;
+                const isLimitDown = isAStockMarket && changePct != null && changePct <= -9.5;
+                const isLimitWarning = isLimitUp || isLimitDown;
+                // 价格精度自适应
+                const fmtDisplayPrice = (p: number) => {
+                  const sym = currentTicker.toUpperCase();
+                  const isCrypto = /BTC|ETH|BNB|SOL|XRP|DOGE|ADA|AVAX|DOT|MATIC|USDT|USDC/.test(sym);
+                  if (isCrypto) {
+                    if (p >= 1000) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    if (p >= 1) return p.toFixed(4);
+                    return p.toFixed(6);
+                  }
+                  if (sym.endsWith(".HK")) return p.toFixed(3);
+                  if (p >= 1000) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  return p.toFixed(2);
+                };
                 return (
                   <div className="flex items-center gap-1">
                     {livePrice != null && (
                       <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: priceColor }} />
                     )}
-                    <span className={`text-base font-mono font-bold ${topPriceFlash}`} style={{ color: priceColor }}>
-                      {displayPrice != null ? `${currencySymbol}${displayPrice.toFixed(2)}` : "—"}
+                    {/* A股涨停/跌停预警背景 */}
+                    <span
+                      className={`text-base font-mono font-bold ${topPriceFlash} ${isLimitWarning ? "px-1.5 py-0.5 rounded" : ""}`}
+                      style={{
+                        color: isLimitWarning ? "#0c0c0e" : priceColor,
+                        background: isLimitWarning ? priceColor : "transparent",
+                        boxShadow: isLimitWarning ? `0 0 12px ${priceColor}88` : "none",
+                        transition: "all 0.3s",
+                      }}
+                    >
+                      {displayPrice != null ? `${currencySymbol}${fmtDisplayPrice(displayPrice)}` : "—"}
                     </span>
+                    {isLimitWarning && (
+                      <span className="text-[13px] font-bold animate-pulse" style={{ color: priceColor }}
+                        title={isLimitUp ? "接近涨停板，请谨慎操作" : "接近跌停板，请谨慎操作"}>
+                        ⚡ {isLimitUp ? "涨停预警" : "跌停预警"}
+                      </span>
+                    )}
                     {changePct != null && (
                       <span className="text-[12px] font-mono font-semibold" style={{ color: priceColor }}>
                         {changePct >= 0 ? "▲" : "▼"}{Math.abs(changePct).toFixed(2)}%

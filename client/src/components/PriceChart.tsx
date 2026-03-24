@@ -238,8 +238,24 @@ function fmtVol(v: number): string {
   return v.toFixed(0);
 }
 
-function fmtPrice(v: number | null | undefined): string {
+function fmtPrice(v: number | null | undefined, symbol?: string): string {
   if (v == null || isNaN(v)) return "--";
+  const sym = (symbol ?? "").toUpperCase();
+  // 加密货币：高精度
+  const isCrypto = /BTC|ETH|BNB|SOL|XRP|DOGE|ADA|AVAX|DOT|MATIC|USDT|USDC/.test(sym);
+  if (isCrypto) {
+    if (v >= 1000) return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (v >= 1) return v.toFixed(4);
+    return v.toFixed(6);
+  }
+  // 港股：3位小数
+  const isHK = /\.HK$/i.test(sym);
+  if (isHK) return v.toFixed(3);
+  // A股：2位小数（标准）
+  const isA = /\.(SS|SZ|BJ)$/i.test(sym) || /^\d{6}$/.test(sym);
+  if (isA) return v.toFixed(2);
+  // 美股/其他：价格>=1000时加千分位，否则2位小数
+  if (v >= 1000) return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return v.toFixed(2);
 }
 
@@ -297,6 +313,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const [liveIntervalMs, setLiveIntervalMs] = useState<number | null>(null); // 当前轮询间隔
   const [auctionAlert, setAuctionAlert] = useState<{ isAlert: boolean; ratio: number | null } | null>(null); // 港股竞价量异常预警
   const [priceFlashClass, setPriceFlashClass] = useState<string>(""); // 价格闪烁动画类
+  const [livePriceY, setLivePriceY] = useState<number | null>(null); // 实时价格在图表中的Y坐标
   const prevTickPriceRef = useRef<number | null>(null); // 记录上一次tick价格，用于闪烁方向判断
   const sseRef = useRef<EventSource | null>(null);
   // 对比模式
@@ -375,6 +392,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           }
           prevTickPriceRef.current = price;
           setLastTickPrice(price);
+          // 计算实时价格的Y坐标（用于右侧自定义价格标签）
+          requestAnimationFrame(() => {
+            if (seriesRef.current) {
+              try {
+                const y = seriesRef.current.priceToCoordinate(price);
+                setLivePriceY(y ?? null);
+              } catch {}
+            }
+          });
           // 将实时价格和涨跌信息传给父组件，用于统一显示
           onLivePrice?.({
             price,
@@ -1201,7 +1227,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
                 )}
                 {/* 实时价格（放大），价格变动时闪烁 */}
                 {liveStatus === "live" && lastTickPrice != null && (
-                  <span className={`font-bold tabular-nums ml-1 text-[14px] ${priceFlashClass}`} style={{ color: priceColor }}>{lastTickPrice.toFixed(2)}</span>
+                  <span className={`font-bold tabular-nums ml-1 text-[14px] ${priceFlashClass}`} style={{ color: priceColor }}>{fmtPrice(lastTickPrice, symbol)}</span>
                 )}
               </div>
             );
@@ -1306,7 +1332,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           <>
             {/* 统一价格：SSE tick > quoteData.price > candle收盘价 */}
             <span className={`font-bold text-[15px] tabular-nums transition-colors duration-150 ${priceFlashClass}`} style={{ color: priceColor }}>
-              {unifiedPrice != null ? fmtPrice(unifiedPrice) : fmtPrice(displayData.close)}
+              {unifiedPrice != null ? fmtPrice(unifiedPrice, symbol) : fmtPrice(displayData.close, symbol)}
             </span>
 {(() => {
               // 统一涨跌幅计算：优先用 unifiedPrice 与昨收对比
@@ -1324,15 +1350,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
               );
             })()}
             <span style={{ color: "rgba(100,100,100,0.6)" }}>开</span>
-            <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(displayData.open)}</span>
+            <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(displayData.open, symbol)}</span>
             <span style={{ color: "rgba(100,100,100,0.6)" }}>高</span>
-            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(displayData.high)}</span>
+            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(displayData.high, symbol)}</span>
             <span style={{ color: "rgba(100,100,100,0.6)" }}>低</span>
-            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(displayData.low)}</span>
+            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(displayData.low, symbol)}</span>
             {quoteData?.prevClose != null && (
               <>
                 <span style={{ color: "rgba(100,100,100,0.6)" }}>昨收</span>
-                <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(quoteData.prevClose)}</span>
+                <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(quoteData.prevClose, symbol)}</span>
               </>
             )}
             {displayData.volume != null && (
@@ -1383,6 +1409,34 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           </div>
         )}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {/* 右侧实时价格标签浮层：实时价格 + 闪烁动画（券商风格） */}
+        {liveStatus === "live" && lastTickPrice != null && livePriceY != null && !isCompareMode && (
+          <div
+            className="absolute z-20 pointer-events-none"
+            style={{
+              right: 0,
+              top: livePriceY - 11,
+              transform: "translateY(0)",
+            }}
+          >
+            {/* 连接线：从价格点到标签 */}
+            <div className="flex items-center">
+              <div className="h-[1px] w-4" style={{ background: priceColor, opacity: 0.6 }} />
+              <div
+                className={`px-1.5 py-0.5 rounded-sm text-[11px] font-mono font-bold tabular-nums ${priceFlashClass}`}
+                style={{
+                  background: priceColor,
+                  color: "#0c0c0e",
+                  minWidth: 52,
+                  textAlign: "center",
+                  boxShadow: `0 0 8px ${priceColor}55`,
+                }}
+              >
+                {fmtPrice(lastTickPrice, symbol)}
+              </div>
+            </div>
+          </div>
+        )}
         {/* crosshair OHLCV 悬停面板：仓位于主图左上角，仅在悬停时显示 */}
         {hoverData && !isCompareMode && (
           <div className="absolute top-2 left-2 z-20 flex items-center gap-2 px-2 py-1 rounded text-[11px] font-mono"
@@ -1398,16 +1452,16 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
               const hoverColor = hoverIsUp ? upColor : downColor;
               return (
                 <span className="tabular-nums font-bold" style={{ color: hoverColor, fontSize: 13 }}>
-                  {fmtPrice(hoverData.close)}
-                </span>
+                {fmtPrice(hoverData.close, symbol)}
+              </span>
               );
             })()}
             <span style={{ color: "rgba(100,100,100,0.7)" }}>开</span>
-            <span className="tabular-nums" style={{ color: "rgba(200,200,200,0.9)" }}>{fmtPrice(hoverData.open)}</span>
+            <span className="tabular-nums" style={{ color: "rgba(200,200,200,0.9)" }}>{fmtPrice(hoverData.open, symbol)}</span>
             <span style={{ color: "rgba(100,100,100,0.7)" }}>高</span>
-            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(hoverData.high)}</span>
+            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(hoverData.high, symbol)}</span>
             <span style={{ color: "rgba(100,100,100,0.7)" }}>低</span>
-            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(hoverData.low)}</span>
+            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(hoverData.low, symbol)}</span>
             {hoverData.volume != null && (
               <>
                 <span style={{ color: "rgba(100,100,100,0.7)" }}>量</span>

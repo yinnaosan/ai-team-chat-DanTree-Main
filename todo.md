@@ -2282,3 +2282,9 @@
 - [x] 设置页面重新设计：左侧垂直导航+右侧内容区，清晰排版、字体可读、布局整洁
 - [x] PriceChart timeFormatter错误修复（t不是Date对象时先转换）
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第三十轮：PriceChart标签遗盖问题修复
+- [x] 分析实时价格标签和成交量标签的定位逻辑
+- [x] 成交量标签隐藏（lastValueVisible:false），不再与价格轴标签重叠
+- [x] 确保价格标签、成交量标签、Y轴刻度三者不互相遗盖
+- [x] TypeScript 0错误，689个测试全部通过

@@ -830,6 +830,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       volSeriesRef.current = chart.addSeries(HistogramSeries, {
         priceScaleId: "volume",
         priceFormat: { type: "volume" },
+        lastValueVisible: false,   // 隐藏右侧Y轴成交量标签，避免与价格标签重叠
+        priceLineVisible: false,   // 隐藏成交量水平参考线
       });
       chart.priceScale("volume").applyOptions({
         scaleMargins: { top: 0.75, bottom: 0 },  // 成交量占主图底部25%区域

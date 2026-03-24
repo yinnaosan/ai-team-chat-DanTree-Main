@@ -612,6 +612,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     },
     handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true },
     handleScale:  { axisPressedMouseMove: true, mouseWheel: false, pinch: true },
+    watermark: { visible: false },
   }), [interval]);
 
   // ── 初始化主图表 ──────────────────────────────────────────────────────────
@@ -1328,12 +1329,24 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       <div className="relative w-full rounded overflow-hidden"
         style={{ height: mainHeight, background: "rgba(255,255,255,0.01)" }}>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center z-10"
-            style={{ background: "rgba(12,12,14,0.85)" }}>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-5 h-5 border-2 rounded-full animate-spin"
-                style={{ borderColor: "rgba(201,168,76,0.3)", borderTopColor: "#c9a84c" }} />
-              <span className="text-[11px]" style={{ color: "rgba(100,100,100,0.8)" }}>加载中...</span>
+          <div className="absolute inset-0 z-10 flex flex-col justify-end px-2 pb-6 gap-1"
+            style={{ background: "rgba(12,12,14,0.92)" }}>
+            {/* 骨架屏：仿K线图形状的脉冲条 */}
+            <div className="flex items-end gap-[2px] w-full" style={{ height: "70%" }}>
+              {[55,40,65,50,75,60,80,55,70,45,85,60,72,48,68,58,78,52,88,62,74,50,66,56,76,44,82,58,70,54,80,48,72,60,84,52,76,46,88,58].map((h, i) => (
+                <div key={i} className="flex-1 rounded-sm animate-pulse"
+                  style={{
+                    height: `${h}%`,
+                    background: i % 3 === 0 ? "rgba(201,168,76,0.15)" : "rgba(255,255,255,0.06)",
+                    animationDelay: `${(i * 40) % 600}ms`,
+                    animationDuration: "1.4s",
+                  }} />
+              ))}
+            </div>
+            <div className="flex gap-4 mt-2">
+              {["1/01","2/01","3/01","4/01","5/01"].map(t => (
+                <div key={t} className="h-2 w-8 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.06)" }} />
+              ))}
             </div>
           </div>
         )}
@@ -1344,6 +1357,40 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           </div>
         )}
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {/* crosshair OHLCV 悬停面板：仓位于主图左上角，仅在悬停时显示 */}
+        {hoverData && !isCompareMode && (
+          <div className="absolute top-2 left-2 z-20 flex items-center gap-2 px-2 py-1 rounded text-[11px] font-mono"
+            style={{
+              background: "rgba(12,12,14,0.82)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              backdropFilter: "blur(4px)",
+              pointerEvents: "none",
+            }}>
+            {/* 悬停K线的涨跌颜色：基于开收对比 */}
+            {(() => {
+              const hoverIsUp = hoverData.close >= hoverData.open;
+              const hoverColor = hoverIsUp ? upColor : downColor;
+              return (
+                <span className="tabular-nums font-bold" style={{ color: hoverColor, fontSize: 13 }}>
+                  {fmtPrice(hoverData.close)}
+                </span>
+              );
+            })()}
+            <span style={{ color: "rgba(100,100,100,0.7)" }}>开</span>
+            <span className="tabular-nums" style={{ color: "rgba(200,200,200,0.9)" }}>{fmtPrice(hoverData.open)}</span>
+            <span style={{ color: "rgba(100,100,100,0.7)" }}>高</span>
+            <span className="tabular-nums" style={{ color: upColor }}>{fmtPrice(hoverData.high)}</span>
+            <span style={{ color: "rgba(100,100,100,0.7)" }}>低</span>
+            <span className="tabular-nums" style={{ color: downColor }}>{fmtPrice(hoverData.low)}</span>
+            {hoverData.volume != null && (
+              <>
+                <span style={{ color: "rgba(100,100,100,0.7)" }}>量</span>
+                <span className="tabular-nums" style={{ color: "rgba(180,180,180,0.8)" }}>{fmtVol(hoverData.volume)}</span>
+              </>
+            )}
+            <span className="ml-1 tabular-nums" style={{ color: "rgba(80,80,80,0.7)", fontSize: 10 }}>{hoverData.time}</span>
+          </div>
+        )}
       </div>
 
       {/* ── 子图表（MACD / RSI / KDJ）──────────────────────────────────────── */}

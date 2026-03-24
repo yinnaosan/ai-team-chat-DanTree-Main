@@ -2228,3 +2228,10 @@
 - [x] K线图OHLCV行：live模式下用lastTickPrice重新计算涨跌幅（不再使用快照changePercent）
 - [x] 切换股票时重置liveTick（包括从消息提取ticker的场景）
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第二十三轮：K线图骨架屏 + crosshair OHLCV面板 + 去Logo + 修复牛熊逻辑
+- [x] K线图切换时间周期时显示骨架屏动画（仿K线形状的灰色脉冲条）
+- [x] 主图左上角crosshair OHLCV悬停信息条（富途牛牛风格，收/开/高/低/量）
+- [x] 去除K线图中的TradingView Logo水印（watermark: {visible: false}）
+- [x] 修复牛熊卡片逻辑：更新JSON Schema明确BULL=看多论点/BEAR=看空论点，禁止GPT填写反向内容
+- [x] 689个测试全部通过，TypeScript 0错误

@@ -3808,13 +3808,68 @@ export const appRouter = router({
     getPriceHistory: protectedProcedure
       .input(z.object({
         symbol: z.string().min(1).max(20),
-        interval: z.enum(["1min", "5min", "15min", "30min", "1h", "4h", "1day", "1week", "1month"]).default("1day"),
+        interval: z.enum(["1min", "5min", "15min", "30min", "1h", "4h", "1day", "1week", "1month", "1year"]).default("1day"),
         outputsize: z.number().min(20).max(5000).default(500),  // 扩展至 5000 支持长期历史
       }))
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         const sym = input.symbol.toUpperCase().trim();
         const errors: string[] = [];
+
+        // ── Source 0: 年K特殊处理（Yahoo Finance月K聚合为年K）─────────────────
+        if (input.interval === "1year") {
+          try {
+            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1mo&range=max&includePrePost=false`;
+            const yahooRes = await fetch(yahooUrl, {
+              headers: { "User-Agent": "Mozilla/5.0" },
+              signal: AbortSignal.timeout(10000),
+            });
+            if (yahooRes.ok) {
+              const yahooData = await yahooRes.json() as any;
+              const result = yahooData?.chart?.result?.[0];
+              const timestamps: number[] = result?.timestamp ?? [];
+              const ohlcv = result?.indicators?.quote?.[0];
+              if (timestamps.length > 0 && ohlcv) {
+                // 按年聚合月K数据
+                const yearMap = new Map<string, { open: number; high: number; low: number; close: number; volume: number; count: number }>();
+                timestamps.forEach((ts: number, i: number) => {
+                  const year = new Date(ts * 1000).getFullYear().toString();
+                  const o = ohlcv.open?.[i] ?? 0;
+                  const h = ohlcv.high?.[i] ?? 0;
+                  const l = ohlcv.low?.[i] ?? 0;
+                  const c = ohlcv.close?.[i] ?? 0;
+                  const v = ohlcv.volume?.[i] ?? 0;
+                  if (o <= 0 || c <= 0) return;
+                  const existing = yearMap.get(year);
+                  if (!existing) {
+                    yearMap.set(year, { open: o, high: h, low: l, close: c, volume: v, count: 1 });
+                  } else {
+                    existing.high = Math.max(existing.high, h);
+                    existing.low = Math.min(existing.low, l);
+                    existing.close = c; // 最后一个月的收盘价作为年收盘
+                    existing.volume += v;
+                    existing.count++;
+                  }
+                });
+                const candles = Array.from(yearMap.entries())
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .slice(-input.outputsize)
+                  .map(([year, d]) => ({
+                    time: `${year}-01-01`,
+                    open: d.open, high: d.high, low: d.low, close: d.close, volume: d.volume,
+                  }));
+                if (candles.length > 0) {
+                  return { symbol: sym, interval: input.interval, candles, source: "yahoo_finance" };
+                }
+              }
+            }
+            errors.push("Yahoo Finance (年K): empty candles");
+          } catch (e: any) {
+            errors.push(`Yahoo Finance (年K): ${e?.message ?? e}`);
+          }
+          console.warn(`[getPriceHistory] 年K all sources failed for ${sym}:`, errors);
+          return { symbol: sym, interval: input.interval, candles: [] as any[], errors };
+        }
 
         // ── Source 1: TwelveData ─────────────────────────────────────────────
         try {

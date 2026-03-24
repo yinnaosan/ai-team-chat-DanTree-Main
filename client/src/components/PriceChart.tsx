@@ -54,19 +54,20 @@ import {
 type Interval =
   | "1min" | "5min" | "15min" | "30min"
   | "1h"   | "4h"
-  | "1day" | "1week" | "1month";
+  | "1day" | "1week" | "1month" | "1year";
 
 const INTERVALS: { label: string; value: Interval; outputsize: number }[] = [
-  { label: "5日",  value: "1min",   outputsize: 390  },
-  { label: "日K",  value: "1day",   outputsize: 500  },  // ~2年日K数据
+  { label: "5日",  value: "1min",   outputsize: 1000 },  // 5日日内，拉1000根
+  { label: "日K",  value: "1day",   outputsize: 1000 },  // ~4年日K数据
   { label: "周K",  value: "1week",  outputsize: 500  },  // ~10年周K数据
   { label: "月K",  value: "1month", outputsize: 500  },  // ~40年月K数据
-  { label: "1分",  value: "1min",   outputsize: 390  },
-  { label: "5分",  value: "5min",   outputsize: 288  },
-  { label: "15分", value: "15min",  outputsize: 200  },
-  { label: "30分", value: "30min",  outputsize: 200  },
-  { label: "1时",  value: "1h",     outputsize: 200  },
-  { label: "4时",  value: "4h",     outputsize: 200  },
+  { label: "年K",  value: "1year",  outputsize: 30   },  // ~30年年K数据
+  { label: "1分",  value: "1min",   outputsize: 1000 },
+  { label: "5分",  value: "5min",   outputsize: 500  },
+  { label: "15分", value: "15min",  outputsize: 400  },
+  { label: "30分", value: "30min",  outputsize: 300  },
+  { label: "1时",  value: "1h",     outputsize: 500  },
+  { label: "4时",  value: "4h",     outputsize: 300  },
 ];
 
 type ChartType = "candlestick" | "line" | "area";
@@ -281,6 +282,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     new Set<IndicatorKey>(["MA5", "MA10", "MA20", "VOL"])
   );
   const [subIndicator, setSubIndicator] = useState<IndicatorKey | null>("VOL");
+  const [subHoverData, setSubHoverData] = useState<Record<string, number | null>>({});
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [liveStatus, setLiveStatus] = useState<"connecting" | "live" | "offline">("offline");
   const [lastTickPrice, setLastTickPrice] = useState<number | null>(null);
@@ -762,7 +764,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         priceFormat: { type: "volume" },
       });
       chart.priceScale("volume").applyOptions({
-        scaleMargins: { top: 0.80, bottom: 0 },
+        scaleMargins: { top: 0.75, bottom: 0 },  // 成交量占主图底郥25%区域
         borderVisible: false,
       });
     }
@@ -900,6 +902,19 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     const chart = createChart(subContainerRef.current, subOpts);
     subChartRef.current = chart;
     subSeriesRef.current.clear();
+
+    // 子图crosshair订阅：实时显示指标数値
+    chart.subscribeCrosshairMove(param => {
+      if (!param.time) { setSubHoverData({}); return; }
+      const vals: Record<string, number | null> = {};
+      subSeriesRef.current.forEach((s, key) => {
+        const d = param.seriesData.get(s) as any;
+        if (d != null) {
+          vals[key] = d.value ?? d.close ?? null;
+        }
+      });
+      setSubHoverData(vals);
+    });
 
     let subDisposed = false;
     const ro = new ResizeObserver(() => {
@@ -1305,22 +1320,30 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       {/* ── 子图表（MACD / RSI / KDJ）──────────────────────────────────────── */}
       {hasSubChart && (
         <div className="relative w-full overflow-hidden"
-          style={{ height: 90, background: "rgba(255,255,255,0.008)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          style={{ height: isFullscreen ? Math.max(120, Math.floor((window.innerHeight - 280) * 0.3)) : 90, background: "rgba(255,255,255,0.008)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <div className="absolute top-1 left-2 z-10 text-[10px] font-mono flex items-center gap-2"
             style={{ color: "rgba(140,140,140,0.7)" }}>
-            <span>{subIndicator}</span>
+            <span className="font-semibold" style={{ color: "rgba(180,180,180,0.9)" }}>{subIndicator}</span>
+            {subIndicator === "RSI" && (
+              <>
+                {subHoverData.rsi != null && <span style={{ color: "#f59e0b" }}>RSI({subHoverData.rsi.toFixed(2)})</span>}
+                <span style={{ color: "rgba(239,68,68,0.7)" }}>OB:70</span>
+                <span style={{ color: "rgba(34,197,94,0.7)" }}>OS:30</span>
+              </>
+            )}
             {subIndicator === "MACD" && (
-              <span style={{ color: "rgba(90,90,90,0.7)" }}>
-                DIF<span style={{ color: "#10b981" }}>●</span>{" "}
-                DEA<span style={{ color: "#f59e0b" }}>●</span>
-              </span>
+              <>
+                {subHoverData.macd != null && <span style={{ color: "#10b981" }}>DIF({subHoverData.macd.toFixed(4)})</span>}
+                {subHoverData.signal != null && <span style={{ color: "#f59e0b" }}>DEA({subHoverData.signal.toFixed(4)})</span>}
+                {subHoverData.hist != null && <span style={{ color: subHoverData.hist >= 0 ? "#22c55e" : "#ef4444" }}>MACD({(subHoverData.hist * 2).toFixed(4)})</span>}
+              </>
             )}
             {subIndicator === "KDJ" && (
-              <span style={{ color: "rgba(90,90,90,0.7)" }}>
-                K<span style={{ color: "#f59e0b" }}>●</span>{" "}
-                D<span style={{ color: "#60a5fa" }}>●</span>{" "}
-                J<span style={{ color: "#ec4899" }}>●</span>
-              </span>
+              <>
+                {subHoverData.k != null && <span style={{ color: "#f59e0b" }}>K({subHoverData.k.toFixed(2)})</span>}
+                {subHoverData.d != null && <span style={{ color: "#60a5fa" }}>D({subHoverData.d.toFixed(2)})</span>}
+                {subHoverData.j != null && <span style={{ color: "#ec4899" }}>J({subHoverData.j.toFixed(2)})</span>}
+              </>
             )}
           </div>
           <div ref={subContainerRef} style={{ width: "100%", height: "100%" }} />

@@ -246,11 +246,18 @@ function fmtPrice(v: number | null | undefined): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────────────────────────────────────────
+interface LiveTickData {
+  price: number;
+  prevClose?: number | null;
+  change?: number | null;
+  pctChange?: number | null;
+}
+
 interface PriceChartProps {
   symbol: string;
   colorScheme?: "cn" | "us";
   height?: number;
-  onLivePrice?: (price: number) => void; // 实时价格回调，用于父组件同步显示
+  onLivePrice?: (data: LiveTickData) => void; // 实时价格回调，用于父组件同步显示
   quoteData?: {
     price?: number | null;
     high?: number | null;
@@ -345,6 +352,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         const payload = JSON.parse(e.data) as {
           type?: string; symbol?: string; price?: number; timestamp?: number; volume?: number;
           session?: string; interval_ms?: number; auctionAlert?: boolean; auctionRatio?: number | null;
+          prevClose?: number | null; change?: number | null; pctChange?: number | null;
         };
         if (payload.type === "connected") {
           setLiveStatus("live");
@@ -356,8 +364,13 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         if (payload.price && seriesRef.current) {
           const price = payload.price;
           setLastTickPrice(price);
-          // 将实时价格传给父组件，用于统一显示
-          onLivePrice?.(price);
+          // 将实时价格和涨跌信息传给父组件，用于统一显示
+          onLivePrice?.({
+            price,
+            prevClose: payload.prevClose ?? null,
+            change: payload.change ?? null,
+            pctChange: payload.pctChange ?? null,
+          });
           // 更新时段和轮询间隔
           if (payload.session) setLiveSession(payload.session);
           if (payload.interval_ms) setLiveIntervalMs(payload.interval_ms);
@@ -1045,7 +1058,11 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     volume: lastCandle.volume,
   } : null);
 
-  const isUp = displayData ? displayData.close >= displayData.open : true;
+  // live模式下，用实时tick价格与昨收对比决定颜色；非live模式用candle开收对比
+  const liveIsUp = lastTickPrice != null && quoteData?.prevClose != null
+    ? lastTickPrice >= quoteData.prevClose
+    : (displayData ? displayData.close >= displayData.open : true);
+  const isUp = liveStatus === "live" && lastTickPrice != null ? liveIsUp : (displayData ? displayData.close >= displayData.open : true);
   const priceColor = isUp ? upColor : downColor;
   const mainHeight = isFullscreen ? Math.max(400, window.innerHeight - 280) : height;
 
@@ -1260,13 +1277,25 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         {displayData ? (
           <>
             <span className="font-bold text-[15px] tabular-nums" style={{ color: priceColor }}>
-              {fmtPrice(displayData.close)}
+              {/* live模式下优先显示实时tick价格，非live模式显示candle收盘价 */}
+              {fmtPrice(liveStatus === "live" && lastTickPrice != null ? lastTickPrice : displayData.close)}
             </span>
-            {quoteData?.changePercent != null && (
-              <span className="font-semibold tabular-nums" style={{ color: (quoteData.changePercent ?? 0) >= 0 ? upColor : downColor }}>
-                {(quoteData.changePercent ?? 0) >= 0 ? "▲" : "▼"}{Math.abs(quoteData.changePercent ?? 0).toFixed(2)}%
-              </span>
-            )}
+{(() => {
+              // live模式下用实时价格重新计算涨跌幅，非 live 模式用快照数据
+              const liveDisplayPrice = liveStatus === "live" && lastTickPrice != null ? lastTickPrice : null;
+              const pc = quoteData?.prevClose;
+              const livePct = liveDisplayPrice != null && pc != null && pc !== 0
+                ? ((liveDisplayPrice - pc) / pc) * 100
+                : null;
+              const displayPct = livePct ?? quoteData?.changePercent;
+              if (displayPct == null) return null;
+              const pctIsUp = displayPct >= 0;
+              return (
+                <span className="font-semibold tabular-nums" style={{ color: pctIsUp ? upColor : downColor }}>
+                  {pctIsUp ? "▲" : "▼"}{Math.abs(displayPct).toFixed(2)}%
+                </span>
+              );
+            })()}
             <span style={{ color: "rgba(100,100,100,0.6)" }}>开</span>
             <span className="tabular-nums" style={{ color: "rgba(190,190,190,0.85)" }}>{fmtPrice(displayData.open)}</span>
             <span style={{ color: "rgba(100,100,100,0.6)" }}>高</span>

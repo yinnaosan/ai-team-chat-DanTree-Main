@@ -2209,3 +2209,22 @@
 - [x] 添加RSI/MACD/KDJ指标数值实时显示（crosshair悬停时左上角显示具体数值）
 - [x] K线图全屏优化：全屏时子图高度自动按视口30%比例扩大
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第二十二轮：实时价格统一 + 涨跌颜色/符号/货币符号
+- [ ] 修复K线图显示错误股票数据（12.08 vs 174.83，数据源错误）
+- [ ] 统一顶部栏和K线图LIVE价格为同一实时数据源
+- [ ] 顶部栏价格根据涨跌实时变色（上涨绿色，下跌红色）
+- [ ] 顶部栏价格左侧显示正确货币符号（美股$，港股HK$，A股¥等）
+- [ ] 涨跌幅显示对应符号（▲/▼）和颜色
+
+## 第二十二轮完成：实时价格统一 + 涨跌颜色/符号/货币符号
+- [x] 扩展onLivePrice回调类型为LiveTickData对象（包含price/prevClose/change/pctChange）
+- [x] SSE tick payload增加prevClose/change/pctChange字段传递（A股/港股）
+- [x] 顶部栏价格使用liveTick.prevClose（港股/A股）或quoteData.prevClose（美股）计算涨跌幅
+- [x] 顶部栏价格根据涨跌实时变色（颜色方案适配colorScheme：cn红涨绿跌，us绿涨红跌）
+- [x] 顶部栏价格左侧显示正确货币符号（getCurrencySymbol函数）
+- [x] 涨跌幅显示▲/▼符号和对应颜色
+- [x] LIVE脉冲圆点颜色与涨跌颜色同步
+- [x] K线图OHLCV行：live模式下用lastTickPrice重新计算涨跌幅（不再使用快照changePercent）
+- [x] 切换股票时重置liveTick（包括从消息提取ticker的场景）
+- [x] 689个测试全部通过，TypeScript 0错误

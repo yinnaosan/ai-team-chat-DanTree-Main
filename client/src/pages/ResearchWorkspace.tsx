@@ -39,6 +39,20 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { TickerMarketStatus, MarketAlertManager } from "@/components/MarketStatus";
 import { GlobalMarketPanel } from "@/components/GlobalMarketPanel";
+import { detectMarketType } from "@/lib/marketUtils";
+
+/** 根据市场类型返回货币符号 */
+function getCurrencySymbol(symbol: string): string {
+  const market = detectMarketType(symbol);
+  switch (market) {
+    case "hk": return "HK$";
+    case "cn": return "¥";
+    case "uk": return "£";
+    case "eu": return "€";
+    case "crypto": return "";
+    default: return "$";
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -434,7 +448,7 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
 }
 
 /** Main Chart Card */
-function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any; onLivePrice?: (p: number) => void }) {
+function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any; onLivePrice?: (data: { price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null }) => void }) {
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center justify-between px-4 py-2.5"
@@ -1031,7 +1045,8 @@ export default function ResearchWorkspacePage() {
   const [deepSectionsTab, setDeepSectionsTab] = useState<"backtest" | "health" | "sentiment" | "alpha" | "portfolio" | "radar">("backtest");
   const [showDeepSections, setShowDeepSections] = useState(false);
   // 实时价格（来自SSE流，优先级高于快照数据）
-  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveTick, setLiveTick] = useState<{ price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null } | null>(null);
+  const livePrice = liveTick?.price ?? null;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -1209,10 +1224,15 @@ export default function ResearchWorkspacePage() {
   }, [allConversations, activeConvId]);
 
   // ── Extract ticker from messages ──
+  const prevExtractedTickerRef = useRef("");
   useEffect(() => {
     if (convMessages.length > 0) {
       const t = extractTickerFromMessages(convMessages);
-      if (t) setCurrentTicker(t);
+      if (t && t !== prevExtractedTickerRef.current) {
+        prevExtractedTickerRef.current = t;
+        setCurrentTicker(t);
+        setLiveTick(null); // 切换股票时重置实时价格
+      }
     }
   }, [convMessages]);
 
@@ -1319,19 +1339,54 @@ export default function ResearchWorkspacePage() {
             {/* 实时价格显示（放大） */}
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.text3 }}>P</span>
-              {livePrice != null && (
-                <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.up }} />
-              )}
-              <span className="text-base font-mono font-bold" style={{ color: T.text1 }}>
-                {(livePrice ?? quoteData.price) != null ? `$${(livePrice ?? quoteData.price!).toFixed(2)}` : "—"}
-              </span>
+              {(() => {
+                const displayPrice = livePrice ?? quoteData.price;
+                // 昨收：优先用quoteData（快照），其次用liveTick中的prevClose（SSE推送，适用于港股/A股）
+                const prevClose = quoteData.prevClose ?? liveTick?.prevClose ?? null;
+                // 涨跌颜色：优先用livePrice与昨收对比，无昨收时用pctChange
+                const pctFromTick = liveTick?.pctChange;
+                const isUp = displayPrice != null && prevClose != null
+                  ? displayPrice >= prevClose
+                  : pctFromTick != null ? pctFromTick >= 0 : (quoteData.changePercent ?? 0) >= 0;
+                // 颜色方案：中国风格红涨绿跌，美股风格绿涨红跌
+                const upColor   = colorScheme === "cn" ? T.up : T.down;
+                const downColor = colorScheme === "cn" ? T.down : T.up;
+                const priceColor = isUp ? upColor : downColor;
+                const currencySymbol = getCurrencySymbol(currentTicker);
+                // 涨跌颟和涨跌幅：优先用livePrice重新计算，fallback SSE pctChange，再 fallback 快照数据
+                const changeAmt = displayPrice != null && prevClose != null
+                  ? displayPrice - prevClose
+                  : liveTick?.change ?? null;
+                const changePct = changeAmt != null && prevClose != null && prevClose !== 0
+                  ? (changeAmt / prevClose) * 100
+                  : pctFromTick ?? quoteData.changePercent;
+                return (
+                  <div className="flex items-center gap-1">
+                    {livePrice != null && (
+                      <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: priceColor }} />
+                    )}
+                    <span className="text-base font-mono font-bold" style={{ color: priceColor }}>
+                      {displayPrice != null ? `${currencySymbol}${displayPrice.toFixed(2)}` : "—"}
+                    </span>
+                    {changePct != null && (
+                      <span className="text-[12px] font-mono font-semibold" style={{ color: priceColor }}>
+                        {changePct >= 0 ? "▲" : "▼"}{Math.abs(changePct).toFixed(2)}%
+                      </span>
+                    )}
+                    {changeAmt != null && (
+                      <span className="text-[11px] font-mono" style={{ color: priceColor }}>
+                        ({changeAmt >= 0 ? "+" : ""}{changeAmt.toFixed(2)})
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             {[
-              { label: "CHG", value: quoteData.changePercent != null ? `${quoteData.changePercent >= 0 ? "▲" : "▼"}${Math.abs(quoteData.changePercent).toFixed(2)}%` : "—", isChange: true, isUp: (quoteData.changePercent ?? 0) >= 0 },
               { label: "PE", value: quoteData.pe != null ? quoteData.pe.toFixed(1) : "—" },
               { label: "PB", value: quoteData.pb != null ? quoteData.pb.toFixed(2) : "—" },
               { label: "ROE", value: quoteData.roe != null ? `${quoteData.roe.toFixed(1)}%` : "—" },
-              { label: "EPS", value: quoteData.eps != null ? `$${quoteData.eps.toFixed(2)}` : "—" },
+              { label: "EPS", value: quoteData.eps != null ? `${getCurrencySymbol(currentTicker)}${quoteData.eps.toFixed(2)}` : "—" },
             ].map(m => (
               <div key={m.label} className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.text3 }}>{m.label}</span>
@@ -1392,7 +1447,7 @@ export default function ResearchWorkspacePage() {
           onClose={() => setShowInstrumentModal(false)}
           onSelect={(ticker) => {
             setCurrentTicker(ticker);
-            setLivePrice(null); // 切换股票时重置实时价格
+            setLiveTick(null); // 切换股票时重置实时价格
             handleSubmit(`深度分析 ${ticker}：估値、基本面、风险和投资建议`);
           }}
         />
@@ -1647,7 +1702,7 @@ export default function ResearchWorkspacePage() {
             />
 
             {/* Main Chart */}
-            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLivePrice} />
+            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} />
 
             {/* Risk Panel */}
             {risks && risks.length > 0 && (

@@ -284,6 +284,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const [hoverData, setHoverData] = useState<{
     time: string; open: number; high: number; low: number; close: number; volume?: number;
   } | null>(null);
+  const [compareHover, setCompareHover] = useState<{
+    time: string; mainPct: number | null; comparePct: number | null;
+  } | null>(null);
 
   // ── 日内周期判断 ──────────────────────────────────────────────────────────
   const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
@@ -303,7 +306,14 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     }
 
     setLiveStatus("connecting");
-    const sse = new EventSource(`/api/ticker-stream/${encodeURIComponent(symbol)}`, { withCredentials: true });
+    // 判断是否为A股代码：6位数字 / sh.6xxxxx / sz.0xxxxx / 600519.SS等
+    const isAShare = /^(sh|sz|bj)\./i.test(symbol)
+      || /^\d{6}\.(SS|SZ|BJ)$/i.test(symbol)
+      || /^\d{6}$/.test(symbol);
+    const sseUrl = isAShare
+      ? `/api/ticker-stream-cn/${encodeURIComponent(symbol)}`
+      : `/api/ticker-stream/${encodeURIComponent(symbol)}`;
+    const sse = new EventSource(sseUrl, { withCredentials: true });
     sseRef.current = sse;
 
     sse.onmessage = (e) => {
@@ -446,20 +456,50 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     };
   }, [candles, upColor, downColor]);
 
-  // ── 对比图归一化数据计算 ──────────────────────────────────────────────────────────
-  /** 将 candles 归一化为百分比变化（以第一根 K 线收盘价为基准） */
-  const normalizeCandles = useCallback((cs: typeof candles) => {
-    if (!cs.length) return [];
-    const base = cs[0].close;
-    if (!base) return [];
-    return cs.map(c => ({
-      time: c.time as Time,
-      value: ((c.close - base) / base) * 100,
-    }));
-  }, []);
+  // ── 对比图归一化数据计算（先对齐时间轴，再归一化）──────────────────────────────────────────────────────────
+  /**
+   * 对齐两个标的的时间轴：取交集（共同交易时段），裁剪后分别归一化为百分比变化
+   * 处理美股 vs A股等交易时段不同的情况
+   */
+  const { normalizedMain, normalizedCompare } = useMemo(() => {
+    if (!candles.length) return { normalizedMain: [], normalizedCompare: [] };
 
-  const normalizedMain    = useMemo(() => normalizeCandles(candles),        [candles, normalizeCandles]);
-  const normalizedCompare = useMemo(() => normalizeCandles(compareCandles), [compareCandles, normalizeCandles]);
+    // 如果没有对比数据，只归一化主图
+    if (!compareCandles.length) {
+      const base = candles[0].close;
+      if (!base) return { normalizedMain: [], normalizedCompare: [] };
+      return {
+        normalizedMain: candles.map(c => ({ time: c.time as Time, value: ((c.close - base) / base) * 100 })),
+        normalizedCompare: [],
+      };
+    }
+
+    // 构建对比标的时间戳 Set（用于快速查找）
+    const compareTimeSet = new Set(compareCandles.map(c => c.time));
+    const mainTimeSet    = new Set(candles.map(c => c.time));
+
+    // 取交集：两个标的都有数据的时间戳
+    const alignedMain    = candles.filter(c => compareTimeSet.has(c.time));
+    const alignedCompare = compareCandles.filter(c => mainTimeSet.has(c.time));
+
+    // 如果交集为空（完全不重叠，如美股 vs A股），回退到各自归一化
+    if (!alignedMain.length || !alignedCompare.length) {
+      const mainBase = candles[0].close;
+      const cmpBase  = compareCandles[0].close;
+      return {
+        normalizedMain:    mainBase ? candles.map(c => ({ time: c.time as Time, value: ((c.close - mainBase) / mainBase) * 100 })) : [],
+        normalizedCompare: cmpBase  ? compareCandles.map(c => ({ time: c.time as Time, value: ((c.close - cmpBase) / cmpBase) * 100 })) : [],
+      };
+    }
+
+    // 对齐后归一化（以对齐后第一根 K 线为基准）
+    const mainBase = alignedMain[0].close;
+    const cmpBase  = alignedCompare[0].close;
+    return {
+      normalizedMain:    mainBase ? alignedMain.map(c => ({ time: c.time as Time, value: ((c.close - mainBase) / mainBase) * 100 })) : [],
+      normalizedCompare: cmpBase  ? alignedCompare.map(c => ({ time: c.time as Time, value: ((c.close - cmpBase) / cmpBase) * 100 })) : [],
+    };
+  }, [candles, compareCandles]);
 
   // 对比模式下主标的当前涨跌幅
   const mainPct    = normalizedMain.length    ? normalizedMain[normalizedMain.length - 1].value    : null;
@@ -512,18 +552,48 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     chartRef.current = chart;
 
     chart.subscribeCrosshairMove(param => {
-      if (!param.time || !seriesRef.current) { setHoverData(null); return; }
+      if (!param.time || !seriesRef.current) { setHoverData(null); setCompareHover(null); return; }
+      const fmt = makeTimeFormatter(interval);
+      const d = timeToDate(param.time as Time);
+      const timeStr = fmt(d);
+
+      // 对比模式：读取主图归一化折线数据
+      if (compareSeriesRef.current) {
+        const mainLineData = param.seriesData.get(seriesRef.current) as { value?: number } | undefined;
+        const cmpLineData  = param.seriesData.get(compareSeriesRef.current) as { value?: number } | undefined;
+        if (mainLineData?.value != null || cmpLineData?.value != null) {
+          setCompareHover({
+            time: timeStr,
+            mainPct:    mainLineData?.value  ?? null,
+            comparePct: cmpLineData?.value   ?? null,
+          });
+          setHoverData(null);
+          return;
+        }
+        setCompareHover(null);
+      }
+
+      // 普通模式：读取 K 线数据
       const cd = param.seriesData.get(seriesRef.current) as CandlestickData | undefined;
       if (cd && "open" in cd) {
         const volS = volSeriesRef.current;
         const vd = volS ? param.seriesData.get(volS) as HistogramData | undefined : undefined;
-        const fmt = makeTimeFormatter(interval);
-        const d = timeToDate(param.time as Time);
         setHoverData({
-          time: fmt(d),
+          time: timeStr,
           open: cd.open, high: cd.high, low: cd.low, close: cd.close,
           volume: vd?.value,
         });
+      } else {
+        // 折线/面积图模式
+        const ld = param.seriesData.get(seriesRef.current) as { value?: number } | undefined;
+        if (ld?.value != null && param.time) {
+          setHoverData({
+            time: timeStr,
+            open: ld.value, high: ld.value, low: ld.value, close: ld.value,
+          });
+        } else {
+          setHoverData(null);
+        }
       }
     });
 
@@ -1008,7 +1078,38 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         </div>
       </div>
 
+      {/* ── 对比模式十字准线联动浮层 ──────────────────────────────────── */}
+      {isCompareMode && compareHover && (
+        <div className="flex items-center gap-3 px-0.5 py-1 text-[11px] font-mono"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          <span style={{ color: "rgba(80,80,80,0.6)" }}>{compareHover.time}</span>
+          <span className="flex items-center gap-1">
+            <span style={{ color: "#c9a84c", fontSize: 9 }}>●</span>
+            <span style={{ color: "rgba(160,160,160,0.8)" }}>{symbol}</span>
+            {compareHover.mainPct != null && (
+              <span className="tabular-nums font-semibold" style={{
+                color: compareHover.mainPct >= 0 ? upColor : downColor
+              }}>
+                {compareHover.mainPct >= 0 ? "+" : ""}{compareHover.mainPct.toFixed(2)}%
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-1">
+            <span style={{ color: "#60a5fa", fontSize: 9 }}>●</span>
+            <span style={{ color: "rgba(160,160,160,0.8)" }}>{compareSymbol}</span>
+            {compareHover.comparePct != null && (
+              <span className="tabular-nums font-semibold" style={{
+                color: compareHover.comparePct >= 0 ? upColor : downColor
+              }}>
+                {compareHover.comparePct >= 0 ? "+" : ""}{compareHover.comparePct.toFixed(2)}%
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* ── 盘口数据行（OHLCV + 涨跌幅）──────────────────────────────────── */}
+      {!isCompareMode && (
       <div className="flex items-center gap-2 px-0.5 py-1 flex-wrap text-[11px] font-mono"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         {displayData ? (
@@ -1047,8 +1148,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           <span style={{ color: "rgba(80,80,80,0.6)" }}>--</span>
         )}
       </div>
+      )}
 
-      {/* ── 主图表 ───────────────────────────────────────────────────────────── */}
+      {/* ── 主图表 ─────────────────────────────────────────────────────────────────────────────── */}
       <div className="relative w-full rounded overflow-hidden"
         style={{ height: mainHeight, background: "rgba(255,255,255,0.01)" }}>
         {isLoading && (

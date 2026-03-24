@@ -282,7 +282,14 @@ function DownloadMenu({ content, taskTitle, msgRef }: { content: string; taskTit
 
 function parseFollowups(content: string): { cleanContent: string; followups: string[] } {
   const followups: string[] = [];
-  const cleanContent = content.replace(/%%FOLLOWUP%%([\s\S]*?)%%END%%/g, (_, q) => {
+  // 先剥离 DELIVERABLE / DISCUSSION 结构化 JSON 块（streaming 过程中不显示原始 JSON）
+  const stripped = content
+    .replace(/%%DELIVERABLE%%[\s\S]*?%%END_DELIVERABLE%%/g, "")
+    .replace(/%%DISCUSSION%%[\s\S]*?%%END_DISCUSSION%%/g, "")
+    // 处理 streaming 中尚未闭合的 DELIVERABLE/DISCUSSION 块（已开始但未结束）
+    .replace(/%%DELIVERABLE%%[\s\S]*/g, "")
+    .replace(/%%DISCUSSION%%[\s\S]*/g, "");
+  const cleanContent = stripped.replace(/%%FOLLOWUP%%([\ \S]*?)%%END%%/g, (_, q) => {
     const trimmed = q.trim();
     if (trimmed) followups.push(trimmed);
     return "";

@@ -58,15 +58,15 @@ type Interval =
 
 const INTERVALS: { label: string; value: Interval; outputsize: number }[] = [
   { label: "5日",  value: "1min",   outputsize: 390  },
-  { label: "日K",  value: "1day",   outputsize: 240  },
-  { label: "周K",  value: "1week",  outputsize: 104  },
-  { label: "月K",  value: "1month", outputsize: 60   },
-  { label: "1分",  value: "1min",   outputsize: 120  },
-  { label: "5分",  value: "5min",   outputsize: 120  },
-  { label: "15分", value: "15min",  outputsize: 120  },
-  { label: "30分", value: "30min",  outputsize: 120  },
-  { label: "1时",  value: "1h",     outputsize: 120  },
-  { label: "4时",  value: "4h",     outputsize: 120  },
+  { label: "日K",  value: "1day",   outputsize: 500  },  // ~2年日K数据
+  { label: "周K",  value: "1week",  outputsize: 500  },  // ~10年周K数据
+  { label: "月K",  value: "1month", outputsize: 500  },  // ~40年月K数据
+  { label: "1分",  value: "1min",   outputsize: 390  },
+  { label: "5分",  value: "5min",   outputsize: 288  },
+  { label: "15分", value: "15min",  outputsize: 200  },
+  { label: "30分", value: "30min",  outputsize: 200  },
+  { label: "1时",  value: "1h",     outputsize: 200  },
+  { label: "4时",  value: "4h",     outputsize: 200  },
 ];
 
 type ChartType = "candlestick" | "line" | "area";
@@ -183,20 +183,28 @@ function makeTickMarkFormatter(interval: Interval) {
     const isIntraday = ["1min", "5min", "15min", "30min", "1h", "4h"].includes(interval);
 
     if (isIntraday) {
-      // 日内：时间变化显示 HH:MM，日期变化显示 MM/DD
-      if (tickType === TickMarkType.DayOfMonth || tickType === TickMarkType.Month || tickType === TickMarkType.Year) {
-        return `${mm}/${dd}`;
-      }
+      // 日内：时间变化显示 HH:MM，日期/月份/年份变化显示 MM/DD
+      if (tickType === TickMarkType.Year) return `${yy}`;
+      if (tickType === TickMarkType.Month) return `${mm}/${dd}`;
+      if (tickType === TickMarkType.DayOfMonth) return `${mm}/${dd}`;
       return `${hh}:${mi}`;
     }
 
-    if (interval === "1month" || interval === "1week") {
-      if (tickType === TickMarkType.Year) return `${yy}`;
+    if (interval === "1month") {
+      // 月K：年份显示年，其他显示年/月
+      if (tickType === TickMarkType.Year) return `${yy}年`;
       return `${yy}/${mm}`;
     }
 
-    // 日K
-    if (tickType === TickMarkType.Year) return `${yy}`;
+    if (interval === "1week") {
+      // 周K：年份显示年，其他显示年/月
+      if (tickType === TickMarkType.Year) return `${yy}年`;
+      if (tickType === TickMarkType.Month) return `${yy}/${mm}`;
+      return `${yy}/${mm}`;
+    }
+
+    // 日K：年份显示年，月份显示年/月，其他显示月/日
+    if (tickType === TickMarkType.Year) return `${yy}年`;
     if (tickType === TickMarkType.Month) return `${yy}/${mm}`;
     return `${mm}/${dd}`;
   };
@@ -266,7 +274,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const subSeriesRef       = useRef<Map<string, ISeriesApi<any>>>(new Map());
 
   const [interval, setIntervalState]   = useState<Interval>("1day");
-  const [outputsize, setOutputsize]    = useState(240);
+  const [outputsize, setOutputsize]    = useState(500); // 与 INTERVALS 日K 配置一致
   const [chartType, setChartType]      = useState<ChartType>("candlestick");
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(
     new Set<IndicatorKey>(["MA5", "MA10", "MA20", "VOL"])
@@ -575,9 +583,10 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       secondsVisible: false,
       tickMarkFormatter: makeTickMarkFormatter(interval),
       rightOffset: 5,
-      barSpacing: 8,
-      minBarSpacing: 2,
-      fixLeftEdge: false,
+      // 自适应间距：日K/周K/月K数据量大时自动压缩，避免左侧大片空白
+      barSpacing: ["1day","1week","1month"].includes(interval) ? 4 : 8,
+      minBarSpacing: 1,
+      fixLeftEdge: true,   // 锁定左边界，防止左侧空白
       fixRightEdge: false,
     },
     localization: {
@@ -1305,6 +1314,12 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         ))}
         {/* MA 图例 / 对比图例 */}
         <div className="ml-auto flex items-center gap-2 text-[10px] font-mono">
+          {/* 数据来源 + 条数 */}
+          {!isCompareMode && candles.length > 0 && (
+            <span className="text-[10px] font-mono" style={{ color: "rgba(60,60,60,0.8)" }}>
+              {data?.source ? `[${data.source.toUpperCase()}]` : ""} {candles.length}条
+            </span>
+          )}
           {isCompareMode ? (
             <>
               <span className="flex items-center gap-1">

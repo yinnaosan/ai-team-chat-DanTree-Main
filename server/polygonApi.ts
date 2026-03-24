@@ -109,7 +109,7 @@ export async function getAggregates(
 ): Promise<PolyAggregate[]> {
   const data = await fetchPolygon<{ results: PolyAggregate[]; status: string }>(
     `/v2/aggs/ticker/${ticker.toUpperCase()}/range/${multiplier}/${timespan}/${from}/${to}`,
-    { adjusted: "true", sort: "asc", limit: "120" }
+    { adjusted: "true", sort: "asc", limit: "50000" }  // Polygon 免费层最大允许 50000 条/请求
   );
   return data.results ?? [];
 }

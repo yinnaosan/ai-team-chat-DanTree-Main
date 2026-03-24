@@ -3801,7 +3801,7 @@ export const appRouter = router({
       .input(z.object({
         symbol: z.string().min(1).max(20),
         interval: z.enum(["1min", "5min", "15min", "30min", "1h", "4h", "1day", "1week", "1month"]).default("1day"),
-        outputsize: z.number().min(20).max(500).default(120),
+        outputsize: z.number().min(20).max(5000).default(500),  // 扩展至 5000 支持长期历史
       }))
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3841,7 +3841,11 @@ export const appRouter = router({
           try {
             const { getAggregates } = await import("./polygonApi");
             const toDate = new Date().toISOString().split("T")[0];
-            const fromDate = new Date(Date.now() - input.outputsize * 2 * 24 * 60 * 60 * 1000)
+            // 根据 interval 和 outputsize 动态计算起始日期
+            const msPerBar = input.interval === "1month" ? 31 * 24 * 3600 * 1000
+              : input.interval === "1week" ? 7 * 24 * 3600 * 1000
+              : 24 * 3600 * 1000; // 1day
+            const fromDate = new Date(Date.now() - input.outputsize * msPerBar * 1.1) // 多取 10% 容错
               .toISOString().split("T")[0];
             const timespan = input.interval === "1day" ? "day"
               : input.interval === "1week" ? "week" : "month";
@@ -3901,10 +3905,18 @@ export const appRouter = router({
             : input.interval === "1h" ? "1h"
             : input.interval === "4h" ? "1h"
             : "1d";
-          const yahooRange = input.outputsize > 200 ? "5y"
-            : input.outputsize > 100 ? "2y"
-            : input.outputsize > 60 ? "1y"
-            : "6mo";
+          // 根据 outputsize 和 interval 动态计算需要的时间范围
+          const yahooRange = (() => {
+            if (["1week", "1month"].includes(input.interval)) return "max"; // 周K/月K拉取全部历史
+            if (input.interval === "1day") {
+              if (input.outputsize >= 1000) return "10y";
+              if (input.outputsize >= 500) return "5y";
+              if (input.outputsize >= 250) return "2y";
+              return "1y";
+            }
+            // 日内数据保持原有逻辑
+            return input.outputsize > 200 ? "5y" : input.outputsize > 100 ? "2y" : input.outputsize > 60 ? "1y" : "6mo";
+          })();
           const yahooSym = sym.includes(".") ? sym : sym;
           const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${yahooInterval}&range=${yahooRange}&includePrePost=false`;
           const yahooRes = await fetch(yahooUrl, {

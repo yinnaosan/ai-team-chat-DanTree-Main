@@ -330,42 +330,88 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
             {/* One-click Trade Buttons */}
             {ticker && (
               <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => { setTradeSide("buy"); setShowTradeModal(true); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
-                  style={{
-                    background: isBullish ? "oklch(0.65 0.22 25 / 0.25)" : "oklch(0.65 0.22 25 / 0.08)",
-                    color: T.up,
-                    border: `1px solid ${isBullish ? T.up : "oklch(0.65 0.22 25 / 0.3)"}`,
-                    boxShadow: isBullish ? `0 0 12px oklch(0.65 0.22 25 / 0.2)` : undefined,
-                  }}>
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  买入 BUY
-                  {isBullish && (
-                    <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
-                      style={{ background: "oklch(0.65 0.22 25 / 0.2)", color: T.up }}>
-                      AI推荐
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => { setTradeSide("sell"); setShowTradeModal(true); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
-                  style={{
-                    background: isBearish ? "oklch(0.65 0.22 145 / 0.25)" : "oklch(0.65 0.22 145 / 0.08)",
-                    color: T.down,
-                    border: `1px solid ${isBearish ? T.down : "oklch(0.65 0.22 145 / 0.3)"}`,
-                    boxShadow: isBearish ? `0 0 12px oklch(0.65 0.22 145 / 0.2)` : undefined,
-                  }}>
-                  <TrendingDown className="w-3.5 h-3.5" />
-                  卖出 SELL
-                  {isBearish && (
-                    <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
-                      style={{ background: "oklch(0.65 0.22 145 / 0.2)", color: T.down }}>
-                      AI推荐
-                    </span>
-                  )}
-                </button>
+                {isBullish ? (
+                  // 看多：突出买入，弱化卖出
+                  <>
+                    <button
+                      onClick={() => { setTradeSide("buy"); setShowTradeModal(true); }}
+                      className="flex-[2] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
+                      style={{
+                        background: "oklch(0.65 0.22 25 / 0.25)",
+                        color: T.up,
+                        border: `1px solid ${T.up}`,
+                        boxShadow: `0 0 12px oklch(0.65 0.22 25 / 0.2)`,
+                      }}>
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      买入 BUY
+                      <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
+                        style={{ background: "oklch(0.65 0.22 25 / 0.2)", color: T.up }}>AI推荐</span>
+                    </button>
+                    <button
+                      onClick={() => { setTradeSide("sell"); setShowTradeModal(true); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:opacity-70"
+                      style={{ background: "oklch(0.65 0.22 145 / 0.05)", color: T.text4, border: `1px solid oklch(0.65 0.22 145 / 0.2)` }}>
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      卖出 SELL
+                    </button>
+                  </>
+                ) : isBearish ? (
+                  // 看空：突出卖出，弱化买入
+                  <>
+                    <button
+                      onClick={() => { setTradeSide("buy"); setShowTradeModal(true); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:opacity-70"
+                      style={{ background: "oklch(0.65 0.22 25 / 0.05)", color: T.text4, border: `1px solid oklch(0.65 0.22 25 / 0.2)` }}>
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      买入 BUY
+                    </button>
+                    <button
+                      onClick={() => { setTradeSide("sell"); setShowTradeModal(true); }}
+                      className="flex-[2] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:scale-[1.02] hover:shadow-lg"
+                      style={{
+                        background: "oklch(0.65 0.22 145 / 0.25)",
+                        color: T.down,
+                        border: `1px solid ${T.down}`,
+                        boxShadow: `0 0 12px oklch(0.65 0.22 145 / 0.2)`,
+                      }}>
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      卖出 SELL
+                      <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
+                        style={{ background: "oklch(0.65 0.22 145 / 0.2)", color: T.down }}>AI推荐</span>
+                    </button>
+                  </>
+                ) : (
+                  // 观望/中性：显示HOLD按钮 + 弱化的买入/卖出
+                  <>
+                    <button
+                      disabled
+                      className="flex-[2] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-default"
+                      style={{
+                        background: "oklch(0.72 0.18 75 / 0.12)",
+                        color: T.gold,
+                        border: `1px solid oklch(0.72 0.18 75 / 0.4)`,
+                      }}>
+                      <Activity className="w-3.5 h-3.5" />
+                      观望 HOLD
+                      <span className="text-[10px] px-1 py-0.5 rounded ml-0.5"
+                        style={{ background: "oklch(0.72 0.18 75 / 0.2)", color: T.gold }}>AI建议</span>
+                    </button>
+                    <button
+                      onClick={() => { setTradeSide("buy"); setShowTradeModal(true); }}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:opacity-80"
+                      style={{ background: "oklch(0.65 0.22 25 / 0.05)", color: T.text4, border: `1px solid oklch(0.65 0.22 25 / 0.2)` }}>
+                      <TrendingUp className="w-3 h-3" />
+                      BUY
+                    </button>
+                    <button
+                      onClick={() => { setTradeSide("sell"); setShowTradeModal(true); }}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all hover:opacity-80"
+                      style={{ background: "oklch(0.65 0.22 145 / 0.05)", color: T.text4, border: `1px solid oklch(0.65 0.22 145 / 0.2)` }}>
+                      <TrendingDown className="w-3 h-3" />
+                      SELL
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </>

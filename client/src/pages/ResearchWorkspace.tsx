@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from '@/_core/hooks/useAuth';
+import { exportConversationAsPDF, exportConversationAsMarkdown } from "@/lib/exportMessage";
 import { toast } from "sonner";
 import {
   Search, Plus, ChevronDown, ChevronRight, ChevronUp,
@@ -18,6 +19,7 @@ import {
   Eye, EyeOff, Sliders, ChevronLeft, Edit3, Copy,
   TrendingUp as BullIcon, ShoppingCart, DollarSign,
   Users, MoreHorizontal, Filter, Bell, Home,
+  LogOut, Download, Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,9 +221,9 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
   }
 
   const confMap = {
-    high: { color: "oklch(0.72 0.18 142)", label: "高置信度", icon: CheckCircle },
-    medium: { color: T.gold, label: "中置信度", icon: Activity },
-    low: { color: "oklch(0.72 0.18 25)", label: "低置信度", icon: AlertTriangle },
+    high: { color: T.gold, label: "高置信度", icon: CheckCircle },
+    medium: { color: T.blue, label: "中置信度", icon: Activity },
+    low: { color: T.text3, label: "低置信度", icon: AlertTriangle },
   };
   const conf = answerObject ? (confMap[answerObject.confidence] ?? confMap.medium) : null;
   const ConfIcon = conf?.icon ?? Activity;
@@ -441,7 +443,7 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
     {
       label: "Conviction",
       value: conf === "high" ? "STRONG" : conf === "medium" ? "MODERATE" : "WEAK",
-      color: conf === "high" ? "oklch(0.72 0.18 142)" : conf === "medium" ? T.gold : T.up,
+      color: conf === "high" ? T.gold : conf === "medium" ? T.blue : T.text3,
       icon: Zap,
     },
     {
@@ -455,7 +457,7 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div className="w-1.5 h-4 rounded-full" style={{ background: "oklch(0.72 0.18 142)" }} />
+        <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
         <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DECISION SIGNALS</span>
       </div>
       <div className="p-3 grid grid-cols-3 gap-2">
@@ -854,8 +856,42 @@ function TradeModal({ open, onClose, ticker, price, verdict }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ResearchWorkspacePage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const [, navigate] = useLocation();
+  // PWA install prompt
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) { toast.info('请使用浏览器菜单中的「添加到主屏幕」安装'); return; }
+    (installPrompt as any).prompt();
+    const { outcome } = await (installPrompt as any).userChoice;
+    if (outcome === 'accepted') { setInstallPrompt(null); toast.success('安装成功！'); }
+  };
+
+  const handleExportPdf = async () => {
+    setShowDownloadMenu(false);
+    setExportingPdf(true);
+    try {
+      await exportConversationAsPDF(`DanTree 研究报告 - ${currentTicker || '综合分析'}`);
+      toast.success('PDF 导出成功');
+    } catch { toast.error('PDF 导出失败'); }
+    finally { setExportingPdf(false); }
+  };
+
+  const handleExportMarkdown = () => {
+    setShowDownloadMenu(false);
+    const msgs = convMessages.filter(m => m.role !== 'system');
+    exportConversationAsMarkdown(msgs.map(m => ({ role: m.role, content: m.content })), `DanTree-${currentTicker || '分析'}`);
+    toast.success('Markdown 导出成功');
+  };
 
   // ── State ──
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
@@ -1184,8 +1220,71 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.72 0.18 142)" }} />
             <span className="text-[10px] font-medium" style={{ color: T.text2 }}>MARKET OPEN</span>
-            <ChevronDown className="w-3 h-3" style={{ color: T.text3 }} />
           </div>
+
+          {/* Download button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDownloadMenu(o => !o)}
+              title="导出报告"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+              style={{ background: T.bg2, border: `1px solid ${T.border}`, color: exportingPdf ? T.gold : T.text3 }}
+              disabled={exportingPdf}>
+              {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">导出</span>
+            </button>
+            {showDownloadMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowDownloadMenu(false)} />
+                <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[160px] shadow-xl"
+                  style={{ background: T.bg2, border: `1px solid oklch(100% 0 0 / 0.12)` }}>
+                  <button onClick={handleExportMarkdown}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                    style={{ color: T.text1 }}>
+                    <Download className="w-3.5 h-3.5" style={{ color: T.gold }} />
+                    Markdown (.md)
+                  </button>
+                  <button onClick={handleExportPdf}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
+                    style={{ color: T.text1 }}>
+                    <Download className="w-3.5 h-3.5" style={{ color: T.up }} />
+                    PDF 文档 (.pdf)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Install button */}
+          <button
+            onClick={handleInstall}
+            title="一键安装 App"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+            style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">安装</span>
+          </button>
+
+          {/* Settings button */}
+          <button
+            onClick={() => navigate('/settings')}
+            title="设置"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+            style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
+            <Settings className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">设置</span>
+          </button>
+
+          {/* Logout button */}
+          <button
+            onClick={logout}
+            title="退出登录"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
+            style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">退出</span>
+          </button>
+
           <button onClick={() => setShowTradeModal(true)}
             disabled={!currentTicker}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-40"
@@ -1495,14 +1594,14 @@ export default function ResearchWorkspacePage() {
                       ))}
                     </div>
                     <div>
-                      {deepSectionsTab === "backtest" && <BacktestCard ticker={tickerForCards || "AAPL"} spot={100} sigma={0.25} />}
+                      {deepSectionsTab === "backtest" && <BacktestCard ticker={tickerForCards || currentTicker || ""} spot={quoteData?.price ?? 100} sigma={0.25} />}
                       {deepSectionsTab === "health" && healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
                       {deepSectionsTab === "health" && !healthScoreData && (
                         <div className="p-3 rounded-lg text-xs text-center" style={{ background: T.bg1, color: T.text4 }}>
                           健康评分模块：请先分析一个标的以生成评分数据
                         </div>
                       )}
-                      {deepSectionsTab === "sentiment" && <SentimentNLPCard ticker={tickerForCards || "AAPL"} newsItems={newsItemsForCards} />}
+                      {deepSectionsTab === "sentiment" && <SentimentNLPCard ticker={tickerForCards || currentTicker || ""} newsItems={newsItemsForCards} />}
                       {deepSectionsTab === "alpha" && alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
                       {deepSectionsTab === "alpha" && !alphaFactorsData && (
                         <div className="p-3 rounded-lg text-xs text-center" style={{ background: T.bg1, color: T.text4 }}>
@@ -1512,7 +1611,7 @@ export default function ResearchWorkspacePage() {
                       {deepSectionsTab === "portfolio" && <AlpacaPortfolioCard />}
                       {deepSectionsTab === "radar" && (
                         <TrendRadarCard
-                          ticker={tickerForCards || "AAPL"}
+                          ticker={tickerForCards || currentTicker || ""}
                           newsItems={newsItemsForCards}
                           userWatchlist={currentTicker ? [currentTicker] : []}
                           onWatchlistChange={() => {}}
@@ -1878,7 +1977,7 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end" data-pdf-message data-pdf-role="user">
         <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-tr-sm text-xs"
           style={{ background: `${T.blue.replace(")", " / 0.12)")}`, color: T.text1, border: `1px solid ${T.blue.replace(")", " / 0.2)")}` }}>
           {msg.content}
@@ -1888,7 +1987,7 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-pdf-message data-pdf-role="assistant">
       <div className="group relative">
         <div className="text-xs leading-relaxed prose prose-invert max-w-none"
           style={{ color: "oklch(0.78 0 0)" }}>

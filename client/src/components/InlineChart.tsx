@@ -236,7 +236,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
 
     let chart: unknown = null;
 
-    import("lightweight-charts").then(({ createChart, CrosshairMode }) => {
+    import("lightweight-charts").then(({ createChart, CrosshairMode, CandlestickSeries, LineSeries }) => {
       if (!containerRef.current) return;
 
       const el = containerRef.current;
@@ -266,8 +266,8 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
 
       chartRef.current = chart;
 
-      // K线系列
-      const candleSeries = (chart as { addCandlestickSeries: (opts: unknown) => unknown }).addCandlestickSeries({
+      // K线系列 (lightweight-charts v5)
+      const candleSeries = (chart as { addSeries: (type: unknown, opts: unknown) => unknown }).addSeries(CandlestickSeries, {
         upColor: "#22c55e",
         downColor: "#ef4444",
         borderUpColor: "#22c55e",
@@ -289,7 +289,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
       // MA5
       const closes = data.map(d => d.close);
       const ma5 = calcMA(closes, 5);
-      const ma5Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+      const ma5Series = (chart as { addSeries: (type: unknown, opts: unknown) => unknown }).addSeries(LineSeries, {
         color: "#f59e0b",
         lineWidth: 1.5,
         priceLineVisible: false,
@@ -303,7 +303,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
 
       // MA20
       const ma20 = calcMA(closes, 20);
-      const ma20Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+      const ma20Series = (chart as { addSeries: (type: unknown, opts: unknown) => unknown }).addSeries(LineSeries, {
         color: "#a855f7",
         lineWidth: 1.5,
         priceLineVisible: false,
@@ -318,7 +318,7 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
       // MA60（如果数据足够）
       if (data.length >= 60) {
         const ma60 = calcMA(closes, 60);
-        const ma60Series = (chart as { addLineSeries: (opts: unknown) => unknown }).addLineSeries({
+        const ma60Series = (chart as { addSeries: (type: unknown, opts: unknown) => unknown }).addSeries(LineSeries, {
           color: "#06b6d4",
           lineWidth: 1.5,
           priceLineVisible: false,

@@ -1913,3 +1913,56 @@
 - [x] 后端：getConfig/setConfig 支持 chartColorScheme
 - [x] Settings 页面：添加「图表涨跌颜色」设置卡片（中国/美国风格选择）
 - [x] ResearchWorkspace：colorScheme 从 rpaConfig 读取，实时生效
+
+## 全面重建任务（2026-03-23）
+
+### 第一步：量化回测修复
+- [ ] 修复BacktestCard标的物硬编码（ticker || "AAPL"），改为使用currentTicker
+- [ ] 修复spot=100硬编码，改为从quoteData.price获取实时价格
+- [ ] 修复sigma=0.25硬编码，改为从alphaFactorsData获取或动态计算
+
+### 第二步：数据接口检查
+- [ ] 检查牛熊方向接口（bullBear/marketTrend）是否接错
+- [ ] 检查市场状态Badge数据来源是否正确
+- [ ] 检查AIVerdictCard的方向信号是否正确
+
+### 第三步：全局设计系统重建（去塑料感）
+- [ ] 重写index.css：8pt Grid + Glassmorphism tokens + 渐变纹理 + 排版层级（12/14/16/20/24/32）
+- [ ] 建立设计token系统（颜色/间距/圆角/阴影/字号）
+- [ ] 深色背景 #0a0a0f → #1a1a2e 渐变
+- [ ] 所有卡片改为Glassmorphism（backdrop-filter + 1px半透明边框）
+- [ ] 按钮hover时border beam动画
+
+### 第四步：登录页重建
+- [ ] Three.js 3D流体背景 + 鼠标交互（FinRobot机器人跟随效果）
+- [ ] 玻璃拟态登录卡片（backdrop-filter强模糊 + 1px半透明边框）
+
+### 第五步：ResearchWorkspace完全重建（精确匹配参考图）
+- [ ] 顶部滚动行情Ticker栏（平滑滚动渐变，Market State Badge）
+- [ ] 精确4列布局：LEFT SIDEBAR + ANALYSIS + DISCUSSION(CORE) + INSIGHT
+- [ ] ResearchHeader：ticker+price+confidence+设置/退出/下载/一键交易按钮
+- [ ] AIVerdictCard：AI裁决+内嵌小图表+关键指标
+- [ ] MainChartCard：图表类型切换+时间周期+PinnedMetricsBar
+- [ ] Discussion列作为完整独立列（不是浮动面板）
+- [ ] Insight列：ContextHeader+PriceTargets+AnalystRatings+KeyForecasts
+- [ ] 所有卡片Glassmorphism风格，hover微动效
+
+### 第六步：Settings页重建
+- [ ] 高级感SaaS设置页，8pt Grid，信息层级清晰
+- [ ] 每区块：标题+一句话解释+主操作按钮
+
+### 第七步：Landing/Home页重建
+- [ ] FXology风格，Gradient Texture背景
+- [ ] CTA按钮border beam动画
+
+## 2026-03-24 UI修复批次（用户反馈）
+- [x] ResearchWorkspace 顶部导航栏：添加导出（下载）按钮（Markdown + PDF）
+- [x] ResearchWorkspace 顶部导航栏：添加一键安装 App 按钮（PWA）
+- [x] ResearchWorkspace 顶部导航栏：添加设置按钮（跳转 /settings）
+- [x] ResearchWorkspace 顶部导航栏：添加退出登录按钮
+- [x] BacktestCard 量化标的固定问题：添加「历史回测」模式（factorRun，真实 ticker 历史数据）
+- [x] BacktestCard 双模式切换：历史回测（Polygon/Yahoo 真实数据）vs Qbot GBM（蒙特卡洛模拟）
+- [x] 牛熊方向颜色修复：Conviction 颜色由绿色改为金色（高置信度），蓝色（中置信度），灰色（低置信度）
+- [x] AIVerdictCard confMap 颜色修复：高置信度金色，中置信度蓝色，低置信度灰色
+- [x] DecisionSignalsCard 标题色块由绿色改为金色
+- [x] DiscussionMessage 添加 data-pdf-message 属性，确保 PDF 导出功能正常工作

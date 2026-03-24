@@ -1197,3 +1197,1080 @@
 .animate-scan-line   { animation: scanLine 5s linear infinite; }
 .animate-grid-pulse  { animation: gridPulse 4s ease-in-out infinite; }
 .animate-gold-pulse  { animation: goldPulse 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FXOLOGY DESIGN SYSTEM — FXology 级别专业交易终端设计系统
+   深黑背景 + 琥珀金 accent + Glassmorphism + Border Beam + 渐变纹理
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── FXology 背景渐变纹理 ── */
+.fxo-bg-root {
+  background: oklch(4.5% 0.008 240);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% 10%, oklch(78% 0.18 75 / 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, oklch(65% 0.18 250 / 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, oklch(0% 0 0 / 0.0) 0%, transparent 100%);
+}
+
+/* ── FXology 玻璃卡片 ── */
+.fxo-card {
+  background: oklch(9% 0.015 240 / 0.85);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+  border-radius: 0.625rem;
+  box-shadow:
+    0 1px 0 oklch(100% 0 0 / 0.06) inset,
+    0 -1px 0 oklch(0% 0 0 / 0.12) inset,
+    0 8px 32px oklch(0% 0 0 / 0.35),
+    0 2px 8px oklch(0% 0 0 / 0.2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.fxo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, oklch(100% 0 0 / 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.fxo-card:hover {
+  border-color: oklch(100% 0 0 / 0.12);
+  box-shadow:
+    0 1px 0 oklch(100% 0 0 / 0.08) inset,
+    0 -1px 0 oklch(0% 0 0 / 0.15) inset,
+    0 12px 40px oklch(0% 0 0 / 0.4),
+    0 4px 12px oklch(0% 0 0 / 0.25);
+}
+
+/* ── FXology 金色发光卡片 ── */
+.fxo-card-gold {
+  background: oklch(9% 0.015 240 / 0.85);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid oklch(78% 0.18 75 / 0.2);
+  border-radius: 0.625rem;
+  box-shadow:
+    0 1px 0 oklch(78% 0.18 75 / 0.1) inset,
+    0 8px 32px oklch(0% 0 0 / 0.35),
+    0 0 24px oklch(78% 0.18 75 / 0.06);
+}
+
+/* ── FXology 卡片标题栏 ── */
+.fxo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid oklch(100% 0 0 / 0.06);
+  background: oklch(100% 0 0 / 0.02);
+}
+.fxo-card-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(52% 0.012 230);
+}
+
+/* ── FXology 侧边栏 ── */
+.fxo-sidebar {
+  background: oklch(6% 0.012 240 / 0.95);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border-right: 1px solid oklch(100% 0 0 / 0.06);
+  box-shadow: 4px 0 24px oklch(0% 0 0 / 0.3);
+}
+
+/* ── FXology 顶部导航栏 ── */
+.fxo-topbar {
+  background: oklch(7% 0.012 240 / 0.95);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.06);
+  box-shadow: 0 4px 16px oklch(0% 0 0 / 0.25);
+}
+
+/* ── FXology Ticker Strip ── */
+.fxo-ticker-strip {
+  background: oklch(5.5% 0.01 240);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.05);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+.fxo-ticker-strip::before,
+.fxo-ticker-strip::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  z-index: 2;
+  pointer-events: none;
+}
+.fxo-ticker-strip::before {
+  left: 0;
+  background: linear-gradient(to right, oklch(5.5% 0.01 240), transparent);
+}
+.fxo-ticker-strip::after {
+  right: 0;
+  background: linear-gradient(to left, oklch(5.5% 0.01 240), transparent);
+}
+
+/* ── FXology 按钮 — 主要 (金色) ── */
+.fxo-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: linear-gradient(135deg, oklch(78% 0.18 75), oklch(72% 0.2 65));
+  color: oklch(10% 0.015 240);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px oklch(78% 0.18 75 / 0.25), 0 1px 0 oklch(100% 0 0 / 0.2) inset;
+}
+.fxo-btn-primary:hover {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 6px 24px oklch(78% 0.18 75 / 0.35), 0 1px 0 oklch(100% 0 0 / 0.25) inset;
+}
+.fxo-btn-primary:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ── FXology 按钮 — 次要 (玻璃) ── */
+.fxo-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(65% 0.012 230);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.fxo-btn-ghost:hover {
+  background: oklch(100% 0 0 / 0.08);
+  border-color: oklch(100% 0 0 / 0.12);
+  color: oklch(90% 0.008 220);
+}
+
+/* ── FXology 输入框 ── */
+.fxo-input {
+  background: oklch(8% 0.012 240 / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid oklch(100% 0 0 / 0.08);
+  border-radius: 0.5rem;
+  color: oklch(90% 0.008 220);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fxo-input:focus, .fxo-input:focus-within {
+  border-color: oklch(78% 0.18 75 / 0.5);
+  box-shadow: 0 0 0 3px oklch(78% 0.18 75 / 0.08);
+  outline: none;
+}
+.fxo-input::placeholder {
+  color: oklch(40% 0.01 235);
+}
+
+/* ── FXology 标签/徽章 ── */
+.fxo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.fxo-badge-gold {
+  background: oklch(78% 0.18 75 / 0.12);
+  color: oklch(78% 0.18 75);
+  border: 1px solid oklch(78% 0.18 75 / 0.25);
+}
+.fxo-badge-green {
+  background: oklch(65% 0.20 155 / 0.12);
+  color: oklch(65% 0.20 155);
+  border: 1px solid oklch(65% 0.20 155 / 0.25);
+}
+.fxo-badge-red {
+  background: oklch(62% 0.22 25 / 0.12);
+  color: oklch(62% 0.22 25);
+  border: 1px solid oklch(62% 0.22 25 / 0.25);
+}
+.fxo-badge-blue {
+  background: oklch(65% 0.18 250 / 0.12);
+  color: oklch(65% 0.18 250);
+  border: 1px solid oklch(65% 0.18 250 / 0.25);
+}
+.fxo-badge-orange {
+  background: oklch(72% 0.18 55 / 0.12);
+  color: oklch(72% 0.18 55);
+  border: 1px solid oklch(72% 0.18 55 / 0.25);
+}
+
+/* ── FXology 导航项 ── */
+.fxo-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  color: oklch(40% 0.01 235);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  position: relative;
+}
+.fxo-nav-item:hover {
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(85% 0.008 220);
+}
+.fxo-nav-item.active {
+  background: oklch(78% 0.18 75 / 0.08);
+  color: oklch(78% 0.18 75);
+  border-left: 2px solid oklch(78% 0.18 75);
+  padding-left: calc(0.75rem - 2px);
+}
+
+/* ── FXology 数据指标 ── */
+.fxo-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.fxo-metric-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(35% 0.01 240);
+}
+.fxo-metric-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: oklch(90% 0.008 220);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.fxo-metric-value.xl {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+.fxo-metric-value.up { color: oklch(62% 0.22 25); }
+.fxo-metric-value.down { color: oklch(65% 0.20 155); }
+.fxo-metric-value.gold { color: oklch(78% 0.18 75); }
+
+/* ── FXology 分割线 ── */
+.fxo-divider {
+  height: 1px;
+  background: oklch(100% 0 0 / 0.05);
+}
+.fxo-divider-v {
+  width: 1px;
+  background: oklch(100% 0 0 / 0.05);
+  align-self: stretch;
+}
+
+/* ── FXology 发光效果 ── */
+.fxo-glow-gold {
+  box-shadow:
+    0 0 12px oklch(78% 0.18 75 / 0.25),
+    0 0 32px oklch(78% 0.18 75 / 0.1);
+}
+.fxo-glow-green {
+  box-shadow: 0 0 10px oklch(65% 0.20 155 / 0.3);
+}
+.fxo-glow-red {
+  box-shadow: 0 0 10px oklch(62% 0.22 25 / 0.3);
+}
+.fxo-glow-blue {
+  box-shadow: 0 0 10px oklch(65% 0.18 250 / 0.3);
+}
+
+/* ── FXology Border Beam 动画 ── */
+@keyframes borderBeam {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.fxo-border-beam {
+  position: relative;
+  overflow: hidden;
+}
+.fxo-border-beam::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(78% 0.18 75 / 0.6) 30%,
+    oklch(65% 0.18 250 / 0.6) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: borderBeam 3s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── FXology 扫描线动画 ── */
+@keyframes fxoScanLine {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 0.4; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(2000%); opacity: 0; }
+}
+.fxo-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(78% 0.18 75 / 0.5), transparent);
+  animation: fxoScanLine 8s linear infinite;
+  pointer-events: none;
+}
+
+/* ── FXology 脉冲点 ── */
+@keyframes fxoPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 1; transform: scale(1.2); }
+}
+.fxo-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: fxoPulse 2s ease-in-out infinite;
+}
+.fxo-pulse-dot.gold { background: oklch(78% 0.18 75); }
+.fxo-pulse-dot.green { background: oklch(65% 0.20 155); }
+.fxo-pulse-dot.red { background: oklch(62% 0.22 25); }
+
+/* ── FXology 进度条 ── */
+.fxo-progress {
+  height: 2px;
+  background: oklch(100% 0 0 / 0.06);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.fxo-progress-bar {
+  height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, oklch(78% 0.18 75), oklch(65% 0.18 250));
+  transition: width 0.5s ease;
+}
+
+/* ── FXology 表格 ── */
+.fxo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+}
+.fxo-table th {
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(35% 0.01 240);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.06);
+}
+.fxo-table td {
+  padding: 0.375rem 0.625rem;
+  border-bottom: 1px solid oklch(100% 0 0 / 0.04);
+  color: oklch(75% 0.01 230);
+  font-variant-numeric: tabular-nums;
+}
+.fxo-table tr:hover td {
+  background: oklch(100% 0 0 / 0.02);
+}
+.fxo-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── FXology 滚动条 ── */
+.fxo-scrollbar::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+.fxo-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fxo-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(25% 0.02 240);
+  border-radius: 2px;
+}
+.fxo-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(35% 0.025 240);
+}
+
+/* ── FXology 对话消息 ── */
+.fxo-msg-user {
+  display: flex;
+  justify-content: flex-end;
+}
+.fxo-msg-user-bubble {
+  background: oklch(14% 0.02 240 / 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(100% 0 0 / 0.08);
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  padding: 0.625rem 1rem;
+  max-width: 80%;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: oklch(90% 0.008 220);
+  word-break: break-word;
+}
+.fxo-msg-ai {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.fxo-msg-ai-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: oklch(14% 0.025 75);
+  border: 1px solid oklch(78% 0.18 75 / 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: oklch(78% 0.18 75);
+}
+
+/* ── FXology 渐变文字 ── */
+.fxo-gradient-text {
+  background: linear-gradient(135deg, oklch(78% 0.18 75), oklch(72% 0.2 65));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.fxo-gradient-text-blue {
+  background: linear-gradient(135deg, oklch(65% 0.18 250), oklch(72% 0.18 280));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── FXology 分析列 ── */
+.fxo-analysis-col {
+  background: oklch(5% 0.01 240);
+  background-image:
+    radial-gradient(ellipse 100% 60% at 50% 0%, oklch(78% 0.18 75 / 0.03) 0%, transparent 70%);
+}
+
+/* ── FXology 讨论列 ── */
+.fxo-discussion-col {
+  background: oklch(5.5% 0.01 240);
+  background-image:
+    radial-gradient(ellipse 100% 60% at 50% 100%, oklch(65% 0.18 250 / 0.03) 0%, transparent 70%);
+}
+
+/* ── FXology 洞察列 ── */
+.fxo-insight-col {
+  background: oklch(6% 0.012 240 / 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid oklch(100% 0 0 / 0.06);
+}
+
+/* ── FXology 标的选择器 ── */
+.fxo-ticker-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  background: oklch(78% 0.18 75 / 0.08);
+  border: 1px solid oklch(78% 0.18 75 / 0.2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.fxo-ticker-selector:hover {
+  background: oklch(78% 0.18 75 / 0.14);
+  border-color: oklch(78% 0.18 75 / 0.35);
+  transform: scale(1.02);
+}
+.fxo-ticker-selector-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: oklch(78% 0.18 75);
+  letter-spacing: 0.03em;
+}
+
+/* ── FXology 市场状态徽章 ── */
+.fxo-market-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.fxo-market-badge.open {
+  background: oklch(65% 0.20 155 / 0.1);
+  color: oklch(65% 0.20 155);
+  border: 1px solid oklch(65% 0.20 155 / 0.25);
+}
+.fxo-market-badge.closed {
+  background: oklch(62% 0.22 25 / 0.1);
+  color: oklch(62% 0.22 25);
+  border: 1px solid oklch(62% 0.22 25 / 0.25);
+}
+.fxo-market-badge.pre {
+  background: oklch(78% 0.18 75 / 0.1);
+  color: oklch(78% 0.18 75);
+  border: 1px solid oklch(78% 0.18 75 / 0.25);
+}
+
+/* ── FXology 快速提示按钮 ── */
+.fxo-quick-prompt {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background: oklch(100% 0 0 / 0.03);
+  color: oklch(52% 0.012 230);
+  border: 1px solid oklch(100% 0 0 / 0.06);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.1s;
+}
+.fxo-quick-prompt:hover {
+  background: oklch(100% 0 0 / 0.06);
+  color: oklch(80% 0.01 220);
+  border-color: oklch(100% 0 0 / 0.1);
+  transform: scale(1.02);
+}
+
+/* ── FXology 侧边栏对话项 ── */
+.fxo-conv-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+.fxo-conv-item:hover {
+  background: oklch(100% 0 0 / 0.03);
+}
+.fxo-conv-item.active {
+  background: oklch(78% 0.18 75 / 0.07);
+  border-left: 2px solid oklch(78% 0.18 75);
+  padding-left: calc(0.75rem - 2px);
+}
+
+/* ── FXology 加载骨架屏 ── */
+@keyframes fxoShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.fxo-skeleton {
+  background: linear-gradient(
+    90deg,
+    oklch(12% 0.015 240) 0%,
+    oklch(16% 0.018 240) 50%,
+    oklch(12% 0.015 240) 100%
+  );
+  background-size: 200% 100%;
+  animation: fxoShimmer 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}
+
+/* ── FXology 信号指示器 ── */
+.fxo-signal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  transition: transform 0.15s;
+}
+.fxo-signal-card:hover {
+  transform: translateY(-1px);
+}
+
+/* ── FXology 价格大字体 ── */
+.fxo-price-large {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  color: oklch(92% 0.008 220);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.fxo-price-change {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+}
+.fxo-price-change.up {
+  background: oklch(62% 0.22 25 / 0.12);
+  color: oklch(62% 0.22 25);
+}
+.fxo-price-change.down {
+  background: oklch(65% 0.20 155 / 0.12);
+  color: oklch(65% 0.20 155);
+}
+
+/* ── FXology 置信度环 ── */
+.fxo-confidence-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── FXology 动画入场 ── */
+@keyframes fxoFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fxoSlideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fxoSlideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.fxo-animate-in { animation: fxoFadeIn 0.25s ease-out both; }
+.fxo-animate-in-right { animation: fxoSlideInRight 0.25s ease-out both; }
+.fxo-animate-in-left { animation: fxoSlideInLeft 0.25s ease-out both; }
+
+/* ── FXology 工具提示 ── */
+.fxo-tooltip {
+  background: oklch(12% 0.018 240 / 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(100% 0 0 / 0.1);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  color: oklch(85% 0.008 220);
+  box-shadow: 0 8px 24px oklch(0% 0 0 / 0.4);
+}
+
+/* ── FXology 图表工具栏 ── */
+.fxo-chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: oklch(100% 0 0 / 0.03);
+  border-radius: 0.375rem;
+  border: 1px solid oklch(100% 0 0 / 0.06);
+}
+.fxo-chart-toolbar-btn {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: oklch(45% 0.01 235);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  border: none;
+  background: transparent;
+}
+.fxo-chart-toolbar-btn:hover {
+  background: oklch(100% 0 0 / 0.05);
+  color: oklch(80% 0.01 220);
+}
+.fxo-chart-toolbar-btn.active {
+  background: oklch(78% 0.18 75 / 0.12);
+  color: oklch(78% 0.18 75);
+}
+
+/* ── FXology 研究标题 ── */
+.fxo-research-header {
+  background: oklch(7% 0.012 240 / 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.06);
+}
+
+/* ── FXology 面包屑 ── */
+.fxo-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: oklch(40% 0.01 235);
+}
+.fxo-breadcrumb-sep {
+  color: oklch(28% 0.01 240);
+}
+.fxo-breadcrumb-active {
+  color: oklch(78% 0.18 75);
+  font-weight: 600;
+}
+
+/* ── FXology 固定指标栏 ── */
+.fxo-pinned-metrics {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 1rem;
+  background: oklch(6.5% 0.012 240);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.05);
+  overflow-x: auto;
+}
+.fxo-pinned-metric-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  background: oklch(100% 0 0 / 0.03);
+  border: 1px solid oklch(100% 0 0 / 0.05);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fxo-pinned-metric-label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(32% 0.01 240);
+}
+.fxo-pinned-metric-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: oklch(85% 0.008 220);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── FXology 空状态 ── */
+.fxo-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+.fxo-empty-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(100% 0 0 / 0.03);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+}
+
+/* ── FXology 分析模式选择器 ── */
+.fxo-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.2rem;
+  border-radius: 0.375rem;
+  background: oklch(100% 0 0 / 0.03);
+  border: 1px solid oklch(100% 0 0 / 0.06);
+}
+.fxo-mode-btn {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  border: none;
+  background: transparent;
+  color: oklch(35% 0.01 240);
+}
+.fxo-mode-btn.active {
+  background: oklch(78% 0.18 75 / 0.12);
+  color: oklch(78% 0.18 75);
+}
+.fxo-mode-btn:hover:not(.active) {
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(65% 0.012 230);
+}
+
+/* ── FXology 对话输入区 ── */
+.fxo-chat-input-wrap {
+  background: oklch(8% 0.012 240 / 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid oklch(100% 0 0 / 0.08);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fxo-chat-input-wrap:focus-within {
+  border-color: oklch(78% 0.18 75 / 0.4);
+  box-shadow: 0 0 0 3px oklch(78% 0.18 75 / 0.06);
+}
+
+/* ── FXology 发送按钮 ── */
+.fxo-send-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(78% 0.18 75 / 0.1);
+  border: 1px solid oklch(78% 0.18 75 / 0.25);
+  color: oklch(78% 0.18 75);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+.fxo-send-btn:hover:not(:disabled) {
+  background: oklch(78% 0.18 75 / 0.2);
+  border-color: oklch(78% 0.18 75 / 0.4);
+  transform: scale(1.05);
+  box-shadow: 0 0 12px oklch(78% 0.18 75 / 0.2);
+}
+.fxo-send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── FXology 标签切换 ── */
+.fxo-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  background: oklch(100% 0 0 / 0.03);
+  border-radius: 0.5rem;
+  border: 1px solid oklch(100% 0 0 / 0.06);
+}
+.fxo-tab-btn {
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  border: none;
+  background: transparent;
+  color: oklch(40% 0.01 235);
+  white-space: nowrap;
+}
+.fxo-tab-btn.active {
+  background: oklch(78% 0.18 75 / 0.12);
+  color: oklch(78% 0.18 75);
+}
+.fxo-tab-btn:hover:not(.active) {
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(70% 0.01 230);
+}
+
+/* ── FXology 研究工作区整体布局 ── */
+.fxo-workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.fxo-workspace-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── FXology 卡片内容区 ── */
+.fxo-card-body {
+  padding: 0.875rem 1rem;
+}
+.fxo-card-body-sm {
+  padding: 0.625rem 0.875rem;
+}
+
+/* ── FXology 标题装饰线 ── */
+.fxo-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fxo-title-accent {
+  width: 3px;
+  height: 1rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.fxo-title-accent.gold { background: oklch(78% 0.18 75); }
+.fxo-title-accent.blue { background: oklch(65% 0.18 250); }
+.fxo-title-accent.green { background: oklch(65% 0.20 155); }
+.fxo-title-accent.red { background: oklch(62% 0.22 25); }
+.fxo-title-accent.purple { background: oklch(65% 0.18 290); }
+
+/* ── FXology 侧边栏底部工具 ── */
+.fxo-sidebar-footer {
+  padding: 0.5rem;
+  border-top: 1px solid oklch(100% 0 0 / 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.fxo-sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  color: oklch(40% 0.01 235);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+.fxo-sidebar-footer-btn:hover {
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(70% 0.01 230);
+}
+
+/* ── FXology 一键交易按钮 ── */
+.fxo-trade-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, oklch(78% 0.18 75) 0%, oklch(72% 0.2 65) 100%);
+  color: oklch(8% 0.015 240);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow:
+    0 4px 16px oklch(78% 0.18 75 / 0.3),
+    0 1px 0 oklch(100% 0 0 / 0.25) inset;
+}
+.fxo-trade-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, oklch(100% 0 0 / 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+.fxo-trade-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow:
+    0 6px 24px oklch(78% 0.18 75 / 0.4),
+    0 1px 0 oklch(100% 0 0 / 0.3) inset;
+}
+.fxo-trade-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+.fxo-trade-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── FXology 下载按钮 ── */
+.fxo-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: oklch(100% 0 0 / 0.04);
+  color: oklch(60% 0.012 230);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.fxo-download-btn:hover {
+  background: oklch(100% 0 0 / 0.08);
+  color: oklch(85% 0.008 220);
+}
+
+/* ── FXology 设置按钮 ── */
+.fxo-settings-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: oklch(42% 0.01 235);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.fxo-settings-btn:hover {
+  background: oklch(100% 0 0 / 0.05);
+  color: oklch(75% 0.01 230);
+  border-color: oklch(100% 0 0 / 0.08);
+}
+
+/* ── FXology 登出按钮 ── */
+.fxo-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: oklch(42% 0.01 235);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.fxo-logout-btn:hover {
+  background: oklch(62% 0.22 25 / 0.08);
+  color: oklch(62% 0.22 25);
+}

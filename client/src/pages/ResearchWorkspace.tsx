@@ -107,11 +107,11 @@ const T = {
   goldDim: "oklch(0.78 0.18 85 / 0.15)",
   goldBorder: "oklch(0.78 0.18 85 / 0.3)",
   text1: "oklch(0.92 0 0)",
-  text2: "oklch(0.65 0 0)",
-  text3: "oklch(0.42 0 0)",
+  text2: "oklch(0.70 0 0)",
+  text3: "oklch(0.48 0 0)",
   text4: "oklch(0.28 0 0)",
-  up: "oklch(0.65 0.22 25)",   // red = up (Chinese)
-  down: "oklch(0.65 0.22 145)", // green = down (Chinese)
+  up: "oklch(0.68 0.18 25)",   // red = up (Chinese)
+  down: "oklch(0.62 0.16 145)", // green = down (Chinese)
   blue: "oklch(0.65 0.18 250)",
   purple: "oklch(0.65 0.18 290)",
 };
@@ -167,7 +167,7 @@ function ResearchHeader({ ticker, quoteData, answerObject, onSelectTicker, onTra
         <div className="flex items-center gap-2 ml-2">
           <span className="text-xs" style={{ color: T.text3 }}>Confidence</span>
           <span className="text-lg font-mono font-bold" style={{ color: T.gold }}>{confPct}%</span>
-          <span className="text-[10px]" style={{ color: T.text3 }}>≈</span>
+          <span className="text-[12px]" style={{ color: T.text3 }}>≈</span>
         </div>
       )}
 
@@ -175,7 +175,7 @@ function ResearchHeader({ ticker, quoteData, answerObject, onSelectTicker, onTra
       {answerObject?.verdict && (
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg"
           style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-          <span className="text-[10px]" style={{ color: T.text3 }}>Suggested</span>
+          <span className="text-[12px]" style={{ color: T.text3 }}>Suggested</span>
           <span className="text-xs font-semibold truncate max-w-[160px]" style={{ color: T.text2 }}>
             {answerObject.verdict.slice(0, 40)}{answerObject.verdict.length > 40 ? "…" : ""}
           </span>
@@ -239,13 +239,13 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
         style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
             AI VERDICT
           </span>
         </div>
         <div className="flex items-center gap-2">
           {outputMode && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase"
+            <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase"
               style={{ background: `${T.blue.replace(")", " / 0.12)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.3)")}` }}>
               {outputMode === "decisive" ? "决断" : outputMode === "directional" ? "方向" : "框架"}
             </span>
@@ -253,11 +253,11 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
           {conf && (
             <div className="flex items-center gap-1">
               <ConfIcon className="w-3 h-3" style={{ color: conf.color }} />
-              <span className="text-[10px]" style={{ color: conf.color }}>{conf.label}</span>
+              <span className="text-[12px]" style={{ color: conf.color }}>{conf.label}</span>
             </div>
           )}
           {evidenceScore !== undefined && (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+            <span className="text-[12px] font-mono px-1.5 py-0.5 rounded"
               style={{ background: T.bg3, color: T.text3 }}>
               E:{evidenceScore.toFixed(2)}
             </span>
@@ -289,30 +289,30 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
               <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.65 0.22 25 / 0.06)", border: "1px solid oklch(0.65 0.22 25 / 0.2)" }}>
                 <div className="flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" style={{ color: T.up }} />
-                  <span className="text-[9px] font-semibold uppercase" style={{ color: T.up }}>BULL</span>
+                  <span className="text-xs font-semibold uppercase" style={{ color: T.up }}>BULL</span>
                 </div>
                 {(answerObject.key_evidence ?? []).slice(0, 1).map((e, i) => (
-                  <p key={i} className="text-[10px] leading-snug" style={{ color: T.text2 }}>{e}</p>
+                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
                 ))}
               </div>
               {/* Bear */}
               <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.65 0.22 145 / 0.06)", border: "1px solid oklch(0.65 0.22 145 / 0.2)" }}>
                 <div className="flex items-center gap-1">
                   <TrendingDown className="w-3 h-3" style={{ color: T.down }} />
-                  <span className="text-[9px] font-semibold uppercase" style={{ color: T.down }}>BEAR</span>
+                  <span className="text-xs font-semibold uppercase" style={{ color: T.down }}>BEAR</span>
                 </div>
                 {(answerObject.counterarguments ?? []).slice(0, 1).map((e, i) => (
-                  <p key={i} className="text-[10px] leading-snug" style={{ color: T.text2 }}>{e}</p>
+                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{e}</p>
                 ))}
               </div>
               {/* Key Risk */}
               <div className="p-2.5 rounded-lg space-y-1" style={{ background: "oklch(0.72 0.18 75 / 0.06)", border: "1px solid oklch(0.72 0.18 75 / 0.2)" }}>
                 <div className="flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" style={{ color: T.gold }} />
-                  <span className="text-[9px] font-semibold uppercase" style={{ color: T.gold }}>RISK</span>
+                  <span className="text-xs font-semibold uppercase" style={{ color: T.gold }}>RISK</span>
                 </div>
                 {(answerObject.risks ?? []).slice(0, 1).map((r, i) => (
-                  <p key={i} className="text-[10px] leading-snug" style={{ color: T.text2 }}>{r.description}</p>
+                  <p key={i} className="text-[12px] leading-snug" style={{ color: T.text2 }}>{r.description}</p>
                 ))}
               </div>
             </div>
@@ -324,17 +324,17 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
 }
 
 /** Main Chart Card */
-function MainChartCard({ ticker, colorScheme }: { ticker: string; colorScheme?: "cn" | "us" }) {
+function MainChartCard({ ticker, colorScheme, quoteData }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any }) {
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center justify-between px-4 py-2.5"
         style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-4 rounded-full" style={{ background: T.blue }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
             MAIN CHART
           </span>
-          {ticker && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>{ticker}</span>}
+          {ticker && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded" style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>{ticker}</span>}
         </div>
         <div className="flex items-center gap-1">
           <button className="p-1 rounded hover:bg-white/5 transition-colors" style={{ color: T.text3 }}>
@@ -347,7 +347,7 @@ function MainChartCard({ ticker, colorScheme }: { ticker: string; colorScheme?: 
       </div>
       <div className="p-4">
         {ticker ? (
-          <PriceChart symbol={ticker} colorScheme={colorScheme ?? "cn"} height={260} />
+          <PriceChart symbol={ticker} colorScheme={colorScheme ?? "cn"} height={260} quoteData={quoteData} />
         ) : (
           <div className="flex items-center justify-center h-[260px]" style={{ color: T.text4 }}>
             <div className="text-center space-y-2">
@@ -386,8 +386,8 @@ function RiskPanel({ risks, isLoading }: {
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <AlertTriangle className="w-3.5 h-3.5" style={{ color: T.up }} />
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>RISK PANEL</span>
-        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono ml-auto"
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>RISK PANEL</span>
+        <span className="text-xs px-1.5 py-0.5 rounded font-mono ml-auto"
           style={{ background: "oklch(0.65 0.22 25 / 0.12)", color: T.up, border: "1px solid oklch(0.65 0.22 25 / 0.3)" }}>
           {risks.length} RISKS
         </span>
@@ -398,11 +398,11 @@ function RiskPanel({ risks, isLoading }: {
           return (
             <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg"
               style={{ background: mag.bg, border: `1px solid ${mag.border}` }}>
-              <span className="text-[9px] font-mono font-bold px-1 py-0.5 rounded shrink-0 mt-0.5"
+              <span className="text-xs font-mono font-bold px-1 py-0.5 rounded shrink-0 mt-0.5"
                 style={{ background: `${mag.color.replace(")", " / 0.2)")}`, color: mag.color }}>
                 {mag.label}
               </span>
-              <p className="text-[11px] leading-relaxed" style={{ color: T.text2 }}>{r.description}</p>
+              <p className="text-xs leading-relaxed" style={{ color: T.text2 }}>{r.description}</p>
             </div>
           );
         })}
@@ -458,7 +458,7 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DECISION SIGNALS</span>
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DECISION SIGNALS</span>
       </div>
       <div className="p-3 grid grid-cols-3 gap-2">
         {signals.map((s) => {
@@ -470,8 +470,8 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
                 style={{ background: `${s.color.replace(")", " / 0.15)")}` }}>
                 <Icon className="w-3.5 h-3.5" style={{ color: s.color }} />
               </div>
-              <span className="text-[11px] font-extrabold font-mono" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-[9px] uppercase tracking-widest" style={{ color: T.text4 }}>{s.label}</span>
+              <span className="text-xs font-extrabold font-mono" style={{ color: s.color }}>{s.value}</span>
+              <span className="text-xs uppercase tracking-widest" style={{ color: T.text4 }}>{s.label}</span>
             </div>
           );
         })}
@@ -496,7 +496,7 @@ function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPri
       <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
           <Target className="w-3.5 h-3.5" style={{ color: T.gold }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>PRICE TARGETS</span>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>PRICE TARGETS</span>
         </div>
         <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
           <ChevronDown className="w-3.5 h-3.5" />
@@ -508,7 +508,7 @@ function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPri
             <thead>
               <tr>
                 {targets.map(t => (
-                  <th key={t.label} className="text-[9px] font-semibold uppercase text-center pb-1.5"
+                  <th key={t.label} className="text-xs font-semibold uppercase text-center pb-1.5"
                     style={{ color: T.text4 }}>{t.label}</th>
                 ))}
               </tr>
@@ -522,7 +522,7 @@ function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPri
               </tr>
               <tr>
                 {targets.map((t, i) => (
-                  <td key={t.label} className="text-center text-[9px] pt-1"
+                  <td key={t.label} className="text-center text-xs pt-1"
                     style={{ color: T.text4 }}>
                     {i === 0 ? "—" : i === 1 ? "10:0" : i === 2 ? "67%" : i === 3 ? "220" : "180"}
                   </td>
@@ -531,7 +531,7 @@ function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPri
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] text-center py-2" style={{ color: T.text4 }}>分析后显示目标价</p>
+          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析后显示目标价</p>
         )}
       </div>
     </div>
@@ -555,7 +555,7 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
       <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
           <Users className="w-3.5 h-3.5" style={{ color: T.blue }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYST RATINGS</span>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYST RATINGS</span>
         </div>
         <div className="flex items-center gap-1">
           <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
@@ -573,14 +573,14 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
           { label: "Sell", value: sell, color: T.down },
         ].map(r => (
           <div key={r.label} className="flex items-center gap-2">
-            <span className="text-[10px] w-8" style={{ color: T.text3 }}>{r.label}</span>
+            <span className="text-[12px] w-8" style={{ color: T.text3 }}>{r.label}</span>
             <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: T.bg3 }}>
               <div className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${(r.value / total) * 100}%`, background: r.color }} />
             </div>
-            <span className="text-[10px] font-mono w-6 text-right" style={{ color: r.color }}>{r.value}</span>
-            <span className="text-[9px] w-4 text-right" style={{ color: T.text4 }}>6</span>
-            <span className="text-[9px] w-4 text-right" style={{ color: T.text4 }}>{r.label === "Buy" ? "3" : r.label === "Hold" ? "3" : "2"}</span>
+            <span className="text-[12px] font-mono w-6 text-right" style={{ color: r.color }}>{r.value}</span>
+            <span className="text-xs w-4 text-right" style={{ color: T.text4 }}>6</span>
+            <span className="text-xs w-4 text-right" style={{ color: T.text4 }}>{r.label === "Buy" ? "3" : r.label === "Hold" ? "3" : "2"}</span>
           </div>
         ))}
       </div>
@@ -601,7 +601,7 @@ function KeyForecastsCard({ answerObject }: { answerObject?: any }) {
       <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
           <DollarSign className="w-3.5 h-3.5" style={{ color: "oklch(0.72 0.18 142)" }} />
-          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>KEY FORECASTS</span>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>KEY FORECASTS</span>
         </div>
         <button className="p-1 rounded hover:bg-white/5" style={{ color: T.text3 }}>
           <ChevronDown className="w-3.5 h-3.5" />
@@ -613,16 +613,16 @@ function KeyForecastsCard({ answerObject }: { answerObject?: any }) {
             <tbody className="space-y-1">
               {forecasts.map(f => (
                 <tr key={f.label} className="border-b" style={{ borderColor: T.border }}>
-                  <td className="py-1.5 text-[10px]" style={{ color: T.text3 }}>{f.label}</td>
-                  <td className="py-1.5 text-right font-mono text-[11px]" style={{ color: T.text1 }}>{f.v1}</td>
-                  <td className="py-1.5 text-right font-mono text-[11px]" style={{ color: T.gold }}>{f.v2}</td>
-                  <td className="py-1.5 text-right text-[9px]" style={{ color: T.text4 }}>{f.v3}</td>
+                  <td className="py-1.5 text-[12px]" style={{ color: T.text3 }}>{f.label}</td>
+                  <td className="py-1.5 text-right font-mono text-xs" style={{ color: T.text1 }}>{f.v1}</td>
+                  <td className="py-1.5 text-right font-mono text-xs" style={{ color: T.gold }}>{f.v2}</td>
+                  <td className="py-1.5 text-right text-xs" style={{ color: T.text4 }}>{f.v3}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] text-center py-2" style={{ color: T.text4 }}>分析后显示预测数据</p>
+          <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析后显示预测数据</p>
         )}
       </div>
     </div>
@@ -640,20 +640,20 @@ function WhyItMattersNowCard({ discussionObject, isLoading }: {
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
         <Clock className="w-3.5 h-3.5" style={{ color: T.gold }} />
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>WHY IT MATTERS NOW</span>
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>WHY IT MATTERS NOW</span>
       </div>
       <div className="p-3 space-y-2">
         <p className="text-xs leading-relaxed" style={{ color: T.text2 }}>{discussionObject.key_uncertainty}</p>
         {discussionObject.alternative_view && (
           <div className="space-y-1">
-            <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>Alternative View</p>
-            <p className="text-[11px] leading-relaxed" style={{ color: T.text3 }}>{discussionObject.alternative_view}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>Alternative View</p>
+            <p className="text-xs leading-relaxed" style={{ color: T.text3 }}>{discussionObject.alternative_view}</p>
           </div>
         )}
         {(discussionObject.follow_up_questions?.length ?? 0) > 0 && (
           <div className="flex flex-col gap-1 pt-1">
             {discussionObject.follow_up_questions.slice(0, 2).map((q, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-[10px]" style={{ color: T.text3 }}>
+              <div key={i} className="flex items-start gap-1.5 text-[12px]" style={{ color: T.text3 }}>
                 <span style={{ color: T.gold }}>›</span>
                 <span>{q}</span>
               </div>
@@ -701,7 +701,7 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
             />
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: T.text4 }}>常用标的</p>
+            <p className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: T.text4 }}>常用标的</p>
             <div className="flex flex-wrap gap-1.5">
               {popularTickers.map(t => (
                 <button key={t}
@@ -775,7 +775,7 @@ function TradeModal({ open, onClose, ticker, price, verdict }: {
           {/* AI Recommendation */}
           {verdict && (
             <div className="p-3 rounded-lg" style={{ background: T.goldDim, border: `1px solid ${T.goldBorder}` }}>
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: T.gold }}>AI 建议</p>
+              <p className="text-[12px] font-semibold uppercase tracking-wider mb-1" style={{ color: T.gold }}>AI 建议</p>
               <p className="text-xs" style={{ color: T.text2 }}>{verdict.slice(0, 100)}{verdict.length > 100 ? "…" : ""}</p>
             </div>
           )}
@@ -805,7 +805,7 @@ function TradeModal({ open, onClose, ticker, price, verdict }: {
 
           {/* Quantity */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+            <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
               数量 (股)
             </label>
             <Input
@@ -817,7 +817,7 @@ function TradeModal({ open, onClose, ticker, price, verdict }: {
               style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text1 }}
             />
             {price && qty && (
-              <p className="text-[10px]" style={{ color: T.text3 }}>
+              <p className="text-[12px]" style={{ color: T.text3 }}>
                 预估金额: ${(price * parseFloat(qty || "0")).toFixed(2)}
               </p>
             )}
@@ -843,7 +843,7 @@ function TradeModal({ open, onClose, ticker, price, verdict }: {
             )}
           </button>
           {confirmed && (
-            <p className="text-[10px] text-center" style={{ color: T.up }}>
+            <p className="text-[12px] text-center" style={{ color: T.up }}>
               ⚠️ 这是模拟交易（Alpaca Paper Trading），不涉及真实资金
             </p>
           )}
@@ -1185,7 +1185,7 @@ export default function ResearchWorkspacePage() {
         <button onClick={() => setShowInstrumentModal(true)}
           className="flex items-center gap-2 px-3 py-1 rounded-lg transition-all hover:scale-[1.02]"
           style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-          <span className="text-[11px] font-mono font-bold" style={{ color: T.gold }}>
+          <span className="text-xs font-mono font-bold" style={{ color: T.gold }}>
             {currentTicker || "SELECT"}
           </span>
           <ChevronDown className="w-3 h-3" style={{ color: T.text3 }} />
@@ -1204,8 +1204,8 @@ export default function ResearchWorkspacePage() {
               { label: "EPS", value: quoteData.eps != null ? `$${quoteData.eps.toFixed(2)}` : "—" },
             ].map(m => (
               <div key={m.label} className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: T.text4 }}>{m.label}</span>
-                <span className="text-[11px] font-mono font-semibold"
+                <span className="text-xs uppercase tracking-widest font-medium" style={{ color: T.text4 }}>{m.label}</span>
+                <span className="text-xs font-mono font-semibold"
                   style={{ color: (m as any).isChange ? ((m as any).isUp ? T.up : T.down) : T.text1 }}>
                   {m.value}
                 </span>
@@ -1219,63 +1219,23 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg"
             style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.72 0.18 142)" }} />
-            <span className="text-[10px] font-medium" style={{ color: T.text2 }}>MARKET OPEN</span>
+            <span className="text-[12px] font-medium" style={{ color: T.text2 }}>MARKET OPEN</span>
           </div>
 
-          {/* Download button */}
-          <div className="relative">
-            <button
-              onClick={() => setShowDownloadMenu(o => !o)}
-              title="导出报告"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
-              style={{ background: T.bg2, border: `1px solid ${T.border}`, color: exportingPdf ? T.gold : T.text3 }}
-              disabled={exportingPdf}>
-              {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">导出</span>
-            </button>
-            {showDownloadMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowDownloadMenu(false)} />
-                <div className="absolute right-0 top-8 z-50 rounded-xl py-1 min-w-[160px] shadow-xl"
-                  style={{ background: T.bg2, border: `1px solid oklch(100% 0 0 / 0.12)` }}>
-                  <button onClick={handleExportMarkdown}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
-                    style={{ color: T.text1 }}>
-                    <Download className="w-3.5 h-3.5" style={{ color: T.gold }} />
-                    Markdown (.md)
-                  </button>
-                  <button onClick={handleExportPdf}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/8"
-                    style={{ color: T.text1 }}>
-                    <Download className="w-3.5 h-3.5" style={{ color: T.up }} />
-                    PDF 文档 (.pdf)
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Install button */}
+          {/* Install to Desktop button */}
           <button
             onClick={handleInstall}
-            title="一键安装 App"
+            title={installPrompt ? "点击安装到桌面" : "已安装"}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
-            style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
+            style={{ 
+              background: installPrompt ? T.goldDim : T.bg2, 
+              border: `1px solid ${installPrompt ? T.goldBorder : T.border}`, 
+              color: installPrompt ? T.gold : T.text3 
+            }}>
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">安装</span>
+            <span className="hidden sm:inline">{installPrompt ? "安装到桌面" : "已安装"}</span>
           </button>
-
-          {/* Settings button */}
-          <button
-            onClick={() => navigate('/settings')}
-            title="设置"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all hover:bg-white/8"
-            style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.text3 }}>
-            <Settings className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">设置</span>
-          </button>
-
-          {/* Logout button */}
+                    {/* Logout button */}
           <button
             onClick={logout}
             title="退出登录"
@@ -1328,7 +1288,7 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ borderBottom: `1px solid ${T.border}` }}>
             {!sidebarCollapsed && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
                 Research
               </span>
             )}
@@ -1368,12 +1328,12 @@ export default function ResearchWorkspacePage() {
                   <div className="flex gap-1">
                     <button onClick={() => createConvMutation.mutate({ title: newConvTitle || undefined })}
                       disabled={createConvMutation.isPending}
-                      className="flex-1 h-6 text-[10px] rounded"
+                      className="flex-1 h-6 text-[12px] rounded"
                       style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
                       创建
                     </button>
                     <button onClick={() => { setShowNewConvDialog(false); setNewConvTitle(""); }}
-                      className="flex-1 h-6 text-[10px] rounded hover:bg-white/5"
+                      className="flex-1 h-6 text-[12px] rounded hover:bg-white/5"
                       style={{ color: T.text3, border: `1px solid ${T.border}` }}>
                       取消
                     </button>
@@ -1387,7 +1347,7 @@ export default function ResearchWorkspacePage() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: T.text4 }} />
                   <input
                     placeholder="搜索对话..."
-                    className="w-full h-7 pl-7 pr-2 rounded-lg text-[11px] outline-none"
+                    className="w-full h-7 pl-7 pr-2 rounded-lg text-xs outline-none"
                     style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text2 }}
                   />
                 </div>
@@ -1399,7 +1359,7 @@ export default function ResearchWorkspacePage() {
                   <div className="mb-1">
                     <div className="px-3 py-1 flex items-center gap-1">
                       <Pin className="w-2.5 h-2.5" style={{ color: T.text4 }} />
-                      <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>置顶</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>置顶</span>
                     </div>
                     {pinnedConvs.map(c => (
                       <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
@@ -1415,7 +1375,7 @@ export default function ResearchWorkspacePage() {
                   <div className="mb-1">
                     <div className="px-3 py-1 flex items-center gap-1">
                       <Star className="w-2.5 h-2.5" style={{ color: T.text4 }} />
-                      <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>收藏</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>收藏</span>
                     </div>
                     {favoritedConvs.map(c => (
                       <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
@@ -1430,7 +1390,7 @@ export default function ResearchWorkspacePage() {
                 {normalConvs.length > 0 && (
                   <div>
                     <div className="px-3 py-1">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>对话</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>对话</span>
                     </div>
                     {normalConvs.map(c => (
                       <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
@@ -1445,7 +1405,7 @@ export default function ResearchWorkspacePage() {
                 {(!allConversations || allConversations.length === 0) && (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 px-3">
                     <MessageSquare className="w-6 h-6" style={{ color: T.text4 }} />
-                    <p className="text-[10px] text-center" style={{ color: T.text4 }}>点击 + 开始新的研究对话</p>
+                    <p className="text-[12px] text-center" style={{ color: T.text4 }}>点击 + 开始新的研究对话</p>
                   </div>
                 )}
               </div>
@@ -1495,11 +1455,11 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
                 Research Header
               </span>
               {currentTicker && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                <span className="text-[12px] px-1.5 py-0.5 rounded font-mono"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
                   {currentTicker}
                 </span>
@@ -1507,7 +1467,7 @@ export default function ResearchWorkspacePage() {
               {isTyping && (
                 <div className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.gold }} />
-                  <span className="text-[10px] font-mono" style={{ color: T.gold }}>
+                  <span className="text-[12px] font-mono" style={{ color: T.gold }}>
                     {taskPhase === "manus_working" ? "理解" : taskPhase === "planning" ? "规划" :
                       taskPhase === "source_selection" ? "选源" : taskPhase === "manus_analyzing" ? "获取" :
                       taskPhase === "evidence_eval" ? "验证" : taskPhase === "multi_agent" ? "协作" :
@@ -1522,7 +1482,7 @@ export default function ResearchWorkspacePage() {
                 style={{ background: T.bg0, border: `1px solid ${T.border}` }}>
                 {(["quick", "standard", "deep"] as const).map((m) => (
                   <button key={m} onClick={() => setAnalysisMode(m)}
-                    className="px-2 py-0.5 rounded text-[10px] font-medium transition-all"
+                    className="px-2 py-0.5 rounded text-[12px] font-medium transition-all"
                     style={{
                       background: analysisMode === m ? T.bg3 : "transparent",
                       color: analysisMode === m ? T.gold : T.text4,
@@ -1558,7 +1518,7 @@ export default function ResearchWorkspacePage() {
             />
 
             {/* Main Chart */}
-            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} />
+            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} />
 
             {/* Risk Panel */}
             {risks && risks.length > 0 && (
@@ -1574,7 +1534,7 @@ export default function ResearchWorkspacePage() {
                   style={{ borderBottom: showDeepSections ? `1px solid ${T.border}` : "none" }}>
                   <div className="flex items-center gap-2">
                     <FlaskConical className="w-3.5 h-3.5" style={{ color: T.blue }} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DEEP SECTIONS</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DEEP SECTIONS</span>
                   </div>
                   {showDeepSections ? <ChevronUp className="w-3.5 h-3.5" style={{ color: T.text3 }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: T.text3 }} />}
                 </button>
@@ -1583,7 +1543,7 @@ export default function ResearchWorkspacePage() {
                     <div className="flex gap-1 flex-wrap">
                       {(["backtest", "health", "sentiment", "alpha", "portfolio", "radar"] as const).map(t => (
                         <button key={t} onClick={() => setDeepSectionsTab(t)}
-                          className="px-2.5 py-1 rounded text-[10px] font-medium transition-all"
+                          className="px-2.5 py-1 rounded text-[12px] font-medium transition-all"
                           style={{
                             background: deepSectionsTab === t ? T.bg3 : "transparent",
                             color: deepSectionsTab === t ? T.gold : T.text4,
@@ -1665,7 +1625,7 @@ export default function ResearchWorkspacePage() {
               <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: T.blue }} />
               <span className="text-xs font-semibold shrink-0" style={{ color: T.text1 }}>Discussion</span>
               {currentTicker && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0"
+                <span className="text-[12px] px-1.5 py-0.5 rounded font-mono shrink-0"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
                   {currentTicker}
                 </span>
@@ -1674,7 +1634,7 @@ export default function ResearchWorkspacePage() {
             {isTyping ? (
               <div className="flex items-center gap-1 shrink-0">
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.gold }} />
-                <span className="text-[10px] font-mono" style={{ color: T.gold }}>
+                <span className="text-[12px] font-mono" style={{ color: T.gold }}>
                   {taskPhase === "manus_working" ? "理解" : taskPhase === "planning" ? "规划" :
                     taskPhase === "source_selection" ? "选源" : taskPhase === "manus_analyzing" ? "获取" :
                     taskPhase === "evidence_eval" ? "验证" : taskPhase === "multi_agent" ? "协作" :
@@ -1682,7 +1642,7 @@ export default function ResearchWorkspacePage() {
                 </span>
               </div>
             ) : (
-              <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+              <span className="text-[12px] px-1.5 py-0.5 rounded shrink-0"
                 style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}` }}>
                 Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
               </span>
@@ -1700,13 +1660,13 @@ export default function ResearchWorkspacePage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold" style={{ color: T.text1 }}>DanTree Terminal</p>
-                    <p className="text-[10px]" style={{ color: T.text3 }}>
+                    <p className="text-[12px]" style={{ color: T.text3 }}>
                       {currentTicker ? `当前标的：${currentTicker}` : "请先选择标的"}
                     </p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>快速开始</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>快速开始</p>
                   {[
                     { icon: "🔍", label: `深度分析 ${currentTicker || "AAPL"}`, desc: "全面基本面 + 技术面分析" },
                     { icon: "⚖️", label: `${currentTicker || "AAPL"} 估值是否合理？`, desc: "PE/PB/DCF 多维估值" },
@@ -1721,8 +1681,8 @@ export default function ResearchWorkspacePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{item.icon}</span>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-medium truncate" style={{ color: T.text1 }}>{item.label}</p>
-                          <p className="text-[10px]" style={{ color: T.text3 }}>{item.desc}</p>
+                          <p className="text-xs font-medium truncate" style={{ color: T.text1 }}>{item.label}</p>
+                          <p className="text-[12px]" style={{ color: T.text3 }}>{item.desc}</p>
                         </div>
                         <ChevronRight className="w-3 h-3 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: T.gold }} />
                       </div>
@@ -1730,7 +1690,7 @@ export default function ResearchWorkspacePage() {
                   ))}
                 </div>
                 <div className="px-3 py-2 rounded-lg" style={{ background: `${T.gold.replace(")", " / 0.05)")}`, border: `1px solid ${T.goldBorder}` }}>
-                  <p className="text-[10px]" style={{ color: T.text3 }}>
+                  <p className="text-[12px]" style={{ color: T.text3 }}>
                     💡 点击上方任意示例即可开始，或在下方输入框自由提问。分析结果将同步显示在左侧分析列。
                   </p>
                 </div>
@@ -1748,7 +1708,7 @@ export default function ResearchWorkspacePage() {
                       style={{ background: T.gold, animationDelay: `${i * 0.15}s` }} />
                   ))}
                 </div>
-                <span className="text-[10px]" style={{ color: T.text4 }}>AI 分析中…</span>
+                <span className="text-[12px]" style={{ color: T.text4 }}>AI 分析中…</span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -1769,7 +1729,7 @@ export default function ResearchWorkspacePage() {
               {quickPrompts.map((q, i) => (
                 <button key={i} onClick={() => handleSubmit(q)}
                   disabled={sending}
-                  className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all hover:scale-[1.02] disabled:opacity-50"
+                  className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-medium transition-all hover:scale-[1.02] disabled:opacity-50"
                   style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>
                   {q}
                 </button>
@@ -1821,7 +1781,7 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ borderBottom: `1px solid ${T.border}` }}>
             {!insightCollapsed && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
+              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
                 Insights
               </span>
             )}
@@ -1854,12 +1814,12 @@ export default function ResearchWorkspacePage() {
                 <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                   <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
                     <BookOpen className="w-3.5 h-3.5" style={{ color: T.blue }} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>FOLLOW-UP</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>FOLLOW-UP</span>
                   </div>
                   <div className="p-3 space-y-1.5">
                     {discussionObject.follow_up_questions.slice(0, 3).map((q, i) => (
                       <button key={i} onClick={() => handleSubmit(q)} disabled={sending}
-                        className="w-full text-left p-2 rounded-lg text-[10px] leading-relaxed transition-all hover:scale-[1.01] disabled:opacity-50"
+                        className="w-full text-left p-2 rounded-lg text-[12px] leading-relaxed transition-all hover:scale-[1.01] disabled:opacity-50"
                         style={{ background: `${T.blue.replace(")", " / 0.06)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.15)")}` }}>
                         → {q}
                       </button>
@@ -1871,7 +1831,7 @@ export default function ResearchWorkspacePage() {
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>QUICK ACCESS</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>QUICK ACCESS</span>
                 </div>
                 <div className="p-2 space-y-0.5">
                   {[
@@ -1924,7 +1884,7 @@ function ConvSidebarItem({ conv, isActive, onClick, onPin, onFavorite, onDelete 
         <p className="text-xs truncate" style={{ color: isActive ? T.text1 : T.text3 }}>
           {conv.title ?? `对话 #${conv.id}`}
         </p>
-        <p className="text-[9px]" style={{ color: T.text4 }}>
+        <p className="text-xs" style={{ color: T.text4 }}>
           {new Date(conv.lastMessageAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
         </p>
       </div>
@@ -1967,7 +1927,7 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
   if (isSystem) {
     return (
       <div className="flex justify-center">
-        <span className="text-[10px] px-2 py-0.5 rounded-full"
+        <span className="text-[12px] px-2 py-0.5 rounded-full"
           style={{ background: T.bg2, color: T.text4 }}>
           {msg.content}
         </span>
@@ -2003,7 +1963,7 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
         <div className="flex flex-wrap gap-1 pt-1">
           {msg.metadata.discussionObject.follow_up_questions.slice(0, 2).map((q, i) => (
             <button key={i} onClick={() => onFollowup?.(q)}
-              className="px-2 py-0.5 rounded-full text-[10px] transition-all hover:scale-[1.02]"
+              className="px-2 py-0.5 rounded-full text-[12px] transition-all hover:scale-[1.02]"
               style={{ background: `${T.blue.replace(")", " / 0.08)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.2)")}` }}>
               {q.slice(0, 28)}{q.length > 28 ? "…" : ""}
             </button>

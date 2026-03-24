@@ -1293,7 +1293,7 @@ export default function Settings() {
                               onChange={e => setInvRiskPolicy(p => ({ ...p, holdingPeriod: e.target.value as any }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
                               style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }}>
-                              <option value="short">短期(&lt;1年)</option>
+                              <option value="short">短期(＜1年)</option>
                               <option value="medium">中期(1-3年)</option>
                               <option value="long">长期(3年+)</option>
                             </select>

@@ -3,6 +3,7 @@
  * 因子回测页面：选择技术因子 + 输入股票代码 + 运行回测 + 展示净值曲线/指标卡片
  */
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ import {
   Minus,
   FlaskConical,
   Info,
+  ChevronLeft,
 } from "lucide-react";
 
 // ─── 类型 ──────────────────────────────────────────────────────────────────
@@ -341,6 +343,7 @@ const POPULAR_TICKERS = [
 ];
 
 export default function FactorBacktest() {
+  const [, navigate] = useLocation();
   const [ticker, setTicker] = useState("AAPL");
   const [factorId, setFactorId] = useState<"macd" | "rsi" | "bollinger" | "ma_cross" | "momentum" | "kdj">("macd");
   const [period, setPeriod] = useState<"6mo" | "1y" | "2y">("1y");
@@ -374,6 +377,15 @@ export default function FactorBacktest() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-8">
+      {/* 返回按钮 */}
+      <button
+        onClick={() => navigate('/research')}
+        className="flex items-center gap-1.5 text-sm transition-all hover:opacity-80 group"
+        style={{ color: 'oklch(0.78 0.18 85)' }}
+      >
+        <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+        返回研究工作台
+      </button>
       {/* 页面标题 */}
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-primary/10">

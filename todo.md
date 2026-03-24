@@ -1966,3 +1966,12 @@
 - [x] AIVerdictCard confMap 颜色修复：高置信度金色，中置信度蓝色，低置信度灰色
 - [x] DecisionSignalsCard 标题色块由绿色改为金色
 - [x] DiscussionMessage 添加 data-pdf-message 属性，确保 PDF 导出功能正常工作
+
+## 2026-03-24 七问题修复批次（用户确认执行）
+
+- [x] 问题5：删除顶部导航栏的重复设置按钮，只保留左下角一个
+- [x] 问题6：所有子页面（FactorBacktest/BalanceSheet/IncomeStatement/CashFlow/OptionChain）顶部添加返回研究工作台按钮（← 返回研究工作台，金色文字，Alt+←快捷键）
+- [x] 问题7：下载按钮改为PWA一键安装到桌面（已安装显示已安装状态，不支持时显示引导提示）
+- [x] 问题1+2：全局设计系统升级——背景#0c0c0e、卡片#131318、金色主强调色#C9A84C、字体Inter、正文13-14px、数字16-24px、卡片材质感（极细边框+内发光+噪点纹理）、FXology设计哲学（克制留白、字体层级、材质感）
+- [x] 问题4：智能风险分析——优化AI提示词要求基于真实数据生成个性化风险，前端展示升级（类型标签+数据依据+颜色边框）
+- [x] 问题3：富途牛牛风格K线图表——集成TradingView Lightweight Charts v4，K线/折线/面积切换，时间周期，成交量子图，技术指标（RSI/MACD/KDJ/BOLL），参数编辑，缩放拖动，盘口数据2列网格

@@ -376,8 +376,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
     localization: {
       timeFormatter: makeTimeFormatter(interval),
     },
-    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
-    handleScale:  { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+    handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true },
+    handleScale:  { axisPressedMouseMove: true, mouseWheel: false, pinch: true },
   }), [interval]);
 
   // ── 初始化主图表 ──────────────────────────────────────────────────────────
@@ -409,9 +409,51 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       }
     });
     ro.observe(containerRef.current);
+
+    // ── Mac trackpad 手势支持 ─────────────────────────────────────────────
+    // ctrlKey=true 表示 Mac trackpad 捏合手势（pinch-to-zoom）
+    // ctrlKey=false 表示普通双指滑动（pan）
+    const wheelEl = containerRef.current;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (disposed) return;
+      const ts = chart.timeScale();
+      const range = ts.getVisibleLogicalRange();
+      if (!range) return;
+
+      const span = range.to - range.from;
+
+      if (e.ctrlKey) {
+        // 捏合缩放：deltaY > 0 缩小（zoom out），deltaY < 0 放大（zoom in）
+        // 通过缩放可见逻辑范围实现缩放
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9; // >1 缩小，<1 放大
+        const newSpan = span * zoomFactor;
+        const center = (range.from + range.to) / 2;
+        try {
+          ts.setVisibleLogicalRange({
+            from: center - newSpan / 2,
+            to:   center + newSpan / 2,
+          });
+        } catch {}
+      } else {
+        // 双指水平滑动：deltaX 控制时间轴左右平移
+        // 正值向右（向未来），负值向左（向过去）
+        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+        const shift = scrollDelta * span * 0.003;
+        try {
+          ts.setVisibleLogicalRange({
+            from: range.from + shift,
+            to:   range.to   + shift,
+          });
+        } catch {}
+      }
+    };
+    wheelEl?.addEventListener("wheel", handleWheel, { passive: false });
+
     return () => {
       disposed = true;
       ro.disconnect();
+      wheelEl?.removeEventListener("wheel", handleWheel);
       try { chart.remove(); } catch {}
       chartRef.current = null;
     };
@@ -556,9 +598,38 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       }
     });
     ro.observe(subContainerRef.current);
+    // 子图表也支持 Mac trackpad 手势，并与主图表时间轴同步
+    const subWheelEl = subContainerRef.current;
+    const handleSubWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (subDisposed) return;
+      const mainChart = chartRef.current;
+      const mainTs = mainChart?.timeScale();
+      const subTs = chart.timeScale();
+      const range = mainTs?.getVisibleLogicalRange() ?? subTs.getVisibleLogicalRange();
+      if (!range) return;
+      const span = range.to - range.from;
+      if (e.ctrlKey) {
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        const newSpan = span * zoomFactor;
+        const center = (range.from + range.to) / 2;
+        const newRange = { from: center - newSpan / 2, to: center + newSpan / 2 };
+        try { mainTs?.setVisibleLogicalRange(newRange); } catch {}
+        try { subTs.setVisibleLogicalRange(newRange); } catch {}
+      } else {
+        const scrollDelta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+        const shift = scrollDelta * span * 0.003;
+        const newRange = { from: range.from + shift, to: range.to + shift };
+        try { mainTs?.setVisibleLogicalRange(newRange); } catch {}
+        try { subTs.setVisibleLogicalRange(newRange); } catch {}
+      }
+    };
+    subWheelEl?.addEventListener("wheel", handleSubWheel, { passive: false });
+
     return () => {
       subDisposed = true;
       ro.disconnect();
+      subWheelEl?.removeEventListener("wheel", handleSubWheel);
       try { subChartRef.current?.remove(); } catch {}
       subChartRef.current = null;
     };

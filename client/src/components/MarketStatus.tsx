@@ -99,7 +99,7 @@ const MARKETS: Record<MarketType, MarketSession> = {
   },
 };
 
-export type MarketStatusType = "open" | "closed" | "pre" | "post" | "24h" | "night";
+export type MarketStatusType = "open" | "closed" | "pre" | "post" | "24h";
 
 export interface MarketStatusInfo {
   status: MarketStatusType;
@@ -211,11 +211,11 @@ export function getMarketStatus(marketType: MarketType): MarketStatusInfo {
     };
   }
 
-  // 夜盘（收盘后到第二天盘前/开盘）
+  // 休市（收盘后到第二天盘前/开盘）
   const nextOpenMin = preOpen ?? open;
   const secsToNextOpen = (nextOpenMin - utcMin + 24 * 60) % (24 * 60) * 60 - now.getUTCSeconds();
   return {
-    status: "night",
+    status: "closed",
     secondsToNext: Math.max(0, secsToNextOpen),
     nextEvent: preOpen !== undefined ? "盘前" : "开盘",
     market,
@@ -245,38 +245,31 @@ const STATUS_CONFIG: Record<MarketStatusType, {
   pulse: boolean;
 }> = {
   open: {
-    label: "OPEN",
+    label: "开盘",
     color: "oklch(0.72 0.18 142)",
     bg: "oklch(0.72 0.18 142 / 0.12)",
     border: "oklch(0.72 0.18 142 / 0.35)",
     pulse: true,
   },
   pre: {
-    label: "PRE",
+    label: "盘前",
     color: "oklch(0.78 0.18 85)",
     bg: "oklch(0.78 0.18 85 / 0.12)",
     border: "oklch(0.78 0.18 85 / 0.35)",
     pulse: false,
   },
   post: {
-    label: "POST",
+    label: "盘后",
     color: "oklch(0.78 0.18 85)",
     bg: "oklch(0.78 0.18 85 / 0.12)",
     border: "oklch(0.78 0.18 85 / 0.35)",
     pulse: false,
   },
   closed: {
-    label: "CLOSED",
+    label: "休市",
     color: "oklch(0.62 0.22 25)",
     bg: "oklch(0.62 0.22 25 / 0.12)",
     border: "oklch(0.62 0.22 25 / 0.35)",
-    pulse: false,
-  },
-  night: {
-    label: "NIGHT",
-    color: "oklch(0.65 0.18 250)",
-    bg: "oklch(0.65 0.18 250 / 0.12)",
-    border: "oklch(0.65 0.18 250 / 0.35)",
     pulse: false,
   },
   "24h": {

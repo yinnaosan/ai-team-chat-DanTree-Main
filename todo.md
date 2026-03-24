@@ -2329,3 +2329,8 @@
 - [x] 重设计 Key Forecasts：加入单位、YoY 增长率、颜色语义、含义说明
 - [x] 折叠 Insights 面板时，聊天区自动扩展（宽度从 360px 增加到 600px）
 - [x] 整体排版：统一间距、字体大小层级、颜色语义（绿=正面/上涨，红=负面/下跌，黄=中性/注意）
+
+## 第三十六轮：Insights 三项增强功能
+- [x] AI 回复联动更新 Decision Signals：DELIVERABLE 模板加入 horizon 字段，DecisionSignalsCard 动态读取 short/mid/long-term
+- [x] Price Targets 分析师情绪趋势迷你折线图：服务端新增 getAnalystRecommendations 路由，前端 SVG sparkline 展示 12 个月 buy/hold/sell 趋势
+- [x] Analyst Ratings 展开历史趋势：点击进度条展开 12 个月月度评级历史表格（每月 buy/hold/sell 数量变化）

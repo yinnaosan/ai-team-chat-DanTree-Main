@@ -774,7 +774,11 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-widest" style={{ color: T.text4 }}>Horizon</p>
-            <p className="text-xs font-semibold" style={{ color: T.blue }}>Mid-Term</p>
+            <p className="text-xs font-semibold" style={{ color: T.blue }}>
+              {(answerObject as any)?.horizon === "short-term" ? "Short-Term"
+                : (answerObject as any)?.horizon === "long-term" ? "Long-Term"
+                : "Mid-Term"}
+            </p>
           </div>
         </div>
         {/* Secondary: Conviction — progress bar */}
@@ -801,37 +805,41 @@ function DecisionSignalsCard({ answerObject, isLoading }: {
 
 /** Price Targets Card */
 function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPrice?: number }) {
-  // Price targets derived from current price (consensus estimates)
+  // 真实 Finnhub 分析师情绪趋势数据
+  const { data: recHistory } = trpc.market.getAnalystRecommendations.useQuery(
+    { symbol: ticker },
+    { enabled: !!ticker, staleTime: 10 * 60 * 1000 }
+  );
+
+  // 价格目标行（基于当前价格的共识估算）
   const rows = currentPrice ? [
-    {
-      label: "共识目标价",
-      sublabel: "20 analysts avg",
-      value: (currentPrice * 1.18).toFixed(2),
-      upside: "+18.0%",
-      color: T.up,
-    },
-    {
-      label: "最高目标价",
-      sublabel: "Most bullish",
-      value: (currentPrice * 1.25).toFixed(2),
-      upside: "+25.0%",
-      color: T.up,
-    },
-    {
-      label: "中位目标价",
-      sublabel: "Median estimate",
-      value: (currentPrice * 1.08).toFixed(2),
-      upside: "+8.0%",
-      color: T.gold,
-    },
-    {
-      label: "最低目标价",
-      sublabel: "Most bearish",
-      value: (currentPrice * 0.92).toFixed(2),
-      upside: "-8.0%",
-      color: T.down,
-    },
+    { label: "共识目标价", sublabel: "Consensus avg", value: (currentPrice * 1.18).toFixed(2), upside: "+18.0%", color: T.up },
+    { label: "最高目标价", sublabel: "Most bullish", value: (currentPrice * 1.25).toFixed(2), upside: "+25.0%", color: T.up },
+    { label: "中位目标价", sublabel: "Median estimate", value: (currentPrice * 1.08).toFixed(2), upside: "+8.0%", color: T.gold },
+    { label: "最低目标价", sublabel: "Most bearish", value: (currentPrice * 0.92).toFixed(2), upside: "-8.0%", color: T.down },
   ] : [];
+
+  // 生成分析师情绪趋势 Sparkline（买入占比走势）
+  const sparkline = React.useMemo(() => {
+    if (!recHistory || recHistory.length < 2) return null;
+    const W = 180, H = 36, PAD = 4;
+    const buyRatios = recHistory.map(r => {
+      const t = (r.buy ?? 0) + (r.hold ?? 0) + (r.sell ?? 0);
+      return t > 0 ? (r.buy ?? 0) / t : 0.5;
+    });
+    const minR = Math.min(...buyRatios);
+    const maxR = Math.max(...buyRatios);
+    const range = maxR - minR || 0.01;
+    const pts = buyRatios.map((v, i) => {
+      const x = PAD + (i / (buyRatios.length - 1)) * (W - PAD * 2);
+      const y = (H - PAD) - ((v - minR) / range) * (H - PAD * 2);
+      return `${x},${y}`;
+    });
+    const lastRatio = buyRatios[buyRatios.length - 1];
+    const prevRatio = buyRatios[buyRatios.length - 2];
+    const trend = lastRatio >= prevRatio ? T.up : T.down;
+    return { pts: pts.join(" "), trend, lastPct: (lastRatio * 100).toFixed(0) };
+  }, [recHistory]);
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
@@ -862,20 +870,50 @@ function PriceTargetsCard({ ticker, currentPrice }: { ticker: string; currentPri
           <p className="text-[12px] text-center py-2" style={{ color: T.text4 }}>分析标的后显示目标价</p>
         )}
       </div>
+
+      {/* 分析师情绪趋势 Sparkline */}
+      {sparkline && (
+        <div style={{ borderTop: `1px solid ${T.border}` }} className="px-3 py-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px]" style={{ color: T.text4 }}>分析师买入占比走势（12个月）</span>
+            <span className="text-[11px] font-mono font-bold" style={{ color: sparkline.trend }}>
+              {sparkline.trend === T.up ? "↑" : "↓"} {sparkline.lastPct}%
+            </span>
+          </div>
+          <svg width="100%" viewBox={`0 0 180 36`} preserveAspectRatio="none" style={{ height: 36 }}>
+            <polyline
+              points={sparkline.pts}
+              fill="none"
+              stroke={sparkline.trend}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      )}
     </div>
   );
 }
 
 /** Analyst Ratings Card */
-function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
-  // Derived from AI analysis confidence + verdict
+function AnalystRatingsCard({ ticker, answerObject }: { ticker?: string; answerObject?: any }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  // 真实 Finnhub 数据
+  const { data: recHistory } = trpc.market.getAnalystRecommendations.useQuery(
+    { symbol: ticker ?? "" },
+    { enabled: !!ticker, staleTime: 10 * 60 * 1000 }
+  );
+
+  // 使用最新一期真实数据，如果没有则回退到 AI 推断值
+  const latest = recHistory && recHistory.length > 0 ? recHistory[recHistory.length - 1] : null;
   const conf = answerObject?.confidence;
-  const isBullish = answerObject?.verdict?.toLowerCase().match(/买入|看多|增持|buy|bullish/);
   const isBearish = answerObject?.verdict?.toLowerCase().match(/卖出|看空|减持|sell|bearish/);
 
-  const buy = conf === "high" ? 36 : conf === "medium" ? 24 : 12;
-  const hold = conf === "high" ? 6 : conf === "medium" ? 10 : 8;
-  const sell = isBearish ? 25 : conf === "low" ? 15 : 6;
+  const buy = latest?.buy ?? (conf === "high" ? 36 : conf === "medium" ? 24 : 12);
+  const hold = latest?.hold ?? (conf === "high" ? 6 : conf === "medium" ? 10 : 8);
+  const sell = latest?.sell ?? (isBearish ? 25 : conf === "low" ? 15 : 6);
   const total = buy + hold + sell;
 
   const ratings = [
@@ -891,7 +929,10 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
           <Users className="w-3.5 h-3.5" style={{ color: T.blue }} />
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYST RATINGS</span>
         </div>
-        <span className="text-[11px]" style={{ color: T.text4 }}>{total} 位分析师</span>
+        <div className="flex items-center gap-2">
+          {latest && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: T.bg3, color: T.text4 }}>实时</span>}
+          <span className="text-[11px]" style={{ color: T.text4 }}>{total} 位分析师</span>
+        </div>
       </div>
       <div className="p-3 space-y-2.5">
         {ratings.map(r => (
@@ -915,6 +956,44 @@ function AnalystRatingsCard({ answerObject }: { answerObject?: any }) {
           </div>
         ))}
       </div>
+
+      {/* 12 个月历史评级趋势展开 */}
+      {recHistory && recHistory.length > 0 && (
+        <div style={{ borderTop: `1px solid ${T.border}` }}>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 text-[11px] transition-colors hover:opacity-80"
+            style={{ color: T.text4 }}
+          >
+            <span>评级历史趋势（12个月）</span>
+            <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          </button>
+          {expanded && (
+            <div className="px-3 pb-3 overflow-x-auto">
+              <table className="w-full text-[10px]" style={{ color: T.text3 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                    <th className="text-left py-1 pr-2 font-medium" style={{ color: T.text4 }}>月份</th>
+                    <th className="text-right py-1 px-1 font-medium" style={{ color: T.up }}>买入</th>
+                    <th className="text-right py-1 px-1 font-medium" style={{ color: T.gold }}>持有</th>
+                    <th className="text-right py-1 pl-1 font-medium" style={{ color: T.down }}>卖出</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recHistory.map(r => (
+                    <tr key={r.period} style={{ borderBottom: `1px solid ${T.border}22` }}>
+                      <td className="py-1 pr-2 font-mono" style={{ color: T.text4 }}>{r.period.slice(0, 7)}</td>
+                      <td className="text-right py-1 px-1 font-mono font-bold" style={{ color: T.up }}>{r.buy}</td>
+                      <td className="text-right py-1 px-1 font-mono" style={{ color: T.gold }}>{r.hold}</td>
+                      <td className="text-right py-1 pl-1 font-mono" style={{ color: T.down }}>{r.sell}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2397,7 +2476,7 @@ export default function ResearchWorkspacePage() {
               <PriceTargetsCard ticker={currentTicker} currentPrice={quoteData?.price ?? undefined} />
 
               {/* Analyst Ratings */}
-              <AnalystRatingsCard answerObject={answerObject} />
+              <AnalystRatingsCard ticker={currentTicker} answerObject={answerObject} />
 
               {/* Key Forecasts */}
               <KeyForecastsCard answerObject={answerObject} />

@@ -434,7 +434,7 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
 }
 
 /** Main Chart Card */
-function MainChartCard({ ticker, colorScheme, quoteData }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any }) {
+function MainChartCard({ ticker, colorScheme, quoteData, onLivePrice }: { ticker: string; colorScheme?: "cn" | "us"; quoteData?: any; onLivePrice?: (p: number) => void }) {
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
       <div className="flex items-center justify-between px-4 py-2.5"
@@ -457,7 +457,7 @@ function MainChartCard({ ticker, colorScheme, quoteData }: { ticker: string; col
       </div>
       <div className="p-4">
         {ticker ? (
-          <PriceChart symbol={ticker} colorScheme={colorScheme ?? "cn"} height={260} quoteData={quoteData} />
+          <PriceChart symbol={ticker} colorScheme={colorScheme ?? "cn"} height={260} quoteData={quoteData} onLivePrice={onLivePrice} />
         ) : (
           <div className="flex items-center justify-center h-[260px]" style={{ color: T.text4 }}>
             <div className="text-center space-y-2">
@@ -1030,6 +1030,8 @@ export default function ResearchWorkspacePage() {
   const [analysisRefreshed, setAnalysisRefreshed] = useState(false);
   const [deepSectionsTab, setDeepSectionsTab] = useState<"backtest" | "health" | "sentiment" | "alpha" | "portfolio" | "radar">("backtest");
   const [showDeepSections, setShowDeepSections] = useState(false);
+  // 实时价格（来自SSE流，优先级高于快照数据）
+  const [livePrice, setLivePrice] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -1314,8 +1316,17 @@ export default function ResearchWorkspacePage() {
         {quoteData && currentTicker && (
           <div className="flex items-center gap-3 overflow-x-auto flex-1 min-w-0">
             <div className="w-px h-4 shrink-0" style={{ background: T.border }} />
+            {/* 实时价格显示（放大） */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.text3 }}>P</span>
+              {livePrice != null && (
+                <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.up }} />
+              )}
+              <span className="text-base font-mono font-bold" style={{ color: T.text1 }}>
+                {(livePrice ?? quoteData.price) != null ? `$${(livePrice ?? quoteData.price!).toFixed(2)}` : "—"}
+              </span>
+            </div>
             {[
-              { label: "P", value: quoteData.price != null ? `$${quoteData.price.toFixed(2)}` : "—" },
               { label: "CHG", value: quoteData.changePercent != null ? `${quoteData.changePercent >= 0 ? "▲" : "▼"}${Math.abs(quoteData.changePercent).toFixed(2)}%` : "—", isChange: true, isUp: (quoteData.changePercent ?? 0) >= 0 },
               { label: "PE", value: quoteData.pe != null ? quoteData.pe.toFixed(1) : "—" },
               { label: "PB", value: quoteData.pb != null ? quoteData.pb.toFixed(2) : "—" },
@@ -1324,7 +1335,7 @@ export default function ResearchWorkspacePage() {
             ].map(m => (
               <div key={m.label} className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.text3 }}>{m.label}</span>
-                <span className="text-sm font-mono font-semibold"
+                <span className="text-[13px] font-mono font-semibold"
                   style={{ color: (m as any).isChange ? ((m as any).isUp ? T.up : T.down) : T.text1 }}>
                   {m.value}
                 </span>
@@ -1381,7 +1392,8 @@ export default function ResearchWorkspacePage() {
           onClose={() => setShowInstrumentModal(false)}
           onSelect={(ticker) => {
             setCurrentTicker(ticker);
-            handleSubmit(`深度分析 ${ticker}：估值、基本面、风险和投资建议`);
+            setLivePrice(null); // 切换股票时重置实时价格
+            handleSubmit(`深度分析 ${ticker}：估値、基本面、风险和投资建议`);
           }}
         />
         <TradeModal
@@ -1635,7 +1647,7 @@ export default function ResearchWorkspacePage() {
             />
 
             {/* Main Chart */}
-            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} />
+            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLivePrice} />
 
             {/* Risk Panel */}
             {risks && risks.length > 0 && (

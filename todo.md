@@ -2186,3 +2186,11 @@
 - [x] 散点图线性回归趋势线 + R²相关系数标注
 - [x] AI提示词增强：要求每个图表必填 annotations 解读字段，并添加散点图示例
 - [x] 689个测试全部通过，TypeScript 0错误
+
+## 第二十轮：PriceChart实时价格统一 + 技术指标修复
+- [x] 统一顶部栏和K线图L实时价格数据源（SSE实时流回调onLivePrice传回父组件，优先级高于快照）
+- [x] 修复K线图时间戳偏移（TwelveData日内数据加timezone=UTC参数）
+- [x] 修复RSI/MACD与K线不同步（主图时间轴subscribeVisibleLogicalRangeChange同步子图）
+- [x] 修复RSI奇怪线条（改为超买线70/超卖线30/中线50正确参考线）
+- [x] 放大顶部栏价格字体（text-base加绿色脉冲圆点）和K线图L实时价格字体（text-[14px]）
+- [x] 689个测试全部通过，TypeScript 0错误

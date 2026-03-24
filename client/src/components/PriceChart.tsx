@@ -249,6 +249,7 @@ interface PriceChartProps {
   symbol: string;
   colorScheme?: "cn" | "us";
   height?: number;
+  onLivePrice?: (price: number) => void; // 实时价格回调，用于父组件同步显示
   quoteData?: {
     price?: number | null;
     high?: number | null;
@@ -263,7 +264,7 @@ interface PriceChartProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // 主组件
 // ─────────────────────────────────────────────────────────────────────────────
-export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData }: PriceChartProps) {
+export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData, onLivePrice }: PriceChartProps) {
   const containerRef    = useRef<HTMLDivElement>(null);
   const subContainerRef = useRef<HTMLDivElement>(null);
   const chartRef        = useRef<IChartApi | null>(null);
@@ -353,6 +354,8 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         if (payload.price && seriesRef.current) {
           const price = payload.price;
           setLastTickPrice(price);
+          // 将实时价格传给父组件，用于统一显示
+          onLivePrice?.(price);
           // 更新时段和轮询间隔
           if (payload.session) setLiveSession(payload.session);
           if (payload.interval_ms) setLiveIntervalMs(payload.interval_ms);
@@ -645,6 +648,15 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         } else {
           setHoverData(null);
         }
+      }
+    });
+
+    // 主图时间轴变化时同步子图表时间轴（RSI/MACD/KDJ与K线同步）
+    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (!range) return;
+      const subChart = subChartRef.current;
+      if (subChart) {
+        try { subChart.timeScale().setVisibleLogicalRange(range); } catch {}
       }
     });
 
@@ -952,9 +964,22 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         subSeriesRef.current.set("macd", macdS);
         subSeriesRef.current.set("signal", sigS);
       } else if (subIndicator === "RSI") {
-        const rsiS = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false });
+        const rsiS = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false });
         rsiS.setData(indicatorData.rsi);
         subSeriesRef.current.set("rsi", rsiS);
+        // RSI超买线(70)和超卖线(30)参考线
+        const times = indicatorData.rsi.map(d => d.time);
+        if (times.length > 0) {
+          const overbought = chart.addSeries(LineSeries, { color: "rgba(239,68,68,0.5)", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false, lineStyle: 2 });
+          const oversold   = chart.addSeries(LineSeries, { color: "rgba(34,197,94,0.5)",  lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false, lineStyle: 2 });
+          const midline    = chart.addSeries(LineSeries, { color: "rgba(148,163,184,0.3)", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false, lineStyle: 2 });
+          overbought.setData(times.map(t => ({ time: t, value: 70 })));
+          oversold.setData(times.map(t => ({ time: t, value: 30 })));
+          midline.setData(times.map(t => ({ time: t, value: 50 })));
+          subSeriesRef.current.set("rsi_ob", overbought);
+          subSeriesRef.current.set("rsi_os", oversold);
+          subSeriesRef.current.set("rsi_mid", midline);
+        }
       } else if (subIndicator === "KDJ") {
         const kS = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
         const dS = chart.addSeries(LineSeries, { color: "#60a5fa", lineWidth: 1, priceScaleId: "right", lastValueVisible: false, priceLineVisible: false });
@@ -967,6 +992,11 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
         subSeriesRef.current.set("j", jS);
       }
       chart.timeScale().fitContent();
+      // 数据加载后同步主图时间轴，确保指标与K线对齐
+      const mainRange = chartRef.current?.timeScale().getVisibleLogicalRange();
+      if (mainRange) {
+        try { chart.timeScale().setVisibleLogicalRange(mainRange); } catch {}
+      }
     } catch {}
   }, [indicatorData, subIndicator, candles]);
 
@@ -1087,7 +1117,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
               ? `1px solid rgba(${sessionColor === "#22c55e" ? "34,197,94" : sessionColor === "#f59e0b" ? "245,158,11" : "96,165,250"},0.3)`
               : `1px solid ${liveStatus === "live" ? "rgba(34,197,94,0.3)" : liveStatus === "connecting" ? "rgba(201,168,76,0.3)" : "rgba(80,80,80,0.2)"}`;
             return (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" style={{
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[11px]" style={{
                 background: indicatorBg,
                 border: indicatorBorder,
                 color: indicatorColor,
@@ -1109,9 +1139,9 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
                     ⚡ 竞价异常{auctionAlert.ratio != null ? ` ${auctionAlert.ratio}x` : ""}
                   </span>
                 )}
-                {/* 实时价格 */}
+                {/* 实时价格（放大） */}
                 {liveStatus === "live" && lastTickPrice != null && (
-                  <span className="font-bold tabular-nums ml-0.5">{lastTickPrice.toFixed(2)}</span>
+                  <span className="font-bold tabular-nums ml-1 text-[14px]">{lastTickPrice.toFixed(2)}</span>
                 )}
               </div>
             );

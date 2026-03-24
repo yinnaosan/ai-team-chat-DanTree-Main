@@ -3819,16 +3819,19 @@ export const appRouter = router({
         // ── Source 1: TwelveData ─────────────────────────────────────────────
         try {
           const { fetchTwelveData } = await import("./twelveDataApi") as any;
+          const isIntradayTD = ["1min","5min","15min","30min","1h","4h"].includes(input.interval);
           const data = await fetchTwelveData("time_series", {
             symbol: sym,
             interval: input.interval,
             outputsize: String(input.outputsize),
+            // 请求UTC时区，避免TwelveData返回交易所本地时间导致时间戳偏移
+            ...(isIntradayTD ? { timezone: "UTC" } : {}),
           });
           if (data?.values && Array.isArray(data.values) && data.values.length > 0) {
             const candles = [...data.values].reverse().map((v: any) => ({
-              // TwelveData datetime: "2024-01-15 09:30:00" (intraday) or "2024-01-15" (daily)
-              // For intraday, convert to Unix seconds so lightweight-charts handles time axis correctly
-              time: (v.datetime.length > 10 && ["1min","5min","15min","30min","1h","4h"].includes(input.interval))
+              // TwelveData datetime with timezone=UTC: "2024-01-15 14:30:00" (UTC)
+              // Convert to Unix seconds for intraday so lightweight-charts handles time axis correctly
+              time: (v.datetime.length > 10 && isIntradayTD)
                 ? Math.floor(new Date(v.datetime.replace(" ", "T") + "Z").getTime() / 1000)
                 : v.datetime.substring(0, 10),
               open: parseFloat(v.open),

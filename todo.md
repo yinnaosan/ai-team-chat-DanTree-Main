@@ -2295,3 +2295,7 @@
 - [x] 内容区 opacity transition 0.2s，切换时平滑淡入淡出
 - [x] staleTime 10s：同一任务重复切换不重新请求，提升响应速度
 - [x] TypeScript 0错误，689个测试通过（1个偶发网络超时）
+
+## Bug修复：PriceChart timeFormatter字符串/BusinessDay类型错误
+- [x] makeTimeFormatter复用timeToDate函数，支持所有Time类型（number/string/BusinessDay）
+- [x] TypeScript 0错误，浏览器控制台无新错误（21:09:44后无getUTCFullYear报错）

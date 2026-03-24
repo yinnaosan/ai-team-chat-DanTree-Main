@@ -213,11 +213,17 @@ function makeTickMarkFormatter(interval: Interval) {
 
 /**
  * 十字线时间格式化
+ * lightweight-charts 传入的 t 可能是：
+ *   - number（Unix 秒）
+ *   - string（"YYYY-MM-DD"）
+ *   - BusinessDay（{ year, month, day }）
+ *   - Date（旧版本）
+ * 统一通过 timeToDate 转换，避免直接调用 Date 方法报错
  */
 function makeTimeFormatter(interval: Interval) {
-  return (t: Date | number): string => {
-    // lightweight-charts v4+ passes Unix timestamp (seconds) instead of Date
-    const d: Date = typeof t === "number" ? new Date(t * 1000) : t;
+  return (t: Date | number | string | object): string => {
+    // 统一转换为 Date 对象，兼容所有 lightweight-charts Time 类型
+    const d: Date = t instanceof Date ? t : timeToDate(t as Time);
     const yy = d.getUTCFullYear();
     const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
     const dd = String(d.getUTCDate()).padStart(2, "0");

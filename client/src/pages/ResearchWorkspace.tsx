@@ -1088,6 +1088,8 @@ export default function ResearchWorkspacePage() {
   const livePrice = liveTick?.price ?? null;
   const [topPriceFlash, setTopPriceFlash] = useState<string>(""); // 顶部栏价格闪烁动画
   const prevLivePriceRef = useRef<number | null>(null); // 记录上一次实时价格
+  const audioCtxRef = useRef<AudioContext | null>(null); // Web Audio API context
+  const limitAlertPlayedRef = useRef<boolean>(false); // 防重复触发：记录是否已播放预警音
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -1277,6 +1279,39 @@ export default function ResearchWorkspacePage() {
     }
   }, [convMessages]);
 
+  // 初始化 AudioContext（需要用户交互后才能创建）
+  const getAudioCtx = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioCtxRef.current;
+  };
+
+  // 播放预警音效（Web Audio API 合成）
+  const playLimitAlert = (type: "up" | "down") => {
+    try {
+      const ctx = getAudioCtx();
+      // 涨停：两声上升音调（880Hz → 1100Hz），清脆短促
+      // 跌停：两声下降音调（440Hz → 330Hz），低沉警示
+      const freqs = type === "up" ? [880, 1100] : [440, 330];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = type === "up" ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.18);
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.18);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + i * 0.18 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.15);
+        osc.start(ctx.currentTime + i * 0.18);
+        osc.stop(ctx.currentTime + i * 0.18 + 0.15);
+      });
+    } catch (e) {
+      // 忽略 AudioContext 不可用的情况（如 SSR 或浏览器限制）
+    }
+  };
+
   // 顶部栏价格闪烁：当 liveTick 更新时触发
   useEffect(() => {
     if (liveTick?.price == null) return;
@@ -1289,6 +1324,29 @@ export default function ResearchWorkspacePage() {
     }
     prevLivePriceRef.current = liveTick.price;
   }, [liveTick]);
+
+  // A股涨停/跌停预警音效：监听 liveTick 变化，当涨跌幅达到9.5%时播放一次
+  useEffect(() => {
+    if (liveTick?.price == null || !currentTicker) return;
+    const isAStock = detectMarketType(currentTicker) === "cn";
+    if (!isAStock) {
+      // 非 A 股市场重置状态，避免切换股票后错误触发
+      limitAlertPlayedRef.current = false;
+      return;
+    }
+    const pct = liveTick.pctChange;
+    const isLimitUp = pct != null && pct >= 9.5;
+    const isLimitDown = pct != null && pct <= -9.5;
+    const isLimitWarning = isLimitUp || isLimitDown;
+    if (isLimitWarning && !limitAlertPlayedRef.current) {
+      limitAlertPlayedRef.current = true;
+      playLimitAlert(isLimitUp ? "up" : "down");
+    } else if (!isLimitWarning) {
+      // 价格回落到正常区间，重置标志，下次再达预警线时可再次播放
+      limitAlertPlayedRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTick, currentTicker]);
 
   // ── Submit ──
   const handleSubmit = useCallback((text?: string) => {

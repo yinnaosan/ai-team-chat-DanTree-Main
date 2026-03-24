@@ -3954,6 +3954,131 @@ export const appRouter = router({
         const { getAllMarketStatuses } = await import("./globalHolidays");
         return getAllMarketStatuses();
       }),
+
+    // 节假日缓存状态（Settings页面展示）
+    getHolidayCacheStatus: protectedProcedure
+      .query(async ({ ctx }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { getHolidayCacheStatus } = await import("./globalHolidays");
+        return getHolidayCacheStatus();
+      }),
+
+    // 手动触发节假日缓存刷新（Settings页面「立即同步」按钮）
+    refreshHolidayCache: protectedProcedure
+      .input(z.object({ market: z.enum(["HK", "GB", "DE", "FR"]).optional() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { refreshHolidayCache } = await import("./globalHolidays");
+        await refreshHolidayCache(input.market as any);
+        const { getHolidayCacheStatus } = await import("./globalHolidays");
+        return getHolidayCacheStatus();
+      }),
+
+    /**
+     * 获取指定市场的主要指数快照（用于 GlobalMarketBar 点击弹出浮层）
+     * 支持市场：CN / HK / US / GB / DE / FR
+     */
+    getMarketIndexSnapshot: protectedProcedure
+      .input(z.object({ market: z.enum(["CN", "HK", "US", "GB", "DE", "FR"]) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+
+        // 各市场主要指数配置
+        const MARKET_INDICES: Record<string, Array<{ symbol: string; name: string; source: "finnhub" | "efinance" | "polygon" }>> = {
+          US: [
+            { symbol: "SPY",  name: "S&P 500 ETF",   source: "finnhub" },
+            { symbol: "QQQ",  name: "Nasdaq 100 ETF", source: "finnhub" },
+            { symbol: "DIA",  name: "Dow Jones ETF",  source: "finnhub" },
+          ],
+          CN: [
+            { symbol: "000001", name: "上证指数", source: "efinance" },
+            { symbol: "399001", name: "深证成指", source: "efinance" },
+            { symbol: "000300", name: "沪深300",   source: "efinance" },
+          ],
+          HK: [
+            { symbol: "HSI",   name: "恒生指数",   source: "finnhub" },
+            { symbol: "HSCEI", name: "国企指数",   source: "finnhub" },
+            { symbol: "00700", name: "腾讯控股",   source: "efinance" },
+          ],
+          GB: [
+            { symbol: "ISF",   name: "FTSE 100 ETF",  source: "finnhub" },
+            { symbol: "GBPUSD",name: "GBP/USD",       source: "finnhub" },
+          ],
+          DE: [
+            { symbol: "EWG",   name: "DAX ETF",       source: "finnhub" },
+            { symbol: "EURUSD",name: "EUR/USD",        source: "finnhub" },
+          ],
+          FR: [
+            { symbol: "EWQ",   name: "CAC 40 ETF",    source: "finnhub" },
+            { symbol: "EURUSD",name: "EUR/USD",        source: "finnhub" },
+          ],
+        };
+
+        const indices = MARKET_INDICES[input.market] ?? [];
+        const { getQuote } = await import("./finnhubApi");
+
+        const results = await Promise.allSettled(
+          indices.map(async (idx) => {
+            if (idx.source === "finnhub") {
+              const q = await getQuote(idx.symbol);
+              return {
+                symbol: idx.symbol,
+                name: idx.name,
+                price: q.c ?? null,
+                change: q.d ?? null,
+                pctChange: q.dp ?? null,
+                prevClose: q.pc ?? null,
+                high: q.h ?? null,
+                low: q.l ?? null,
+              };
+            }
+            // efinance 快照（A股/港股）
+            const { execFile } = await import("child_process");
+            const { promisify } = await import("util");
+            const execFileAsync = promisify(execFile);
+            const script = `
+import sys, json
+import efinance as ef
+code = sys.argv[1]
+try:
+    snap = ef.stock.get_quote_snapshot(code)
+    if snap is not None:
+        s = snap.to_dict() if hasattr(snap, 'to_dict') else dict(snap)
+        def fv(k):
+            v = s.get(k)
+            if v is None or str(v) in ["nan","None",""]: return None
+            try: return float(v)
+            except: return None
+        print(json.dumps({"price":fv("最新价"),"change":fv("涨跌额"),"pctChange":fv("涨跌幅"),"prevClose":fv("昨收"),"high":fv("最高"),"low":fv("最低")}))
+    else:
+        print(json.dumps({"error":"no_data"}))
+except Exception as e:
+    print(json.dumps({"error":str(e)}))
+`;
+            const { stdout } = await execFileAsync("python3", ["-c", script, idx.symbol], { timeout: 8000, maxBuffer: 256 * 1024 });
+            const snap = JSON.parse(stdout.trim());
+            if (snap.error) throw new Error(snap.error);
+            return {
+              symbol: idx.symbol,
+              name: idx.name,
+              price: snap.price,
+              change: snap.change,
+              pctChange: snap.pctChange,
+              prevClose: snap.prevClose,
+              high: snap.high,
+              low: snap.low,
+            };
+          })
+        );
+
+        return results.map((r, i) => {
+          const base = { symbol: indices[i].symbol, name: indices[i].name };
+          if (r.status === "fulfilled") {
+            return { ...base, ...r.value, error: null };
+          }
+          return { ...base, price: null, change: null, pctChange: null, prevClose: null, high: null, low: null, error: (r.reason as Error).message };
+        });
+      }),
   }),
 
 });

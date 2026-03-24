@@ -13,10 +13,10 @@ import {
   ArrowLeft, Bot, Brain, Database,
   Loader2, Plus, Trash2, CheckCircle2, Save, MessageSquare,
   Key, Zap, AlertTriangle, Eye, EyeOff, Shield, Copy, RefreshCw, UserX, Wifi, WifiOff, Activity, Sparkles,
-  BookOpen, Edit3, X, Filter, Search, Download, TrendingUp, Sliders, BarChart2, Clock, CheckCircle,
+  BookOpen, Edit3, X, Filter, Search, Download, TrendingUp, Sliders, BarChart2, Clock, CheckCircle, Globe, CalendarDays, AlertCircle,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "access" | "logic" | "memory" | "monitoring" | "research_style";
+type SettingsTab = "api" | "database" | "access" | "logic" | "memory" | "monitoring" | "research_style" | "holidays";
 type RulesTab = "investment" | "task" | "data";
 
 // ---- TrustedSource 类型（与后端 db.ts 一致）----
@@ -903,6 +903,7 @@ export default function Settings() {
     { id: "memory", label: "AI 记忆", icon: BookOpen },
     { id: "monitoring", label: "监控", icon: BarChart2 },
     { id: "research_style", label: "研究风格", icon: Sliders },
+    { id: "holidays", label: "节假日数据", icon: CalendarDays },
   ];
 
   const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
@@ -2173,6 +2174,9 @@ export default function Settings() {
         )}
 
         {/* ── Tab: 研究风格 ── */}
+        {/* ── Tab: 节假日数据同步状态 ── */}
+        {activeTab === "holidays" && <HolidaySyncPanel />}
+
         {activeTab === "research_style" && (
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
@@ -2756,6 +2760,157 @@ function MemoryManager() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── 节假日数据同步面板 ────────────────────────────────────────────────────────
+const MARKET_NAMES: Record<string, string> = {
+  HK: "港股（HKEX）",
+  GB: "英股（LSE）",
+  DE: "德股（法兰克福）",
+  FR: "法股（泛欧巴黎）",
+};
+
+const MARKET_FLAGS: Record<string, string> = {
+  HK: "🇭🇰",
+  GB: "🇬🇧",
+  DE: "🇩🇪",
+  FR: "🇫🇷",
+};
+
+function HolidaySyncPanel() {
+  const { data: statusList, isLoading, refetch } = trpc.market.getHolidayCacheStatus.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const refreshMutation = trpc.market.refreshHolidayCache.useMutation({
+    onSuccess: () => {
+      toast.success("节假日数据已同步");
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(`同步失败：${err.message}`);
+    },
+  });
+
+  const formatSyncTime = (ts: number | null) => {
+    if (!ts) return "从未同步";
+    const d = new Date(ts);
+    const now = Date.now();
+    const diffDays = Math.floor((now - ts) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return `今天 ${d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`;
+    if (diffDays === 1) return "昨天";
+    return `${diffDays} 天前（${d.toLocaleDateString("zh-CN")}）`;
+  };
+
+  const hasStale = statusList?.some(s => s.isStale);
+
+  return (
+    <div className="p-6 space-y-5">
+      {/* 标题行 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold mb-1 flex items-center gap-2"
+            style={{ color: "var(--bloomberg-text-primary)" }}>
+            <Globe className="w-4 h-4" style={{ color: "var(--bloomberg-gold)" }} />
+            节假日数据同步状态
+          </h3>
+          <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+            数据来源：Nager.Date API（港/英/德/法），每次启动服务器时自动预热。A股和美股使用实时 API 判断，无需手动同步。
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="text-xs h-7 px-3 flex items-center gap-1.5"
+          style={{ background: "var(--bloomberg-gold)", color: "oklch(10% 0 0)" }}
+          disabled={refreshMutation.isPending}
+          onClick={() => refreshMutation.mutate({})}>
+          {refreshMutation.isPending
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : <RefreshCw className="w-3 h-3" />}
+          全部同步
+        </Button>
+      </div>
+
+      {/* 警告横幅 */}
+      {hasStale && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+          style={{ background: "oklch(0.72 0.18 50 / 0.12)", border: "1px solid oklch(0.72 0.18 50 / 0.4)", color: "oklch(0.72 0.18 50)" }}>
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          部分市场节假日数据超过 30 天未更新，建议点击「全部同步」或单独刷新对应市场。
+        </div>
+      )}
+
+      {/* 状态表格 */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 gap-2"
+          style={{ color: "var(--bloomberg-text-tertiary)" }}>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-xs">加载中…</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(statusList ?? []).map((item) => (
+            <div key={item.market}
+              className="flex items-center justify-between px-4 py-3 rounded-xl"
+              style={{
+                background: item.isStale ? "oklch(0.72 0.18 50 / 0.06)" : "oklch(100% 0 0 / 0.04)",
+                border: `1px solid ${item.isStale ? "oklch(0.72 0.18 50 / 0.3)" : "var(--bloomberg-border)"}`,
+              }}>
+              {/* 左侧：市场名称 + 同步时间 */}
+              <div className="flex items-center gap-3">
+                <span className="text-lg">{MARKET_FLAGS[item.market] ?? "🌐"}</span>
+                <div>
+                  <div className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>
+                    {MARKET_NAMES[item.market] ?? item.name}
+                  </div>
+                  <div className="text-xs mt-0.5 flex items-center gap-1"
+                    style={{ color: item.isStale ? "oklch(0.72 0.18 50)" : "var(--bloomberg-text-tertiary)" }}>
+                    {item.isStale && <AlertCircle className="w-3 h-3" />}
+                    {formatSyncTime(item.lastSyncedAt)}
+                  </div>
+                </div>
+              </div>
+
+              {/* 右侧：状态徽章 + 单独同步按钮 */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    background: item.isStale ? "oklch(0.72 0.18 50 / 0.15)" : "oklch(0.72 0.18 142 / 0.15)",
+                    color: item.isStale ? "oklch(0.72 0.18 50)" : "oklch(0.72 0.18 142)",
+                  }}>
+                  {item.isStale ? "需更新" : "已同步"}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-6 px-2"
+                  style={{ borderColor: "var(--bloomberg-border)", color: "var(--bloomberg-text-tertiary)" }}
+                  disabled={refreshMutation.isPending}
+                  onClick={() => refreshMutation.mutate({ market: item.market as any })}>
+                  {refreshMutation.isPending && refreshMutation.variables?.market === item.market
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <RefreshCw className="w-3 h-3" />}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 说明卡片 */}
+      <div className="rounded-xl px-4 py-3 space-y-1"
+        style={{ background: "oklch(100% 0 0 / 0.03)", border: "1px solid var(--bloomberg-border)" }}>
+        <div className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-secondary)" }}>
+          数据说明
+        </div>
+        <div className="text-xs space-y-0.5" style={{ color: "oklch(40% 0 0)" }}>
+          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>A股（CN）</strong>：通过 Baostock 官方 API 实时查询交易日历，无需手动维护</div>
+          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>美股（US）</strong>：通过 Polygon.io 实时查询市场开闭市状态，5 分钟缓存</div>
+          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>港/英/德/法</strong>：通过 Nager.Date API 获取法定节假日表，24 小时缓存，服务器启动时自动预热</div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -2113,3 +2113,28 @@
 - [x] 多市场LIVE聚合：DashboardLayout 顶部嵌入 GlobalMarketBar，60秒自动刷新
 - [x] 多市场LIVE聚合：后端新增 market.getAllMarketStatuses tRPC procedure
 - [x] 新增 global-market-status.test.ts，31 个测试全部通过，累计 95 个测试全部通过
+
+## 2026-03-24 第十四轮功能批次
+
+- [ ] Settings节假日面板：后端新增 market.getHolidayCacheStatus tRPC procedure，返回各市场最后同步时间
+- [ ] Settings节假日面板：后端新增 market.refreshHolidayCache tRPC procedure，手动触发 Nager.Date 刷新
+- [ ] Settings节假日面板：globalHolidays.ts 记录每个市场的最后同步时间戳
+- [ ] Settings节假日面板：Settings.tsx 新增「节假日数据」Tab，显示各市场同步状态表格
+- [ ] Settings节假日面板：超过30天未更新显示橙色警告徽章，提供「立即同步」按钮
+- [ ] 港股竞价量预警：后端新增 market.getHKPreAuctionAlert tRPC procedure，获取最近5日竞价量均值
+- [ ] 港股竞价量预警：当盘前竞价成交量超过前5日均值150%时，SSE payload 新增 auctionAlert 字段
+- [ ] 港股竞价量预警：PriceChart LIVE指示器旁显示「⚡ 竞价异常」橙色提示
+
+## 2026-03-24 第十四轮功能批次（三合一）
+
+- [x] Settings节假日面板：globalHolidays.ts 记录各市场最后同步时间戳
+- [x] Settings节假日面板：后端新增 market.getHolidayCacheStatus + market.refreshHolidayCache procedure
+- [x] Settings节假日面板：Settings.tsx 新增「节假日数据」 Tab，显示各市场同步状态表格
+- [x] Settings节假日面板：超过30天未更新显示橙色警告，提供「立即同步」按鈕
+- [x] 港股竞价量预警：服务端维抦5日滑动窗口均値，竞价量超过150%触发预警
+- [x] 港股竞价量预警：SSE payload 新增 auctionAlert 字段
+- [x] 港股竞价量预警：PriceChart LIVE指示器旁显示「⚡ 竞价异常」闪烁橙色提示
+- [x] GlobalMarketBar指数浮层：重写 GlobalMarketBar.tsx，点击市场徽章弹出 IndexSnapshotPopup（fixed定位，不跳轮）
+- [x] GlobalMarketBar指数浮层：CN显示上证+深证+沪深300，HK显示恒生+国企+腾讯，US显示 SPY/QQQ/DIA
+- [x] GlobalMarketBar指数浮层：三色涨跌幅（绿/红/灰）+ TrendingUp/Down 图标，点击外部自动关闭
+- [x] 后端新增 market.getMarketIndexSnapshot tRPC procedure，支持 CN/HK/US/GB/DE/FR

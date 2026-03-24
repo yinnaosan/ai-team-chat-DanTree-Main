@@ -277,6 +277,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const [lastTickPrice, setLastTickPrice] = useState<number | null>(null);
   const [liveSession, setLiveSession] = useState<string | null>(null);   // trading/lunch/pre_market/post_market/closed
   const [liveIntervalMs, setLiveIntervalMs] = useState<number | null>(null); // 当前轮询间隔
+  const [auctionAlert, setAuctionAlert] = useState<{ isAlert: boolean; ratio: number | null } | null>(null); // 港股竞价量异常预警
   const sseRef = useRef<EventSource | null>(null);
   // 对比模式
   const [compareSymbol, setCompareSymbol] = useState<string | null>(null);
@@ -332,7 +333,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
       try {
         const payload = JSON.parse(e.data) as {
           type?: string; symbol?: string; price?: number; timestamp?: number; volume?: number;
-          session?: string; interval_ms?: number;
+          session?: string; interval_ms?: number; auctionAlert?: boolean; auctionRatio?: number | null;
         };
         if (payload.type === "connected") {
           setLiveStatus("live");
@@ -347,6 +348,10 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
           // 更新时段和轮询间隔
           if (payload.session) setLiveSession(payload.session);
           if (payload.interval_ms) setLiveIntervalMs(payload.interval_ms);
+          // 竞价量异常预警（仅港股盘前竞价时段）
+          if (payload.auctionAlert !== undefined) {
+            setAuctionAlert({ isAlert: payload.auctionAlert, ratio: payload.auctionRatio ?? null });
+          }
           const ts = payload.timestamp ?? Date.now();
           // 计算当前 bar 的时间（向下取整到当前 interval）
           const intervalSecs: Record<string, number> = {
@@ -1087,6 +1092,13 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
                 {/* 轮询频率 */}
                 {liveStatus === "live" && freqLabel && (
                   <span className="opacity-60">{freqLabel}</span>
+                )}
+                {/* 港股竞价量异常预警 */}
+                {liveStatus === "live" && auctionAlert?.isAlert && (
+                  <span className="font-bold" style={{ color: "#f59e0b" }}
+                    title={auctionAlert.ratio != null ? `竞价量是前5日均值的 ${auctionAlert.ratio}x` : "竞价量异常"}>
+                    ⚡ 竞价异常{auctionAlert.ratio != null ? ` ${auctionAlert.ratio}x` : ""}
+                  </span>
                 )}
                 {/* 实时价格 */}
                 {liveStatus === "live" && lastTickPrice != null && (

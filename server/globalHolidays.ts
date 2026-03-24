@@ -68,6 +68,9 @@ const polygonStatusCache: { value: boolean | null; expiresAt: number } = {
   expiresAt: 0,
 };
 
+// 各市场节假日数据最后同步时间（毫秒时间戳）
+const holidaySyncTimestamps = new Map<string, number>(); // "HK:2026" → timestamp
+
 const TRADING_DAY_TTL = 24 * 60 * 60 * 1000;  // 24小时
 const HOLIDAY_TTL = 24 * 60 * 60 * 1000;       // 24小时
 const POLYGON_TTL = 5 * 60 * 1000;             // 5分钟
@@ -247,12 +250,14 @@ async function getNagerHolidays(market: MarketCode, year: number): Promise<Set<s
     }
 
     holidayCache.set(cacheKey, { value: holidays, expiresAt: Date.now() + HOLIDAY_TTL });
+    holidaySyncTimestamps.set(cacheKey, Date.now());
     console.log(`[GlobalHolidays] Fetched ${holidays.size} holidays for ${market}/${year} from Nager.Date`);
     return holidays;
   } catch (err) {
     console.warn(`[GlobalHolidays] Nager.Date failed for ${market}/${year}, using fallback:`, err);
     const fallback = FALLBACK_HOLIDAYS[market] ?? new Set<string>();
     holidayCache.set(cacheKey, { value: fallback, expiresAt: Date.now() + HOLIDAY_TTL });
+    // fallback时不更新syncTimestamp，保持上次成功同步时间
     return fallback;
   }
 }
@@ -438,6 +443,61 @@ export async function warmupHolidayCache(): Promise<void> {
     ])
   );
   console.log("[GlobalHolidays] Nager.Date cache warmed up");
+}
+
+/**
+ * 获取各市场节假日缓存状态（用于Settings页面展示）
+ */
+export function getHolidayCacheStatus(): Array<{
+  market: MarketCode;
+  name: string;
+  lastSyncedAt: number | null;   // 毫秒时间戳，null表示从未同步
+  source: string;
+  isStale: boolean;              // 超过30天未更新
+}> {
+  const currentYear = new Date().getFullYear();
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const nagerMarkets: MarketCode[] = ["HK", "GB", "DE", "FR"];
+  return nagerMarkets.map(market => {
+    const key = `${market}:${currentYear}`;
+    const lastSyncedAt = holidaySyncTimestamps.get(key) ?? null;
+    return {
+      market,
+      name: MARKET_INFO[market].name,
+      lastSyncedAt,
+      source: "Nager.Date API",
+      isStale: lastSyncedAt === null || (now - lastSyncedAt) > THIRTY_DAYS,
+    };
+  });
+}
+
+/**
+ * 强制刷新指定市场的节假日缓存（用于Settings页面「立即同步」按钮）
+ */
+export async function refreshHolidayCache(market?: MarketCode): Promise<void> {
+  const currentYear = new Date().getFullYear();
+  const marketsToRefresh: MarketCode[] = market
+    ? [market]
+    : ["HK", "GB", "DE", "FR"];
+
+  // 先清除缓存，强制重新获取
+  for (const m of marketsToRefresh) {
+    const key = `${m}:${currentYear}`;
+    holidayCache.delete(key);
+    const nextKey = `${m}:${currentYear + 1}`;
+    holidayCache.delete(nextKey);
+  }
+
+  // 重新获取
+  await Promise.allSettled(
+    marketsToRefresh.flatMap(m => [
+      getNagerHolidays(m, currentYear),
+      getNagerHolidays(m, currentYear + 1),
+    ])
+  );
+  console.log(`[GlobalHolidays] Refreshed holiday cache for: ${marketsToRefresh.join(", ")}`);
 }
 
 /**

@@ -88,6 +88,45 @@ export function isHKSymbol(symbol: string): boolean {
   return false;
 }
 
+// ─── 竞价量历史记录（用于计算前5日均值）────────────────────────────────────────
+// 结构：symbol → 按日期分组的竞价量记录
+// 只保留最近7天数据，防止内存泄漏
+const auctionVolumeHistory = new Map<string, Array<{ date: string; volume: number }>>();
+
+function recordAuctionVolume(symbol: string, volume: number): void {
+  const today = new Date().toISOString().slice(0, 10);
+  const history = auctionVolumeHistory.get(symbol) ?? [];
+  // 更新今天的记录（取最大值，因为竞价量是累计的）
+  const todayIdx = history.findIndex(r => r.date === today);
+  if (todayIdx >= 0) {
+    history[todayIdx].volume = Math.max(history[todayIdx].volume, volume);
+  } else {
+    history.push({ date: today, volume });
+  }
+  // 只保留最近7天
+  const sorted = history.sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
+  auctionVolumeHistory.set(symbol, sorted);
+}
+
+/**
+ * 判断当前竞价量是否异常（超过前5日均值的150%）
+ * 返回 { isAlert: boolean; ratio: number | null }
+ */
+function checkAuctionAlert(symbol: string, currentVolume: number): { isAlert: boolean; ratio: number | null } {
+  const today = new Date().toISOString().slice(0, 10);
+  const history = (auctionVolumeHistory.get(symbol) ?? [])
+    .filter(r => r.date < today)  // 排除今天
+    .slice(-5);                    // 取最近5天
+
+  if (history.length < 2) return { isAlert: false, ratio: null }; // 数据不足
+
+  const avg = history.reduce((s, r) => s + r.volume, 0) / history.length;
+  if (avg <= 0) return { isAlert: false, ratio: null };
+
+  const ratio = currentVolume / avg;
+  return { isAlert: ratio >= 1.5, ratio: Math.round(ratio * 100) / 100 };
+}
+
 // ─── SSE 路由 ─────────────────────────────────────────────────────────────────
 router.get("/api/ticker-stream-hk/:symbol", (req: Request, res: Response) => {
   const rawSymbol = req.params.symbol;
@@ -142,12 +181,24 @@ router.get("/api/ticker-stream-hk/:symbol", (req: Request, res: Response) => {
       } else if (snap.price != null) {
         const session = await getHKSession();
         const intervalMs = getHKPollIntervalMs(session);
+        const volume = snap.volume ?? 0;
+
+        // 盘前竞价时段：记录竞价量并检测异常
+        let auctionAlert = false;
+        let auctionRatio: number | null = null;
+        if (session === "pre_auction" && volume > 0) {
+          recordAuctionVolume(rawSymbol, volume);
+          const alertResult = checkAuctionAlert(rawSymbol, volume);
+          auctionAlert = alertResult.isAlert;
+          auctionRatio = alertResult.ratio;
+        }
+
         res.write(`data: ${JSON.stringify({
           type: "tick",
           symbol: rawSymbol,
           market: "HK",
           price: snap.price,
-          volume: snap.volume ?? 0,
+          volume,
           pctChange: snap.pctChange,
           change: snap.change,
           high: snap.high,
@@ -158,6 +209,8 @@ router.get("/api/ticker-stream-hk/:symbol", (req: Request, res: Response) => {
           updatedAt: snap.updatedAt,
           session,
           interval_ms: intervalMs,
+          auctionAlert,
+          auctionRatio,
         })}\n\n`);
       }
     } catch {

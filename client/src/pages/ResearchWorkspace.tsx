@@ -38,7 +38,7 @@ import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/Inline
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { TickerMarketStatus, MarketAlertManager } from "@/components/MarketStatus";
-import { GlobalMarketPanel } from "@/components/GlobalMarketPanel";
+import { GlobalMarketPanel, NavClock } from "@/components/GlobalMarketPanel";
 import { detectMarketType } from "@/lib/marketUtils";
 
 /** 根据市场类型返回货币符号 */
@@ -2075,6 +2075,8 @@ export default function ResearchWorkspacePage() {
 
         {/* Market status + nav */}
         <div className="flex items-center gap-2 ml-auto shrink-0">
+          {/* Realtime clock with UTC offset */}
+          <NavClock className="hidden sm:flex" />
            {/* Global market panel */}
           <GlobalMarketPanel />
           {/* Dynamic market status badge */}

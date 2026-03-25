@@ -2378,3 +2378,9 @@
 - [x] 定位问题：GlobalMarketPanel.tsx 第167行用 new Date() 直接渲染，面板开启后不再更新
 - [x] 修复：添加 const [now, setNow] = useState(() => new Date()) + setInterval 每秒更新
 - [x] TypeScript 编译 0 错误
+
+## 第四十四轮：顶部导航栏实时时钟 + 时区切换
+- [x] 新增 NavClock 组件（GlobalMarketPanel.tsx 导出），显示实时时间 + UTC偏移标注
+- [x] ResearchWorkspace.tsx 导航栏全球市场按鈕左侧添加 NavClock（小屏隐藏）
+- [x] 面板标题时间支持本地/纽约/伦敦三键切换，带 UTC 偏移标注
+- [x] TypeScript 编译 0 错误

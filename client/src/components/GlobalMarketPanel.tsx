@@ -93,9 +93,66 @@ interface GlobalMarketPanelProps {
   className?: string;
 }
 
+// ─── 时区配置 ──────────────────────────────────────────────────────────────────
+const TIMEZONES = [
+  { key: "local",    label: "本地",   tz: undefined as string | undefined },
+  { key: "newyork",  label: "纽约",   tz: "America/New_York" },
+  { key: "london",   label: "伦敦",   tz: "Europe/London" },
+] as const;
+type TzKey = typeof TIMEZONES[number]["key"];
+
+/** 获取指定时区的 UTC 偏移字符串，如 UTC+8 */
+function getUtcOffset(tz?: string): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en", {
+    timeZone: tz,
+    timeZoneName: "shortOffset",
+  });
+  const parts = formatter.formatToParts(now);
+  const offset = parts.find(p => p.type === "timeZoneName")?.value ?? "";
+  return offset.replace("GMT", "UTC");
+}
+
+/** 格式化指定时区的时间字符串 */
+function formatTime(date: Date, tz?: string): string {
+  return date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    ...(tz ? { timeZone: tz } : {}),
+  });
+}
+
+// ─── 导航栏内嵌实时时钟组件（供外部使用）──────────────────────────────────────
+export function NavClock({ className = "" }: { className?: string }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const utcOffset = getUtcOffset(undefined);
+
+  return (
+    <div
+      className={`flex items-center gap-1 font-mono select-none ${className}`}
+      style={{ color: "oklch(0.55 0 0)", fontSize: "11px" }}
+    >
+      <span style={{ color: "oklch(0.70 0 0)" }}>
+        {now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+      </span>
+      <span
+        className="px-1 rounded"
+        style={{ background: "oklch(0.18 0 0)", color: "oklch(0.50 0 0)", fontSize: "9px" }}
+      >
+        {utcOffset}
+      </span>
+    </div>
+  );
+}
+
 export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [tzKey, setTzKey] = useState<TzKey>("local");
 
   // 实时时钟（每秒更新）
   const [now, setNow] = useState(() => new Date());
@@ -103,6 +160,9 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const activeTz = TIMEZONES.find(t => t.key === tzKey);
+  const utcOffset = getUtcOffset(activeTz?.tz);
 
   // 点击外部关闭
   useEffect(() => {
@@ -170,9 +230,38 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
             <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: "oklch(0.65 0 0)" }}>
               全球市场状态
             </span>
-            <span className="text-xs font-mono" style={{ color: "oklch(0.55 0 0)" }}>
-              {now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
+            {/* 时区切换时钟 */}
+            <div className="flex items-center gap-1.5">
+              {/* 时区标签切换 */}
+              <div className="flex items-center gap-0.5">
+                {TIMEZONES.map(tz => (
+                  <button
+                    key={tz.key}
+                    onClick={() => setTzKey(tz.key)}
+                    className="px-1.5 py-0.5 rounded text-[9px] font-mono transition-all"
+                    style={{
+                      background: tzKey === tz.key ? "oklch(0.28 0 0)" : "transparent",
+                      color: tzKey === tz.key ? "oklch(0.80 0 0)" : "oklch(0.45 0 0)",
+                      border: `1px solid ${tzKey === tz.key ? "oklch(0.38 0 0)" : "transparent"}`,
+                    }}
+                  >
+                    {tz.label}
+                  </button>
+                ))}
+              </div>
+              {/* 时间显示 */}
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-mono" style={{ color: "oklch(0.72 0 0)" }}>
+                  {formatTime(now, activeTz?.tz)}
+                </span>
+                <span
+                  className="px-1 py-0.5 rounded"
+                  style={{ background: "oklch(0.18 0 0)", color: "oklch(0.45 0 0)", fontSize: "9px", fontFamily: "monospace" }}
+                >
+                  {utcOffset}
+                </span>
+              </div>
+            </div>
           </div>
           {/* 市场列表 */}
           <div className="p-1">

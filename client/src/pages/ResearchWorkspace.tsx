@@ -1125,6 +1125,33 @@ function WhyItMattersNowCard({ discussionObject, isLoading, onAsk }: {
 }
 
 /** Instrument Selector Modal — 支持股票代码/英文名称/中文名称搜索 */
+const SEARCH_HISTORY_KEY = "ticker-search-history";
+const MAX_HISTORY = 10;
+
+function useSearchHistory() {
+  const [history, setHistory] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+
+  const addToHistory = (symbol: string) => {
+    setHistory(prev => {
+      const next = [symbol, ...prev.filter(s => s !== symbol)].slice(0, MAX_HISTORY);
+      try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch {}
+  };
+
+  return { history, addToHistory, clearHistory };
+}
+
 function InstrumentSelectorModal({ open, onClose, onSelect }: {
   open: boolean;
   onClose: () => void;
@@ -1132,6 +1159,7 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
 }) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const { history, addToHistory, clearHistory } = useSearchHistory();
 
   // 防抖搜索
   useEffect(() => {
@@ -1160,7 +1188,7 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
   // 常用标的分组
   const POPULAR_GROUPS = [
     { label: "美股", tickers: ["AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "BRK.B"] },
-    { label: "ETF", tickers: ["SPY", "QQQ", "GLD", "TLT"] },
+    { label: "ETF", tickers: ["SPY", "QQQ", "VOO", "GLD", "TLT", "ARKK", "SOXX", "SCHD"] },
     { label: "港股", tickers: ["700.HK", "9988.HK", "3690.HK", "1810.HK"] },
     { label: "A股", tickers: ["600519.SS", "000858.SZ", "300750.SZ", "002594.SZ"] },
     { label: "加密", tickers: ["BTC", "ETH", "SOL"] },
@@ -1181,6 +1209,7 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
   const marketOrder = ["US", "HK", "CN", "CRYPTO", "JP", "KR", "GB", "OTHER"];
 
   const handleSelect = (sym: string) => {
+    addToHistory(sym);
     onSelect(sym);
     onClose();
     setQuery("");
@@ -1224,7 +1253,7 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
           />
         </div>
 
-        {/* 内容区域 */}
+          {/* 内容区域 */}
         <div className="overflow-y-auto flex-1 min-h-0" style={{ marginTop: 12 }}>
           {/* 搜索结果 */}
           {debouncedQuery.length >= 1 ? (
@@ -1260,19 +1289,36 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
                           <span className="shrink-0 text-sm font-mono font-bold w-24 truncate" style={{ color: T.gold }}>
                             {r.symbol}
                           </span>
-                          {/* 公司名称 */}
+                          {/* 公司名称 + ETF 追踪指数 */}
                           <div className="flex-1 min-w-0">
                             {r.cnName ? (
                               <>
                                 <span className="text-sm font-medium block truncate" style={{ color: T.text1 }}>{r.cnName}</span>
-                                <span className="text-[11px] truncate block" style={{ color: T.text3 }}>{r.name}</span>
+                                <span className="text-[11px] truncate block" style={{ color: T.text3 }}>
+                                  {(r as { etfIndex?: string }).etfIndex ? `追踪: ${(r as { etfIndex?: string }).etfIndex}` : r.name}
+                                </span>
                               </>
                             ) : (
-                              <span className="text-sm font-medium truncate block" style={{ color: T.text1 }}>{r.name}</span>
+                              <>
+                                <span className="text-sm font-medium truncate block" style={{ color: T.text1 }}>{r.name}</span>
+                                {(r as { etfIndex?: string }).etfIndex && (
+                                  <span className="text-[11px] truncate block" style={{ color: T.text3 }}>
+                                    追踪: {(r as { etfIndex?: string }).etfIndex}
+                                  </span>
+                                )}
+                              </>
                             )}
                           </div>
-                          {/* 交易所 */}
-                          <span className="shrink-0 text-[10px]" style={{ color: T.text4 }}>{r.exchange}</span>
+                          {/* ETF 标识 + 交易所 */}
+                          <div className="shrink-0 flex flex-col items-end gap-0.5">
+                            {(r as { type?: string }).type === "ETF" && (
+                              <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                                style={{ background: "oklch(0.55 0.15 150 / 0.2)", color: "oklch(0.7 0.15 150)", border: "1px solid oklch(0.7 0.15 150 / 0.3)" }}>
+                                ETF
+                              </span>
+                            )}
+                            <span className="text-[10px]" style={{ color: T.text4 }}>{r.exchange}</span>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -1290,8 +1336,34 @@ function InstrumentSelectorModal({ open, onClose, onSelect }: {
               )}
             </div>
           ) : (
-            /* 常用标的 */
+            /* 空状态：最近搜索 + 常用标的 */
             <div className="space-y-4">
+              {/* 最近搜索 */}
+              {history.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>最近搜索</p>
+                    <button
+                      onClick={clearHistory}
+                      className="text-[10px] transition-opacity hover:opacity-70"
+                      style={{ color: T.text4 }}>
+                      清除
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {history.map(t => (
+                      <button key={t}
+                        onClick={() => handleSelect(t)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-mono font-medium transition-all hover:scale-105"
+                        style={{ background: `${T.gold}15`, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
+                        <span style={{ opacity: 0.6, fontSize: 9 }}>✓</span>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* 常用标的分组 */}
               {POPULAR_GROUPS.map(g => (
                 <div key={g.label}>
                   <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: T.text4 }}>{g.label}</p>

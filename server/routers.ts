@@ -4215,7 +4215,8 @@ except Exception as e:
         const q = input.query.trim();
 
         // 中文名称映射表（中文 → 股票代码）
-        const CN_NAME_MAP: Record<string, { symbol: string; name: string; cnName: string; exchange: string; market: string }[]> = {
+        type TickerEntry = { symbol: string; name: string; cnName: string; exchange: string; market: string; etfIndex?: string };
+        const CN_NAME_MAP: Record<string, TickerEntry[]> = {
           "腾讯": [{ symbol: "700.HK", name: "Tencent Holdings Ltd", cnName: "腾讯控股", exchange: "HKEX", market: "HK" }],
           "腾讯控股": [{ symbol: "700.HK", name: "Tencent Holdings Ltd", cnName: "腾讯控股", exchange: "HKEX", market: "HK" }],
           "阿里巴巴": [{ symbol: "BABA", name: "Alibaba Group Holding Ltd", cnName: "阿里巴巴", exchange: "NYSE", market: "US" }, { symbol: "9988.HK", name: "Alibaba Group Holding Ltd", cnName: "阿里巴巴", exchange: "HKEX", market: "HK" }],
@@ -4292,10 +4293,346 @@ except Exception as e:
           "中国恒大": [{ symbol: "3333.HK", name: "China Evergrande Group", cnName: "中国恒大", exchange: "HKEX", market: "HK" }],
           "龙湖集团": [{ symbol: "960.HK", name: "Longfor Group Holdings", cnName: "龙湖集团", exchange: "HKEX", market: "HK" }],
           "中海外": [{ symbol: "688.HK", name: "COLI", cnName: "中国海外发展", exchange: "HKEX", market: "HK" }],
+
+          // ── 银行行业 ──
+          "中国银行": [{ symbol: "601988.SS", name: "Bank of China", cnName: "中国银行", exchange: "SSE", market: "CN" }, { symbol: "3988.HK", name: "Bank of China", cnName: "中国银行", exchange: "HKEX", market: "HK" }],
+          "中国农业银行": [{ symbol: "601288.SS", name: "Agricultural Bank of China", cnName: "中国农业银行", exchange: "SSE", market: "CN" }, { symbol: "1288.HK", name: "Agricultural Bank of China", cnName: "农业银行", exchange: "HKEX", market: "HK" }],
+          "农业银行": [{ symbol: "601288.SS", name: "Agricultural Bank of China", cnName: "中国农业银行", exchange: "SSE", market: "CN" }],
+          "交通银行": [{ symbol: "601328.SS", name: "Bank of Communications", cnName: "交通银行", exchange: "SSE", market: "CN" }, { symbol: "3328.HK", name: "Bank of Communications", cnName: "交通银行", exchange: "HKEX", market: "HK" }],
+          "兴业银行": [{ symbol: "601166.SS", name: "Industrial Bank", cnName: "兴业银行", exchange: "SSE", market: "CN" }],
+          "浦发银行": [{ symbol: "600000.SS", name: "Shanghai Pudong Development Bank", cnName: "浦发银行", exchange: "SSE", market: "CN" }],
+          "平安银行": [{ symbol: "000001.SZ", name: "Ping An Bank", cnName: "平安银行", exchange: "SZSE", market: "CN" }],
+          "宁波银行": [{ symbol: "002142.SZ", name: "Bank of Ningbo", cnName: "宁波银行", exchange: "SZSE", market: "CN" }],
+          "北京银行": [{ symbol: "601169.SS", name: "Bank of Beijing", cnName: "北京银行", exchange: "SSE", market: "CN" }],
+          "光大银行": [{ symbol: "601818.SS", name: "China Everbright Bank", cnName: "光大银行", exchange: "SSE", market: "CN" }],
+          "民生银行": [{ symbol: "600016.SS", name: "China Minsheng Bank", cnName: "民生银行", exchange: "SSE", market: "CN" }],
+          "中信银行": [{ symbol: "998.HK", name: "China CITIC Bank", cnName: "中信银行", exchange: "HKEX", market: "HK" }],
+          "华夏银行": [{ symbol: "600015.SS", name: "Hua Xia Bank", cnName: "华夏银行", exchange: "SSE", market: "CN" }],
+          "邮储银行": [{ symbol: "601658.SS", name: "Postal Savings Bank of China", cnName: "邮储银行", exchange: "SSE", market: "CN" }, { symbol: "1658.HK", name: "Postal Savings Bank", cnName: "邮储银行", exchange: "HKEX", market: "HK" }],
+
+          // ── 航空/交通 ──
+          "中国国航": [{ symbol: "601111.SS", name: "Air China", cnName: "中国国航", exchange: "SSE", market: "CN" }, { symbol: "753.HK", name: "Air China", cnName: "中国国航", exchange: "HKEX", market: "HK" }],
+          "国航": [{ symbol: "601111.SS", name: "Air China", cnName: "中国国航", exchange: "SSE", market: "CN" }],
+          "中国南方航空": [{ symbol: "600029.SS", name: "China Southern Airlines", cnName: "中国南方航空", exchange: "SSE", market: "CN" }, { symbol: "1055.HK", name: "China Southern Airlines", cnName: "南方航空", exchange: "HKEX", market: "HK" }],
+          "南方航空": [{ symbol: "600029.SS", name: "China Southern Airlines", cnName: "中国南方航空", exchange: "SSE", market: "CN" }],
+          "中国东方航空": [{ symbol: "600115.SS", name: "China Eastern Airlines", cnName: "中国东方航空", exchange: "SSE", market: "CN" }, { symbol: "670.HK", name: "China Eastern Airlines", cnName: "东方航空", exchange: "HKEX", market: "HK" }],
+          "东方航空": [{ symbol: "600115.SS", name: "China Eastern Airlines", cnName: "中国东方航空", exchange: "SSE", market: "CN" }],
+          "中国国际航空": [{ symbol: "753.HK", name: "Air China", cnName: "中国国航", exchange: "HKEX", market: "HK" }],
+          "安踏航空": [{ symbol: "AAL", name: "American Airlines", cnName: "美国航空", exchange: "NASDAQ", market: "US" }],
+          "美国航空": [{ symbol: "AAL", name: "American Airlines", cnName: "美国航空", exchange: "NASDAQ", market: "US" }],
+          "达美航空": [{ symbol: "DAL", name: "Delta Air Lines", cnName: "达美航空", exchange: "NYSE", market: "US" }],
+          "联合航空": [{ symbol: "UAL", name: "United Airlines", cnName: "联合航空", exchange: "NASDAQ", market: "US" }],
+
+          // ── 能源/矿业 ──
+          "中国神华": [{ symbol: "600028.SS", name: "China Petroleum & Chemical", cnName: "中国石化", exchange: "SSE", market: "CN" }],
+          "中海石油": [{ symbol: "883.HK", name: "CNOOC", cnName: "中海石油", exchange: "HKEX", market: "HK" }],
+          "CNOOC": [{ symbol: "883.HK", name: "CNOOC", cnName: "中海石油", exchange: "HKEX", market: "HK" }],
+          "中国建材": [{ symbol: "3323.HK", name: "CNBM", cnName: "中国建材", exchange: "HKEX", market: "HK" }],
+          "洛阳馒钉": [{ symbol: "601600.SS", name: "Aluminum Corporation of China", cnName: "中国铝业", exchange: "SSE", market: "CN" }, { symbol: "2600.HK", name: "Chalco", cnName: "中国铝业", exchange: "HKEX", market: "HK" }],
+          "中国铝业": [{ symbol: "601600.SS", name: "Aluminum Corporation of China", cnName: "中国铝业", exchange: "SSE", market: "CN" }],
+          "鵰沙矿业": [{ symbol: "601899.SS", name: "Zijin Mining", cnName: "紫金矿业", exchange: "SSE", market: "CN" }, { symbol: "2899.HK", name: "Zijin Mining", cnName: "紫金矿业", exchange: "HKEX", market: "HK" }],
+          "紫金矿业": [{ symbol: "601899.SS", name: "Zijin Mining", cnName: "紫金矿业", exchange: "SSE", market: "CN" }],
+          "当升能源": [{ symbol: "600111.SS", name: "China Northern Rare Earth", cnName: "北方稀土", exchange: "SSE", market: "CN" }],
+          "北方稀土": [{ symbol: "600111.SS", name: "China Northern Rare Earth", cnName: "北方稀土", exchange: "SSE", market: "CN" }],
+          "埃克森美": [{ symbol: "XOM", name: "Exxon Mobil", cnName: "埃克森美石油", exchange: "NYSE", market: "US" }],
+          "埃克森美石油": [{ symbol: "XOM", name: "Exxon Mobil", cnName: "埃克森美石油", exchange: "NYSE", market: "US" }],
+          "诺德石油": [{ symbol: "CVX", name: "Chevron", cnName: "雪佛龙石油", exchange: "NYSE", market: "US" }],
+          "雪佛龙石油": [{ symbol: "CVX", name: "Chevron", cnName: "雪佛龙石油", exchange: "NYSE", market: "US" }],
+
+          // ── 消费/零售 ──
+          "永辉流行": [{ symbol: "YSX", name: "Yonghui Superstores", cnName: "永辉超市", exchange: "SSE", market: "CN" }],
+          "永辉超市": [{ symbol: "601933.SS", name: "Yonghui Superstores", cnName: "永辉超市", exchange: "SSE", market: "CN" }],
+          "高弹集团": [{ symbol: "002572.SZ", name: "Gaopeng Group", cnName: "高弹集团", exchange: "SZSE", market: "CN" }],
+          "海天味业": [{ symbol: "603288.SS", name: "Foshan Haitian Flavouring", cnName: "海天味业", exchange: "SSE", market: "CN" }],
+          "伊利洗流行": [{ symbol: "600887.SS", name: "Inner Mongolia Yili", cnName: "伊利股份", exchange: "SSE", market: "CN" }],
+          "伊利股份": [{ symbol: "600887.SS", name: "Inner Mongolia Yili", cnName: "伊利股份", exchange: "SSE", market: "CN" }],
+          "蒙牛乳业": [{ symbol: "2319.HK", name: "China Mengniu Dairy", cnName: "蒙牛乳业", exchange: "HKEX", market: "HK" }],
+          "中国海大化工": [{ symbol: "600309.SS", name: "Wanhua Chemical", cnName: "万华化学", exchange: "SSE", market: "CN" }],
+          "万华化学": [{ symbol: "600309.SS", name: "Wanhua Chemical", cnName: "万华化学", exchange: "SSE", market: "CN" }],
+          "青岛啊哈啤酒": [{ symbol: "600600.SS", name: "Tsingtao Brewery", cnName: "青岛啊哈啤酒", exchange: "SSE", market: "CN" }, { symbol: "168.HK", name: "Tsingtao Brewery", cnName: "青岛啊哈啤酒", exchange: "HKEX", market: "HK" }],
+          "青岛啊哈": [{ symbol: "600600.SS", name: "Tsingtao Brewery", cnName: "青岛啊哈啤酒", exchange: "SSE", market: "CN" }],
+          "华润万家": [{ symbol: "000568.SZ", name: "Luzhou Laojiao", cnName: "泸州老窖", exchange: "SZSE", market: "CN" }],
+          "泸州老窖": [{ symbol: "000568.SZ", name: "Luzhou Laojiao", cnName: "泸州老窖", exchange: "SZSE", market: "CN" }],
+          "山西汾水": [{ symbol: "600596.SS", name: "Shanxi Fenjiu", cnName: "汾酒股份", exchange: "SSE", market: "CN" }],
+          "汾酒股份": [{ symbol: "600596.SS", name: "Shanxi Fenjiu", cnName: "汾酒股份", exchange: "SSE", market: "CN" }],
+          "古井贡酒": [{ symbol: "000596.SZ", name: "Gujing Distillery", cnName: "古井贡酒", exchange: "SZSE", market: "CN" }],
+          "沃尔玛特": [{ symbol: "WMT", name: "Walmart Inc", cnName: "沃尔玛特", exchange: "NYSE", market: "US" }],
+          "亚马逊中国": [{ symbol: "AMZN", name: "Amazon.com Inc", cnName: "亚马逊", exchange: "NASDAQ", market: "US" }],
+
+          // ── 医药/医疗 ──
+          "中国生物制药": [{ symbol: "1177.HK", name: "Sino Biopharmaceutical", cnName: "中国生物制药", exchange: "HKEX", market: "HK" }],
+          "复星医药": [{ symbol: "002294.SZ", name: "Humanwell Healthcare", cnName: "人福医药", exchange: "SZSE", market: "CN" }],
+          "人福医药": [{ symbol: "600079.SS", name: "Humanwell Healthcare", cnName: "人福医药", exchange: "SSE", market: "CN" }],
+          "中国医药": [{ symbol: "1093.HK", name: "CSPC Pharmaceutical", cnName: "石药集团", exchange: "HKEX", market: "HK" }],
+          "石药集团": [{ symbol: "1093.HK", name: "CSPC Pharmaceutical", cnName: "石药集团", exchange: "HKEX", market: "HK" }],
+          "沃涎巴德": [{ symbol: "PFE", name: "Pfizer Inc", cnName: "辉瑞制药", exchange: "NYSE", market: "US" }],
+          "辉瑞制药": [{ symbol: "PFE", name: "Pfizer Inc", cnName: "辉瑞制药", exchange: "NYSE", market: "US" }],
+          "强生制药": [{ symbol: "JNJ", name: "Johnson & Johnson", cnName: "约翰逊逊", exchange: "NYSE", market: "US" }],
+          "约翰逊逊": [{ symbol: "JNJ", name: "Johnson & Johnson", cnName: "约翰逊逊", exchange: "NYSE", market: "US" }],
+          "小源制药": [{ symbol: "MRNA", name: "Moderna Inc", cnName: "莫德纳", exchange: "NASDAQ", market: "US" }],
+          "莫德纳": [{ symbol: "MRNA", name: "Moderna Inc", cnName: "莫德纳", exchange: "NASDAQ", market: "US" }],
+
+          // ── 金融/保险 ──
+          "中国人寿": [{ symbol: "601628.SS", name: "China Life Insurance", cnName: "中国人寿", exchange: "SSE", market: "CN" }, { symbol: "2628.HK", name: "China Life Insurance", cnName: "中国人寿", exchange: "HKEX", market: "HK" }],
+          "中国太保": [{ symbol: "601601.SS", name: "China Pacific Insurance", cnName: "中国太保", exchange: "SSE", market: "CN" }, { symbol: "2601.HK", name: "China Pacific Insurance", cnName: "中国太保", exchange: "HKEX", market: "HK" }],
+          "中国人保": [{ symbol: "1339.HK", name: "PICC Group", cnName: "中国人保", exchange: "HKEX", market: "HK" }],
+          "中信证券": [{ symbol: "600030.SS", name: "CITIC Securities", cnName: "中信证券", exchange: "SSE", market: "CN" }, { symbol: "6030.HK", name: "CITIC Securities", cnName: "中信证券", exchange: "HKEX", market: "HK" }],
+          "国泰君安": [{ symbol: "601211.SS", name: "Guotai Junan Securities", cnName: "国泰君安", exchange: "SSE", market: "CN" }],
+          "海通证券": [{ symbol: "600837.SS", name: "Haitong Securities", cnName: "海通证券", exchange: "SSE", market: "CN" }],
+          "华泰证券": [{ symbol: "601688.SS", name: "Huatai Securities", cnName: "华泰证券", exchange: "SSE", market: "CN" }],
+          "高盛证券": [{ symbol: "600859.SS", name: "GF Securities", cnName: "广发证券", exchange: "SSE", market: "CN" }],
+          "广发证券": [{ symbol: "000776.SZ", name: "GF Securities", cnName: "广发证券", exchange: "SZSE", market: "CN" }],
+          "高盛高盛": [{ symbol: "GS", name: "Goldman Sachs", cnName: "高盛集团", exchange: "NYSE", market: "US" }],
+          "高盛集团": [{ symbol: "GS", name: "Goldman Sachs", cnName: "高盛集团", exchange: "NYSE", market: "US" }],
+          "摩根大通": [{ symbol: "MS", name: "Morgan Stanley", cnName: "摩根大通", exchange: "NYSE", market: "US" }],
+          "摩根大通天津": [{ symbol: "MS", name: "Morgan Stanley", cnName: "摩根大通", exchange: "NYSE", market: "US" }],
+          "花旗銀行": [{ symbol: "C", name: "Citigroup Inc", cnName: "花旗銀行", exchange: "NYSE", market: "US" }],
+          "美国銀行": [{ symbol: "BAC", name: "Bank of America", cnName: "美国銀行", exchange: "NYSE", market: "US" }],
+          "摩根大通天津公司": [{ symbol: "JPM", name: "JPMorgan Chase", cnName: "摩根大通", exchange: "NYSE", market: "US" }],
+          "摩根大通公司": [{ symbol: "JPM", name: "JPMorgan Chase", cnName: "摩根大通", exchange: "NYSE", market: "US" }],
+          "JPMorgan": [{ symbol: "JPM", name: "JPMorgan Chase", cnName: "摩根大通", exchange: "NYSE", market: "US" }],
+          "巴克莱": [{ symbol: "BRKB", name: "Berkshire Hathaway", cnName: "伯克希尔哈撒韦", exchange: "NYSE", market: "US" }],
+          "伯克希尔": [{ symbol: "BRK.B", name: "Berkshire Hathaway", cnName: "伯克希尔哈撒韦", exchange: "NYSE", market: "US" }],
+          "巴菲特": [{ symbol: "BRK.B", name: "Berkshire Hathaway", cnName: "伯克希尔哈撒韦", exchange: "NYSE", market: "US" }],
+
+          // ── 科技/半导体 ──
+          "中兴通讯": [{ symbol: "000063.SZ", name: "ZTE Corp", cnName: "中兴通讯", exchange: "SZSE", market: "CN" }, { symbol: "763.HK", name: "ZTE Corp", cnName: "中兴通讯", exchange: "HKEX", market: "HK" }],
+          "中兴": [{ symbol: "000063.SZ", name: "ZTE Corp", cnName: "中兴通讯", exchange: "SZSE", market: "CN" }],
+          "南方电网": [{ symbol: "600116.SS", name: "Three Gorges Energy", cnName: "长江三峡能源", exchange: "SSE", market: "CN" }],
+          "长江电力": [{ symbol: "600900.SS", name: "China Yangtze Power", cnName: "长江电力", exchange: "SSE", market: "CN" }],
+          "长江三峡": [{ symbol: "600900.SS", name: "China Yangtze Power", cnName: "长江电力", exchange: "SSE", market: "CN" }],
+          "华能电力": [{ symbol: "902.HK", name: "China Resources Power", cnName: "华能电力", exchange: "HKEX", market: "HK" }],
+          "华天科技": [{ symbol: "000725.SZ", name: "BOE Technology", cnName: "京东方科技", exchange: "SZSE", market: "CN" }],
+          "京东方科技": [{ symbol: "000725.SZ", name: "BOE Technology", cnName: "京东方科技", exchange: "SZSE", market: "CN" }],
+          "安防科技": [{ symbol: "002916.SZ", name: "Shenzhen Inovance", cnName: "汇川科技", exchange: "SZSE", market: "CN" }],
+          "汇川科技": [{ symbol: "300124.SZ", name: "Shenzhen Inovance", cnName: "汇川科技", exchange: "SZSE", market: "CN" }],
+          "中联重科": [{ symbol: "300024.SZ", name: "Siasun Robot", cnName: "新松机器人", exchange: "SZSE", market: "CN" }],
+          "新松机器人": [{ symbol: "300024.SZ", name: "Siasun Robot", cnName: "新松机器人", exchange: "SZSE", market: "CN" }],
+          "立讯信息": [{ symbol: "000100.SZ", name: "TCL Technology", cnName: "TCL科技", exchange: "SZSE", market: "CN" }],
+          "TCL科技": [{ symbol: "000100.SZ", name: "TCL Technology", cnName: "TCL科技", exchange: "SZSE", market: "CN" }],
+          "工业富联": [{ symbol: "002049.SZ", name: "Unigroup Guoxin", cnName: "紫光国芯", exchange: "SZSE", market: "CN" }],
+          "紫光国芯": [{ symbol: "002049.SZ", name: "Unigroup Guoxin", cnName: "紫光国芯", exchange: "SZSE", market: "CN" }],
+          "华为技术": [{ symbol: "002502.SZ", name: "Huawei Technologies", cnName: "华为技术", exchange: "SZSE", market: "CN" }],
+          "微博": [{ symbol: "WB", name: "Weibo Corp", cnName: "微博", exchange: "NASDAQ", market: "US" }],
+          "押注平台": [{ symbol: "LAIX", name: "LAIX Inc", cnName: "押注平台", exchange: "NYSE", market: "US" }],
+          "满帮": [{ symbol: "MANU", name: "Manchester United", cnName: "曼彻斯特联队", exchange: "NYSE", market: "US" }],
+
+          // ── 房地产 ──
+          "中国恒大集团": [{ symbol: "3333.HK", name: "China Evergrande Group", cnName: "中国恒大", exchange: "HKEX", market: "HK" }],
+          "万科地产": [{ symbol: "000002.SZ", name: "Vanke Co., Ltd.", cnName: "万科A", exchange: "SZSE", market: "CN" }],
+          "保利地产": [{ symbol: "600048.SS", name: "Poly Developments", cnName: "保利发展", exchange: "SSE", market: "CN" }],
+          "保利发展": [{ symbol: "600048.SS", name: "Poly Developments", cnName: "保利发展", exchange: "SSE", market: "CN" }],
+          "金地商业": [{ symbol: "600383.SS", name: "Gemdale Corp", cnName: "金地商业", exchange: "SSE", market: "CN" }],
+          "新城发展": [{ symbol: "000002.SZ", name: "Vanke Co., Ltd.", cnName: "万科A", exchange: "SZSE", market: "CN" }],
+          "建发股份": [{ symbol: "600153.SS", name: "Jianfa Group", cnName: "建发股份", exchange: "SSE", market: "CN" }],
+
+          // ── 新能源/电动车 ──
+          "小鹏": [{ symbol: "XPEV", name: "XPeng Inc", cnName: "小鹏汽车", exchange: "NYSE", market: "US" }],
+          "小鹏汽车公司": [{ symbol: "XPEV", name: "XPeng Inc", cnName: "小鹏汽车", exchange: "NYSE", market: "US" }],
+          "小鹏小鹏": [{ symbol: "XPEV", name: "XPeng Inc", cnName: "小鹏汽车", exchange: "NYSE", market: "US" }],
+          "理想": [{ symbol: "LI", name: "Li Auto Inc", cnName: "理想汽车", exchange: "NASDAQ", market: "US" }],
+          "中山车业": [{ symbol: "601633.SS", name: "Great Wall Motor", cnName: "长城汽车", exchange: "SSE", market: "CN" }, { symbol: "2333.HK", name: "Great Wall Motor", cnName: "长城汽车", exchange: "HKEX", market: "HK" }],
+          "长城汽车": [{ symbol: "601633.SS", name: "Great Wall Motor", cnName: "长城汽车", exchange: "SSE", market: "CN" }],
+          "吉利汽车": [{ symbol: "175.HK", name: "Geely Automobile", cnName: "吉利汽车", exchange: "HKEX", market: "HK" }],
+          "上汽集团": [{ symbol: "600104.SS", name: "SAIC Motor", cnName: "上汽集团", exchange: "SSE", market: "CN" }],
+          "一汽解放": [{ symbol: "000800.SZ", name: "FAW Car", cnName: "一汽解放", exchange: "SZSE", market: "CN" }],
+          "广汽集团": [{ symbol: "601238.SS", name: "GAC Group", cnName: "广汽集团", exchange: "SSE", market: "CN" }, { symbol: "2238.HK", name: "GAC Group", cnName: "广汽集团", exchange: "HKEX", market: "HK" }],
+          "广汽": [{ symbol: "601238.SS", name: "GAC Group", cnName: "广汽集团", exchange: "SSE", market: "CN" }],
+          "福特汽车": [{ symbol: "F", name: "Ford Motor", cnName: "福特汽车", exchange: "NYSE", market: "US" }],
+          "通用汽车": [{ symbol: "GM", name: "General Motors", cnName: "通用汽车", exchange: "NYSE", market: "US" }],
+          "丰田汽车": [{ symbol: "TM", name: "Toyota Motor", cnName: "丰田汽车", exchange: "NYSE", market: "US" }],
+          "本田技研": [{ symbol: "HMC", name: "Honda Motor", cnName: "本田技研", exchange: "NYSE", market: "US" }],
+          "宝马": [{ symbol: "BMWYY", name: "BMW AG", cnName: "宝马", exchange: "OTC", market: "US" }],
+          "大众汽车": [{ symbol: "VWAGY", name: "Volkswagen AG", cnName: "大众汽车", exchange: "OTC", market: "US" }],
+        };
+
+        // ── ETF 追踪指数映射表 ──
+        const ETF_INDEX_MAP: Record<string, { cnName: string; trackingIndex: string; category: string }> = {
+          // 美股宽基指数 ETF
+          "SPY":  { cnName: "SPDR标普500 ETF",    trackingIndex: "S&P 500",           category: "ETF" },
+          "VOO":  { cnName: "Vanguard标普500 ETF", trackingIndex: "S&P 500",           category: "ETF" },
+          "IVV":  { cnName: "iShares标普500 ETF",  trackingIndex: "S&P 500",           category: "ETF" },
+          "QQQ":  { cnName: "Invesco纳斯达克100 ETF",  trackingIndex: "Nasdaq-100",       category: "ETF" },
+          "QQQM": { cnName: "Invesco纳斯达克100 ETF(小)",trackingIndex: "Nasdaq-100",       category: "ETF" },
+          "VTI":  { cnName: "Vanguard全市场 ETF",   trackingIndex: "CRSP US Total Market",category: "ETF" },
+          "IWM":  { cnName: "iShares罗珀2000 ETF",  trackingIndex: "Russell 2000",      category: "ETF" },
+          "MDY":  { cnName: "SPDR中盘股 ETF",     trackingIndex: "S&P MidCap 400",    category: "ETF" },
+          "DIA":  { cnName: "SPDR道琼工业 ETF",  trackingIndex: "Dow Jones Industrial",category: "ETF" },
+          // 行业 ETF
+          "XLK":  { cnName: "SPDR科技行业 ETF",   trackingIndex: "S&P Technology",    category: "ETF" },
+          "XLF":  { cnName: "SPDR金融行业 ETF",   trackingIndex: "S&P Financials",    category: "ETF" },
+          "XLE":  { cnName: "SPDR能源行业 ETF",   trackingIndex: "S&P Energy",        category: "ETF" },
+          "XLV":  { cnName: "SPDR医疗行业 ETF",   trackingIndex: "S&P Health Care",   category: "ETF" },
+          "XLI":  { cnName: "SPDR工业行业 ETF",   trackingIndex: "S&P Industrials",   category: "ETF" },
+          "XLY":  { cnName: "SPDR可选消费 ETF",   trackingIndex: "S&P Consumer Disc", category: "ETF" },
+          "XLP":  { cnName: "SPDR必需消费 ETF",   trackingIndex: "S&P Consumer Staples",category: "ETF" },
+          "XLU":  { cnName: "SPDR公用事业 ETF",   trackingIndex: "S&P Utilities",     category: "ETF" },
+          "XLB":  { cnName: "SPDR材料行业 ETF",   trackingIndex: "S&P Materials",     category: "ETF" },
+          "XLC":  { cnName: "SPDR通信服务 ETF",   trackingIndex: "S&P Communication", category: "ETF" },
+          "XLRE": { cnName: "SPDR房地产 ETF",     trackingIndex: "S&P Real Estate",    category: "ETF" },
+          // 国际/新兴市场 ETF
+          "EEM":  { cnName: "iShares新兴市场 ETF",  trackingIndex: "MSCI Emerging Markets",category: "ETF" },
+          "VWO":  { cnName: "Vanguard新兴市场 ETF", trackingIndex: "FTSE Emerging Markets",category: "ETF" },
+          "VEA":  { cnName: "Vanguard已开发市场 ETF",trackingIndex: "FTSE Developed ex-US",category: "ETF" },
+          "EFA":  { cnName: "iShares已开发市场 ETF",trackingIndex: "MSCI EAFE",          category: "ETF" },
+          "FXI":  { cnName: "iShares中国大盘股 ETF",trackingIndex: "FTSE China 50",      category: "ETF" },
+          "MCHI": { cnName: "iShares MSCI中国 ETF",   trackingIndex: "MSCI China",         category: "ETF" },
+          "KWEB": { cnName: "KraneShares中国互联网 ETF",trackingIndex: "CSI Overseas China Internet",category: "ETF" },
+          "ASHR": { cnName: "Xtrackers A股 ETF",      trackingIndex: "CSI 300",            category: "ETF" },
+          "CQQQ": { cnName: "Invesco中国科技 ETF",  trackingIndex: "AlphaShares China Technology",category: "ETF" },
+          "INDA": { cnName: "iShares MSCI印度 ETF",   trackingIndex: "MSCI India",         category: "ETF" },
+          "IEMG": { cnName: "iShares新兴市场核心 ETF",trackingIndex: "MSCI Emerging Markets IMI",category: "ETF" },
+          // 商品/实物 ETF
+          "GLD":  { cnName: "SPDR黄金 ETF",      trackingIndex: "Gold Spot Price",    category: "ETF" },
+          "IAU":  { cnName: "iShares黄金 ETF",    trackingIndex: "Gold Spot Price",    category: "ETF" },
+          "SLV":  { cnName: "iShares白銀 ETF",    trackingIndex: "Silver Spot Price",  category: "ETF" },
+          "GDX":  { cnName: "VanEck金矿 ETF",     trackingIndex: "NYSE Arca Gold Miners",category: "ETF" },
+          "USO":  { cnName: "United States Oil ETF",  trackingIndex: "WTI Crude Oil",     category: "ETF" },
+          "UNG":  { cnName: "United States Natural Gas ETF",trackingIndex: "Natural Gas",      category: "ETF" },
+          // 固收益/利率 ETF
+          "TLT":  { cnName: "iShares 20+年国库券 ETF",trackingIndex: "ICE US Treasury 20+ Year",category: "ETF" },
+          "IEF":  { cnName: "iShares 7-10年国库券 ETF",trackingIndex: "ICE US Treasury 7-10 Year",category: "ETF" },
+          "SHY":  { cnName: "iShares 1-3年国库券 ETF",trackingIndex: "ICE US Treasury 1-3 Year",category: "ETF" },
+          "AGG":  { cnName: "iShares综合市场应应 ETF",trackingIndex: "Bloomberg US Aggregate Bond",category: "ETF" },
+          "BND":  { cnName: "Vanguard综合市场应应 ETF",trackingIndex: "Bloomberg US Aggregate Bond",category: "ETF" },
+          "HYG":  { cnName: "iShares高收益企业应应 ETF",trackingIndex: "Markit iBoxx USD Liquid HY",category: "ETF" },
+          "LQD":  { cnName: "iShares投资级企业应应 ETF",trackingIndex: "Markit iBoxx USD Liquid IG",category: "ETF" },
+          // 成长/价值 ETF
+          "VIG":  { cnName: "Vanguard股息增长 ETF",  trackingIndex: "S&P US Dividend Growers",category: "ETF" },
+          "VYM":  { cnName: "Vanguard高股息 ETF",     trackingIndex: "FTSE High Dividend Yield",category: "ETF" },
+          "SCHD": { cnName: "Schwab美股股息 ETF",   trackingIndex: "Dow Jones US Dividend 100",category: "ETF" },
+          "DGRO": { cnName: "iShares核心股息增长 ETF",trackingIndex: "Morningstar US Dividend Growth",category: "ETF" },
+          "NOBL": { cnName: "ProShares股息贵族 ETF",trackingIndex: "S&P 500 Dividend Aristocrats",category: "ETF" },
+          // 主题/创新 ETF
+          "ARKK": { cnName: "ARK创新 ETF",        trackingIndex: "ARK Innovation",     category: "ETF" },
+          "ARKG": { cnName: "ARK基因组学革命 ETF",  trackingIndex: "ARK Genomic Revolution",category: "ETF" },
+          "ARKW": { cnName: "ARK下一代互联网 ETF",  trackingIndex: "ARK Next Generation Internet",category: "ETF" },
+          "ARKF": { cnName: "ARK金融科技 ETF",    trackingIndex: "ARK Fintech Innovation",category: "ETF" },
+          "ARKQ": { cnName: "ARK自动化技术 ETF",  trackingIndex: "ARK Autonomous Technology",category: "ETF" },
+          "BOTZ": { cnName: "Global X机器人 ETF",   trackingIndex: "Indxx Global Robotics & AI",category: "ETF" },
+          "ROBO": { cnName: "ROBO Global机器人 ETF",  trackingIndex: "ROBO Global Robotics & Automation",category: "ETF" },
+          "SOXX": { cnName: "iShares半导体 ETF",    trackingIndex: "ICE Semiconductor",  category: "ETF" },
+          "SMH":  { cnName: "VanEck半导体 ETF",     trackingIndex: "MVIS US Listed Semiconductor",category: "ETF" },
+          "SOXL": { cnName: "Direxion半导体3倍多 ETF",trackingIndex: "ICE Semiconductor 3x",category: "ETF" },
+          // 杠杆/指数多空 ETF
+          "TQQQ": { cnName: "ProShares纳斯达克1003倍多 ETF",trackingIndex: "Nasdaq-100 3x",      category: "ETF" },
+          "UPRO": { cnName: "ProShares标普5003倍多 ETF",trackingIndex: "S&P 500 3x",         category: "ETF" },
+          "SPXU": { cnName: "ProShares标普5003倍空 ETF",trackingIndex: "S&P 500 -3x",        category: "ETF" },
+          "SQQQ": { cnName: "ProShares纳斯达克1003倍空 ETF",trackingIndex: "Nasdaq-100 -3x",     category: "ETF" },
+          // 房地产 ETF
+          "VNQ":  { cnName: "Vanguard房地产 ETF",    trackingIndex: "MSCI US REIT",       category: "ETF" },
+          "IYR":  { cnName: "iShares房地产 ETF",    trackingIndex: "Dow Jones US Real Estate",category: "ETF" },
+        };
+
+        // ── 拼音首字母映射表（拼音缩写 → 中文名称） ──
+        const PINYIN_MAP: Record<string, string[]> = {
+          // 科技巨头
+          "yjd": ["英伟达"],  "nvda": ["英伟达"],
+          "pg": ["苹果"],  "apple": ["苹果"],
+          "tsla": ["特斯拉"],
+          "msft": ["微软"],  "gg": ["谷歌"],
+          "amzn": ["亚马逊"],
+          "meta": ["Meta"],  "fb": ["Meta"],
+          "nflx": ["奈飞"],
+          "intc": ["英特尔"],
+          "qcom": ["高通"],
+          "tsm": ["台积电"],
+          // 中国科技
+          "tx": ["腾讯"],  "tencent": ["腾讯"],
+          "ali": ["阿里"],  "alibaba": ["阿里巴巴"],
+          "bidu": ["百度"],  "baidu": ["百度"],
+          "jd": ["京东"],
+          "pdd": ["拼多多"],
+          "ntes": ["网易"],  "netease": ["网易"],
+          "xm": ["小米"],  "xiaomi": ["小米"],
+          "mt": ["茅台"],  "moutai": ["茅台"],
+          "byd": ["比亚迪"],
+          "catl": ["宁德时代"],
+          "nio": ["蔚来"],
+          "li": ["理想汽车"],
+          "xpev": ["小鹏汽车"],
+          "bili": ["哔哩哔哩"],  "bilibili": ["哔哩哔哩"],
+          "tcom": ["携程"],  "ctrip": ["携程"],
+          // 港股
+          "hsbc": ["汇丰控股"],
+          "aia": ["友邦保险"],
+          "hkex": ["港交所"],
+          // 金融
+          "gs": ["高盛集团"],  "goldman": ["高盛集团"],
+          "ms": ["摩根大通"],  "morgan": ["摩根大通"],
+          "jpm": ["摩根大通"],  "jpmorgan": ["摩根大通"],
+          "bac": ["美国銀行"],
+          "c": ["花旗銀行"],
+          "brk": ["巴菲特"],  "berkshire": ["伯克希尔"],
+          // 能源
+          "xom": ["埃克森美石油"],  "exxon": ["埃克森美石油"],
+          "cvx": ["雪佛龙石油"],  "chevron": ["雪佛龙石油"],
+          // 汽车
+          "tsla2": ["特斯拉"],
+          "tm": ["丰田汽车"],  "toyota": ["丰田汽车"],
+          "hmc": ["本田技研"],  "honda": ["本田技研"],
+          "f": ["福特汽车"],  "ford": ["福特汽车"],
+          "gm": ["通用汽车"],
+          // 加密
+          "btc": ["比特币"],  "bitcoin": ["比特币"],
+          "eth": ["以太坊"],  "ethereum": ["以太坊"],
+          // ETF 拼音
+          "spy": ["标普500 ETF"],
+          "qqq": ["纳斯达克100 ETF"],
+          "voo": ["标普500 ETF"],
+          "gld": ["黄金 ETF"],
+          "tlt": ["长期国库券 ETF"],
+          "arkk": ["ARK创新 ETF"],
         };
 
         // 检查是否包含中文字符
         const hasChinese = /[\u4e00-\u9fff]/.test(q);
+
+        // 拼音首字母搜索：纯英文且在拼音映射表中
+        const qLower = q.toLowerCase();
+        if (!hasChinese && PINYIN_MAP[qLower]) {
+          // 将拼音映射的中文名称转化为搜索结果
+          const cnMatches: TickerEntry[] = [];
+          for (const cnKey of PINYIN_MAP[qLower]) {
+            for (const [key, vals] of Object.entries(CN_NAME_MAP)) {
+              if (key === cnKey || key.includes(cnKey) || cnKey.includes(key)) {
+                cnMatches.push(...vals);
+              }
+            }
+          }
+          const seen = new Set<string>();
+          const unique = cnMatches.filter(m => {
+            if (seen.has(m.symbol)) return false;
+            seen.add(m.symbol);
+            return true;
+          });
+          if (unique.length > 0) {
+            return unique.map(m => ({
+              symbol: m.symbol,
+              name: m.name,
+              cnName: m.cnName,
+              exchange: m.exchange,
+              market: m.market,
+              type: ETF_INDEX_MAP[m.symbol] ? "ETF" : "Common Stock",
+              etfIndex: ETF_INDEX_MAP[m.symbol]?.trackingIndex,
+            }));
+          }
+        }
+
+        // ETF 代码直接搜索（如输入 SPY、QQQ 等）
+        const qUpper = q.toUpperCase();
+        if (!hasChinese && ETF_INDEX_MAP[qUpper]) {
+          const etfInfo = ETF_INDEX_MAP[qUpper];
+          return [{
+            symbol: qUpper,
+            name: etfInfo.cnName,
+            cnName: etfInfo.cnName,
+            exchange: "NASDAQ",
+            market: "US",
+            type: "ETF",
+            etfIndex: etfInfo.trackingIndex,
+          }];
+        }
 
         // 中文搜索：直接从映射表返回
         if (hasChinese) {
@@ -4318,12 +4655,13 @@ except Exception as e:
             cnName: m.cnName,
             exchange: m.exchange,
             market: m.market,
-            type: "Common Stock",
+            type: ETF_INDEX_MAP[m.symbol] ? "ETF" : "Common Stock",
+            etfIndex: ETF_INDEX_MAP[m.symbol]?.trackingIndex,
           }));
         }
 
         // 英文/代码搜索：并行调用 Finnhub + FMP
-        type SearchResult = { symbol: string; name: string; cnName?: string; exchange: string; market: string; type: string };
+        type SearchResult = { symbol: string; name: string; cnName?: string; exchange: string; market: string; type: string; etfIndex?: string };
 
         const EXCHANGE_MARKET_MAP: Record<string, string> = {
           NASDAQ: "US", NYSE: "US", AMEX: "US", OTC: "US",
@@ -4372,13 +4710,15 @@ except Exception as e:
               else if (sym.endsWith(".PA")) market = "FR";
               else if (sym.endsWith(".TO")) market = "CA";
               const exchange = market === "HK" ? "HKEX" : market === "CN" ? (sym.endsWith(".SS") ? "SSE" : "SZSE") : market;
+              const isEtf = ETF_INDEX_MAP[sym];
               return {
                 symbol: sym,
                 name: r.description,
-                cnName: getCnName(sym),
+                cnName: getCnName(sym) ?? isEtf?.cnName,
                 exchange,
                 market,
-                type: r.type || "Common Stock",
+                type: isEtf ? "ETF" : (r.type || "Common Stock"),
+                etfIndex: isEtf?.trackingIndex,
               } as SearchResult;
             });
           })(),
@@ -4390,13 +4730,15 @@ except Exception as e:
             if (!Array.isArray(data)) return [];
             return data.slice(0, 10).map(r => {
               const market = getMarket(r.exchange ?? "");
+              const isEtf = ETF_INDEX_MAP[r.symbol];
               return {
                 symbol: r.symbol,
                 name: r.name,
-                cnName: getCnName(r.symbol),
+                cnName: getCnName(r.symbol) ?? isEtf?.cnName,
                 exchange: r.exchange ?? "UNKNOWN",
                 market,
-                type: "Common Stock",
+                type: isEtf ? "ETF" : "Common Stock",
+                etfIndex: isEtf?.trackingIndex,
               } as SearchResult;
             });
           })(),

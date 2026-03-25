@@ -23,6 +23,14 @@ export interface AgentAnalysis {
   signal: "bullish" | "bearish" | "neutral" | "mixed";
   confidence: "high" | "medium" | "low";
   dataUsed: string[];        // 使用了哪些数据
+  /** LEVEL1A: interpretation agent 专属字段，其他 agent 为 undefined */
+  discussionHooks?: {
+    key_uncertainty: string;
+    weakest_point: string;
+    alternative_view: string;
+    follow_up_questions: string[];
+    deeper_dive: string;
+  };
 }
 
 export interface MultiAgentResult {
@@ -38,6 +46,8 @@ export interface MultiAgentResult {
     risk_view: AgentAnalysis | null;        // macro + sentiment 合并 → 风险视角
     market_context: AgentAnalysis | null;   // technical 角色 → 市场背景
   };
+  /** LEVEL1A: interpretation agent 的 discussionHooks（若已激活） */
+  discussionHooks?: AgentAnalysis["discussionHooks"];
 }
 
 // ── Agent 角色定义 ────────────────────────────────────────────────────────────
@@ -133,6 +143,19 @@ ${dataReport.slice(0, 3000)}
     const content = String(response.choices?.[0]?.message?.content || "{}");
     const parsed = JSON.parse(content);
 
+    // LEVEL1A: 提取 interpretation agent 的 discussionHooks
+    const discussionHooks = role === "interpretation" && parsed.discussionHooks
+      ? {
+          key_uncertainty: String(parsed.discussionHooks.key_uncertainty || ""),
+          weakest_point: String(parsed.discussionHooks.weakest_point || ""),
+          alternative_view: String(parsed.discussionHooks.alternative_view || ""),
+          follow_up_questions: Array.isArray(parsed.discussionHooks.follow_up_questions)
+            ? parsed.discussionHooks.follow_up_questions.slice(0, 5)
+            : [],
+          deeper_dive: String(parsed.discussionHooks.deeper_dive || ""),
+        }
+      : undefined;
+
     return {
       role,
       roleName: agentDef.name,
@@ -145,6 +168,7 @@ ${dataReport.slice(0, 3000)}
         ? parsed.confidence
         : "low",
       dataUsed: Array.isArray(parsed.dataUsed) ? parsed.dataUsed : [],
+      discussionHooks,
     };
   } catch {
     return {
@@ -327,6 +351,10 @@ export async function runMultiAgentAnalysis(
     roleName: "市场背景",
   } : null;
 
+  // LEVEL1A: 提取 interpretation agent 的 discussionHooks 到顶层
+  const interpretationAgent = agents.find(a => a.role === "interpretation");
+  const discussionHooks = interpretationAgent?.discussionHooks;
+
   return {
     agents,
     directorSummary,
@@ -334,6 +362,7 @@ export async function runMultiAgentAnalysis(
     divergenceNote,
     elapsedMs: Date.now() - t0,
     roleClassification: { valuation_view, business_view, risk_view, market_context },
+    discussionHooks,
   };
 }
 

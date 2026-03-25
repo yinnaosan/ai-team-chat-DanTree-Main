@@ -1,0 +1,33 @@
+{
+  "query": "SELECT id, openId, name, role FROM users LIMIT 5;\nSELECT MAX(id) as max_task_id FROM tasks;\nSELECT COUNT(*) as memory_count FROM memory_context;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT id, openId, name, role FROM users LIMIT 5;\nSELECT MAX(id) as max_task_id FROM tasks;\nSELECT COUNT(*) as memory_count FROM memory_context;",
+  "rows": [
+    {
+      "id": "1",
+      "openId": "VZHcqHCKffcABgBykVaBHA",
+      "name": "睿 王",
+      "role": "admin"
+    },
+    {
+      "id": "60841",
+      "openId": "BayfNKmvG7TYjqRwXpweHB",
+      "name": "Monica Han",
+      "role": "user"
+    },
+    {
+      "id": "2046056",
+      "openId": "fUj2y8diqkxkgHKS9QZFPG",
+      "name": "renhua_wang",
+      "role": "user"
+    }
+  ],
+  "messages": [
+    "max_task_id",
+    "810004",
+    "memory_count",
+    "1"
+  ],
+  "stdout": "id\topenId\tname\trole\n1\tVZHcqHCKffcABgBykVaBHA\t睿 王\tadmin\n60841\tBayfNKmvG7TYjqRwXpweHB\tMonica Han\tuser\n2046056\tfUj2y8diqkxkgHKS9QZFPG\trenhua_wang\tuser\nmax_task_id\n810004\nmemory_count\n1\n",
+  "stderr": "",
+  "execution_time_ms": 2274
+}

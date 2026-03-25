@@ -1,0 +1,52 @@
+{
+  "query": "SELECT COUNT(*) as total, MIN(taskId) as first_id, MAX(taskId) as last_id FROM memory_context WHERE taskTitle LIKE '[资源存档]%';\nSELECT taskId, taskTitle, importance, memoryType FROM memory_context WHERE taskTitle LIKE '[资源存档]%' ORDER BY taskId ASC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute SELECT COUNT(*) as total, MIN(taskId) as first_id, MAX(taskId) as last_id FROM memory_context WHERE taskTitle LIKE '[资源存档]%';\nSELECT taskId, taskTitle, importance, memoryType FROM memory_context WHERE taskTitle LIKE '[资源存档]%' ORDER BY taskId ASC;",
+  "rows": [
+    {
+      "total": "35",
+      "first_id": "810005",
+      "last_id": "810039"
+    }
+  ],
+  "messages": [
+    "taskId\ttaskTitle\timportance\tmemoryType",
+    "810005\t[资源存档] L001 browser-use\t5\tworkflow",
+    "810006\t[资源存档] L002 Pine Script v6\t3\tworkflow",
+    "810007\t[资源存档] L003 AI Shots\t2\tworkflow",
+    "810008\t[资源存档] L004 AiShort ChatGPT Shortcut\t3\tworkflow",
+    "810009\t[资源存档] L005 AI Engineering Hub\t4\tworkflow",
+    "810010\t[资源存档] L006 awesome-ai-system-prompts\t4\tworkflow",
+    "810011\t[资源存档] L007 AI Colors BairesDev\t2\tworkflow",
+    "810012\t[资源存档] L008 uiverse-io galaxy\t3\tworkflow",
+    "810013\t[资源存档] L009 Galaxy galaxyproject\t1\tworkflow",
+    "810014\t[资源存档] L010 SkillsMP\t5\tworkflow",
+    "810015\t[资源存档] L011 Prompt Optimizer\t3\tworkflow",
+    "810016\t[资源存档] L012 Awesome LLM Apps\t5\tworkflow",
+    "810017\t[资源存档] L013 Anthropic Skills\t5\tworkflow",
+    "810018\t[资源存档] L014 Free LLM API Resources\t3\tworkflow",
+    "810019\t[资源存档] L015 OpenBB Open Data Platform\t5\tworkflow",
+    "810020\t[资源存档] L016 OpenClaw 101\t2\tworkflow",
+    "810021\t[资源存档] L017 Shannon AI Pentest\t4\tworkflow",
+    "810022\t[资源存档] L018 visual-explainer\t4\tworkflow",
+    "810023\t[资源存档] L019 Page Agent Alibaba\t3\tworkflow",
+    "810024\t[资源存档] L020 PageEyes Agent Tencent\t3\tworkflow",
+    "810025\t[资源存档] L021 MiroFish\t4\tworkflow",
+    "810026\t[资源存档] L022 shadcn/ui\t3\tworkflow",
+    "810027\t[资源存档] L023 DeerFlow ByteDance\t5\tworkflow",
+    "810028\t[资源存档] L024 Lightpanda Browser\t4\tworkflow",
+    "810029\t[资源存档] L025 UI UX Pro Max Skill\t4\tworkflow",
+    "810030\t[资源存档] L026 Production Agentic RAG Course\t4\tworkflow",
+    "810031\t[资源存档] L027 Kronos Financial Foundation Model\t5\tworkflow",
+    "810032\t[资源存档] L028 股票智能分析系统 daily_stock_analysis\t5\tworkflow",
+    "810033\t[资源存档] L029 FMHY freemediaheckyeah\t2\tworkflow",
+    "810034\t[资源存档] L030 OpenStock\t3\tworkflow",
+    "810035\t[资源存档] L031 大盘云图 cloudmap\t1\tworkflow",
+    "810036\t[资源存档] L032 World Monitor\t4\tworkflow",
+    "810037\t[资源存档] L033 Databuddy Analytics\t3\tworkflow",
+    "810038\t[资源存档] L034 Graphic Walker\t4\tworkflow",
+    "810039\t[资源存档] L035 Defeat Beta API\t5\tworkflow"
+  ],
+  "stdout": "total\tfirst_id\tlast_id\n35\t810005\t810039\ntaskId\ttaskTitle\timportance\tmemoryType\n810005\t[资源存档] L001 browser-use\t5\tworkflow\n810006\t[资源存档] L002 Pine Script v6\t3\tworkflow\n810007\t[资源存档] L003 AI Shots\t2\tworkflow\n810008\t[资源存档] L004 AiShort ChatGPT Shortcut\t3\tworkflow\n810009\t[资源存档] L005 AI Engineering Hub\t4\tworkflow\n810010\t[资源存档] L006 awesome-ai-system-prompts\t4\tworkflow\n810011\t[资源存档] L007 AI Colors BairesDev\t2\tworkflow\n810012\t[资源存档] L008 uiverse-io galaxy\t3\tworkflow\n810013\t[资源存档] L009 Galaxy galaxyproject\t1\tworkflow\n810014\t[资源存档] L010 SkillsMP\t5\tworkflow\n810015\t[资源存档] L011 Prompt Optimizer\t3\tworkflow\n810016\t[资源存档] L012 Awesome LLM Apps\t5\tworkflow\n810017\t[资源存档] L013 Anthropic Skills\t5\tworkflow\n810018\t[资源存档] L014 Free LLM API Resources\t3\tworkflow\n810019\t[资源存档] L015 OpenBB Open Data Platform\t5\tworkflow\n810020\t[资源存档] L016 OpenClaw 101\t2\tworkflow\n810021\t[资源存档] L017 Shannon AI Pentest\t4\tworkflow\n810022\t[资源存档] L018 visual-explainer\t4\tworkflow\n810023\t[资源存档] L019 Page Agent Alibaba\t3\tworkflow\n810024\t[资源存档] L020 PageEyes Agent Tencent\t3\tworkflow\n810025\t[资源存档] L021 MiroFish\t4\tworkflow\n810026\t[资源存档] L022 shadcn/ui\t3\tworkflow\n810027\t[资源存档] L023 DeerFlow ByteDance\t5\tworkflow\n810028\t[资源存档] L024 Lightpanda Browser\t4\tworkflow\n810029\t[资源存档] L025 UI UX Pro Max Skill\t4\tworkflow\n810030\t[资源存档] L026 Production Agentic RAG Course\t4\tworkflow\n810031\t[资源存档] L027 Kronos Financial Foundation Model\t5\tworkflow\n810032\t[资源存档] L028 股票智能分析系统 daily_stock_analysis\t5\tworkflow\n810033\t[资源存档] L029 FMHY freemediaheckyeah\t2\tworkflow\n810034\t[资源存档] L030 OpenStock\t3\tworkflow\n810035\t[资源存档] L031 大盘云图 cloudmap\t1\tworkflow\n810036\t[资源存档] L032 World Monitor\t4\tworkflow\n810037\t[资源存档] L033 Databuddy Analytics\t3\tworkflow\n810038\t[资源存档] L034 Graphic Walker\t4\tworkflow\n810039\t[资源存档] L035 Defeat Beta API\t5\tworkflow\n",
+  "stderr": "",
+  "execution_time_ms": 408
+}

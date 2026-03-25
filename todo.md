@@ -2364,3 +2364,12 @@
 - [x] 修复 A股财务层字段（gross_selling_rate=毛利率, net_interest_of_total_assets=ROA）
 - [x] 讨论帖子接口确认仅主域名可用，沙箋限制主域名，子域名返回 403，部署后再测试
 - [x] 728 个测试全部通过
+
+## 第四十一轮：东方财富接口调研（A股机构评级）
+- [x] 测试东方财富接口：机构评级接口在沙箋环境返回 9501（服务端 IP 白名单限制）
+- [x] 结论：东方财富机构评级无法在沙箋可靠调通，放弃该方向，已有 Finnhub/FMP 覆盖分析师评级
+
+## 第四十二轮：清理雪球无效功能代码
+- [x] 重写 xueqiuApi.ts：删除机构评级、讨论帖子、XueqiuReport/XueqiuDiscussionPost 类型，代码行数 674→340
+- [x] 确认 routers.ts 无无效引用（r.xueqiu.items 属于 cnFinanceNewsApi 不受影响）
+- [x] TypeScript 编译 0 错误，728 个测试全部通过

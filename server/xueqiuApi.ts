@@ -2,15 +2,16 @@
  * xueqiuApi.ts
  * 雪球数据接口模块（游客 Token 自动获取，无需用户配置）
  *
- * 数据分层架构（参考 GPT 制定的数据源分组清洗策略）：
- *   Layer 1 — 情绪层：股票讨论帖子（投资者情绪、热度）
- *   Layer 2 — 评级层：机构研报评级（国内券商评级/目标价）
- *   Layer 3 — 资金层：资金流向（主力资金净流入/流出）
- *   Layer 4 — 财务层：财务指标（A股季报/年报核心指标）
- *   Layer 5 — 行情层：股票实时详情（价格/估值/基本面）
+ * 数据分层架构（实际可用接口）：
+ *   Layer 1 — 行情层：股票实时详情（价格/估值/基本面）
+ *   Layer 2 — 资金层：资金流向（主力资金净流入/流出）
+ *   Layer 3 — 财务层：财务指标（A股/港股季报/年报核心指标）
  *
  * 接口来源：stock.xueqiu.com（非官方内部 API，学习自 pysnowball 开源项目）
  * Token 策略：访问 xueqiu.com/hq 首页自动获取游客 token，缓存 30 分钟
+ *
+ * 注：机构评级接口（stock.xueqiu.com/stock/report/latest.json）游客 token 权限不足，返回空数据。
+ *     讨论帖子接口（xueqiu.com 主域名）在服务器环境受网络限制，暂不支持。
  */
 
 const FETCH_TIMEOUT_MS = 12000;
@@ -44,21 +45,9 @@ async function getGuestToken(): Promise<string> {
       signal: controller.signal,
     });
 
-    // 从 set-cookie 中提取所有 cookie
-    const setCookie = res.headers.get("set-cookie") || "";
-    // Node.js fetch 有时将多个 set-cookie 合并，需要分割
-    const cookieParts: string[] = [];
-    setCookie.split(",").forEach((part) => {
-      const trimmed = part.trim();
-      if (trimmed.match(/^[a-zA-Z_]+=/) || trimmed.match(/^xq_/)) {
-        cookieParts.push(trimmed.split(";")[0].trim());
-      }
-    });
-
-    // 如果 set-cookie 解析失败，尝试从响应头直接拼接
     const rawCookies = res.headers.getSetCookie
       ? res.headers.getSetCookie()
-      : [setCookie];
+      : [res.headers.get("set-cookie") || ""];
 
     const cookieMap: Record<string, string> = {};
     rawCookies.forEach((c) => {
@@ -75,17 +64,10 @@ async function getGuestToken(): Promise<string> {
       .map(([k, v]) => `${k}=${v}`)
       .join("; ");
 
-    if (cookieStr) {
-      cachedToken = cookieStr;
-      tokenFetchedAt = now;
-      return cookieStr;
-    }
-
-    // 降级：使用 set-cookie 原始字符串的第一段
-    const fallback = setCookie.split(";")[0].trim();
-    cachedToken = fallback;
+    const token = cookieStr || rawCookies[0]?.split(";")[0].trim() || "";
+    cachedToken = token;
     tokenFetchedAt = now;
-    return fallback;
+    return token;
   } finally {
     clearTimeout(timer);
   }
@@ -149,17 +131,6 @@ export interface XueqiuQuote {
   timestamp: number;
 }
 
-export interface XueqiuReport {
-  title: string;
-  rpt_comp: string; // 券商名称
-  rating_desc: string; // 评级：买入/增持/中性/减持/卖出
-  target_price_min: number | null;
-  target_price_max: number | null;
-  pub_date: number;
-  reply_count: number;
-  like_count: number;
-}
-
 export interface XueqiuCapitalFlowItem {
   timestamp: number;
   amount: number; // 正=流入，负=流出
@@ -176,72 +147,49 @@ export interface XueqiuCapitalHistory {
 export interface XueqiuFinanceIndicator {
   report_date: number;
   report_name: string;
-  avg_roe: [number, number] | null;          // [值, YoY变化率]
-  np_per_share: [number, number] | null;     // 每股收益
+  avg_roe: [number, number] | null;              // [值, YoY变化率]
+  np_per_share: [number, number] | null;         // 每股收益
   operate_cash_flow_ps: [number, number] | null; // 每股经营现金流
-  total_revenue: [number, number] | null;    // 营业总收入
-  net_profit: [number, number] | null;       // 净利润
-  gross_profit_margin: [number, number] | null; // 毛利率
-  net_profit_margin: [number, number] | null;   // 净利率
-  asset_liab_ratio: [number, number] | null;    // 资产负债率
-}
-
-export interface XueqiuDiscussionPost {
-  id: string;
-  text: string;
-  timeBefore: string;
-  retweet_count: number;
-  reply_count: number;
-  like_count: number;
-  user_name: string;
+  total_revenue: [number, number] | null;        // 营业总收入
+  net_profit: [number, number] | null;           // 净利润
+  gross_profit_margin: [number, number] | null;  // 毛利率
+  net_profit_margin: [number, number] | null;    // 净利率/ROA
+  asset_liab_ratio: [number, number] | null;     // 资产负债率
 }
 
 export interface XueqiuData {
   symbol: string;
   fetchedAt: number;
-  // Layer 1: 情绪层
-  discussion?: {
-    posts: XueqiuDiscussionPost[];
-    totalCount: number;
+  // Layer 1: 行情层
+  quote?: {
+    data: XueqiuQuote;
     error?: string;
   };
-  // Layer 2: 评级层
-  reports?: {
-    items: XueqiuReport[];
-    ratingDistribution: Record<string, number>; // {买入: 3, 增持: 2, ...}
-    latestRating: string;
-    error?: string;
-  };
-  // Layer 3: 资金层
+  // Layer 2: 资金层
   capitalFlow?: {
-    today: number;       // 今日净流入（元）
+    today: number;
     history: XueqiuCapitalHistory;
     trend: "inflow" | "outflow" | "neutral";
     error?: string;
   };
-  // Layer 4: 财务层
+  // Layer 3: 财务层
   finance?: {
     indicators: XueqiuFinanceIndicator[];
     latestPeriod: string;
     error?: string;
   };
-  // Layer 5: 行情层
-  quote?: {
-    data: XueqiuQuote;
-    error?: string;
-  };
   errors: string[];
 }
 
-// ─── Layer 2: 机构研报评级 ────────────────────────────────────────────────────
+// ─── Layer 1: 股票行情详情 ────────────────────────────────────────────────────
 
-export async function fetchXueqiuReports(symbol: string): Promise<XueqiuReport[]> {
-  const url = `https://stock.xueqiu.com/stock/report/latest.json?symbol=${symbol}`;
-  const data = (await xueqiuFetch(url)) as { list?: XueqiuReport[] };
-  return data.list || [];
+export async function fetchXueqiuQuote(symbol: string): Promise<XueqiuQuote | null> {
+  const url = `https://stock.xueqiu.com/v5/stock/quote.json?extend=detail&symbol=${symbol}`;
+  const data = (await xueqiuFetch(url)) as { data?: { quote?: XueqiuQuote } };
+  return data.data?.quote || null;
 }
 
-// ─── Layer 3: 资金流向 ────────────────────────────────────────────────────────
+// ─── Layer 2: 资金流向 ────────────────────────────────────────────────────────
 
 export async function fetchXueqiuCapitalFlow(symbol: string): Promise<{
   today: number;
@@ -257,37 +205,26 @@ export async function fetchXueqiuCapitalFlow(symbol: string): Promise<{
 
   // 历史资金流向（日级）
   const histUrl = `https://stock.xueqiu.com/v5/stock/capital/history.json?symbol=${symbol}`;
-  const histData = (await xueqiuFetch(histUrl)) as {
-    data?: XueqiuCapitalHistory;
-  };
+  const histData = (await xueqiuFetch(histUrl)) as { data?: XueqiuCapitalHistory };
   const history: XueqiuCapitalHistory = histData.data || {
-    sum3: 0,
-    sum5: 0,
-    sum10: 0,
-    sum20: 0,
-    items: [],
+    sum3: 0, sum5: 0, sum10: 0, sum20: 0, items: [],
   };
 
   return { today: todayTotal, history };
 }
 
-// ─── Layer 4: 财务指标 ──────────────────────────────────────────────────
+// ─── Layer 3: 财务指标 ────────────────────────────────────────────────────────
 
-/**
- * 判断是否为港股（雪球港股使用 /hk/ 路径，字段名不同）
- */
 function isHKSymbol(symbol: string): boolean {
   const upper = symbol.toUpperCase();
-  // 纯数字4-5位（港股代码）
   return /^\d{4,5}$/.test(upper) || upper.endsWith(".HK");
 }
 
-/**
- * 解析雪球财务指标数据（兼容 A股/港股不同字段名）
- */
-function normalizeFinanceIndicator(raw: Record<string, unknown>, isHK: boolean): XueqiuFinanceIndicator {
+function normalizeFinanceIndicator(
+  raw: Record<string, unknown>,
+  isHK: boolean
+): XueqiuFinanceIndicator {
   if (isHK) {
-    // 港股字段映射
     return {
       report_date: raw.report_date as number,
       report_name: raw.report_name as string,
@@ -302,8 +239,6 @@ function normalizeFinanceIndicator(raw: Record<string, unknown>, isHK: boolean):
     };
   }
   // A股字段映射
-  // 实际字段：avg_roe(净资产收益率) np_per_share(每股收益) operate_cash_flow_ps(每股经营现金流)
-  //          basic_eps(基本每股收益) gross_selling_rate(毛利率) net_interest_of_total_assets(ROA)
   return {
     report_date: raw.report_date as number,
     report_name: raw.report_name as string,
@@ -313,8 +248,8 @@ function normalizeFinanceIndicator(raw: Record<string, unknown>, isHK: boolean):
     total_revenue: null,
     net_profit: null,
     gross_profit_margin: raw.gross_selling_rate as [number, number] | null,
-    net_profit_margin: raw.net_interest_of_total_assets as [number, number] | null, // ROA 作为替代
-    asset_liab_ratio: null, // A股该接口无资产负债率
+    net_profit_margin: raw.net_interest_of_total_assets as [number, number] | null,
+    asset_liab_ratio: null,
   };
 }
 
@@ -323,7 +258,6 @@ export async function fetchXueqiuFinanceIndicator(
   count = 4
 ): Promise<XueqiuFinanceIndicator[]> {
   const hk = isHKSymbol(symbol);
-  // 港股优先尝试年报，其次季报
   const paths = hk
     ? [
         `https://stock.xueqiu.com/v5/stock/finance/hk/indicator.json?symbol=${symbol}&type=annual&count=${count}`,
@@ -347,66 +281,42 @@ export async function fetchXueqiuFinanceIndicator(
   return [];
 }
 
-// ─── Layer 5: 股票行情详情 ────────────────────────────────────────────────────
-
-export async function fetchXueqiuQuote(symbol: string): Promise<XueqiuQuote | null> {
-  const url = `https://stock.xueqiu.com/v5/stock/quote.json?extend=detail&symbol=${symbol}`;
-  const data = (await xueqiuFetch(url)) as {
-    data?: { quote?: XueqiuQuote };
-  };
-  return data.data?.quote || null;
-}
-
-// ─── 聚合入口：并行获取所有层数据 ─────────────────────────────────────────────
+// ─── 代码转换工具 ─────────────────────────────────────────────────────────────
 
 /**
  * 判断是否为 A股/港股代码（雪球格式：SH600519 / SZ000001 / 09992）
  */
 export function isXueqiuSupportedSymbol(symbol: string): boolean {
   const upper = symbol.toUpperCase();
-  // A股：SH/SZ 前缀
   if (upper.startsWith("SH") || upper.startsWith("SZ")) return true;
-  // 港股：纯数字（如 09992, 00700）或 HK 前缀
   if (/^\d{4,5}$/.test(upper) || upper.startsWith("HK")) return true;
-  // 雪球格式港股：09992.HK
   if (/^\d+\.HK$/.test(upper)) return true;
   return false;
 }
 
 /**
  * 将通用股票代码转换为雪球格式
- * AAPL → AAPL（美股直接使用）
- * 600519 → SH600519
- * 000001 → SZ000001
- * 00700 → 00700（港股）
+ * 600519 → SH600519 | 000001 → SZ000001 | 00700 → 00700（港股）
  */
 export function toXueqiuSymbol(symbol: string): string {
   const upper = symbol.toUpperCase().trim();
-  // 已经是雪球格式
   if (upper.startsWith("SH") || upper.startsWith("SZ")) return upper;
-  // 纯6位数字：A股
   if (/^\d{6}$/.test(upper)) {
     const code = parseInt(upper, 10);
-    // 上交所：60xxxx, 68xxxx, 900xxx
     if (code >= 600000 || (code >= 900000 && code < 1000000)) return `SH${upper}`;
-    // 深交所：00xxxx, 30xxxx, 002xxx
     return `SZ${upper}`;
   }
-  // 港股：4-5位数字
   if (/^\d{4,5}$/.test(upper)) return upper;
   return upper;
 }
 
-/**
- * 并行获取雪球所有层数据
- * 任意层失败不影响其他层
- */
+// ─── 聚合入口：并行获取所有层数据 ─────────────────────────────────────────────
+
 export async function fetchXueqiuData(rawSymbol: string): Promise<XueqiuData> {
   const symbol = toXueqiuSymbol(rawSymbol);
   const errors: string[] = [];
   const fetchedAt = Date.now();
 
-  // 预先获取一次 token（避免并发重复获取）
   let token = "";
   try {
     token = await getGuestToken();
@@ -415,39 +325,24 @@ export async function fetchXueqiuData(rawSymbol: string): Promise<XueqiuData> {
     return { symbol, fetchedAt, errors };
   }
 
-  // 并行获取各层数据
-  const [reportsResult, capitalResult, financeResult, quoteResult] =
-    await Promise.allSettled([
-      fetchXueqiuReports(symbol),
-      fetchXueqiuCapitalFlow(symbol),
-      fetchXueqiuFinanceIndicator(symbol),
-      fetchXueqiuQuote(symbol),
-    ]);
+  const [quoteResult, capitalResult, financeResult] = await Promise.allSettled([
+    fetchXueqiuQuote(symbol),
+    fetchXueqiuCapitalFlow(symbol),
+    fetchXueqiuFinanceIndicator(symbol),
+  ]);
 
   const result: XueqiuData = { symbol, fetchedAt, errors };
 
-  // Layer 2: 评级层
-  if (reportsResult.status === "fulfilled") {
-    const items = reportsResult.value;
-    const ratingDistribution: Record<string, number> = {};
-    items.forEach((r) => {
-      const rating = r.rating_desc || "未知";
-      ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
-    });
-    const latestRating = items[0]?.rating_desc || "无评级";
-    result.reports = { items, ratingDistribution, latestRating };
+  // Layer 1: 行情层
+  if (quoteResult.status === "fulfilled" && quoteResult.value) {
+    result.quote = { data: quoteResult.value };
   } else {
-    const err = String(reportsResult.reason);
-    result.reports = {
-      items: [],
-      ratingDistribution: {},
-      latestRating: "获取失败",
-      error: err,
-    };
-    errors.push(`评级层: ${err}`);
+    const err = quoteResult.status === "rejected" ? String(quoteResult.reason) : "无数据";
+    result.quote = { data: {} as XueqiuQuote, error: err };
+    errors.push(`行情层: ${err}`);
   }
 
-  // Layer 3: 资金层
+  // Layer 2: 资金层
   if (capitalResult.status === "fulfilled") {
     const { today, history } = capitalResult.value;
     const trend: "inflow" | "outflow" | "neutral" =
@@ -464,7 +359,7 @@ export async function fetchXueqiuData(rawSymbol: string): Promise<XueqiuData> {
     errors.push(`资金层: ${err}`);
   }
 
-  // Layer 4: 财务层
+  // Layer 3: 财务层
   if (financeResult.status === "fulfilled") {
     const indicators = financeResult.value;
     const latestPeriod = indicators[0]?.report_name || "无数据";
@@ -475,35 +370,17 @@ export async function fetchXueqiuData(rawSymbol: string): Promise<XueqiuData> {
     errors.push(`财务层: ${err}`);
   }
 
-  // Layer 5: 行情层
-  if (quoteResult.status === "fulfilled" && quoteResult.value) {
-    result.quote = { data: quoteResult.value };
-  } else {
-    const err =
-      quoteResult.status === "rejected"
-        ? String(quoteResult.reason)
-        : "无数据";
-    result.quote = { data: {} as XueqiuQuote, error: err };
-    errors.push(`行情层: ${err}`);
-  }
-
   return result;
 }
 
 // ─── 数据清洗 & Markdown 格式化 ───────────────────────────────────────────────
 
-/**
- * 格式化资金金额（亿元）
- */
 function fmtCapital(amount: number): string {
   const yi = amount / 1e8;
   const sign = yi >= 0 ? "+" : "";
   return `${sign}${yi.toFixed(2)}亿`;
 }
 
-/**
- * 格式化百分比（带 YoY 变化）
- */
 function fmtYoY(pair: [number, number] | null, unit = ""): string {
   if (!pair) return "N/A";
   const [val, yoy] = pair;
@@ -513,7 +390,6 @@ function fmtYoY(pair: [number, number] | null, unit = ""): string {
 
 /**
  * 将雪球数据格式化为 Markdown（注入 AI 分析上下文）
- * 按 GPT 数据分组清洗策略分层输出
  */
 export function formatXueqiuDataAsMarkdown(data: XueqiuData): string {
   if (!data.symbol) return "";
@@ -521,13 +397,11 @@ export function formatXueqiuDataAsMarkdown(data: XueqiuData): string {
   const sections: string[] = [];
   const sym = data.symbol;
 
-  // ── Layer 5: 行情层（放最前，提供基础背景）──
+  // Layer 1: 行情层
   if (data.quote?.data?.name) {
     const q = data.quote.data;
     const pct = q.percent >= 0 ? `+${q.percent.toFixed(2)}%` : `${q.percent.toFixed(2)}%`;
-    const mktCap = q.market_capital
-      ? `市值: ${(q.market_capital / 1e8).toFixed(0)}亿`
-      : "";
+    const mktCap = q.market_capital ? `市值: ${(q.market_capital / 1e8).toFixed(0)}亿` : "";
     const pe = q.pe_ttm ? `PE(TTM): ${q.pe_ttm.toFixed(1)}` : "";
     const pb = q.pb ? `PB: ${q.pb.toFixed(2)}` : "";
     const dy = q.dividend_yield ? `股息率: ${q.dividend_yield.toFixed(2)}%` : "";
@@ -541,45 +415,18 @@ export function formatXueqiuDataAsMarkdown(data: XueqiuData): string {
     );
   }
 
-  // ── Layer 2: 评级层 ──
-  if (data.reports && data.reports.items.length > 0) {
-    const { items, ratingDistribution, latestRating } = data.reports;
-    const distStr = Object.entries(ratingDistribution)
-      .map(([k, v]) => `${k}×${v}`)
-      .join(" / ");
-
-    const rows = items.slice(0, 5).map((r) => {
-      const date = new Date(r.pub_date).toLocaleDateString("zh-CN");
-      const tp =
-        r.target_price_min && r.target_price_max
-          ? `目标价: ${r.target_price_min}~${r.target_price_max}`
-          : r.target_price_max
-          ? `目标价: ${r.target_price_max}`
-          : "";
-      return `- [${date}] **${r.rpt_comp}** | ${r.rating_desc} ${tp ? `| ${tp}` : ""} | ${r.title.slice(0, 40)}`;
-    });
-
-    sections.push(
-      `**【雪球机构评级】最新: ${latestRating} | 分布: ${distStr}**\n` +
-        rows.join("\n")
-    );
-  }
-
-  // ── Layer 3: 资金层 ──
+  // Layer 2: 资金层
   if (data.capitalFlow) {
     const { today, history, trend } = data.capitalFlow;
     const trendEmoji =
       trend === "inflow" ? "🟢 净流入" : trend === "outflow" ? "🔴 净流出" : "⚪ 中性";
-    const todayStr = fmtCapital(today);
-    const h = history;
-
     sections.push(
-      `**【雪球资金流向】今日: ${todayStr} (${trendEmoji})**\n` +
-        `3日累计: ${fmtCapital(h.sum3)} | 5日: ${fmtCapital(h.sum5)} | 10日: ${fmtCapital(h.sum10)} | 20日: ${fmtCapital(h.sum20)}`
+      `**【雪球资金流向】今日: ${fmtCapital(today)} (${trendEmoji})**\n` +
+        `3日: ${fmtCapital(history.sum3)} | 5日: ${fmtCapital(history.sum5)} | 10日: ${fmtCapital(history.sum10)} | 20日: ${fmtCapital(history.sum20)}`
     );
   }
 
-  // ── Layer 4: 财务层 ──
+  // Layer 3: 财务层
   if (data.finance && data.finance.indicators.length > 0) {
     const { indicators, latestPeriod } = data.finance;
     const rows = indicators.slice(0, 4).map((ind) => {
@@ -592,7 +439,7 @@ export function formatXueqiuDataAsMarkdown(data: XueqiuData): string {
 
     sections.push(
       `**【雪球财务指标】最新报告期: ${latestPeriod}**\n` +
-        `| 报告期 | ROE | EPS | 净利率 | 资产负债率 |\n` +
+        `| 报告期 | ROE | EPS | 净利率/ROA | 资产负债率 |\n` +
         `|---|---|---|---|---|\n` +
         rows.join("\n")
     );
@@ -611,14 +458,13 @@ export function formatXueqiuDataAsMarkdown(data: XueqiuData): string {
  * 判断查询是否需要雪球数据（A股/港股相关）
  */
 export function isXueqiuRelevant(query: string, symbol?: string): boolean {
-  // 如果有明确的 A股/港股代码
   if (symbol && isXueqiuSupportedSymbol(symbol)) return true;
 
   const keywords = [
     "A股", "港股", "沪深", "创业板", "科创板", "北交所",
     "茅台", "宁德", "比亚迪", "腾讯", "阿里", "百度", "小米",
-    "中国股市", "A股行情", "机构评级", "资金流向", "主力资金",
-    "券商评级", "研报", "财务指标", "ROE", "净利率",
+    "中国股市", "A股行情", "资金流向", "主力资金",
+    "财务指标", "ROE", "净利率",
     "SH6", "SZ0", "SZ3", "0700", "9988", "3690",
   ];
   const queryLower = query.toLowerCase();
@@ -639,35 +485,20 @@ export async function checkXueqiuHealth(): Promise<{
     const token = await getGuestToken();
     const latencyMs = Date.now() - start;
     if (token) {
-      // 快速验证：获取热股列表
       const res = await fetch(
         "https://stock.xueqiu.com/v5/stock/hot_stock/list.json?size=1&_type=10&type=10",
         {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            Cookie: token,
-            Referer: "https://xueqiu.com/",
-          },
+          headers: { "User-Agent": "Mozilla/5.0", Cookie: token, Referer: "https://xueqiu.com/" },
           signal: AbortSignal.timeout(8000),
         }
       );
       if (res.ok) {
         return { ok: true, latencyMs, status: "ok", message: "雪球游客 Token 正常" };
       }
-      return {
-        ok: false,
-        latencyMs,
-        status: "error",
-        message: `热股接口 HTTP ${res.status}`,
-      };
+      return { ok: false, latencyMs, status: "error", message: `热股接口 HTTP ${res.status}` };
     }
     return { ok: false, latencyMs, status: "error", message: "Token 为空" };
   } catch (err) {
-    return {
-      ok: false,
-      latencyMs: Date.now() - start,
-      status: "error",
-      message: String(err),
-    };
+    return { ok: false, latencyMs: Date.now() - start, status: "error", message: String(err) };
   }
 }

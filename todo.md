@@ -2357,3 +2357,10 @@
 - [x] Settings.tsx 添加雪球状态行，数据源总数 36→37
 - [x] citationSummary 注册 xueqiu 归因闭环
 - [x] TypeScript 编译 0 错误，728 个测试全部通过
+
+## 第四十轮：雪球接口测试 + 讨论帖子情绪补充
+- [x] 验证茂台/腾讯/比亚迪/小米数据质量：行情层全部通过✅
+- [x] 修复港股财务层字段（/hk/indicator.json 路径，roe/beps/gpm 字段映射）
+- [x] 修复 A股财务层字段（gross_selling_rate=毛利率, net_interest_of_total_assets=ROA）
+- [x] 讨论帖子接口确认仅主域名可用，沙箋限制主域名，子域名返回 403，部署后再测试
+- [x] 728 个测试全部通过

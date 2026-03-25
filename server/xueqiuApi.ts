@@ -271,17 +271,80 @@ export async function fetchXueqiuCapitalFlow(symbol: string): Promise<{
   return { today: todayTotal, history };
 }
 
-// ─── Layer 4: 财务指标 ────────────────────────────────────────────────────────
+// ─── Layer 4: 财务指标 ──────────────────────────────────────────────────
+
+/**
+ * 判断是否为港股（雪球港股使用 /hk/ 路径，字段名不同）
+ */
+function isHKSymbol(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  // 纯数字4-5位（港股代码）
+  return /^\d{4,5}$/.test(upper) || upper.endsWith(".HK");
+}
+
+/**
+ * 解析雪球财务指标数据（兼容 A股/港股不同字段名）
+ */
+function normalizeFinanceIndicator(raw: Record<string, unknown>, isHK: boolean): XueqiuFinanceIndicator {
+  if (isHK) {
+    // 港股字段映射
+    return {
+      report_date: raw.report_date as number,
+      report_name: raw.report_name as string,
+      avg_roe: raw.roe as [number, number] | null,
+      np_per_share: raw.beps as [number, number] | null,
+      operate_cash_flow_ps: raw.ncfps as [number, number] | null,
+      total_revenue: null,
+      net_profit: null,
+      gross_profit_margin: raw.gpm as [number, number] | null,
+      net_profit_margin: raw.lnrerate as [number, number] | null,
+      asset_liab_ratio: raw.tlia_ta as [number, number] | null,
+    };
+  }
+  // A股字段映射
+  // 实际字段：avg_roe(净资产收益率) np_per_share(每股收益) operate_cash_flow_ps(每股经营现金流)
+  //          basic_eps(基本每股收益) gross_selling_rate(毛利率) net_interest_of_total_assets(ROA)
+  return {
+    report_date: raw.report_date as number,
+    report_name: raw.report_name as string,
+    avg_roe: raw.avg_roe as [number, number] | null,
+    np_per_share: raw.np_per_share as [number, number] | null,
+    operate_cash_flow_ps: raw.operate_cash_flow_ps as [number, number] | null,
+    total_revenue: null,
+    net_profit: null,
+    gross_profit_margin: raw.gross_selling_rate as [number, number] | null,
+    net_profit_margin: raw.net_interest_of_total_assets as [number, number] | null, // ROA 作为替代
+    asset_liab_ratio: null, // A股该接口无资产负债率
+  };
+}
 
 export async function fetchXueqiuFinanceIndicator(
   symbol: string,
   count = 4
 ): Promise<XueqiuFinanceIndicator[]> {
-  const url = `https://stock.xueqiu.com/v5/stock/finance/cn/indicator.json?symbol=${symbol}&type=Q4&count=${count}`;
-  const data = (await xueqiuFetch(url)) as {
-    data?: { list?: XueqiuFinanceIndicator[] };
-  };
-  return data.data?.list || [];
+  const hk = isHKSymbol(symbol);
+  // 港股优先尝试年报，其次季报
+  const paths = hk
+    ? [
+        `https://stock.xueqiu.com/v5/stock/finance/hk/indicator.json?symbol=${symbol}&type=annual&count=${count}`,
+        `https://stock.xueqiu.com/v5/stock/finance/hk/indicator.json?symbol=${symbol}&type=Q4&count=${count}`,
+      ]
+    : [
+        `https://stock.xueqiu.com/v5/stock/finance/cn/indicator.json?symbol=${symbol}&type=Q4&count=${count}`,
+      ];
+
+  for (const url of paths) {
+    try {
+      const data = (await xueqiuFetch(url)) as { data?: { list?: Record<string, unknown>[] } };
+      const rawList = data.data?.list || [];
+      if (rawList.length > 0) {
+        return rawList.map((r) => normalizeFinanceIndicator(r, hk));
+      }
+    } catch {
+      // 尝试下一个 URL
+    }
+  }
+  return [];
 }
 
 // ─── Layer 5: 股票行情详情 ────────────────────────────────────────────────────

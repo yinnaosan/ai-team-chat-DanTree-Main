@@ -4206,6 +4206,241 @@ except Exception as e:
           return { ...base, price: null, change: null, pctChange: null, prevClose: null, high: null, low: null, error: (r.reason as Error).message };
         });
       }),
+
+    // 股票搜索：支持股票代码、英文名称、中文名称搜索，覆盖美股/港股/A股/ETF
+    searchTicker: protectedProcedure
+      .input(z.object({ query: z.string().min(1).max(50) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const q = input.query.trim();
+
+        // 中文名称映射表（中文 → 股票代码）
+        const CN_NAME_MAP: Record<string, { symbol: string; name: string; cnName: string; exchange: string; market: string }[]> = {
+          "腾讯": [{ symbol: "700.HK", name: "Tencent Holdings Ltd", cnName: "腾讯控股", exchange: "HKEX", market: "HK" }],
+          "腾讯控股": [{ symbol: "700.HK", name: "Tencent Holdings Ltd", cnName: "腾讯控股", exchange: "HKEX", market: "HK" }],
+          "阿里巴巴": [{ symbol: "BABA", name: "Alibaba Group Holding Ltd", cnName: "阿里巴巴", exchange: "NYSE", market: "US" }, { symbol: "9988.HK", name: "Alibaba Group Holding Ltd", cnName: "阿里巴巴", exchange: "HKEX", market: "HK" }],
+          "阿里": [{ symbol: "BABA", name: "Alibaba Group Holding Ltd", cnName: "阿里巴巴", exchange: "NYSE", market: "US" }],
+          "茅台": [{ symbol: "600519.SS", name: "Kweichow Moutai Co., Ltd.", cnName: "贵州茅台", exchange: "SSE", market: "CN" }],
+          "贵州茅台": [{ symbol: "600519.SS", name: "Kweichow Moutai Co., Ltd.", cnName: "贵州茅台", exchange: "SSE", market: "CN" }],
+          "比亚迪": [{ symbol: "002594.SZ", name: "BYD Co., Ltd.", cnName: "比亚迪", exchange: "SZSE", market: "CN" }, { symbol: "1211.HK", name: "BYD Co., Ltd.", cnName: "比亚迪", exchange: "HKEX", market: "HK" }],
+          "宁德时代": [{ symbol: "300750.SZ", name: "Contemporary Amperex Technology Co., Ltd.", cnName: "宁德时代", exchange: "SZSE", market: "CN" }],
+          "CATL": [{ symbol: "300750.SZ", name: "Contemporary Amperex Technology Co., Ltd.", cnName: "宁德时代", exchange: "SZSE", market: "CN" }],
+          "工商银行": [{ symbol: "601398.SS", name: "Industrial and Commercial Bank of China", cnName: "工商银行", exchange: "SSE", market: "CN" }, { symbol: "1398.HK", name: "ICBC", cnName: "工商银行", exchange: "HKEX", market: "HK" }],
+          "建设银行": [{ symbol: "601939.SS", name: "China Construction Bank", cnName: "建设银行", exchange: "SSE", market: "CN" }, { symbol: "939.HK", name: "CCB", cnName: "建设银行", exchange: "HKEX", market: "HK" }],
+          "招商银行": [{ symbol: "600036.SS", name: "China Merchants Bank", cnName: "招商银行", exchange: "SSE", market: "CN" }, { symbol: "3968.HK", name: "China Merchants Bank", cnName: "招商银行", exchange: "HKEX", market: "HK" }],
+          "中国平安": [{ symbol: "601318.SS", name: "Ping An Insurance", cnName: "中国平安", exchange: "SSE", market: "CN" }, { symbol: "2318.HK", name: "Ping An Insurance", cnName: "中国平安", exchange: "HKEX", market: "HK" }],
+          "平安": [{ symbol: "601318.SS", name: "Ping An Insurance", cnName: "中国平安", exchange: "SSE", market: "CN" }],
+          "中国移动": [{ symbol: "600941.SS", name: "China Mobile", cnName: "中国移动", exchange: "SSE", market: "CN" }, { symbol: "941.HK", name: "China Mobile", cnName: "中国移动", exchange: "HKEX", market: "HK" }],
+          "中国联通": [{ symbol: "600050.SS", name: "China Unicom", cnName: "中国联通", exchange: "SSE", market: "CN" }, { symbol: "762.HK", name: "China Unicom", cnName: "中国联通", exchange: "HKEX", market: "HK" }],
+          "中国电信": [{ symbol: "601728.SS", name: "China Telecom", cnName: "中国电信", exchange: "SSE", market: "CN" }, { symbol: "728.HK", name: "China Telecom", cnName: "中国电信", exchange: "HKEX", market: "HK" }],
+          "美团": [{ symbol: "3690.HK", name: "Meituan", cnName: "美团", exchange: "HKEX", market: "HK" }],
+          "京东": [{ symbol: "JD", name: "JD.com Inc", cnName: "京东", exchange: "NASDAQ", market: "US" }, { symbol: "9618.HK", name: "JD.com Inc", cnName: "京东", exchange: "HKEX", market: "HK" }],
+          "拼多多": [{ symbol: "PDD", name: "PDD Holdings Inc", cnName: "拼多多", exchange: "NASDAQ", market: "US" }],
+          "百度": [{ symbol: "BIDU", name: "Baidu Inc", cnName: "百度", exchange: "NASDAQ", market: "US" }, { symbol: "9888.HK", name: "Baidu Inc", cnName: "百度", exchange: "HKEX", market: "HK" }],
+          "网易": [{ symbol: "NTES", name: "NetEase Inc", cnName: "网易", exchange: "NASDAQ", market: "US" }, { symbol: "9999.HK", name: "NetEase Inc", cnName: "网易", exchange: "HKEX", market: "HK" }],
+          "小米": [{ symbol: "1810.HK", name: "Xiaomi Corp", cnName: "小米集团", exchange: "HKEX", market: "HK" }],
+          "小米集团": [{ symbol: "1810.HK", name: "Xiaomi Corp", cnName: "小米集团", exchange: "HKEX", market: "HK" }],
+          "华为": [],
+          "中芯国际": [{ symbol: "688981.SS", name: "SMIC", cnName: "中芯国际", exchange: "SSE", market: "CN" }, { symbol: "981.HK", name: "SMIC", cnName: "中芯国际", exchange: "HKEX", market: "HK" }],
+          "海尔": [{ symbol: "600690.SS", name: "Haier Smart Home", cnName: "海尔智家", exchange: "SSE", market: "CN" }],
+          "格力": [{ symbol: "000651.SZ", name: "Gree Electric Appliances", cnName: "格力电器", exchange: "SZSE", market: "CN" }],
+          "美的": [{ symbol: "000333.SZ", name: "Midea Group", cnName: "美的集团", exchange: "SZSE", market: "CN" }],
+          "五粮液": [{ symbol: "000858.SZ", name: "Wuliangye Yibin", cnName: "五粮液", exchange: "SZSE", market: "CN" }],
+          "恒瑞医药": [{ symbol: "600276.SS", name: "Jiangsu Hengrui Medicine", cnName: "恒瑞医药", exchange: "SSE", market: "CN" }],
+          "迈瑞医疗": [{ symbol: "300760.SZ", name: "Mindray Medical", cnName: "迈瑞医疗", exchange: "SZSE", market: "CN" }],
+          "隆基绿能": [{ symbol: "601012.SS", name: "LONGi Green Energy", cnName: "隆基绿能", exchange: "SSE", market: "CN" }],
+          "通威股份": [{ symbol: "600438.SS", name: "Tongwei Co., Ltd.", cnName: "通威股份", exchange: "SSE", market: "CN" }],
+          "中国石油": [{ symbol: "601857.SS", name: "PetroChina", cnName: "中国石油", exchange: "SSE", market: "CN" }, { symbol: "857.HK", name: "PetroChina", cnName: "中国石油", exchange: "HKEX", market: "HK" }],
+          "中国石化": [{ symbol: "600028.SS", name: "Sinopec", cnName: "中国石化", exchange: "SSE", market: "CN" }, { symbol: "386.HK", name: "Sinopec", cnName: "中国石化", exchange: "HKEX", market: "HK" }],
+          "万科": [{ symbol: "000002.SZ", name: "Vanke Co., Ltd.", cnName: "万科A", exchange: "SZSE", market: "CN" }],
+          "碧桂园": [{ symbol: "2007.HK", name: "Country Garden Holdings", cnName: "碧桂园", exchange: "HKEX", market: "HK" }],
+          "恒大": [{ symbol: "3333.HK", name: "China Evergrande Group", cnName: "中国恒大", exchange: "HKEX", market: "HK" }],
+          "苹果": [{ symbol: "AAPL", name: "Apple Inc", cnName: "苹果", exchange: "NASDAQ", market: "US" }],
+          "特斯拉": [{ symbol: "TSLA", name: "Tesla Inc", cnName: "特斯拉", exchange: "NASDAQ", market: "US" }],
+          "英伟达": [{ symbol: "NVDA", name: "NVIDIA Corp", cnName: "英伟达", exchange: "NASDAQ", market: "US" }],
+          "微软": [{ symbol: "MSFT", name: "Microsoft Corp", cnName: "微软", exchange: "NASDAQ", market: "US" }],
+          "谷歌": [{ symbol: "GOOGL", name: "Alphabet Inc", cnName: "谷歌", exchange: "NASDAQ", market: "US" }],
+          "亚马逊": [{ symbol: "AMZN", name: "Amazon.com Inc", cnName: "亚马逊", exchange: "NASDAQ", market: "US" }],
+          "脸书": [{ symbol: "META", name: "Meta Platforms Inc", cnName: "Meta", exchange: "NASDAQ", market: "US" }],
+          "Meta": [{ symbol: "META", name: "Meta Platforms Inc", cnName: "Meta", exchange: "NASDAQ", market: "US" }],
+          "奈飞": [{ symbol: "NFLX", name: "Netflix Inc", cnName: "奈飞", exchange: "NASDAQ", market: "US" }],
+          "奥特曼": [],
+          "英特尔": [{ symbol: "INTC", name: "Intel Corp", cnName: "英特尔", exchange: "NASDAQ", market: "US" }],
+          "高通": [{ symbol: "QCOM", name: "Qualcomm Inc", cnName: "高通", exchange: "NASDAQ", market: "US" }],
+          "台积电": [{ symbol: "TSM", name: "Taiwan Semiconductor Manufacturing", cnName: "台积电", exchange: "NYSE", market: "US" }],
+          "三星": [{ symbol: "005930.KS", name: "Samsung Electronics", cnName: "三星电子", exchange: "KRX", market: "KR" }],
+          "汇丰": [{ symbol: "HSBC", name: "HSBC Holdings", cnName: "汇丰控股", exchange: "NYSE", market: "US" }, { symbol: "5.HK", name: "HSBC Holdings", cnName: "汇丰控股", exchange: "HKEX", market: "HK" }],
+          "汇丰控股": [{ symbol: "HSBC", name: "HSBC Holdings", cnName: "汇丰控股", exchange: "NYSE", market: "US" }, { symbol: "5.HK", name: "HSBC Holdings", cnName: "汇丰控股", exchange: "HKEX", market: "HK" }],
+          "港交所": [{ symbol: "388.HK", name: "Hong Kong Exchanges and Clearing", cnName: "港交所", exchange: "HKEX", market: "HK" }],
+          "友邦保险": [{ symbol: "1299.HK", name: "AIA Group", cnName: "友邦保险", exchange: "HKEX", market: "HK" }],
+          "AIA": [{ symbol: "1299.HK", name: "AIA Group", cnName: "友邦保险", exchange: "HKEX", market: "HK" }],
+          "长和": [{ symbol: "1.HK", name: "CK Hutchison Holdings", cnName: "长和", exchange: "HKEX", market: "HK" }],
+          "李嘉诚": [{ symbol: "1.HK", name: "CK Hutchison Holdings", cnName: "长和", exchange: "HKEX", market: "HK" }],
+          "比特币": [{ symbol: "BTC", name: "Bitcoin", cnName: "比特币", exchange: "Crypto", market: "CRYPTO" }],
+          "以太坊": [{ symbol: "ETH", name: "Ethereum", cnName: "以太坊", exchange: "Crypto", market: "CRYPTO" }],
+          "瑞幸咖啡": [{ symbol: "LKNCY", name: "Luckin Coffee Inc", cnName: "瑞幸咖啡", exchange: "OTC", market: "US" }],
+          "蔚来": [{ symbol: "NIO", name: "NIO Inc", cnName: "蔚来", exchange: "NYSE", market: "US" }, { symbol: "9866.HK", name: "NIO Inc", cnName: "蔚来", exchange: "HKEX", market: "HK" }],
+          "理想汽车": [{ symbol: "LI", name: "Li Auto Inc", cnName: "理想汽车", exchange: "NASDAQ", market: "US" }, { symbol: "2015.HK", name: "Li Auto Inc", cnName: "理想汽车", exchange: "HKEX", market: "HK" }],
+          "小鹏汽车": [{ symbol: "XPEV", name: "XPeng Inc", cnName: "小鹏汽车", exchange: "NYSE", market: "US" }, { symbol: "9868.HK", name: "XPeng Inc", cnName: "小鹏汽车", exchange: "HKEX", market: "HK" }],
+          "快手": [{ symbol: "1024.HK", name: "Kuaishou Technology", cnName: "快手", exchange: "HKEX", market: "HK" }],
+          "哔哩哔哩": [{ symbol: "BILI", name: "Bilibili Inc", cnName: "哔哩哔哩", exchange: "NASDAQ", market: "US" }, { symbol: "9626.HK", name: "Bilibili Inc", cnName: "哔哩哔哩", exchange: "HKEX", market: "HK" }],
+          "B站": [{ symbol: "BILI", name: "Bilibili Inc", cnName: "哔哩哔哩", exchange: "NASDAQ", market: "US" }],
+          "滴滴": [{ symbol: "DIDIY", name: "DiDi Global Inc", cnName: "滴滴出行", exchange: "OTC", market: "US" }],
+          "携程": [{ symbol: "TCOM", name: "Trip.com Group", cnName: "携程", exchange: "NASDAQ", market: "US" }, { symbol: "9961.HK", name: "Trip.com Group", cnName: "携程", exchange: "HKEX", market: "HK" }],
+          "新东方": [{ symbol: "EDU", name: "New Oriental Education", cnName: "新东方", exchange: "NYSE", market: "US" }, { symbol: "9901.HK", name: "New Oriental Education", cnName: "新东方", exchange: "HKEX", market: "HK" }],
+          "好未来": [{ symbol: "TAL", name: "TAL Education Group", cnName: "好未来", exchange: "NYSE", market: "US" }],
+          "中国恒大": [{ symbol: "3333.HK", name: "China Evergrande Group", cnName: "中国恒大", exchange: "HKEX", market: "HK" }],
+          "龙湖集团": [{ symbol: "960.HK", name: "Longfor Group Holdings", cnName: "龙湖集团", exchange: "HKEX", market: "HK" }],
+          "中海外": [{ symbol: "688.HK", name: "COLI", cnName: "中国海外发展", exchange: "HKEX", market: "HK" }],
+        };
+
+        // 检查是否包含中文字符
+        const hasChinese = /[\u4e00-\u9fff]/.test(q);
+
+        // 中文搜索：直接从映射表返回
+        if (hasChinese) {
+          const matches: typeof CN_NAME_MAP[string] = [];
+          for (const [key, vals] of Object.entries(CN_NAME_MAP)) {
+            if (key.includes(q) || q.includes(key)) {
+              matches.push(...vals);
+            }
+          }
+          // 去重
+          const seen = new Set<string>();
+          const unique = matches.filter(m => {
+            if (seen.has(m.symbol)) return false;
+            seen.add(m.symbol);
+            return true;
+          });
+          return unique.map(m => ({
+            symbol: m.symbol,
+            name: m.name,
+            cnName: m.cnName,
+            exchange: m.exchange,
+            market: m.market,
+            type: "Common Stock",
+          }));
+        }
+
+        // 英文/代码搜索：并行调用 Finnhub + FMP
+        type SearchResult = { symbol: string; name: string; cnName?: string; exchange: string; market: string; type: string };
+
+        const EXCHANGE_MARKET_MAP: Record<string, string> = {
+          NASDAQ: "US", NYSE: "US", AMEX: "US", OTC: "US",
+          HKEX: "HK", "HONG KONG": "HK",
+          SSE: "CN", SHH: "CN", SZSE: "CN", SHZ: "CN",
+          TSX: "CA", LSE: "GB", FSE: "DE", TYO: "JP", KRX: "KR",
+          Crypto: "CRYPTO",
+        };
+
+        const getMarket = (exchange: string): string => {
+          const upper = exchange.toUpperCase();
+          for (const [key, mkt] of Object.entries(EXCHANGE_MARKET_MAP)) {
+            if (upper.includes(key)) return mkt;
+          }
+          // 从 symbol 后缀推断
+          if (q.endsWith(".HK") || q.match(/^\d{3,5}\.HK$/i)) return "HK";
+          if (q.endsWith(".SS") || q.endsWith(".SZ")) return "CN";
+          return "OTHER";
+        };
+
+        // 从中文映射表反查 cnName
+        const getCnName = (symbol: string): string | undefined => {
+          for (const vals of Object.values(CN_NAME_MAP)) {
+            const match = vals.find(v => v.symbol === symbol);
+            if (match) return match.cnName;
+          }
+          return undefined;
+        };
+
+        const [finnhubRes, fmpRes] = await Promise.allSettled([
+          // Finnhub search
+          (async () => {
+            const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${ENV.FINNHUB_API_KEY}`;
+            const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            const data = await resp.json() as { result?: Array<{ symbol: string; description: string; type: string; displaySymbol: string }> };
+            return (data.result ?? []).slice(0, 12).map(r => {
+              const sym = r.symbol;
+              // 推断市场
+              let market = "US";
+              if (sym.endsWith(".HK") || /^\d{3,5}\.HK$/.test(sym)) market = "HK";
+              else if (sym.endsWith(".SS") || sym.endsWith(".SZ")) market = "CN";
+              else if (sym.endsWith(".T") || sym.endsWith(".TYO")) market = "JP";
+              else if (sym.endsWith(".KS")) market = "KR";
+              else if (sym.endsWith(".L")) market = "GB";
+              else if (sym.endsWith(".DE") || sym.endsWith(".F") || sym.endsWith(".MU")) market = "DE";
+              else if (sym.endsWith(".PA")) market = "FR";
+              else if (sym.endsWith(".TO")) market = "CA";
+              const exchange = market === "HK" ? "HKEX" : market === "CN" ? (sym.endsWith(".SS") ? "SSE" : "SZSE") : market;
+              return {
+                symbol: sym,
+                name: r.description,
+                cnName: getCnName(sym),
+                exchange,
+                market,
+                type: r.type || "Common Stock",
+              } as SearchResult;
+            });
+          })(),
+          // FMP search
+          (async () => {
+            const url = `https://financialmodelingprep.com/stable/search-symbol?query=${encodeURIComponent(q)}&limit=10&apikey=${ENV.FMP_API_KEY}`;
+            const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            const data = await resp.json() as Array<{ symbol: string; name: string; exchange: string; exchangeFullName: string }>;
+            if (!Array.isArray(data)) return [];
+            return data.slice(0, 10).map(r => {
+              const market = getMarket(r.exchange ?? "");
+              return {
+                symbol: r.symbol,
+                name: r.name,
+                cnName: getCnName(r.symbol),
+                exchange: r.exchange ?? "UNKNOWN",
+                market,
+                type: "Common Stock",
+              } as SearchResult;
+            });
+          })(),
+        ]);
+
+        const finnhubList = finnhubRes.status === "fulfilled" ? finnhubRes.value : [];
+        const fmpList = fmpRes.status === "fulfilled" ? fmpRes.value : [];
+
+        // 合并去重，优先 Finnhub（更准确），FMP 补充
+        const seen = new Set<string>();
+        const merged: SearchResult[] = [];
+
+        // 市场优先级排序函数
+        const marketPriority = (m: string) => {
+          const order: Record<string, number> = { US: 1, HK: 2, CN: 3, CRYPTO: 4, GB: 5, JP: 6, KR: 7, OTHER: 99 };
+          return order[m] ?? 99;
+        };
+
+        const allResults = [...finnhubList, ...fmpList];
+        // 按市场优先级排序
+        allResults.sort((a, b) => marketPriority(a.market) - marketPriority(b.market));
+
+        for (const r of allResults) {
+          if (!seen.has(r.symbol)) {
+            seen.add(r.symbol);
+            merged.push(r);
+          }
+        }
+
+        // 过滤掉明显不相关的结果（如德国/奥地利等欧洲交易所的重复上市）
+        // 保留主要市场结果，最多返回 15 条
+        const filtered = merged
+          .filter(r => {
+            // 过滤掉德国/奥地利/法国交易所的重复上市（除非用户明确搜索这些市场）
+            const isEuropeanDuplicate = r.symbol.endsWith(".DE") || r.symbol.endsWith(".F") ||
+              r.symbol.endsWith(".MU") || r.symbol.endsWith(".VI") || r.symbol.endsWith(".PA") ||
+              r.symbol.endsWith(".TG") || r.symbol.endsWith(".DU");
+            if (isEuropeanDuplicate && r.market === "DE") return false;
+            return true;
+          })
+          .slice(0, 15);
+
+        return filtered;
+      }),
   }),
 
 });

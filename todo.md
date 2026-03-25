@@ -2334,3 +2334,10 @@
 - [x] AI 回复联动更新 Decision Signals：DELIVERABLE 模板加入 horizon 字段，DecisionSignalsCard 动态读取 short/mid/long-term
 - [x] Price Targets 分析师情绪趋势迷你折线图：服务端新增 getAnalystRecommendations 路由，前端 SVG sparkline 展示 12 个月 buy/hold/sell 趋势
 - [x] Analyst Ratings 展开历史趋势：点击进度条展开 12 个月月度评级历史表格（每月 buy/hold/sell 数量变化）
+
+## 第三十七轮：股票搜索扩展（中英文/代码搜索）
+- [x] 服务端新增 market.searchTicker 路由（Finnhub + FMP 双源融合，去重合并）
+- [x] 支持中文名称搜索（内置常见 A股/港股公司中文名映射表，约70个公司）
+- [x] 前端搜索弹窗升级：实时搜索、分组显示（美股/港股/A股/ETF/加密）、交易所标签
+- [x] 搜索结果显示中文公司名称（如腾讯控股、阿里巴巴）
+- [x] 编写 searchTicker.test.ts（16个测试全部通过），705个测试全部通过

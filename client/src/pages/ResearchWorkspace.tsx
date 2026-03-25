@@ -1124,61 +1124,190 @@ function WhyItMattersNowCard({ discussionObject, isLoading, onAsk }: {
   );
 }
 
-/** Instrument Selector Modal */
+/** Instrument Selector Modal — 支持股票代码/英文名称/中文名称搜索 */
 function InstrumentSelectorModal({ open, onClose, onSelect }: {
   open: boolean;
   onClose: () => void;
   onSelect: (ticker: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const popularTickers = ["AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "BRK.B", "SPY", "QQQ", "BTC", "ETH"];
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // 实时搜索 API
+  const { data: searchResults, isFetching } = trpc.market.searchTicker.useQuery(
+    { query: debouncedQuery },
+    { enabled: debouncedQuery.length >= 1, staleTime: 30000 }
+  );
+
+  // 市场标签配置
+  const MARKET_LABELS: Record<string, { label: string; color: string }> = {
+    US:     { label: "US",     color: T.blue },
+    HK:     { label: "HK",    color: T.gold },
+    CN:     { label: "A股",   color: "oklch(0.65 0.18 25)" },
+    CRYPTO: { label: "Crypto", color: T.purple },
+    JP:     { label: "JP",     color: "oklch(0.65 0.15 50)" },
+    KR:     { label: "KR",     color: "oklch(0.65 0.15 200)" },
+    GB:     { label: "UK",     color: "oklch(0.65 0.15 270)" },
+    OTHER:  { label: "Intl",   color: T.text3 },
+  };
+
+  // 常用标的分组
+  const POPULAR_GROUPS = [
+    { label: "美股", tickers: ["AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "BRK.B"] },
+    { label: "ETF", tickers: ["SPY", "QQQ", "GLD", "TLT"] },
+    { label: "港股", tickers: ["700.HK", "9988.HK", "3690.HK", "1810.HK"] },
+    { label: "A股", tickers: ["600519.SS", "000858.SZ", "300750.SZ", "002594.SZ"] },
+    { label: "加密", tickers: ["BTC", "ETH", "SOL"] },
+  ];
+
+  // 搜索结果按市场分组
+  const groupedResults = useMemo(() => {
+    if (!searchResults?.length) return {};
+    const groups: Record<string, typeof searchResults> = {};
+    for (const r of searchResults) {
+      const mkt = r.market || "OTHER";
+      if (!groups[mkt]) groups[mkt] = [];
+      groups[mkt].push(r);
+    }
+    return groups;
+  }, [searchResults]);
+
+  const marketOrder = ["US", "HK", "CN", "CRYPTO", "JP", "KR", "GB", "OTHER"];
+
+  const handleSelect = (sym: string) => {
+    onSelect(sym);
+    onClose();
+    setQuery("");
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md" style={{ background: T.bg1, border: `1px solid ${T.border}` }}>
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setQuery(""); } }}>
+      <DialogContent className="max-w-lg" style={{ background: T.bg1, border: `1px solid ${T.border}`, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-sm font-semibold" style={{ color: T.text1 }}>
             选择分析标的
           </DialogTitle>
+          <p className="text-[11px] mt-0.5" style={{ color: T.text3 }}>
+            支持输入股票代码（AAPL、600519）、英文名称（apple、tencent）或中文名称（苹果、腾讯）
+          </p>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T.text3 }} />
-            <Input
-              placeholder="输入股票代码或公司名称..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 h-9 text-sm"
-              style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text1 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && query.trim()) {
-                  onSelect(query.trim().toUpperCase());
-                  onClose();
+
+        {/* 搜索框 */}
+        <div className="relative shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T.text3 }} />
+          {isFetching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin" style={{ color: T.text3 }} />
+          )}
+          <Input
+            placeholder="搜索股票代码、公司英文名或中文名..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 pr-9 h-9 text-sm"
+            style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text1 }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && query.trim()) {
+                // 如果有搜索结果，选第一个；否则直接使用输入
+                if (searchResults?.length) {
+                  handleSelect(searchResults[0].symbol);
+                } else {
+                  handleSelect(query.trim().toUpperCase());
                 }
-              }}
-              autoFocus
-            />
-          </div>
-          <div>
-            <p className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: T.text4 }}>常用标的</p>
-            <div className="flex flex-wrap gap-1.5">
-              {popularTickers.map(t => (
-                <button key={t}
-                  onClick={() => { onSelect(t); onClose(); }}
-                  className="px-2.5 py-1 rounded text-xs font-mono font-medium transition-all hover:scale-105"
-                  style={{ background: T.bg2, color: T.gold, border: `1px solid ${T.border}` }}>
-                  {t}
+              }
+            }}
+            autoFocus
+          />
+        </div>
+
+        {/* 内容区域 */}
+        <div className="overflow-y-auto flex-1 min-h-0" style={{ marginTop: 12 }}>
+          {/* 搜索结果 */}
+          {debouncedQuery.length >= 1 ? (
+            <div className="space-y-3">
+              {searchResults && searchResults.length === 0 && !isFetching && (
+                <div className="text-center py-6" style={{ color: T.text3 }}>
+                  <p className="text-sm">未找到匹配结果</p>
+                  <p className="text-[11px] mt-1">可尝试直接输入股票代码</p>
+                </div>
+              )}
+              {marketOrder.map(mkt => {
+                const items = groupedResults[mkt];
+                if (!items?.length) return null;
+                const mktConfig = MARKET_LABELS[mkt] || MARKET_LABELS.OTHER;
+                return (
+                  <div key={mkt}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 px-1" style={{ color: T.text4 }}>
+                      {mktConfig.label} 市场
+                    </p>
+                    <div className="space-y-0.5">
+                      {items.map(r => (
+                        <button key={r.symbol}
+                          onClick={() => handleSelect(r.symbol)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all hover:scale-[1.005]"
+                          style={{ background: T.bg2, border: `1px solid ${T.border}` }}
+                        >
+                          {/* 市场标签 */}
+                          <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                            style={{ background: `${mktConfig.color}22`, color: mktConfig.color, border: `1px solid ${mktConfig.color}44` }}>
+                            {mktConfig.label}
+                          </span>
+                          {/* 股票代码 */}
+                          <span className="shrink-0 text-sm font-mono font-bold w-24 truncate" style={{ color: T.gold }}>
+                            {r.symbol}
+                          </span>
+                          {/* 公司名称 */}
+                          <div className="flex-1 min-w-0">
+                            {r.cnName ? (
+                              <>
+                                <span className="text-sm font-medium block truncate" style={{ color: T.text1 }}>{r.cnName}</span>
+                                <span className="text-[11px] truncate block" style={{ color: T.text3 }}>{r.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-sm font-medium truncate block" style={{ color: T.text1 }}>{r.name}</span>
+                            )}
+                          </div>
+                          {/* 交易所 */}
+                          <span className="shrink-0 text-[10px]" style={{ color: T.text4 }}>{r.exchange}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* 直接使用输入的代码 */}
+              {query.trim() && (
+                <button
+                  onClick={() => handleSelect(query.trim().toUpperCase())}
+                  className="w-full h-9 rounded-lg text-sm font-medium transition-all hover:scale-[1.01] mt-2"
+                  style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
+                  直接分析 {query.trim().toUpperCase()} →
                 </button>
+              )}
+            </div>
+          ) : (
+            /* 常用标的 */
+            <div className="space-y-4">
+              {POPULAR_GROUPS.map(g => (
+                <div key={g.label}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: T.text4 }}>{g.label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {g.tickers.map(t => (
+                      <button key={t}
+                        onClick={() => handleSelect(t)}
+                        className="px-2.5 py-1 rounded text-xs font-mono font-medium transition-all hover:scale-105"
+                        style={{ background: T.bg2, color: T.gold, border: `1px solid ${T.border}` }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-          {query.trim() && (
-            <button
-              onClick={() => { onSelect(query.trim().toUpperCase()); onClose(); }}
-              className="w-full h-9 rounded-lg text-sm font-medium transition-all hover:scale-[1.01]"
-              style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
-              分析 {query.trim().toUpperCase()} →
-            </button>
           )}
         </div>
       </DialogContent>

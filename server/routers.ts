@@ -116,6 +116,7 @@ import { runBacktest as runFactorBacktest, BACKTEST_FACTORS } from "./backtestEn
 import { buildQuantContextBlock } from "./quantFactorKnowledge";
 import { fetchAllCnFinanceNews, formatCnNewsToMarkdown, isCnFinanceNewsRelevant, checkCnFinanceNewsHealth } from "./cnFinanceNewsApi";
 import { buildEnhancedNewsBlock, buildTrendRadarAnalysisPrompt, buildSourceAttribution, filterLowQualityNews, detectCrossSourceResonance, type NewsItem as TRNewsItem } from "./trendRadarEnhancer";
+import { fetchXueqiuData, formatXueqiuDataAsMarkdown, isXueqiuRelevant, toXueqiuSymbol, checkXueqiuHealth } from "./xueqiuApi";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -172,6 +173,8 @@ type DataSourceStatusResult = {
   exchangeRatesStatus: ApiHealthStatus; exchangeRatesConfigured: boolean;
   // Portfolio Optimizer（投资组合优化，免费公开）
   portfolioOptimizerStatus: ApiHealthStatus; portfolioOptimizerConfigured: boolean;
+  // 雪球（游客 Token，自动获取，无需配置）
+  xueqiuStatus: ApiHealthStatus; xueqiuConfigured: boolean;
   // Serper（Tavily 备用搜索引擎）
   serperConfigured: boolean;
   serperActiveCount: number;
@@ -229,6 +232,7 @@ function buildDefaultDataSourceStatus(): DataSourceStatusResult {
     twelveDataStatus: smartDefault(!!ENV.TWELVE_DATA_API_KEY, false), twelveDataConfigured: !!ENV.TWELVE_DATA_API_KEY,
     exchangeRatesStatus: "active", exchangeRatesConfigured: true,
     portfolioOptimizerStatus: "active", portfolioOptimizerConfigured: true,
+    xueqiuStatus: "active", xueqiuConfigured: true,
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -329,6 +333,7 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
     twelveDataStatus: keyedMap["twelveData"] ?? (ENV.TWELVE_DATA_API_KEY ? "unknown" : "not_configured"), twelveDataConfigured: !!ENV.TWELVE_DATA_API_KEY,
     exchangeRatesStatus: "active", exchangeRatesConfigured: true,
     portfolioOptimizerStatus: "active", portfolioOptimizerConfigured: true,
+    xueqiuStatus: "active", xueqiuConfigured: true,
     serperConfigured: isSerperConfigured(),
     serperActiveCount: getSerperKeyStatuses().filter(k => k.configured && k.status === "active").length,
     serperTotal: getSerperKeyStatuses().filter(k => k.configured).length,
@@ -1426,6 +1431,12 @@ ${"```"}`;
             } catch { return ""; }
           })())
         : Promise.resolve(""),
+      // 雪球深度数据（机构评级/资金流向/财务指标/行情详情，仅 A股/港股触发）
+      () => (primaryTicker && isXueqiuRelevant(taskDescription + " " + gptStep1Output, primaryTicker))
+        ? timed("雪球数据", fetchXueqiuData(toXueqiuSymbol(primaryTicker))
+            .then(d => formatXueqiuDataAsMarkdown(d))
+            .catch(() => ""))
+        : Promise.resolve(""),
       // 中文财经新闻（华尔街见闻/金十/格隆汇/雪球）
       () => isCnFinanceNewsRelevant(taskDescription + " " + gptStep1Output)
         ? fetchAllCnFinanceNews().then(r => {
@@ -1451,7 +1462,7 @@ ${"```"}`;
           }).catch(() => "")
         : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, cnFinanceNewsResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, xueqiuResult, cnFinanceNewsResult] = await runBatch(deepTasks, 2);
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1544,6 +1555,8 @@ ${"```"}`;
       defiResult?.status === "fulfilled" && defiResult.value ? defiResult.value : "",  // DeFi 链上数据（goat-sdk/goat · DeFiLlama）
       financeDbResult?.status === "fulfilled" && financeDbResult.value ? financeDbResult.value : "",  // 全球股票分类（JerBouma/FinanceDatabase）
       healthScoreResult?.status === "fulfilled" && healthScoreResult.value ? healthScoreResult.value : "",  // 财务健康评分（JerBouma/FinanceToolkit 150+ 指标）
+      // 雪球深度数据（机构评级/资金流向/财务指标/行情详情，仅 A股/港股）
+      xueqiuResult?.status === "fulfilled" && xueqiuResult.value ? xueqiuResult.value : "",
       // 中文财经新闻（华尔街见闻/金十/格隆汇/雪球）
       cnFinanceNewsResult?.status === "fulfilled" && cnFinanceNewsResult.value ? cnFinanceNewsResult.value : "",
       // hacker-laws 定律知识库（帕累托/炒作周期/梅特卡夫/古德哈特等）
@@ -1625,6 +1638,7 @@ ${"```"}`;
       { sourceId: "coingecko",            data: cryptoMarkdown,         latencyMs: ms("CoinGecko") },
       // A股数据
       { sourceId: "baostock",             data: aStockMarkdown,         latencyMs: ms("Baostock") },
+      { sourceId: "xueqiu",              data: xueqiuResult?.status === "fulfilled" && xueqiuResult.value ? xueqiuResult.value : "", latencyMs: ms("雪球数据") },
       // 港股公告
       { sourceId: "hkex",                 data: hkexMarkdown,           latencyMs: ms("HKEXnews") },
       // 法律监管

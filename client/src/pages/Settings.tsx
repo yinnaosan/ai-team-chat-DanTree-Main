@@ -164,9 +164,10 @@ function DataSourceStatusPanel() {
                 1, // 中文财经新闻，始终计入
                 1, // Hacker Laws 定律库，始终计入
                 1, // Qbot 量化因子库，始终计入
+                1, // 雪球（游客 Token，免费公开），始终计入
               ].reduce((a, b) => a + b, 0)}
               /
-              {36}
+              {37}
                正常
             </span>
           )}
@@ -403,6 +404,19 @@ function DataSourceStatusPanel() {
               <span className="text-xs px-1.5 py-0.5 rounded"
                 style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
                 免费公开 | 港股公告
+              </span>
+            }
+          />
+
+          {/* 雪球 */}
+          <SourceRow
+            label="雪球"
+            desc="机构评级（申万/海通/中信）/ 主力资金流向 / 财务指标 / 实时行情（游客 Token 自动获取）"
+            statusStr={status?.xueqiuStatus ?? "unknown"}
+            badge={
+              <span className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: "oklch(0.72 0.18 140 / 0.1)", color: "oklch(0.55 0.15 140)", border: "1px solid oklch(0.72 0.18 140 / 0.2)" }}>
+                免费公开 | A股港股
               </span>
             }
           />

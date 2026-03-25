@@ -97,6 +97,13 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // 实时时钟（每秒更新）
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 点击外部关闭
   useEffect(() => {
     if (!open) return;
@@ -164,7 +171,7 @@ export function GlobalMarketPanel({ className = "" }: GlobalMarketPanelProps) {
               全球市场状态
             </span>
             <span className="text-xs font-mono" style={{ color: "oklch(0.55 0 0)" }}>
-              {new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              {now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </span>
           </div>
           {/* 市场列表 */}

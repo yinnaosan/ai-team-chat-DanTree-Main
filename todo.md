@@ -2373,3 +2373,8 @@
 - [x] 重写 xueqiuApi.ts：删除机构评级、讨论帖子、XueqiuReport/XueqiuDiscussionPost 类型，代码行数 674→340
 - [x] 确认 routers.ts 无无效引用（r.xueqiu.items 属于 cnFinanceNewsApi 不受影响）
 - [x] TypeScript 编译 0 错误，728 个测试全部通过
+
+## 第四十三轮：修复全球市场状态时钟卡住问题
+- [x] 定位问题：GlobalMarketPanel.tsx 第167行用 new Date() 直接渲染，面板开启后不再更新
+- [x] 修复：添加 const [now, setNow] = useState(() => new Date()) + setInterval 每秒更新
+- [x] TypeScript 编译 0 错误

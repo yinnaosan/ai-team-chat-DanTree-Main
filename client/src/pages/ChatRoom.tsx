@@ -96,6 +96,24 @@ interface Msg {
       follow_up_questions: string[];
       exploration_paths: string[];
     };
+    // LEVEL1A2: Structured Discussion (first-class output)
+    structuredDiscussion?: {
+      key_uncertainty: string;
+      weakest_point: string;
+      alternative_view: string;
+      follow_up_questions: string[];
+      exploration_paths: string[];
+      open_hypotheses: string[];
+      deeper_dive: string;
+    };
+    // LEVEL1A2: Intent Context
+    intentContext?: {
+      task_type: string;
+      interaction_mode: string;
+      risk_focus: boolean;
+      growth_focus: boolean;
+      entity_scope: string[];
+    };
     evidenceScore?: number;
     outputMode?: "decisive" | "directional" | "framework_only";
     missingBlocking?: string[];
@@ -787,8 +805,8 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
           />
         )}
         {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}
-        {isAssistant && msg.metadata?.discussionObject && (
-          <DiscussionPanel discussionObject={msg.metadata.discussionObject} onFollowup={onFollowup} />
+        {isAssistant && (msg.metadata?.structuredDiscussion || msg.metadata?.discussionObject) && (
+          <DiscussionPanel discussionObject={msg.metadata.structuredDiscussion ?? msg.metadata.discussionObject!} onFollowup={onFollowup} />
         )}
         <div className="prose-chat w-full" ref={msgRef}>
           {/* Alpha 因子可视化卡片 */}

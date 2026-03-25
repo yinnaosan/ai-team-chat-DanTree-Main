@@ -123,6 +123,11 @@ import { buildResearchPlan, formatResearchPlanForPrompt } from "./researchPlanne
 import { generateFieldRequirements, formatFieldRequirementsForPrompt } from "./fieldRequirementGenerator";
 import { buildSynthesisEnrichment, formatSynthesisEnrichmentForPrompt } from "./synthesisEngine";
 import { buildDiscussionHookSet, formatDiscussionHookSetForReport } from "./discussionHooks";
+// ── LEVEL1A2 Imports ────────────────────────────────────────────────────────
+import { normalizeAgentTaxonomy } from "./agentTaxonomyNormalizer";
+import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt } from "./synthesisController";
+import { buildStructuredDiscussion, shouldUseStructuredDiscussion, formatStructuredDiscussionForReport } from "./discussionController";
+import { evaluateRuntimeGate, formatGatingDecisionForPrompt } from "./runtimeGating";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -674,9 +679,20 @@ DATA_INTEGRITY[MAX]:
       ?.map((s: import('./db').TrustedSource) => s.url)
       ?.filter(Boolean) ?? [];
     const allSearchUrls = Array.from(new Set([...userLibraryUrls, ...trustedSourceUrls]));
-
+    // ── LEVEL1A2 Phase1: 前置解析（在 Step1 prompt 构建之前）─────────────────────────────────
+    // 注意: task_parse 尚未就绪，用 null 初始化；Step1 完成后将用 task_parse 重建一次
+    const earlyIntentCtx = buildIntentContext(
+      null, // task_parse not yet available
+      taskDescription,
+      [] // ticker not yet extracted
+    );
+    const earlyResearchPlan = buildResearchPlan(earlyIntentCtx);
+    const earlyFieldReqs = generateFieldRequirements(earlyResearchPlan, earlyIntentCtx);
+    const earlyFieldReqBlock = formatFieldRequirementsForPrompt(earlyFieldReqs);
+    const earlyIntentContextBlock = formatIntentContextForPrompt(earlyIntentCtx);
+    // ── LEVEL1A2 Phase1 END ───────────────────────────────────────────────────────────────
     // GPT Step1 prompt：任务拆分 + 精准资源指令（TASK_SPEC）+ 并行执行 GPT 自己的分析
-    // ── 可用 API 目录（供 GPT 按需精确指定，不要全部调用）──────────────────────
+    // ── 可用 API 目录（供 GPT 按需精确指定，不要全部调用）───────────────────────
     const AVAILABLE_APIS_CATALOG = `
 [市场行情] yahoo_finance(ticker,period) | finnhub(ticker) | polygon(ticker) | tiingo(ticker,metrics)
 [深度财务] fmp(ticker,statements,years) | simfin(ticker,period) | sec_edgar(ticker,forms)
@@ -708,6 +724,8 @@ DATA_INTEGRITY[MAX]:
 
     const gptStep1UserMsg = `[GPT←TASK|STEP1|MODE:${modeConfig.label}]
 QUERY: ${taskDescription}${historyBlock ? '\nHIST:' + historyBlock.slice(0, 800) : ''}${memoryBlock ? '\n' + memoryBlock.slice(0, 600) : ''}${attachmentBlock ? '\nATTACH:' + attachmentBlock.slice(0, 400) : ''}${modeConfig.step1Hint ? '\nHINT:' + modeConfig.step1Hint : ''}
+${earlyIntentContextBlock}
+${earlyFieldReqBlock}
 ${AVAILABLE_APIS_CATALOG}
 [INSTRUCTIONS]
 你是首席投资顾问（GPT）。Step1 只做一件事：**任务解析与检索规划**，不输出任何投资结论或主观判断。
@@ -792,12 +810,10 @@ ${"```"}`;
     const { extractTickers } = await import("./yahooFinance");
     const detectedTickers = extractTickers(taskDescription);
     const primaryTicker = detectedTickers[0] ?? null; // 主要股票代码（用于深度分析）
-
     // 预先提取 A 股代码（用于后续去重）
       // [已移除]
       // [已移除]
-
-    // 先单独执行 Step1，获取 period 参数后再调用 Yahoo Finance
+    // 先单独执行 Step1，获取 period 参数后再调用 Yahoo Financece
     const step1Result = await Promise.resolve(
       userConfig?.openaiApiKey
         ? callOpenAI({
@@ -1989,6 +2005,25 @@ ${multiAgentBlock}`
       evidencePacket.outputMode ?? "directional",
     );
     const synthesisEnrichmentBlock = formatSynthesisEnrichmentForPrompt(synthesisEnrichment);
+    // ── LEVEL1A2 Phase5: Structured Synthesis Controller + Runtime Gate ──────
+    const normalizedTaxonomy = normalizeAgentTaxonomy(multiAgentResult ?? null);
+    const structuredSynthesis = buildStructuredSynthesis(
+      normalizedTaxonomy,
+      intentCtx,
+      evidencePacket.evidenceScore ?? 50,
+      evidencePacket.outputMode ?? "directional",
+      missingBlocking.length > 0,
+      (answerObject as any)?.anti_thesis ?? undefined,
+      primaryTicker,
+    );
+    const structuredSynthesisBlock = formatStructuredSynthesisForPrompt(structuredSynthesis);
+    const runtimeGate = evaluateRuntimeGate(
+      intentCtx,
+      evidencePacket.evidenceScore ?? 50,
+      missingBlocking.length > 0,
+      missingBlocking.length,
+    );
+    const runtimeGateBlock = formatGatingDecisionForPrompt(runtimeGate);
     // ── LEVEL1A END Synthesis ────────────────────────────────────────────────────────────
     // Step3 GPT prompt（Phase B：基于 Phase A 结果，渲染自然语言）
     const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]${trendRadarFramework}${actionEngineBlock}}
@@ -2006,6 +2041,8 @@ ${dataPacketSummary}
 ${intentContextBlock}
 ${researchPlanBlock}
 ${synthesisEnrichmentBlock}
+${structuredSynthesisBlock}
+${runtimeGateBlock}
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━
 你是首席分析师（GPT）。Manus 已完成数据收集，现在基于实际数据输出最终专业报告给用户。
@@ -2250,23 +2287,39 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       .replace(/%%DISCUSSION%%[\s\S]*?%%END_DISCUSSION%%/g, "")
       .trimEnd();
 
-    // ── LEVEL1A Phase6: Discussion Hooks ────────────────────────────────
+    // ── LEVEL1A2 Phase6: Structured Discussion Controller ──────────────────
     // Extract step3 follow_up_questions and exploration_paths from parsed DISCUSSION
     const step3FollowUps: string[] = (metadataToSave.discussionObject as any)?.follow_up_questions ?? [];
     const step3ExplorationPaths: string[] = (metadataToSave.discussionObject as any)?.exploration_paths ?? [];
+    // LEVEL1A2: Build structured discussion as first-class output
+    const structuredDiscussion = buildStructuredDiscussion(
+      normalizedTaxonomy,
+      structuredSynthesis,
+      intentCtx,
+      primaryTicker,
+    );
+    // LEVEL1A: Legacy discussion hook set (kept for backward compat)
     const discussionHookSet = buildDiscussionHookSet(
       intentCtx,
       researchPlan,
       multiAgentResult ?? undefined,
-      step3FollowUps,
-      step3ExplorationPaths,
+      step3FollowUps.length > 0 ? step3FollowUps : structuredDiscussion.follow_up_questions,
+      step3ExplorationPaths.length > 0 ? step3ExplorationPaths : structuredDiscussion.exploration_paths,
     );
-    // Append Discussion Hooks section to finalReply (only for deep analysis)
+    // Append Discussion section to finalReply
     if (intentCtx.task_type !== "general" && intentCtx.interaction_mode !== "discussion") {
-      const hooksSection = formatDiscussionHookSetForReport(discussionHookSet);
-      finalReply = finalReply + "\n\n" + hooksSection;
+      if (shouldUseStructuredDiscussion(intentCtx)) {
+        // LEVEL1A2: Use structured discussion (first-class output)
+        const structuredSection = formatStructuredDiscussionForReport(structuredDiscussion);
+        if (structuredSection) finalReply = finalReply + "\n\n" + structuredSection;
+      } else {
+        // Legacy fallback
+        const hooksSection = formatDiscussionHookSetForReport(discussionHookSet);
+        finalReply = finalReply + "\n\n" + hooksSection;
+      }
     }
-    // Save discussionHookSet to metadata for frontend rendering
+    // Save both structured discussion and legacy hook set to metadata
+    metadataToSave.structuredDiscussion = structuredDiscussion;
     metadataToSave.discussionHookSet = discussionHookSet;
     metadataToSave.intentContext = {
       task_type: intentCtx.task_type,

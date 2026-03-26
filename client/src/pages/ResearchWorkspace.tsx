@@ -40,6 +40,7 @@ import remarkGfm from "remark-gfm";
 import { TickerMarketStatus, MarketAlertManager } from "@/components/MarketStatus";
 import { GlobalMarketPanel, NavClock } from "@/components/GlobalMarketPanel";
 import { detectMarketType } from "@/lib/marketUtils";
+import { ActionPanel } from "@/components/ActionPanel";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -2665,6 +2666,13 @@ export default function ResearchWorkspacePage() {
 
           {!insightCollapsed && (
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {/* LEVEL4 Action Engine Panel */}
+              {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
+                <ActionPanel
+                  messageId={lastAssistantMsg.id}
+                  ticker={currentTicker}
+                />
+              )}
               {/* Decision Signals */}
               <DecisionSignalsCard answerObject={answerObject} isLoading={isTyping && !answerObject} />
 

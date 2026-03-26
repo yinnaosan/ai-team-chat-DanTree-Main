@@ -2448,3 +2448,11 @@
 - [x] Phase6: 文案去营销化 — 所有 copy 使用系统语言(ACTIVE/RUNNING/STREAMING/SYNCED/DETECTED)，删除所有营销语言
 - [x] Phase7: TSC 0 错误验证 + 最终检查清单通过
 - [x] Phase8: 99_RETURN_PROTOCOL.md 交付文档生成
+
+## LEVEL4 Action Engine
+
+- [x] 实现 server/level4ActionEngine.ts（STATE/WHY/CYCLE/TIMING/ACTION/RISK 六块逻辑）
+- [x] routers.ts 新增 chat.getLevel4Action procedure（从现有消息 metadata 提取输入，调用 LLM）
+- [x] 实现 client/src/components/ActionPanel.tsx（STATE 大字/TIMING SIGNAL 色码/WHY 可折叠/TIMING 紧凑指标）
+- [x] ResearchWorkspace Column 4 顶部接入 ActionPanel
+- [x] TSC 验证 0 错误

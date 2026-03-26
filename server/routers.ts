@@ -3625,6 +3625,33 @@ export const appRouter = router({
           sentimentHistory: sentimentHistoryData,
         };
       }),
+
+    /** LEVEL4 Action Engine — transform existing analysis output into actionable decision */
+    getLevel4Action: protectedProcedure
+      .input(z.object({
+        messageId: z.number(),
+        ticker: z.string().min(1).max(20),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+        const { messages } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const rows = await db.select().from(messages).where(
+          and(eq(messages.id, input.messageId), eq(messages.userId, ctx.user.id))
+        ).limit(1);
+        if (!rows.length) throw new TRPCError({ code: "NOT_FOUND", message: "Message not found" });
+        const msg = rows[0];
+        const metadata = (msg.metadata
+          ? (typeof msg.metadata === "string" ? JSON.parse(msg.metadata as string) : msg.metadata)
+          : {}) as Record<string, unknown>;
+        const { extractLevel4Input, runLevel4ActionEngine } = await import("./level4ActionEngine");
+        const level4Input = extractLevel4Input(input.ticker, metadata);
+        const result = await runLevel4ActionEngine(level4Input);
+        return result;
+      }),
   }),
   // --- AI 记忆管理 -----------------------------------------------------------------------------------------
   memory: router({

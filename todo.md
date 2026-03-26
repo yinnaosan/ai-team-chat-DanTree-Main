@@ -2475,3 +2475,12 @@
 - [x] metadata 附加 level4Result + level4GeneratedAt
 - [x] ActionPanel 添加 initialResult prop，从 metadata 读取自动显示
 - [x] TSC 验证 0 错误
+
+## Level4 Persistence & Rehydration Fix
+
+- [x] 审计 DB 持久化路径：确认 level4Result 写入两条路径（non-LEVEL2 + LEVEL2 converged）
+- [x] 追踪消息加载流程：getConversationMessages → rawConvMsgs → convMessages → lastAssistantMsg.metadata
+- [x] 修复 rehydration bug：useEffect 监听 messageId 变化，切换对话时同步 initialResult
+- [x] 消除跨对话状态污染：prevMessageIdRef 追踪 messageId，切换时 reset result/error/autoFailed
+- [x] 添加轻量失败状态："行动层暂未生成"（500ms 延迟后显示，非阻塞）
+- [x] TSC 验证 0 错误

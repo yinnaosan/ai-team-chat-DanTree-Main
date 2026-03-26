@@ -8,7 +8,7 @@
  *   <ActionPanel messageId={msg.id} ticker="AAPL" />
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, Zap, TrendingUp, TrendingDown, Minus, AlertTriangle, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -303,13 +303,48 @@ interface ActionPanelProps {
 }
 
 export function ActionPanel({ messageId, ticker, className, initialResult }: ActionPanelProps) {
+  // ── State ────────────────────────────────────────────────────────────────────
+  // initialResult is the persisted value from DB metadata.
+  // We track the previous messageId to detect conversation switches and
+  // reset local state so stale results from another conversation never leak.
+  const prevMessageIdRef = useRef<number>(messageId);
   const [result, setResult] = useState<Level4ActionResult | null>(initialResult ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [autoFailed, setAutoFailed] = useState(false);
+
+  // ── Rehydration fix ──────────────────────────────────────────────────────────
+  // When messageId changes (conversation switch / new analysis), sync from the
+  // new initialResult prop. This is the key fix: useState() only runs once on
+  // mount, so we must explicitly sync on prop changes.
+  useEffect(() => {
+    if (messageId !== prevMessageIdRef.current) {
+      prevMessageIdRef.current = messageId;
+      // Reset to new conversation's persisted result (may be null for old convs)
+      setResult(initialResult ?? null);
+      setError(null);
+      setAutoFailed(false);
+    }
+  }, [messageId, initialResult]);
+
+  // ── Detect auto-generation failure ──────────────────────────────────────────
+  // If analysis is complete (initialResult was expected but is null after a
+  // short delay), show a lightweight failure indicator.
+  const hasAnalysisResult = !!(initialResult === undefined ? false : initialResult === null);
+  useEffect(() => {
+    if (initialResult === null && messageId > 0) {
+      // Give the auto-trigger a moment; if still null, mark as auto-failed
+      const t = setTimeout(() => setAutoFailed(true), 500);
+      return () => clearTimeout(t);
+    } else {
+      setAutoFailed(false);
+    }
+  }, [initialResult, messageId]);
 
   const mutation = trpc.chat.getLevel4Action.useMutation({
     onSuccess: (data) => {
       setResult(data as Level4ActionResult);
       setError(null);
+      setAutoFailed(false);
     },
     onError: (err) => {
       setError(err.message);
@@ -332,6 +367,10 @@ export function ActionPanel({ messageId, ticker, className, initialResult }: Act
           </div>
           <span className="text-[9px] text-[#2a3040] font-mono">LEVEL4</span>
         </div>
+        {/* Lightweight failure notice — non-blocking */}
+        {autoFailed && !error && (
+          <div className="text-[10px] text-[#4a5568] mb-2 px-1 font-mono">行动层暂未生成</div>
+        )}
         {error && (
           <div className="text-[10px] text-red-400/70 mb-2 px-1">{error}</div>
         )}

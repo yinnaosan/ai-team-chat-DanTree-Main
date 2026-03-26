@@ -2407,3 +2407,11 @@
 - [x] LEVEL3A Phase3: routers.ts Step3 检索注入 + emitTaskDone 后写入点 + metadata 信号写入
 - [x] LEVEL3A Phase4: MemoryBadge.tsx 前端组件 + ChatRoom.tsx 类型扩展 + 渲染注入
 - [x] LEVEL3A Phase5: TSC 0 错误确认 + server 200 OK + 所有 gate 条件验证
+
+## LEVEL3B: 记忆驱动推理系统
+
+- [x] LEVEL3B Phase1: hypothesisEngine.ts 记忆假设播种（MemorySeed + seedCandidatesFromMemory + deduplicateCandidates + applyMemoryPriorityBonus）
+- [x] LEVEL3B Phase2: memoryConflictDetector.ts（detectMemoryConflict + verdict_flip/confidence_drop/risk_escalation 检测）
+- [x] LEVEL3B Phase3: loopStateTriggerEngine.ts 记忆感知触发（memory_conflict_override + memory_recurrence_boost + memory_influenced 字段）
+- [x] LEVEL3B Phase3b: routers.ts 注入（MemorySeed 构建 + MemoryConflict 构建 + evaluateTrigger/runHypothesisEngine 传参 + convergedMetadata 信号字段）
+- [x] LEVEL3B Phase4: MemoryReasoningBadge.tsx 前端组件 + ChatRoom.tsx 类型扩展 + 渲染注入

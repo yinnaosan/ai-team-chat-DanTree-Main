@@ -2,6 +2,9 @@
  * DANTREE_PHASE2 LEVEL2B: Multi-Hypothesis Engine
  * Replaces single-source follow-up with ranked candidate selection.
  * v1: generates 2-3 candidates, selects ONE highest-value path.
+ *
+ * LEVEL3B: Extended with MemorySeed for prior-memory hypothesis seeding,
+ * deduplication, and memory-aware priority bonuses.
  */
 
 import type { FinalOutputSchema } from "./outputSchemaValidator";
@@ -13,11 +16,15 @@ import type { IntentContext } from "./intentInterpreter";
 // ── Constants (LEVEL2C threshold zone) ───────────────────────────────────────
 // These are isolated here for auditability. Do NOT scatter magic numbers.
 export const HYPOTHESIS_CONFIG = {
-  MAX_CANDIDATES: 3,
+  MAX_CANDIDATES: 4, // +1 slot for memory-seeded candidate
   MIN_CANDIDATES_FOR_SELECTION: 2,
   VALUE_GAIN_WEIGHT: 0.5,
   COST_PENALTY_WEIGHT: 0.3,
   REDUNDANCY_PENALTY_WEIGHT: 0.2,
+  // LEVEL3B: Memory bonus weights (bounded to prevent old memory dominating)
+  MEMORY_RECURRENCE_BONUS: 0.12,   // Applied when prior hypothesis recurs unresolved
+  CONFLICT_PRIORITY_BONUS: 0.15,   // Applied when conflict detected
+  MEMORY_BONUS_CAP: 0.20,          // Max total memory bonus per candidate
   // Cost tiers: estimated LLM calls per hypothesis type
   COST_TIER: {
     valuation_gap: 1,
@@ -33,6 +40,8 @@ export const HYPOTHESIS_CONFIG = {
     key_uncertainty: 0.85,
     bear_case: 0.75,
     counterarguments: 0.7,
+    prior_open_hypotheses: 0.75,  // LEVEL3B: slightly lower than current-run
+    prior_key_uncertainty: 0.70,  // LEVEL3B: slightly lower than current-run
   } as Record<string, number>,
 };
 
@@ -43,7 +52,9 @@ export type HypothesisSourceField =
   | "weakest_point"
   | "key_uncertainty"
   | "bear_case"
-  | "counterarguments";
+  | "counterarguments"
+  | "prior_open_hypotheses"    // LEVEL3B
+  | "prior_key_uncertainty";   // LEVEL3B
 
 export interface HypothesisCandidate {
   hypothesis_id: string;
@@ -55,6 +66,7 @@ export interface HypothesisCandidate {
   expected_value: number;
   estimated_cost: number;
   selection_reason: string;
+  memory_origin?: boolean;     // LEVEL3B: true if from prior memory
 }
 
 export interface HypothesisSelection {
@@ -69,13 +81,81 @@ export interface HypothesisSelection {
   }>;
 }
 
+// ── LEVEL3B: MemorySeed Type ──────────────────────────────────────────────────
+
+export interface MemorySeed {
+  memory_found: boolean;
+  prior_open_hypotheses: string[];
+  prior_key_uncertainty: string;
+  prior_verdict: string;
+  prior_confidence: string;
+}
+
+// ── LEVEL3B: MemoryConflict Type ─────────────────────────────────────────────
+
+export interface MemoryConflict {
+  has_conflict: boolean;
+  conflict_type: "none" | "verdict_flip" | "confidence_drop" | "thesis_tension" | "risk_escalation";
+  prior_verdict: string;
+  current_verdict: string;
+  prior_confidence: string;
+  current_confidence: string;
+  summary: string;
+}
+
+// ── LEVEL3B: Deduplication Helpers ───────────────────────────────────────────
+
+/**
+ * Normalize a hypothesis statement for deduplication.
+ * Strips punctuation, lowercases, collapses whitespace.
+ */
+function normalizeStatement(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^\w\s\u4e00-\u9fff]/g, " ")  // keep CJK chars
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Check if two normalized statements are semantically similar enough to dedupe.
+ * Uses simple prefix/suffix overlap (deterministic, no LLM).
+ */
+function isSimilarStatement(a: string, b: string): boolean {
+  if (a === b) return true;
+  // Check if one is a substring of the other (truncated version)
+  if (a.length > 10 && b.includes(a.slice(0, Math.floor(a.length * 0.7)))) return true;
+  if (b.length > 10 && a.includes(b.slice(0, Math.floor(b.length * 0.7)))) return true;
+  return false;
+}
+
+/**
+ * Deduplicate candidates: remove memory-origin candidates that are too similar
+ * to existing current-run candidates. Current-run candidates always win.
+ */
+function deduplicateCandidates(candidates: HypothesisCandidate[]): HypothesisCandidate[] {
+  const currentRun = candidates.filter(c => !c.memory_origin);
+  const memoryOrigin = candidates.filter(c => c.memory_origin);
+
+  const currentNormalized = currentRun.map(c => normalizeStatement(c.statement));
+
+  const deduped = memoryOrigin.filter(mc => {
+    const norm = normalizeStatement(mc.statement);
+    return !currentNormalized.some(cn => isSimilarStatement(norm, cn));
+  });
+
+  return [...currentRun, ...deduped];
+}
+
 // ── Candidate Extraction ──────────────────────────────────────────────────────
 
 function extractCandidates(
   level1a3Output: FinalOutputSchema,
   structuredDiscussion: StructuredDiscussion | null,
   triggerDecision: TriggerDecision,
-  intentCtx: IntentContext
+  intentCtx: IntentContext,
+  memorySeed?: MemorySeed,
+  memoryConflict?: MemoryConflict
 ): HypothesisCandidate[] {
   const candidates: HypothesisCandidate[] = [];
   let idCounter = 1;
@@ -180,7 +260,65 @@ function extractCandidates(
     });
   }
 
-  return candidates;
+  // ── LEVEL3B: Memory-seeded candidates ────────────────────────────────────
+  if (memorySeed?.memory_found) {
+    // Source 5: prior_open_hypotheses
+    if (
+      memorySeed.prior_open_hypotheses.length > 0 &&
+      candidates.length < HYPOTHESIS_CONFIG.MAX_CANDIDATES
+    ) {
+      const priorHyp = memorySeed.prior_open_hypotheses[0];
+      const id = makeId();
+      const expectedValue = HYPOTHESIS_CONFIG.VALUE_TIER["prior_open_hypotheses"];
+      const estimatedCost = HYPOTHESIS_CONFIG.COST_TIER["uncertainty_probe"];
+      // Apply memory_recurrence_bonus (bounded)
+      const memoryBonus = Math.min(
+        HYPOTHESIS_CONFIG.MEMORY_RECURRENCE_BONUS,
+        HYPOTHESIS_CONFIG.MEMORY_BONUS_CAP
+      );
+      candidates.push({
+        hypothesis_id: id,
+        source_field: "prior_open_hypotheses",
+        statement: priorHyp,
+        focus_area: "prior_hypothesis_revalidation",
+        required_fields: ["financial_data", "news_context"],
+        priority_score: computePriorityScore(expectedValue + memoryBonus, estimatedCost, 0),
+        expected_value: expectedValue + memoryBonus,
+        estimated_cost: estimatedCost,
+        selection_reason: `Prior unresolved hypothesis from memory (${memorySeed.prior_verdict}): "${priorHyp.slice(0, 80)}"`,
+        memory_origin: true,
+      });
+    }
+
+    // Source 6: prior_key_uncertainty (if still relevant)
+    if (
+      memorySeed.prior_key_uncertainty.trim() &&
+      candidates.length < HYPOTHESIS_CONFIG.MAX_CANDIDATES
+    ) {
+      const id = makeId();
+      const expectedValue = HYPOTHESIS_CONFIG.VALUE_TIER["prior_key_uncertainty"];
+      const estimatedCost = HYPOTHESIS_CONFIG.COST_TIER["uncertainty_probe"];
+      // Extra bonus if conflict detected (prior uncertainty is now a conflict point)
+      const conflictBonus = memoryConflict?.has_conflict
+        ? Math.min(HYPOTHESIS_CONFIG.CONFLICT_PRIORITY_BONUS, HYPOTHESIS_CONFIG.MEMORY_BONUS_CAP)
+        : 0;
+      candidates.push({
+        hypothesis_id: id,
+        source_field: "prior_key_uncertainty",
+        statement: memorySeed.prior_key_uncertainty,
+        focus_area: "prior_uncertainty_recheck",
+        required_fields: ["macro_data", "sector_context"],
+        priority_score: computePriorityScore(expectedValue + conflictBonus, estimatedCost, 0),
+        expected_value: expectedValue + conflictBonus,
+        estimated_cost: estimatedCost,
+        selection_reason: `Prior key uncertainty from memory${conflictBonus > 0 ? " (conflict detected)" : ""}: "${memorySeed.prior_key_uncertainty.slice(0, 80)}"`,
+        memory_origin: true,
+      });
+    }
+  }
+
+  // ── Deduplication (current-run candidates always win over memory) ─────────
+  return deduplicateCandidates(candidates);
 }
 
 // ── Scoring ───────────────────────────────────────────────────────────────────
@@ -254,6 +392,9 @@ function selectBestHypothesis(
  * Run multi-hypothesis candidate generation and selection.
  * Returns the selected hypothesis and full audit trail.
  * Only ONE hypothesis is selected for actual second-pass execution in v1.
+ *
+ * LEVEL3B: Optional memorySeed and memoryConflict inputs enable memory-driven
+ * hypothesis seeding and conflict-aware priority boosting.
  */
 export function runHypothesisEngine(params: {
   level1a3Output: FinalOutputSchema;
@@ -261,6 +402,8 @@ export function runHypothesisEngine(params: {
   triggerDecision: TriggerDecision;
   intentCtx: IntentContext;
   budgetRemaining: number;
+  memorySeed?: MemorySeed;       // LEVEL3B
+  memoryConflict?: MemoryConflict; // LEVEL3B
 }): {
   selection: HypothesisSelection;
   selected: HypothesisCandidate | null;
@@ -272,6 +415,8 @@ export function runHypothesisEngine(params: {
     triggerDecision,
     intentCtx,
     budgetRemaining,
+    memorySeed,
+    memoryConflict,
   } = params;
 
   try {
@@ -279,7 +424,9 @@ export function runHypothesisEngine(params: {
       level1a3Output,
       structuredDiscussion,
       triggerDecision,
-      intentCtx
+      intentCtx,
+      memorySeed,
+      memoryConflict
     );
 
     if (candidates.length === 0) {

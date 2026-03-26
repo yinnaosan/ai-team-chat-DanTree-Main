@@ -26,6 +26,7 @@ import { TrendRadarCard } from "@/components/TrendRadarCard";
 import { WorldMonitorCard } from "@/components/WorldMonitorCard";
 import { LoopSummaryBadge } from "@/components/LoopSummaryBadge";
 import { MemoryBadge } from "@/components/MemoryBadge";
+import { MemoryReasoningBadge } from "@/components/MemoryReasoningBadge";
 import { HypothesisCards } from "@/components/HypothesisCards";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -165,6 +166,18 @@ interface Msg {
     memoryTicker?: string;
     memoryRecordCreatedAt?: string;
     memorySummary?: string;
+    // LEVEL3B: Memory reasoning signals
+    memorySeedUsed?: boolean;
+    memoryInfluencedTrigger?: boolean;
+    memoryInfluenceSummary?: string;
+    memoryConflict?: {
+      has_conflict: boolean;
+      conflict_type: "verdict_flip" | "confidence_drop" | "risk_escalation" | "none";
+      summary: string;
+      prior_verdict?: string;
+      current_verdict?: string;
+      severity?: "low" | "medium" | "high";
+    } | null;
   } | null;
 }
 
@@ -869,6 +882,15 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             ticker={msg.metadata.memoryTicker}
             recordCreatedAt={msg.metadata.memoryRecordCreatedAt ?? ""}
             summary={msg.metadata.memorySummary}
+          />
+        )}
+        {/* LEVEL3B: Memory Reasoning Badge (conflict + seed signal) */}
+        {isAssistant && (msg.metadata?.memorySeedUsed || msg.metadata?.memoryConflict?.has_conflict) && (
+          <MemoryReasoningBadge
+            memorySeedUsed={msg.metadata?.memorySeedUsed}
+            memoryInfluencedTrigger={msg.metadata?.memoryInfluencedTrigger}
+            memoryInfluenceSummary={msg.metadata?.memoryInfluenceSummary}
+            memoryConflict={msg.metadata?.memoryConflict}
           />
         )}
         {/* LEVEL2D: Reasoning Loop Summary Badge (expandable) */}

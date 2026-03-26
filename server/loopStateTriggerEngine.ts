@@ -1,11 +1,15 @@
 /**
  * DANTREE_LEVEL2 Phase1: Loop State and Trigger Engine
  * Determines whether a second reasoning pass is warranted after Level1 output.
+ *
+ * LEVEL3B: Extended with memory-aware trigger logic.
+ * MemorySeed and MemoryConflict can override or elevate trigger decisions.
  */
 
 import type { IntentContext } from "./intentInterpreter";
 import type { FinalOutputSchema } from "./outputSchemaValidator";
 import type { StructuredSynthesis } from "./synthesisController";
+import type { MemorySeed, MemoryConflict } from "./hypothesisEngine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +31,8 @@ export interface TriggerDecision {
     | "high_uncertainty"
     | "weak_evidence"
     | "critical_risk_unresolved"
+    | "memory_conflict_override"     // LEVEL3B: conflict forced trigger
+    | "memory_recurrence_boost"      // LEVEL3B: memory boosted trigger
     | "no_trigger_high_confidence"
     | "no_trigger_quick_mode"
     | "no_trigger_discussion_mode"
@@ -34,6 +40,8 @@ export interface TriggerDecision {
     | "no_trigger_max_iterations";
   evidence_score_at_trigger: number;
   confidence_at_trigger: string;
+  memory_influenced: boolean;        // LEVEL3B: true if memory changed the decision
+  memory_influence_summary: string;  // LEVEL3B: human-readable explanation
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -48,6 +56,10 @@ const TRIGGER_THRESHOLDS = {
   // Do NOT trigger for these modes
   NO_TRIGGER_TASK_TYPES: ["general"] as string[],
   NO_TRIGGER_INTERACTION_MODES: ["discussion", "quick"] as string[],
+  // LEVEL3B: Memory conflict always forces trigger (even if high confidence)
+  MEMORY_CONFLICT_FORCE_TRIGGER: true,
+  // LEVEL3B: Memory recurrence boosts evidence_score threshold by this amount
+  MEMORY_RECURRENCE_THRESHOLD_BOOST: 0.05,
 };
 
 // ── Main Functions ────────────────────────────────────────────────────────────
@@ -73,6 +85,9 @@ export function initLoopState(options?: {
 /**
  * Evaluate whether a second reasoning pass should be triggered.
  * Called after Level1 output is complete.
+ *
+ * LEVEL3B: Optional memorySeed and memoryConflict inputs enable memory-aware
+ * trigger overrides and priority boosts.
  */
 export function evaluateTrigger(params: {
   loopState: LoopState;
@@ -81,6 +96,8 @@ export function evaluateTrigger(params: {
   evidenceScore: number;
   level1a3Output: FinalOutputSchema | null;
   structuredSynthesis: StructuredSynthesis | null;
+  memorySeed?: MemorySeed;       // LEVEL3B
+  memoryConflict?: MemoryConflict; // LEVEL3B
 }): TriggerDecision {
   const {
     loopState,
@@ -89,6 +106,8 @@ export function evaluateTrigger(params: {
     evidenceScore,
     level1a3Output,
     structuredSynthesis,
+    memorySeed,
+    memoryConflict,
   } = params;
 
   // ── Hard stops (never trigger) ────────────────────────────────────────────
@@ -101,6 +120,8 @@ export function evaluateTrigger(params: {
       trigger_type: "no_trigger_quick_mode",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: "unknown",
+      memory_influenced: false,
+      memory_influence_summary: "",
     };
   }
 
@@ -112,6 +133,8 @@ export function evaluateTrigger(params: {
       trigger_type: "no_trigger_discussion_mode",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: "unknown",
+      memory_influenced: false,
+      memory_influence_summary: "",
     };
   }
 
@@ -123,6 +146,8 @@ export function evaluateTrigger(params: {
       trigger_type: "no_trigger_quick_mode",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: "unknown",
+      memory_influenced: false,
+      memory_influence_summary: "",
     };
   }
 
@@ -134,6 +159,8 @@ export function evaluateTrigger(params: {
       trigger_type: "no_trigger_max_iterations",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: "unknown",
+      memory_influenced: false,
+      memory_influence_summary: "",
     };
   }
 
@@ -145,6 +172,27 @@ export function evaluateTrigger(params: {
       trigger_type: "no_trigger_budget_exhausted",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: "unknown",
+      memory_influenced: false,
+      memory_influence_summary: "",
+    };
+  }
+
+  // ── LEVEL3B: Memory Conflict Override ────────────────────────────────────
+  // If a material conflict is detected, force trigger regardless of confidence.
+  // This ensures verdict flips and risk escalations always get a second pass.
+  if (
+    TRIGGER_THRESHOLDS.MEMORY_CONFLICT_FORCE_TRIGGER &&
+    memoryConflict?.has_conflict &&
+    memoryConflict.conflict_type !== "none"
+  ) {
+    return {
+      should_trigger: true,
+      reason: `Memory conflict detected (${memoryConflict.conflict_type}) — second pass required to resolve thesis tension`,
+      trigger_type: "memory_conflict_override",
+      evidence_score_at_trigger: evidenceScore,
+      confidence_at_trigger: level1a3Output?.confidence ?? "unknown",
+      memory_influenced: true,
+      memory_influence_summary: memoryConflict.summary,
     };
   }
 
@@ -152,36 +200,78 @@ export function evaluateTrigger(params: {
 
   const confidence = level1a3Output?.confidence ?? "medium";
 
-  // HIGH confidence + good evidence → no trigger (converged)
+  // HIGH confidence + good evidence → normally no trigger
+  // LEVEL3B: But if memory has unresolved prior hypotheses, apply recurrence boost
   if (confidence === "high" && evidenceScore >= 0.75) {
+    // Check if memory has unresolved hypotheses that should be revisited
+    if (
+      memorySeed?.memory_found &&
+      memorySeed.prior_open_hypotheses.length > 0
+    ) {
+      // Boost: lower the effective evidence threshold
+      const effectiveThreshold = 0.75 - TRIGGER_THRESHOLDS.MEMORY_RECURRENCE_THRESHOLD_BOOST;
+      if (evidenceScore < 0.75 + 0.05) {
+        // Still trigger if evidence is only marginally above threshold
+        return {
+          should_trigger: true,
+          reason: `High confidence but prior unresolved hypotheses from memory — second pass to revalidate`,
+          trigger_type: "memory_recurrence_boost",
+          evidence_score_at_trigger: evidenceScore,
+          confidence_at_trigger: confidence,
+          memory_influenced: true,
+          memory_influence_summary: `Prior open hypothesis: "${memorySeed.prior_open_hypotheses[0].slice(0, 80)}"`,
+        };
+      }
+    }
     return {
       should_trigger: false,
       reason: `High confidence (${confidence}) with strong evidence (${evidenceScore.toFixed(2)}) — already converged`,
       trigger_type: "no_trigger_high_confidence",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: confidence,
+      memory_influenced: false,
+      memory_influence_summary: "",
     };
   }
 
   // LOW confidence → always trigger
   if (confidence === "low") {
+    const memoryNote = memorySeed?.memory_found
+      ? ` (memory: prior verdict was ${memorySeed.prior_verdict})`
+      : "";
     return {
       should_trigger: true,
-      reason: `Low confidence (${confidence}) — second pass required to strengthen or refute thesis`,
+      reason: `Low confidence (${confidence}) — second pass required to strengthen or refute thesis${memoryNote}`,
       trigger_type: "low_confidence",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: confidence,
+      memory_influenced: !!memorySeed?.memory_found,
+      memory_influence_summary: memorySeed?.memory_found
+        ? `Prior verdict context available: ${memorySeed.prior_verdict}`
+        : "",
     };
   }
 
   // MEDIUM confidence + weak evidence → trigger
-  if (confidence === "medium" && evidenceScore < TRIGGER_THRESHOLDS.EVIDENCE_SCORE_TRIGGER) {
+  // LEVEL3B: Effective threshold raised slightly if memory has recurrence data
+  const effectiveEvidenceThreshold = memorySeed?.memory_found
+    ? TRIGGER_THRESHOLDS.EVIDENCE_SCORE_TRIGGER + TRIGGER_THRESHOLDS.MEMORY_RECURRENCE_THRESHOLD_BOOST
+    : TRIGGER_THRESHOLDS.EVIDENCE_SCORE_TRIGGER;
+
+  if (confidence === "medium" && evidenceScore < effectiveEvidenceThreshold) {
+    const memoryNote = memorySeed?.memory_found
+      ? ` (memory-adjusted threshold: ${effectiveEvidenceThreshold.toFixed(2)})`
+      : "";
     return {
       should_trigger: true,
-      reason: `Medium confidence with weak evidence score (${evidenceScore.toFixed(2)} < ${TRIGGER_THRESHOLDS.EVIDENCE_SCORE_TRIGGER}) — second pass to improve evidence base`,
+      reason: `Medium confidence with weak evidence score (${evidenceScore.toFixed(2)} < ${effectiveEvidenceThreshold.toFixed(2)}) — second pass to improve evidence base${memoryNote}`,
       trigger_type: "weak_evidence",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: confidence,
+      memory_influenced: !!memorySeed?.memory_found,
+      memory_influence_summary: memorySeed?.memory_found
+        ? `Evidence threshold raised to ${effectiveEvidenceThreshold.toFixed(2)} due to prior memory`
+        : "",
     };
   }
 
@@ -197,6 +287,8 @@ export function evaluateTrigger(params: {
         trigger_type: "critical_risk_unresolved",
         evidence_score_at_trigger: evidenceScore,
         confidence_at_trigger: confidence,
+        memory_influenced: false,
+        memory_influence_summary: "",
       };
     }
   }
@@ -211,6 +303,8 @@ export function evaluateTrigger(params: {
         trigger_type: "high_uncertainty",
         evidence_score_at_trigger: evidenceScore,
         confidence_at_trigger: confidence,
+        memory_influenced: false,
+        memory_influence_summary: "",
       };
     }
   }
@@ -222,6 +316,8 @@ export function evaluateTrigger(params: {
     trigger_type: "no_trigger_high_confidence",
     evidence_score_at_trigger: evidenceScore,
     confidence_at_trigger: confidence,
+    memory_influenced: false,
+    memory_influence_summary: "",
   };
 }
 

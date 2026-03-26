@@ -144,7 +144,8 @@ import {
 import { evaluateTrigger, initLoopState, advanceLoopState, type LoopState } from "./loopStateTriggerEngine";
 import { generateFollowUpTask } from "./followUpTaskGenerator";
 // ── LEVEL2B: Multi-Hypothesis Engine ─────────────────────────────────────────
-import { runHypothesisEngine } from "./hypothesisEngine";
+import { runHypothesisEngine, type MemorySeed, type MemoryConflict } from "./hypothesisEngine";
+import { detectMemoryConflict } from "./memoryConflictDetector";
 import { executeSecondPass } from "./secondPassExecutionWrapper";
 import { computeEvidenceDelta } from "./evidenceDeltaEngine";
 import { updateVerdict } from "./verdictUpdater";
@@ -2185,6 +2186,42 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       }
     }
     // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
+
+    // ── LEVEL3B: Build MemorySeed + MemoryConflict (non-fatal, zero LLM calls) ──────────
+    let memorySeedForEngine: MemorySeed | undefined;
+    let memoryConflictForEngine: MemoryConflict | undefined;
+    if (useJsonOnlyMode && primaryTicker) {
+      try {
+        const memResult2 = await getAnalysisMemory({
+          userId,
+          ticker: primaryTicker,
+          taskType: resolvedTaskType,
+        });
+        if (memResult2.found) {
+          const m = memResult2.memory;
+          memorySeedForEngine = {
+            memory_found: true,
+            prior_open_hypotheses: m.openHypotheses ?? [],
+            prior_key_uncertainty: m.keyUncertainty ?? "",
+            prior_verdict: m.verdict ?? "",
+            prior_confidence: m.confidenceLevel ?? "unknown",
+          };
+          // Conflict detection will run after level1a3Output is available (see LEVEL2 block)
+        } else {
+          memorySeedForEngine = {
+            memory_found: false,
+            prior_open_hypotheses: [],
+            prior_key_uncertainty: "",
+            prior_verdict: "",
+            prior_confidence: "unknown",
+          };
+        }
+      } catch (memSeedErr) {
+        console.warn("[LEVEL3B] MemorySeed build failed (non-fatal):", memSeedErr);
+      }
+    }
+    // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
+
     const jsonOnlySystemMsg = useJsonOnlyMode ? buildStep3JsonOnlySystemMessage() : "";
     const jsonOnlyUserMsg = useJsonOnlyMode ? buildStep3JsonOnlyUserMessage({
       ticker: primaryTicker,
@@ -2502,6 +2539,16 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       metadataToSave.memorySummary = memorySummary;
     }
     // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
+    // ── LEVEL3B: Memory reasoning signal metadata (pre-loop, for frontend) ───────────
+    // Note: memoryConflictForEngine is built inside the LEVEL2 block (after level1a3Output).
+    // We write a placeholder here; the convergedMetadata update will carry the final values.
+    if (memorySeedForEngine?.memory_found) {
+      metadataToSave.memorySeedUsed = true;
+      metadataToSave.memoryInfluenceSummary = memorySeedForEngine.prior_verdict
+        ? `上次分析：${memorySeedForEngine.prior_verdict} (置信度: ${memorySeedForEngine.prior_confidence})`
+        : "";
+    }
+    // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
     if (Object.keys(metadataToSave).length > 0) {
       await updateMessageContent(streamMsgId, finalReply, metadataToSave);
     }
@@ -2511,6 +2558,28 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     let convergedOutput: ConvergedOutput | null = null;
     if (useJsonOnlyMode && level1a3Output !== null && (analysisMode as string) !== "quick") {
       try {
+        // ── LEVEL3B: Build MemoryConflict now that level1a3Output is available ──────────
+        if (memorySeedForEngine?.memory_found) {
+          try {
+            memoryConflictForEngine = detectMemoryConflict({
+              priorVerdict: memorySeedForEngine.prior_verdict,
+              currentVerdict: level1a3Output.verdict ?? "",
+              priorConfidence: memorySeedForEngine.prior_confidence,
+              currentConfidence: level1a3Output.confidence ?? "unknown",
+              priorBullCase: undefined,
+              currentBearCase: level1a3Output.bear_case?.[0] ?? "",
+              priorBearCase: undefined,
+              currentBullCase: level1a3Output.bull_case?.[0] ?? "",
+            });
+            if (memoryConflictForEngine.has_conflict) {
+              console.log(`[LEVEL3B] Memory conflict detected: ${memoryConflictForEngine.conflict_type} — ${memoryConflictForEngine.summary}`);
+            }
+          } catch (conflictErr) {
+            console.warn("[LEVEL3B] MemoryConflict detection failed (non-fatal):", conflictErr);
+          }
+        }
+        // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
+
         const triggerDecision = evaluateTrigger({
           loopState: initLoopState(),
           intentCtx,
@@ -2518,18 +2587,22 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           evidenceScore: evidencePacket.evidenceScore,
           level1a3Output,
           structuredSynthesis,
+          memorySeed: memorySeedForEngine,
+          memoryConflict: memoryConflictForEngine,
         });
 
          if (triggerDecision.should_trigger) {
           // Initialize loop state
           let loopState: LoopState = initLoopState();
-          // ── LEVEL2B: Multi-Hypothesis Selection ──────────────────────────────
+          // ── LEVEL2B: Multi-Hypothesis Selection ──────────────────────────────────────────────
           const hypothesisResult = runHypothesisEngine({
             level1a3Output,
             structuredDiscussion,
             triggerDecision,
             intentCtx,
             budgetRemaining: loopState.budget_max - loopState.budget_used,
+            memorySeed: memorySeedForEngine,
+            memoryConflict: memoryConflictForEngine,
           });
           // Generate follow-up task (hypothesis-driven or legacy fallback)
           const followUpTask = generateFollowUpTask({
@@ -2593,6 +2666,15 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               ...metadataToSave,
               level1a3Output: convergedOutput.final_schema,
               level2LoopMetadata: convergedOutput.loop_metadata,
+              // ── LEVEL3B: Memory reasoning signals (final, with conflict data) ──────────
+              memorySeedUsed: !!memorySeedForEngine?.memory_found,
+              memoryConflict: memoryConflictForEngine ?? null,
+              memoryInfluencedTrigger: triggerDecision.memory_influenced,
+              memoryInfluenceSummary: triggerDecision.memory_influence_summary ||
+                (memorySeedForEngine?.memory_found
+                  ? `上次分析：${memorySeedForEngine.prior_verdict} (置信度: ${memorySeedForEngine.prior_confidence})`
+                  : ""),
+              // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
             };
 
             // Append loop summary to finalReply if verdict changed

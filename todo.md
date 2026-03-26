@@ -2431,3 +2431,10 @@
 - [x] routers.ts Phase5: Step2 后注入 + Step3 gating instruction + convergedMetadata LEVEL1C 字段
 - [x] EvidenceWarningBadge.tsx: 前端证据警告组件（强度评分 + 冲突字段 + 门控模式）
 - [x] ChatRoom.tsx: LEVEL1C metadata 类型扩展 + EvidenceWarningBadge 渲染注入
+
+## FXology UI 升级（全局颜色体系）
+
+- [x] Phase1: index.css CSS 变量从 Bloomberg 琥珀金（hue-75）升级为 FXology 蓝（hue-255）
+- [x] Phase2: Home.tsx + ChatRoom.tsx 所有硬编码琥珀金颜色批量替换
+- [x] Phase3: 所有其他 .tsx 文件 + index.css 残留 hue-75 颜色全部清除
+- [x] Phase4: 添加 FXology 全局动画规范（fxo-enter/fade-up 0.2s）+ Chat 面板视觉层次优化 CSS 类

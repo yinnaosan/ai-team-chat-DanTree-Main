@@ -216,7 +216,7 @@ function EquityCurveChart({ dailyResults }: { dailyResults: BacktestDailyResult[
         <Line
           type="monotone"
           dataKey="strategy"
-          stroke="oklch(78% 0.18 75)"
+          stroke="oklch(65% 0.18 255)"
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 4 }}

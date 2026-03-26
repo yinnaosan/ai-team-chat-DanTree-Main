@@ -18,7 +18,7 @@ import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, DollarSign, CreditCard,
 // ── 颜色配置 ─────────────────────────────────────────────────────────────────
 const ASSET_COLORS: Record<string, string> = {
   stocks: "oklch(68% 0.18 250)",
-  crypto: "oklch(78% 0.18 75)",
+  crypto: "oklch(65% 0.18 255)",
   cash: "oklch(65% 0.20 155)",
   real_estate: "oklch(68% 0.18 220)",
   bonds: "oklch(68% 0.18 290)",

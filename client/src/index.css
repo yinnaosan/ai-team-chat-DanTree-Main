@@ -43,113 +43,126 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BLOOMBERG TERMINAL DESIGN SYSTEM V2
-   深蓝黑背景 + 琥珀金 accent + 专业金融终端风格
-   背景: #080C10  面板: #0D1117  卡片: #131920  边框: #1E2733
-   文字: #E8EDF2 → #8B9BB4 → #4A5568
-   Accent: 琥珀金 #F59E0B / 涨绿 #22C55E / 跌红 #EF4444
+   FXOLOGY INVESTMENT TERMINAL DESIGN SYSTEM V4
+   FXology 风格 — 深蓝黑背景 + 蓝色 accent + 专业投资终端
+   背景: #0f1115  面板: #111827  卡片: #161a21  边框: #232937
+   文字: #e6e8eb → #9aa4b2  Accent: #4c8bf5 → #7aa2ff
+   成功: #22c55e  风险: #ef4444
 ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  /* ── 背景层级 — 深蓝黑 Bloomberg 风格 ── */
-  --background: oklch(4.5% 0.008 240);
-  --foreground: oklch(92% 0.008 220);
+  /* ── 背景层级 — FXology 深蓝黑 #0f1115 ── */
+  --background: oklch(8.5% 0.008 240);
+  --foreground: oklch(91% 0.006 220);
 
-  /* 卡片/面板 */
-  --card: oklch(8% 0.012 240);
-  --card-foreground: oklch(92% 0.008 220);
+  /* 卡片/面板 — #161a21 */
+  --card: oklch(11.5% 0.010 240);
+  --card-foreground: oklch(91% 0.006 220);
 
   /* 弹出层 */
-  --popover: oklch(11% 0.018 240);
-  --popover-foreground: oklch(92% 0.008 220);
+  --popover: oklch(13% 0.012 240);
+  --popover-foreground: oklch(91% 0.006 220);
 
-  /* 主色 — 琥珀金 Bloomberg accent */
-  --primary: oklch(78% 0.18 75);
-  --primary-foreground: oklch(10% 0.015 240);
+  /* 主色 — FXology 蓝 #4c8bf5 */
+  --primary: oklch(65% 0.18 255);
+  --primary-foreground: oklch(98% 0 0);
 
   /* 次级 */
-  --secondary: oklch(16% 0.02 240);
-  --secondary-foreground: oklch(80% 0.01 220);
+  --secondary: oklch(16% 0.015 240);
+  --secondary-foreground: oklch(80% 0.008 220);
 
   /* 静音 */
-  --muted: oklch(13% 0.018 240);
-  --muted-foreground: oklch(52% 0.012 230);
+  --muted: oklch(13.5% 0.012 240);
+  --muted-foreground: oklch(58% 0.010 230);
 
   /* 强调 hover */
-  --accent: oklch(16% 0.02 240);
-  --accent-foreground: oklch(92% 0.008 220);
+  --accent: oklch(16% 0.015 240);
+  --accent-foreground: oklch(91% 0.006 220);
 
-  /* 危险红 */
+  /* 危险红 #ef4444 */
   --destructive: oklch(60% 0.22 25);
   --destructive-foreground: oklch(98% 0 0);
 
-  /* 边框 — 深蓝灰 */
-  --border: oklch(20% 0.022 240);
-  /* 输入框 */
-  --input: oklch(13% 0.018 240);
-  /* focus ring — 琥珀金 */
-  --ring: oklch(78% 0.18 75);
+  /* 边框 — #232937 */
+  --border: oklch(22% 0.018 240);
+  /* 输入框 — #11151c */
+  --input: oklch(10% 0.012 240);
+  /* focus ring — FXology 蓝 */
+  --ring: oklch(65% 0.18 255);
 
   /* ── 侧边栏 ── */
-  --sidebar: oklch(7.5% 0.012 240);
-  --sidebar-foreground: oklch(92% 0.008 220);
-  --sidebar-primary: oklch(78% 0.18 75);
-  --sidebar-primary-foreground: oklch(10% 0.015 240);
-  --sidebar-accent: oklch(16% 0.02 240);
-  --sidebar-accent-foreground: oklch(92% 0.008 220);
-  --sidebar-border: oklch(18% 0.02 240);
-  --sidebar-ring: oklch(78% 0.18 75);
+  --sidebar: oklch(9% 0.010 240);
+  --sidebar-foreground: oklch(91% 0.006 220);
+  --sidebar-primary: oklch(65% 0.18 255);
+  --sidebar-primary-foreground: oklch(98% 0 0);
+  --sidebar-accent: oklch(16% 0.015 240);
+  --sidebar-accent-foreground: oklch(91% 0.006 220);
+  --sidebar-border: oklch(19% 0.016 240);
+  --sidebar-ring: oklch(65% 0.18 255);
 
   /* ── 图表色 — 金融专业配色 ── */
-  --chart-1: oklch(78% 0.18 75);   /* 琥珀金 — 主 accent */
-  --chart-2: oklch(65% 0.20 155);  /* 涨绿 */
-  --chart-3: oklch(72% 0.18 250);  /* 蓝色 */
-  --chart-4: oklch(65% 0.20 300);  /* 紫 */
-  --chart-5: oklch(62% 0.22 25);   /* 跌红 */
+  --chart-1: oklch(65% 0.18 255);   /* FXology 蓝 — 主 accent */
+  --chart-2: oklch(65% 0.20 155);   /* 涨绿 #22c55e */
+  --chart-3: oklch(72% 0.16 280);   /* 蓝紫 */
+  --chart-4: oklch(65% 0.20 300);   /* 紫 */
+  --chart-5: oklch(62% 0.22 25);    /* 跌红 #ef4444 */
 
-  /* ── Bloomberg 专属设计 token ── */
-  --bloomberg-gold: oklch(78% 0.18 75);
-  --bloomberg-gold-dim: oklch(68% 0.15 75);
-  --bloomberg-gold-glow: oklch(78% 0.18 75 / 0.15);
-  --bloomberg-green: oklch(65% 0.20 155);
-  --bloomberg-red: oklch(62% 0.22 25);
-  --bloomberg-blue: oklch(68% 0.18 250);
-  --bloomberg-surface-0: oklch(4.5% 0.008 240);   /* 最底层 */
-  --bloomberg-surface-1: oklch(7% 0.012 240);     /* 面板 */
-  --bloomberg-surface-2: oklch(10% 0.015 240);    /* 卡片 */
-  --bloomberg-surface-3: oklch(13% 0.018 240);    /* hover */
-  --bloomberg-border-dim: oklch(18% 0.02 240);
-  --bloomberg-border: oklch(22% 0.022 240);
-  --bloomberg-border-bright: oklch(30% 0.025 240);
-  --bloomberg-text-primary: oklch(92% 0.008 220);
-  --bloomberg-text-secondary: oklch(68% 0.012 230);
-  --bloomberg-text-tertiary: oklch(45% 0.01 235);
-  --bloomberg-text-dim: oklch(32% 0.01 240);
+  /* ── FXology 专属设计 token（保留 bloomberg 命名以兼容现有代码）── */
+  --bloomberg-gold: oklch(65% 0.18 255);          /* FXology 蓝替代琥珀金 */
+  --bloomberg-gold-dim: oklch(58% 0.15 255);
+  --bloomberg-gold-glow: oklch(65% 0.18 255 / 0.12);
+  --bloomberg-green: oklch(65% 0.20 155);         /* #22c55e */
+  --bloomberg-red: oklch(62% 0.22 25);            /* #ef4444 */
+  --bloomberg-blue: oklch(68% 0.18 255);          /* FXology 蓝亮版 #7aa2ff */
+  --bloomberg-surface-0: oklch(8.5% 0.008 240);   /* #0f1115 — 最底层 */
+  --bloomberg-surface-1: oklch(10% 0.010 240);    /* #111827 — 面板 */
+  --bloomberg-surface-2: oklch(11.5% 0.010 240);  /* #161a21 — 卡片 */
+  --bloomberg-surface-3: oklch(14% 0.012 240);    /* hover */
+  --bloomberg-border-dim: oklch(19% 0.016 240);   /* #232937 dim */
+  --bloomberg-border: oklch(22% 0.018 240);       /* #232937 */
+  --bloomberg-border-bright: oklch(30% 0.022 240);
+  --bloomberg-text-primary: oklch(91% 0.006 220);    /* #e6e8eb */
+  --bloomberg-text-secondary: oklch(65% 0.010 230);  /* #9aa4b2 */
+  --bloomberg-text-tertiary: oklch(48% 0.009 235);
+  --bloomberg-text-dim: oklch(34% 0.008 240);
 
   /* ── AI 角色专属色 ── */
-  --manus-color: oklch(78% 0.18 75);   /* 琥珀金 — Manus */
-  --manus-bg: oklch(14% 0.025 75);
-  --manus-border: oklch(22% 0.04 75);
-  --chatgpt-color: oklch(72% 0.18 250); /* 蓝色 — GPT */
-  --chatgpt-bg: oklch(12% 0.025 250);
-  --chatgpt-border: oklch(20% 0.04 250);
-  --user-color: oklch(92% 0.008 220);
-  --user-bg: oklch(16% 0.02 240);
-  --user-border: oklch(28% 0.025 240);
-  --system-color: oklch(45% 0.01 235);
+  --manus-color: oklch(65% 0.18 255);    /* FXology 蓝 — Manus */
+  --manus-bg: oklch(13% 0.020 255);
+  --manus-border: oklch(21% 0.030 255);
+  --chatgpt-color: oklch(72% 0.16 280);  /* 蓝紫 — GPT */
+  --chatgpt-bg: oklch(12% 0.020 280);
+  --chatgpt-border: oklch(20% 0.030 280);
+  --user-color: oklch(91% 0.006 220);
+  --user-bg: oklch(15% 0.012 240);
+  --user-border: oklch(26% 0.018 240);
+  --system-color: oklch(48% 0.009 235);
 
   /* ── 功能性颜色 ── */
   --color-up: oklch(65% 0.20 155);
   --color-down: oklch(62% 0.22 25);
-  --color-neutral: oklch(68% 0.012 230);
+  --color-neutral: oklch(65% 0.010 230);
+
+  /* ── FXology 原始十六进制 token ── */
+  --fxo-accent: #4c8bf5;
+  --fxo-accent-light: #7aa2ff;
+  --fxo-bg: #0f1115;
+  --fxo-surface: #111827;
+  --fxo-card: #161a21;
+  --fxo-border: #232937;
+  --fxo-text: #e6e8eb;
+  --fxo-text-dim: #9aa4b2;
+  --fxo-success: #22c55e;
+  --fxo-risk: #ef4444;
+  --fxo-strategy-bg: #1b2130;
 }
 
 /* Dark class kept for compatibility */
 .dark {
-  --background: oklch(4.5% 0.008 240);
-  --foreground: oklch(92% 0.008 220);
+  --background: oklch(8.5% 0.008 240);
+  --foreground: oklch(91% 0.006 220);
 }
 
 @layer base {
@@ -242,7 +255,7 @@
   color: var(--bloomberg-text-primary);
 }
 .bloomberg-nav-item.active {
-  background: oklch(14% 0.025 75);
+  background: oklch(14% 0.025 255);
   color: var(--bloomberg-gold);
   border-left: 2px solid var(--bloomberg-gold);
   padding-left: calc(0.75rem - 2px);
@@ -402,9 +415,9 @@
   text-transform: uppercase;
 }
 .bloomberg-badge.gold {
-  background: oklch(78% 0.18 75 / 0.12);
+  background: oklch(78% 0.18 255 / 0.12);
   color: var(--bloomberg-gold);
-  border: 1px solid oklch(78% 0.18 75 / 0.25);
+  border: 1px solid oklch(78% 0.18 255 / 0.25);
 }
 .bloomberg-badge.green {
   background: oklch(65% 0.20 155 / 0.12);
@@ -471,7 +484,7 @@
 }
 .bloomberg-input-wrap:focus-within {
   border-color: var(--bloomberg-gold);
-  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.12);
+  box-shadow: 0 0 0 2px oklch(78% 0.18 255 / 0.12);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -619,8 +632,8 @@
    BLOOMBERG GLOW EFFECTS — 发光效果
 ═══════════════════════════════════════════════════════════════════════════ */
 .bloomberg-gold-glow {
-  box-shadow: 0 0 12px oklch(78% 0.18 75 / 0.2),
-              0 0 24px oklch(78% 0.18 75 / 0.08);
+  box-shadow: 0 0 12px oklch(78% 0.18 255 / 0.2),
+              0 0 24px oklch(78% 0.18 255 / 0.08);
 }
 .bloomberg-green-glow {
   box-shadow: 0 0 8px oklch(65% 0.20 155 / 0.25);
@@ -679,7 +692,7 @@
   color: var(--bloomberg-text-primary);
 }
 .grok-history-item.active {
-  background: oklch(14% 0.025 75);
+  background: oklch(14% 0.025 255);
   color: var(--bloomberg-gold);
 }
 
@@ -713,8 +726,8 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 50%;
-  background: oklch(14% 0.025 75);
-  border: 1px solid oklch(22% 0.04 75);
+  background: oklch(14% 0.025 255);
+  border: 1px solid oklch(22% 0.04 255);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -740,7 +753,7 @@
 }
 .grok-input-wrap:focus-within {
   border-color: var(--bloomberg-gold);
-  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.1);
+  box-shadow: 0 0 0 2px oklch(78% 0.18 255 / 0.1);
 }
 
 .grok-input-tag {
@@ -761,9 +774,9 @@
   color: var(--bloomberg-text-primary);
 }
 .grok-input-tag.active {
-  background: oklch(14% 0.025 75);
+  background: oklch(14% 0.025 255);
   color: var(--bloomberg-gold);
-  border-color: oklch(22% 0.04 75);
+  border-color: oklch(22% 0.04 255);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -869,7 +882,7 @@
 .prose-chat a {
   color: var(--bloomberg-gold);
   text-decoration: none;
-  border-bottom: 1px solid oklch(78% 0.18 75 / 0.3);
+  border-bottom: 1px solid oklch(78% 0.18 255 / 0.3);
   transition: border-color 0.12s;
 }
 .prose-chat a:hover {
@@ -934,20 +947,20 @@
 }
 .glass-input-v2:focus-within {
   border-color: var(--bloomberg-gold);
-  box-shadow: 0 0 0 2px oklch(78% 0.18 75 / 0.1),
+  box-shadow: 0 0 0 2px oklch(65% 0.18 255 / 0.15),
               0 1px 0 oklch(100% 0 0 / 0.06) inset;
 }
 
 .glass-btn-v2 {
-  background: oklch(100% 0 0 / 0.04);
-  border: 1px solid oklch(100% 0 0 / 0.08);
-  border-radius: 0.375rem;
+  background: oklch(100% 0 0 / 0.035);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+  border-radius: 0.5rem;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .glass-btn-v2:hover {
-  background: oklch(100% 0 0 / 0.08);
-  border-color: oklch(100% 0 0 / 0.14);
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.2);
+  background: oklch(65% 0.18 255 / 0.08);
+  border-color: oklch(65% 0.18 255 / 0.25);
+  box-shadow: 0 2px 12px oklch(65% 0.18 255 / 0.12);
 }
 
 .glass-navbar {
@@ -958,9 +971,9 @@
 }
 
 .glass-sidebar {
-  background: oklch(7.5% 0.012 240 / 0.90);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  background: oklch(9% 0.010 240 / 0.92);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
   border-right: 1px solid var(--bloomberg-border-dim);
 }
 
@@ -970,7 +983,7 @@
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 0 1px oklch(78% 0.18 75 / 0.2),
+  box-shadow: 0 0 0 1px oklch(78% 0.18 255 / 0.2),
               0 4px 16px oklch(0% 0 0 / 0.3);
 }
 
@@ -998,7 +1011,7 @@
   color: var(--bloomberg-text-primary);
 }
 .gemini-sidebar-item.active {
-  background: oklch(14% 0.025 75);
+  background: oklch(14% 0.025 255);
   color: var(--bloomberg-gold);
 }
 .gemini-input-wrap {
@@ -1026,7 +1039,7 @@
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
-.msg-avatar.manus  { background: oklch(14% 0.025 75); color: var(--bloomberg-gold); border: 1px solid oklch(22% 0.04 75); }
+.msg-avatar.manus  { background: oklch(14% 0.025 255); color: var(--bloomberg-gold); border: 1px solid oklch(22% 0.04 255); }
 .msg-avatar.chatgpt{ background: oklch(12% 0.025 250); color: var(--bloomberg-blue); border: 1px solid oklch(20% 0.04 250); }
 .msg-avatar.user   { background: oklch(16% 0.02 240); color: var(--bloomberg-text-primary); border: 1px solid var(--bloomberg-border); }
 .msg-bubble {
@@ -1130,7 +1143,7 @@
   border: 1px solid var(--bloomberg-border);
   border-radius: 0.625rem;
   box-shadow: 0 24px 80px oklch(0% 0 0 / 0.6),
-              0 0 0 1px oklch(78% 0.18 75 / 0.08);
+              0 0 0 1px oklch(78% 0.18 255 / 0.08);
   overflow: hidden;
 }
 .bloomberg-command-input {
@@ -1243,8 +1256,8 @@
   50%       { opacity: 0.06; }
 }
 @keyframes goldPulse {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(78% 0.18 75 / 0.4); }
-  50%       { box-shadow: 0 0 0 4px oklch(78% 0.18 75 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 oklch(78% 0.18 255 / 0.4); }
+  50%       { box-shadow: 0 0 0 4px oklch(78% 0.18 255 / 0); }
 }
 
 .animate-fade-in-up  { animation: fadeInUp 0.3s ease-out both; }
@@ -1261,9 +1274,9 @@
 
 /* ── FXology 背景渐变纹理 ── */
 .fxo-bg-root {
-  background: oklch(4.5% 0.008 240);
+  background: oklch(8.5% 0.008 240);
   background-image:
-    radial-gradient(ellipse 80% 50% at 20% 10%, oklch(78% 0.18 75 / 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 50% at 20% 10%, oklch(78% 0.18 255 / 0.04) 0%, transparent 60%),
     radial-gradient(ellipse 60% 40% at 80% 90%, oklch(65% 0.18 250 / 0.03) 0%, transparent 60%),
     radial-gradient(ellipse 100% 100% at 50% 50%, oklch(0% 0 0 / 0.0) 0%, transparent 100%);
 }
@@ -1306,12 +1319,12 @@
   background: oklch(9% 0.015 240 / 0.85);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid oklch(78% 0.18 75 / 0.2);
+  border: 1px solid oklch(78% 0.18 255 / 0.2);
   border-radius: 0.625rem;
   box-shadow:
-    0 1px 0 oklch(78% 0.18 75 / 0.1) inset,
+    0 1px 0 oklch(78% 0.18 255 / 0.1) inset,
     0 8px 32px oklch(0% 0 0 / 0.35),
-    0 0 24px oklch(78% 0.18 75 / 0.06);
+    0 0 24px oklch(78% 0.18 255 / 0.06);
 }
 
 /* ── FXology 卡片标题栏 ── */
@@ -1388,18 +1401,18 @@
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  background: linear-gradient(135deg, oklch(78% 0.18 75), oklch(72% 0.2 65));
+  background: linear-gradient(135deg, oklch(65% 0.18 255), oklch(72% 0.2 65));
   color: oklch(10% 0.015 240);
   border: none;
   cursor: pointer;
   position: relative;
   overflow: hidden;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 16px oklch(78% 0.18 75 / 0.25), 0 1px 0 oklch(100% 0 0 / 0.2) inset;
+  box-shadow: 0 4px 16px oklch(78% 0.18 255 / 0.25), 0 1px 0 oklch(100% 0 0 / 0.2) inset;
 }
 .fxo-btn-primary:hover {
   transform: translateY(-1px) scale(1.01);
-  box-shadow: 0 6px 24px oklch(78% 0.18 75 / 0.35), 0 1px 0 oklch(100% 0 0 / 0.25) inset;
+  box-shadow: 0 6px 24px oklch(78% 0.18 255 / 0.35), 0 1px 0 oklch(100% 0 0 / 0.25) inset;
 }
 .fxo-btn-primary:active {
   transform: translateY(0) scale(0.99);
@@ -1437,8 +1450,8 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .fxo-input:focus, .fxo-input:focus-within {
-  border-color: oklch(78% 0.18 75 / 0.5);
-  box-shadow: 0 0 0 3px oklch(78% 0.18 75 / 0.08);
+  border-color: oklch(78% 0.18 255 / 0.5);
+  box-shadow: 0 0 0 3px oklch(78% 0.18 255 / 0.08);
   outline: none;
 }
 .fxo-input::placeholder {
@@ -1457,9 +1470,9 @@
   letter-spacing: 0.03em;
 }
 .fxo-badge-gold {
-  background: oklch(78% 0.18 75 / 0.12);
-  color: oklch(78% 0.18 75);
-  border: 1px solid oklch(78% 0.18 75 / 0.25);
+  background: oklch(78% 0.18 255 / 0.12);
+  color: oklch(65% 0.18 255);
+  border: 1px solid oklch(78% 0.18 255 / 0.25);
 }
 .fxo-badge-green {
   background: oklch(65% 0.20 155 / 0.12);
@@ -1501,9 +1514,9 @@
   color: oklch(85% 0.008 220);
 }
 .fxo-nav-item.active {
-  background: oklch(78% 0.18 75 / 0.08);
-  color: oklch(78% 0.18 75);
-  border-left: 2px solid oklch(78% 0.18 75);
+  background: oklch(65% 0.18 255 / 0.08);
+  color: oklch(65% 0.18 255);
+  border-left: 2px solid oklch(65% 0.18 255);
   padding-left: calc(0.75rem - 2px);
 }
 
@@ -1534,7 +1547,7 @@
 }
 .fxo-metric-value.up { color: oklch(62% 0.22 25); }
 .fxo-metric-value.down { color: oklch(65% 0.20 155); }
-.fxo-metric-value.gold { color: oklch(78% 0.18 75); }
+.fxo-metric-value.gold { color: oklch(65% 0.18 255); }
 
 /* ── FXology 分割线 ── */
 .fxo-divider {
@@ -1550,8 +1563,8 @@
 /* ── FXology 发光效果 ── */
 .fxo-glow-gold {
   box-shadow:
-    0 0 12px oklch(78% 0.18 75 / 0.25),
-    0 0 32px oklch(78% 0.18 75 / 0.1);
+    0 0 12px oklch(65% 0.18 255 / 0.25),
+    0 0 32px oklch(65% 0.18 255 / 0.1);
 }
 .fxo-glow-green {
   box-shadow: 0 0 10px oklch(65% 0.20 155 / 0.3);
@@ -1583,7 +1596,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    oklch(78% 0.18 75 / 0.6) 30%,
+    oklch(78% 0.18 255 / 0.6) 30%,
     oklch(65% 0.18 250 / 0.6) 60%,
     transparent 100%
   );
@@ -1607,7 +1620,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, oklch(78% 0.18 75 / 0.5), transparent);
+  background: linear-gradient(90deg, transparent, oklch(78% 0.18 255 / 0.5), transparent);
   animation: fxoScanLine 8s linear infinite;
   pointer-events: none;
 }
@@ -1623,7 +1636,7 @@
   border-radius: 50%;
   animation: fxoPulse 2s ease-in-out infinite;
 }
-.fxo-pulse-dot.gold { background: oklch(78% 0.18 75); }
+.fxo-pulse-dot.gold { background: oklch(65% 0.18 255); }
 .fxo-pulse-dot.green { background: oklch(65% 0.20 155); }
 .fxo-pulse-dot.red { background: oklch(62% 0.22 25); }
 
@@ -1637,7 +1650,7 @@
 .fxo-progress-bar {
   height: 100%;
   border-radius: 1px;
-  background: linear-gradient(90deg, oklch(78% 0.18 75), oklch(65% 0.18 250));
+  background: linear-gradient(90deg, oklch(65% 0.18 255), oklch(65% 0.18 250));
   transition: width 0.5s ease;
 }
 
@@ -1713,20 +1726,20 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 50%;
-  background: oklch(14% 0.025 75);
-  border: 1px solid oklch(78% 0.18 75 / 0.3);
+  background: oklch(14% 0.025 255);
+  border: 1px solid oklch(78% 0.18 255 / 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   font-size: 0.625rem;
   font-weight: 700;
-  color: oklch(78% 0.18 75);
+  color: oklch(65% 0.18 255);
 }
 
 /* ── FXology 渐变文字 ── */
 .fxo-gradient-text {
-  background: linear-gradient(135deg, oklch(78% 0.18 75), oklch(72% 0.2 65));
+  background: linear-gradient(135deg, oklch(65% 0.18 255), oklch(72% 0.2 65));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1742,7 +1755,7 @@
 .fxo-analysis-col {
   background: oklch(5% 0.01 240);
   background-image:
-    radial-gradient(ellipse 100% 60% at 50% 0%, oklch(78% 0.18 75 / 0.03) 0%, transparent 70%);
+    radial-gradient(ellipse 100% 60% at 50% 0%, oklch(78% 0.18 255 / 0.03) 0%, transparent 70%);
 }
 
 /* ── FXology 讨论列 ── */
@@ -1767,21 +1780,21 @@
   gap: 0.5rem;
   padding: 0.375rem 0.75rem;
   border-radius: 0.5rem;
-  background: oklch(78% 0.18 75 / 0.08);
-  border: 1px solid oklch(78% 0.18 75 / 0.2);
+  background: oklch(78% 0.18 255 / 0.08);
+  border: 1px solid oklch(78% 0.18 255 / 0.2);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 .fxo-ticker-selector:hover {
-  background: oklch(78% 0.18 75 / 0.14);
-  border-color: oklch(78% 0.18 75 / 0.35);
+  background: oklch(78% 0.18 255 / 0.14);
+  border-color: oklch(78% 0.18 255 / 0.35);
   transform: scale(1.02);
 }
 .fxo-ticker-selector-text {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.875rem;
   font-weight: 700;
-  color: oklch(78% 0.18 75);
+  color: oklch(65% 0.18 255);
   letter-spacing: 0.03em;
 }
 
@@ -1808,9 +1821,9 @@
   border: 1px solid oklch(62% 0.22 25 / 0.25);
 }
 .fxo-market-badge.pre {
-  background: oklch(78% 0.18 75 / 0.1);
-  color: oklch(78% 0.18 75);
-  border: 1px solid oklch(78% 0.18 75 / 0.25);
+  background: oklch(78% 0.18 255 / 0.1);
+  color: oklch(65% 0.18 255);
+  border: 1px solid oklch(78% 0.18 255 / 0.25);
 }
 
 /* ── FXology 快速提示按钮 ── */
@@ -1849,8 +1862,8 @@
   background: oklch(100% 0 0 / 0.03);
 }
 .fxo-conv-item.active {
-  background: oklch(78% 0.18 75 / 0.07);
-  border-left: 2px solid oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.07);
+  border-left: 2px solid oklch(65% 0.18 255);
   padding-left: calc(0.75rem - 2px);
 }
 
@@ -1976,8 +1989,8 @@
   color: oklch(80% 0.01 220);
 }
 .fxo-chart-toolbar-btn.active {
-  background: oklch(78% 0.18 75 / 0.12);
-  color: oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.12);
+  color: oklch(65% 0.18 255);
 }
 
 /* ── FXology 研究标题 ── */
@@ -2000,7 +2013,7 @@
   color: oklch(28% 0.01 240);
 }
 .fxo-breadcrumb-active {
-  color: oklch(78% 0.18 75);
+  color: oklch(65% 0.18 255);
   font-weight: 600;
 }
 
@@ -2084,8 +2097,8 @@
   color: oklch(35% 0.01 240);
 }
 .fxo-mode-btn.active {
-  background: oklch(78% 0.18 75 / 0.12);
-  color: oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.12);
+  color: oklch(65% 0.18 255);
 }
 .fxo-mode-btn:hover:not(.active) {
   background: oklch(100% 0 0 / 0.04);
@@ -2102,8 +2115,8 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .fxo-chat-input-wrap:focus-within {
-  border-color: oklch(78% 0.18 75 / 0.4);
-  box-shadow: 0 0 0 3px oklch(78% 0.18 75 / 0.06);
+  border-color: oklch(78% 0.18 255 / 0.4);
+  box-shadow: 0 0 0 3px oklch(78% 0.18 255 / 0.06);
 }
 
 /* ── FXology 发送按钮 ── */
@@ -2114,17 +2127,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: oklch(78% 0.18 75 / 0.1);
-  border: 1px solid oklch(78% 0.18 75 / 0.25);
-  color: oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.1);
+  border: 1px solid oklch(78% 0.18 255 / 0.25);
+  color: oklch(65% 0.18 255);
   cursor: pointer;
   transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 .fxo-send-btn:hover:not(:disabled) {
-  background: oklch(78% 0.18 75 / 0.2);
-  border-color: oklch(78% 0.18 75 / 0.4);
+  background: oklch(78% 0.18 255 / 0.2);
+  border-color: oklch(78% 0.18 255 / 0.4);
   transform: scale(1.05);
-  box-shadow: 0 0 12px oklch(78% 0.18 75 / 0.2);
+  box-shadow: 0 0 12px oklch(78% 0.18 255 / 0.2);
 }
 .fxo-send-btn:disabled {
   opacity: 0.35;
@@ -2154,8 +2167,8 @@
   white-space: nowrap;
 }
 .fxo-tab-btn.active {
-  background: oklch(78% 0.18 75 / 0.12);
-  color: oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.12);
+  color: oklch(65% 0.18 255);
 }
 .fxo-tab-btn:hover:not(.active) {
   background: oklch(100% 0 0 / 0.04);
@@ -2195,7 +2208,7 @@
   border-radius: 2px;
   flex-shrink: 0;
 }
-.fxo-title-accent.gold { background: oklch(78% 0.18 75); }
+.fxo-title-accent.gold { background: oklch(65% 0.18 255); }
 .fxo-title-accent.blue { background: oklch(65% 0.18 250); }
 .fxo-title-accent.green { background: oklch(65% 0.20 155); }
 .fxo-title-accent.red { background: oklch(62% 0.22 25); }
@@ -2239,7 +2252,7 @@
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  background: linear-gradient(135deg, oklch(78% 0.18 75) 0%, oklch(72% 0.2 65) 100%);
+  background: linear-gradient(135deg, oklch(65% 0.18 255) 0%, oklch(72% 0.2 65) 100%);
   color: oklch(8% 0.015 240);
   border: none;
   cursor: pointer;
@@ -2247,7 +2260,7 @@
   overflow: hidden;
   transition: transform 0.15s, box-shadow 0.15s;
   box-shadow:
-    0 4px 16px oklch(78% 0.18 75 / 0.3),
+    0 4px 16px oklch(78% 0.18 255 / 0.3),
     0 1px 0 oklch(100% 0 0 / 0.25) inset;
 }
 .fxo-trade-btn::before {
@@ -2260,7 +2273,7 @@
 .fxo-trade-btn:hover:not(:disabled) {
   transform: translateY(-1px) scale(1.02);
   box-shadow:
-    0 6px 24px oklch(78% 0.18 75 / 0.4),
+    0 6px 24px oklch(78% 0.18 255 / 0.4),
     0 1px 0 oklch(100% 0 0 / 0.3) inset;
 }
 .fxo-trade-btn:active {
@@ -2397,7 +2410,7 @@
   position: relative;
   background: oklch(10% 0.008 240);
   border: 1px solid oklch(100% 0 0 / 0.06);
-  border-left: 2px solid oklch(78% 0.18 75);
+  border-left: 2px solid oklch(65% 0.18 255);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
   box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
@@ -2481,9 +2494,9 @@
   border: 1px solid oklch(62% 0.16 145 / 0.25);
 }
 .fxo-signal-badge.neutral {
-  background: oklch(78% 0.18 75 / 0.10);
-  color: oklch(78% 0.18 75);
-  border: 1px solid oklch(78% 0.18 75 / 0.20);
+  background: oklch(78% 0.18 255 / 0.10);
+  color: oklch(65% 0.18 255);
+  border: 1px solid oklch(78% 0.18 255 / 0.20);
 }
 
 /* ── Conviction Bar（置信度进度条）── */
@@ -2498,7 +2511,7 @@
   border-radius: 2px;
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.fxo-conviction-fill.high { background: oklch(78% 0.18 75); }
+.fxo-conviction-fill.high { background: oklch(65% 0.18 255); }
 .fxo-conviction-fill.medium { background: oklch(65% 0.18 250); }
 .fxo-conviction-fill.low { background: oklch(48% 0.008 235); }
 
@@ -2536,7 +2549,7 @@
   left: -10%;
   width: 50%;
   height: 60%;
-  background: radial-gradient(ellipse, oklch(78% 0.18 75 / 0.04) 0%, transparent 70%);
+  background: radial-gradient(ellipse, oklch(78% 0.18 255 / 0.04) 0%, transparent 70%);
   pointer-events: none;
   border-radius: 50%;
 }
@@ -2573,9 +2586,9 @@
   padding: 0.625rem 0.875rem;
 }
 .fxo-risk-medium {
-  background: oklch(78% 0.18 75 / 0.08);
-  border: 1px solid oklch(78% 0.18 75 / 0.20);
-  border-left: 3px solid oklch(78% 0.18 75);
+  background: oklch(78% 0.18 255 / 0.08);
+  border: 1px solid oklch(78% 0.18 255 / 0.20);
+  border-left: 3px solid oklch(65% 0.18 255);
   border-radius: 0.375rem;
   padding: 0.625rem 0.875rem;
 }
@@ -2623,4 +2636,152 @@
 @media (max-width: 768px) {
   .fxo-data-primary { font-size: 1rem; }
   .fxo-data-secondary { font-size: 0.8125rem; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FXOLOGY V4 — 全局动画规范 + Chat 面板视觉层次
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── FXology 标准入场动画（fade + upward 0.2s）── */
+@keyframes fxo-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fxo-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fxo-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.fxo-enter        { animation: fxo-fade-up   0.20s ease-out both; }
+.fxo-enter-fast   { animation: fxo-fade-up   0.14s ease-out both; }
+.fxo-enter-slow   { animation: fxo-fade-up   0.30s ease-out both; }
+.fxo-enter-scale  { animation: fxo-scale-in  0.18s ease-out both; }
+.fxo-enter-fade   { animation: fxo-fade-in   0.20s ease-out both; }
+
+/* 延迟变体 */
+.fxo-delay-1  { animation-delay: 0.05s; }
+.fxo-delay-2  { animation-delay: 0.10s; }
+.fxo-delay-3  { animation-delay: 0.15s; }
+.fxo-delay-4  { animation-delay: 0.20s; }
+.fxo-delay-5  { animation-delay: 0.25s; }
+
+/* ── FXology 消息气泡（Chat 面板降低视觉主导性）── */
+/* 用户消息：低调背景，不抢眼 */
+.fxo-msg-user {
+  background: oklch(13% 0.012 240);
+  border: 1px solid oklch(22% 0.016 240);
+  border-radius: 0.875rem 0.875rem 0.25rem 0.875rem;
+  padding: 0.75rem 1rem;
+  max-width: 72%;
+  align-self: flex-end;
+}
+
+/* AI 消息：微弱蓝色左边框，强调内容而非容器 */
+.fxo-msg-ai {
+  background: transparent;
+  border-left: 2px solid oklch(65% 0.18 255 / 0.3);
+  padding: 0.5rem 0.875rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* ── FXology Strategy 卡片（视觉主导）── */
+.fxo-strategy-card {
+  background: oklch(11.5% 0.010 240);
+  border: 1px solid oklch(65% 0.18 255 / 0.15);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 1px oklch(65% 0.18 255 / 0.06) inset,
+    0 4px 24px oklch(0% 0 0 / 0.3);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fxo-strategy-card:hover {
+  border-color: oklch(65% 0.18 255 / 0.28);
+  box-shadow:
+    0 0 0 1px oklch(65% 0.18 255 / 0.10) inset,
+    0 8px 32px oklch(0% 0 0 / 0.4),
+    0 0 20px oklch(65% 0.18 255 / 0.06);
+}
+
+/* ── FXology Insight 面板（仪表盘风格）── */
+.fxo-insight-panel {
+  background: oklch(10% 0.010 240);
+  border: 1px solid oklch(22% 0.018 240);
+  border-radius: 0.625rem;
+}
+.fxo-insight-header {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid oklch(22% 0.018 240);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(48% 0.009 235);
+}
+.fxo-insight-header .accent {
+  color: oklch(65% 0.18 255);
+}
+
+/* ── FXology 按钮主色（蓝色渐变）── */
+.fxo-btn-primary {
+  background: linear-gradient(135deg, oklch(65% 0.18 255), oklch(60% 0.16 270));
+  color: oklch(98% 0 0);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  box-shadow: 0 4px 16px oklch(65% 0.18 255 / 0.25), 0 1px 0 oklch(100% 0 0 / 0.15) inset;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.fxo-btn-primary:hover {
+  box-shadow: 0 6px 24px oklch(65% 0.18 255 / 0.35), 0 1px 0 oklch(100% 0 0 / 0.2) inset;
+  transform: translateY(-1px);
+}
+.fxo-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px oklch(65% 0.18 255 / 0.2);
+}
+
+/* ── FXology 按钮次级（幽灵蓝）── */
+.fxo-btn-ghost {
+  background: oklch(65% 0.18 255 / 0.06);
+  color: oklch(65% 0.18 255);
+  border: 1px solid oklch(65% 0.18 255 / 0.2);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.fxo-btn-ghost:hover {
+  background: oklch(65% 0.18 255 / 0.10);
+  border-color: oklch(65% 0.18 255 / 0.35);
+  box-shadow: 0 2px 12px oklch(65% 0.18 255 / 0.12);
+}
+
+/* ── FXology 输入框（深色 + 蓝色 focus）── */
+.fxo-input {
+  background: oklch(10% 0.012 240);
+  border: 1px solid oklch(22% 0.018 240);
+  border-radius: 0.5rem;
+  color: oklch(91% 0.006 220);
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fxo-input:focus {
+  outline: none;
+  border-color: oklch(65% 0.18 255 / 0.6);
+  box-shadow: 0 0 0 3px oklch(65% 0.18 255 / 0.12);
+}
+.fxo-input::placeholder {
+  color: oklch(40% 0.008 235);
 }

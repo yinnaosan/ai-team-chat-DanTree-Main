@@ -41,6 +41,7 @@ import { TickerMarketStatus, MarketAlertManager } from "@/components/MarketStatu
 import { GlobalMarketPanel, NavClock } from "@/components/GlobalMarketPanel";
 import { detectMarketType } from "@/lib/marketUtils";
 import { ActionPanel } from "@/components/ActionPanel";
+import { DecisionStrip } from "@/components/DecisionStrip";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -2375,9 +2376,18 @@ export default function ResearchWorkspacePage() {
             </div>
           </div>
 
-          {/* Analysis panels — scrollable */}
+          {/* DECISION STRIP — primary decision surface, above all analysis */}
+          {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
+            <DecisionStrip
+              messageId={lastAssistantMsg.id}
+              ticker={currentTicker}
+              initialResult={level4Result as any}
+            />
+          )}
+
+          {/* Analysis panels — scrollable (support layer) */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* AI Verdict */}
+            {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
             <AIVerdictCard
               answerObject={answerObject}
               outputMode={outputMode}

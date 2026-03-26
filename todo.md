@@ -2493,3 +2493,13 @@
 - [x] ActionPanel.tsx: 决策优先渲染顺序（STATE→ACTION→WHY→CYCLE→TIMING→RISK）
 - [x] ActionPanel.tsx: 深度分析保留在下方（answerObject 内容不删除）
 - [x] TSC 验证 0 错误
+
+## Level4 Output Schema Takeover Rework (GLOBAL HIERARCHY)
+
+- [x] Created DecisionStrip.tsx — full-width decision-first strip (STATE/ACTION/WHY/CYCLE/TIMING/RISK)
+- [x] Inserted DecisionStrip in Column 2 ABOVE AIVerdictCard (global hierarchy takeover)
+- [x] AIVerdictCard demoted to support layer (labeled "SUPPORT LAYER")
+- [x] Chinese-first labels: 当前状态/行动建议/为什么/周期阶段/时机信号/风险
+- [x] Technical terms remain English: RSI/MACD/MA/Boll/Vol
+- [x] DecisionStrip rehydration: useEffect on messageId change (same fix as ActionPanel)
+- [x] TSC: 0 errors

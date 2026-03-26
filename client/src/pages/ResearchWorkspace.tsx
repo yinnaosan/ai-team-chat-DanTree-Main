@@ -272,13 +272,16 @@ function AIVerdictCard({ answerObject, outputMode, evidenceScore, isLoading, tic
   const actionColor = isBullish ? T.up : isBearish ? T.down : T.gold;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5"
+    <div className="rounded-xl overflow-hidden opacity-90" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
+      {/* Header — downranked to support layer */}
+      <div className="flex items-center justify-between px-4 py-2"
         style={{ borderBottom: `1px solid ${T.border}` }}>
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
+          <div className="w-1 h-3 rounded-full" style={{ background: T.text3 }} />
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: T.text3, opacity: 0.6 }}>
+            深度分析
+          </span>
+          <span className="text-[8px] uppercase tracking-widest font-mono" style={{ color: T.text3, opacity: 0.4 }}>
             AI VERDICT
           </span>
         </div>
@@ -2704,7 +2707,7 @@ export default function ResearchWorkspacePage() {
 
               {/* Follow-up questions from discussion */}
               {discussionObject?.follow_up_questions && discussionObject.follow_up_questions.length > 0 && (
-                <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
+                <div className="rounded-xl overflow-hidden opacity-70" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                   <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
                     <BookOpen className="w-3.5 h-3.5" style={{ color: T.blue }} />
                     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>FOLLOW-UP</span>
@@ -2722,9 +2725,9 @@ export default function ResearchWorkspacePage() {
               )}
 
               {/* Quick Access */}
-              <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-                <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-                  <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>QUICK ACCESS</span>
+              <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
+                <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: T.text4 }}>QUICK ACCESS</span>
                 </div>
                 <div className="p-2 space-y-0.5">
                   {[

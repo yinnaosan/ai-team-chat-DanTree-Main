@@ -208,26 +208,28 @@ export function DecisionStrip({ messageId, ticker, initialResult, className }: D
 
   return (
     <div className={cn(
-      "w-full shrink-0 border-b overflow-hidden transition-all duration-300",
+      "w-full shrink-0 border-b-2 overflow-hidden transition-all duration-300",
       stateConfig.border,
-      "bg-[#0a0d14]/95",
+      "bg-[#080b12]",
       className
     )}>
       {/* ── Collapsed bar (always visible) ─────────────────────────────── */}
       <div
         className={cn(
-          "flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none",
+          "flex items-center gap-3 px-4 py-3 cursor-pointer select-none",
           "hover:bg-white/[0.02] transition-colors"
         )}
         onClick={() => setExpanded(v => !v)}
       >
+        {/* Left accent bar */}
+        <div className={cn("w-0.5 h-6 rounded-full shrink-0", stateConfig.bg)} />
         {/* STATE badge */}
         <div className={cn(
-          "flex items-center gap-1.5 px-3 py-1 rounded-md border shrink-0",
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-md border shrink-0",
           stateConfig.dimBg, stateConfig.border
         )}>
           <span className={stateConfig.text}>{stateConfig.icon}</span>
-          <span className={cn("text-base font-black tracking-widest font-mono", stateConfig.text)}>
+          <span className={cn("text-sm font-black tracking-widest font-mono", stateConfig.text)}>
             {stateConfig.label}
           </span>
           <span className={cn("text-[10px] font-medium font-mono opacity-70", stateConfig.text)}>
@@ -236,19 +238,19 @@ export function DecisionStrip({ messageId, ticker, initialResult, className }: D
         </div>
 
         {/* Divider */}
-        <div className="w-px h-5 bg-[#2a2f3a] shrink-0" />
+        <div className="w-px h-6 bg-[#2a2f3a] shrink-0" />
 
         {/* ACTION summary — inline */}
         <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[9px] text-[#4a5568] font-mono uppercase tracking-widest">行动</span>
-            <span className="text-[11px] font-bold text-[#c0cce0] font-mono uppercase truncate max-w-[120px]">
+            <span className="text-[9px] text-[#3a4558] font-mono uppercase tracking-widest">行动建议</span>
+            <span className="text-[11px] font-bold text-[#c0cce0] font-mono uppercase truncate max-w-[140px]">
               {result.action.entry}
             </span>
           </div>
           <div className="w-px h-3 bg-[#2a2f3a] shrink-0" />
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[9px] text-[#4a5568] font-mono uppercase tracking-widest">时机</span>
+            <span className="text-[9px] text-[#3a4558] font-mono uppercase tracking-widest">时机信号</span>
             <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse shrink-0", timingConfig.dot)} />
             <span className={cn("text-[10px] font-bold font-mono", timingConfig.text)}>
               {result.timingSignal}
@@ -256,7 +258,7 @@ export function DecisionStrip({ messageId, ticker, initialResult, className }: D
           </div>
           <div className="w-px h-3 bg-[#2a2f3a] shrink-0" />
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[9px] text-[#4a5568] font-mono uppercase tracking-widest">周期</span>
+            <span className="text-[9px] text-[#3a4558] font-mono uppercase tracking-widest">周期阶段</span>
             <span className={cn("text-[10px] font-bold font-mono", cycleConfig.bar.replace("bg-", "text-"))}>
               {cycleConfig.cn}
             </span>
@@ -283,7 +285,7 @@ export function DecisionStrip({ messageId, ticker, initialResult, className }: D
 
       {/* ── Expanded detail panel ───────────────────────────────────────── */}
       {expanded && (
-        <div className="px-4 pb-4 pt-1 grid grid-cols-3 gap-3 border-t border-[#1a1f2e]">
+        <div className="px-4 pb-4 pt-2 grid grid-cols-3 gap-3 border-t border-[#1e2436]">
 
           {/* Column A: 行动建议 */}
           <div className="space-y-2">

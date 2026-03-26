@@ -2514,3 +2514,10 @@
 - [x] routers.ts 两处 Level4 触发点注入真实数值（getLocalTechnicalIndicators + getOHLCVForChart）
 - [x] 修复 volume 字段路径：ohlcvData.ohlcv.volumes（非 ohlcvData.volumes）
 - [x] TSC 验证 0 错误
+
+## UI Priority Reorder Light
+
+- [x] DecisionStrip 视觉强化：更强分隔线、更清晰层级标签、中文优先标签
+- [x] AIVerdictCard 视觉降级：降低视觉主导性，改为支撑分析样式
+- [x] Column 4 决策支撑重排：决策相关卡片置顶，非核心卡片降噪
+- [x] TSC 验证 0 错误

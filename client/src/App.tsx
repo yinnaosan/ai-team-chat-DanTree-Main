@@ -13,6 +13,7 @@ import InvestmentLibrary from "./pages/InvestmentLibrary";
 import NetWorthDashboard from "./pages/NetWorthDashboard";
 import FactorBacktest from "./pages/FactorBacktest";
 import ResearchWorkspace from "./pages/ResearchWorkspace";
+import TerminalEntry from "./pages/TerminalEntry";
 import LoopTelemetryDashboard from "./pages/LoopTelemetryDashboard";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
@@ -20,7 +21,9 @@ import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      <Route path={"/"} component={TerminalEntry} />
+      <Route path={"/terminal-entry"} component={TerminalEntry} />
+      <Route path={"/home"} component={Home} />
       <Route path={"/chat"} component={ChatRoom} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/access"} component={AccessGate} />

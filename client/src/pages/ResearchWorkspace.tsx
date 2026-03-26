@@ -1961,6 +1961,11 @@ export default function ResearchWorkspacePage() {
             <BarChart2 className="w-3.5 h-3.5" style={{ color: T.gold }} />
           </div>
           <span className="text-sm font-bold" style={{ color: T.gold }}>DanTree</span>
+          {/* SYSTEM ACTIVE status indicator */}
+          <span className="hidden sm:flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest" style={{ background: "oklch(0.68 0.18 142 / 0.12)", border: "1px solid oklch(0.68 0.18 142 / 0.25)", color: "oklch(0.68 0.18 142)" }}>
+            <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: "oklch(0.68 0.18 142)" }} />
+            SYSTEM ACTIVE
+          </span>
         </div>
 
         {/* Ticker input */}
@@ -2148,9 +2153,12 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ borderBottom: `1px solid ${T.border}` }}>
             {!sidebarCollapsed && (
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
-                Research
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>SESSIONS</span>
+                {allConversations && allConversations.length > 0 && (
+                  <span className="text-[10px] font-mono px-1 rounded" style={{ background: T.bg3, color: T.text4 }}>{allConversations.length}</span>
+                )}
+              </div>
             )}
             <div className="flex items-center gap-1 ml-auto">
               {!sidebarCollapsed && (
@@ -2315,9 +2323,7 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>
-                Research Header
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYSIS</span>
               {currentTicker && (
                 <span className="text-[12px] px-1.5 py-0.5 rounded font-mono"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
@@ -2444,23 +2450,9 @@ export default function ResearchWorkspacePage() {
               </div>
             )}
 
-            {/* Empty state */}
+            {/* Idle State — Terminal AI Stream (replaces empty state) */}
             {!answerObject && !isTyping && (
-              <div className="flex flex-col items-center justify-center gap-3 py-12">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                  style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-                  <BarChart2 className="w-6 h-6" style={{ color: T.text4 }} />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-medium" style={{ color: T.text3 }}>分析结果将显示在这里</p>
-                  <p className="text-xs" style={{ color: T.text4 }}>在右侧讨论栏输入分析请求</p>
-                </div>
-                <button onClick={() => setShowInstrumentModal(true)}
-                  className="px-4 py-2 rounded-lg text-xs font-medium transition-all hover:scale-[1.02]"
-                  style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
-                  选择分析标的 →
-                </button>
-              </div>
+              <WorkspaceIdleStream onSelectTicker={() => setShowInstrumentModal(true)} />
             )}
             {isTyping && !answerObject && (
               <div className="space-y-3">
@@ -2484,7 +2476,7 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-2 min-w-0">
               <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: T.blue }} />
-              <span className="text-xs font-semibold shrink-0" style={{ color: T.text1 }}>Discussion</span>
+              <span className="text-xs font-semibold uppercase tracking-wider shrink-0" style={{ color: T.text3 }}>DISCUSSION</span>
               {currentTicker && (
                 <span className="text-[12px] px-1.5 py-0.5 rounded font-mono shrink-0"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
@@ -2656,9 +2648,13 @@ export default function ResearchWorkspacePage() {
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ borderBottom: `1px solid ${T.border}` }}>
             {!insightCollapsed && (
-              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>
-                Insights
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>INSIGHTS</span>
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest" style={{ background: "oklch(0.65 0.18 250 / 0.12)", border: "1px solid oklch(0.65 0.18 250 / 0.25)", color: "oklch(0.65 0.18 250)" }}>
+                  <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: "oklch(0.65 0.18 250)" }} />
+                  LIVE
+                </span>
+              </div>
             )}
             <button onClick={() => setInsightCollapsed(v => !v)}
               className="p-1 rounded transition-colors hover:bg-white/5 ml-auto"
@@ -2936,6 +2932,137 @@ function DiscussionMessage({ msg, onFollowup }: { msg: Msg; onFollowup?: (q: str
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── WorkspaceIdleStream ─────────────────────────────────────────────────────
+// Replaces the generic "empty state" with a live-feeling AI stream panel
+// that communicates "system is running, ready for input"
+
+const IDLE_STREAM_LINES = [
+  "→ Multi-agent research engine active.",
+  "→ Syncing macro data feeds...",
+  "→ 40+ professional data sources connected.",
+  "→ Memory system loaded. Prior analyses indexed.",
+  "→ Risk model updated.",
+  "→ Hypothesis engine standing by.",
+  "→ Evidence scoring engine ready.",
+  "→ Cross-validation layer armed.",
+  "→ Awaiting research target...",
+  "→ Enter ticker or topic to begin analysis.",
+];
+
+const SYSTEM_STATUS_ROWS = [
+  { label: "Data Engine",    status: "ONLINE",    color: "oklch(0.68 0.18 142)" },
+  { label: "AI Engine",      status: "RUNNING",   color: "oklch(0.68 0.18 142)" },
+  { label: "Memory System",  status: "ACTIVE",    color: "oklch(0.68 0.18 142)" },
+  { label: "News Feed",      status: "STREAMING", color: "oklch(0.68 0.18 142)" },
+  { label: "Risk Model",     status: "UPDATED",   color: "oklch(0.78 0.18 85)"  },
+];
+
+function WorkspaceIdleStream({ onSelectTicker }: { onSelectTicker: () => void }) {
+  const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const [currentLine, setCurrentLine] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [typedText, setTypedText] = useState("");
+  const streamRef = useRef<HTMLDivElement>(null);
+
+  // Typing effect
+  useEffect(() => {
+    if (currentLine >= IDLE_STREAM_LINES.length) {
+      // Loop: restart after 4s pause
+      const t = setTimeout(() => {
+        setVisibleLines([]);
+        setCurrentLine(0);
+        setCharIndex(0);
+        setTypedText("");
+      }, 4000);
+      return () => clearTimeout(t);
+    }
+    const target = IDLE_STREAM_LINES[currentLine];
+    if (charIndex < target.length) {
+      const t = setTimeout(() => {
+        setTypedText(target.slice(0, charIndex + 1));
+        setCharIndex(c => c + 1);
+      }, 28);
+      return () => clearTimeout(t);
+    } else {
+      // Line complete
+      const t = setTimeout(() => {
+        setVisibleLines(prev => [...prev, target]);
+        setCurrentLine(c => c + 1);
+        setCharIndex(0);
+        setTypedText("");
+      }, 180);
+      return () => clearTimeout(t);
+    }
+  }, [currentLine, charIndex]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+    }
+  }, [visibleLines, typedText]);
+
+  return (
+    <div className="flex flex-col gap-4 p-4 h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 pb-2" style={{ borderBottom: `1px solid ${T.border}` }}>
+        <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "oklch(0.68 0.18 142)" }} />
+        <span className="text-[11px] font-mono font-semibold uppercase tracking-widest" style={{ color: T.text3 }}>
+          AI ENGINE STREAM
+        </span>
+        <span className="ml-auto text-[10px] font-mono" style={{ color: T.text4 }}>IDLE · READY</span>
+      </div>
+
+      {/* Stream output */}
+      <div ref={streamRef} className="flex-1 overflow-y-auto space-y-1 min-h-0" style={{ maxHeight: "260px" }}>
+        {visibleLines.map((line, i) => (
+          <div key={i} className="text-[12px] font-mono leading-relaxed" style={{ color: T.text3 }}>
+            {line}
+          </div>
+        ))}
+        {typedText && (
+          <div className="text-[12px] font-mono leading-relaxed flex items-center gap-1" style={{ color: T.text2 }}>
+            {typedText}
+            <span className="inline-block w-1.5 h-3.5 animate-pulse" style={{ background: T.text2 }} />
+          </div>
+        )}
+      </div>
+
+      {/* System status */}
+      <div className="rounded-lg p-3 space-y-1.5" style={{ background: T.bg1, border: `1px solid ${T.border}` }}>
+        <div className="text-[10px] font-mono font-semibold uppercase tracking-widest mb-2" style={{ color: T.text4 }}>
+          SYSTEM STATUS
+        </div>
+        {SYSTEM_STATUS_ROWS.map(row => (
+          <div key={row.label} className="flex items-center justify-between">
+            <span className="text-[11px] font-mono" style={{ color: T.text3 }}>{row.label}</span>
+            <span className="text-[11px] font-mono font-semibold" style={{ color: row.color }}>{row.status}</span>
+          </div>
+        ))}
+        <div className="pt-1 mt-1" style={{ borderTop: `1px solid ${T.border}` }}>
+          <span className="text-[10px] font-mono" style={{ color: "oklch(0.68 0.18 142)" }}>
+            ● All Systems Operational
+          </span>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={onSelectTicker}
+        className="w-full py-2.5 rounded-lg text-xs font-mono font-semibold transition-all hover:scale-[1.01]"
+        style={{
+          background: T.goldDim,
+          color: T.gold,
+          border: `1px solid ${T.goldBorder}`,
+          letterSpacing: "0.08em",
+        }}
+      >
+        &gt; SELECT RESEARCH TARGET
+      </button>
     </div>
   );
 }

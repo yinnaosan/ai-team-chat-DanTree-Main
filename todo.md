@@ -2438,3 +2438,13 @@
 - [x] Phase2: Home.tsx + ChatRoom.tsx 所有硬编码琥珀金颜色批量替换
 - [x] Phase3: 所有其他 .tsx 文件 + index.css 残留 hue-75 颜色全部清除
 - [x] Phase4: 添加 FXology 全局动画规范（fxo-enter/fade-up 0.2s）+ Chat 面板视觉层次优化 CSS 类
+
+## DanTree Terminal Rebuild v1 (2026-03-26)
+- [x] Phase1: 路由架构 — /terminal-entry + /research 注册到 App.tsx，/ 重定向到 TerminalEntry
+- [x] Phase2: TerminalEntry.tsx 全新构建（425行）— TopTickerBar(无缝滚动) + Hero Zone + AIEngineStream(打字动画) + GlobalMarketStatusPanel(动态时钟+实时市场状态) + SystemStatusPanel + CommandStrip
+- [x] Phase3: ResearchWorkspace.tsx 重构升级 — WorkspaceIdleStream(替换空状态) + SYSTEM ACTIVE badge(Top Bar) + INSIGHTS LIVE badge(Col4) + SESSIONS label(Col1) + ANALYSIS label(Col2) + DISCUSSION label(Col3)
+- [x] Phase4: 视觉系统统一 — 近黑背景(#080a0d) + 高密度布局 + 细边框 + JetBrains Mono 字体
+- [x] Phase5: 动效系统 — ticker-scroll(CSS 55s linear) + typing-stream(28ms/char) + status-pulse(2s) + cursor-blink(0.8s) + boot-fill(1.1s) + body-fade-in(0.4s)
+- [x] Phase6: 文案去营销化 — 所有 copy 使用系统语言(ACTIVE/RUNNING/STREAMING/SYNCED/DETECTED)，删除所有营销语言
+- [x] Phase7: TSC 0 错误验证 + 最终检查清单通过
+- [x] Phase8: 99_RETURN_PROTOCOL.md 交付文档生成

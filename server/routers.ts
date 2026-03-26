@@ -152,6 +152,8 @@ import { evaluateStopCondition } from "./loopStopController";
 import { buildConvergedOutput, type ConvergedOutput } from "./finalConvergedOutput";
 // ── LEVEL2C: Telemetry Writer ─────────────────────────────────────────────────
 import { writeLoopTelemetry } from "./loopTelemetryWriter";
+// ── LEVEL3A: Analysis Memory Writer + Retrieval ───────────────────────────────
+import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildPriorAnalysisContextBlock } from "./analysisMemoryWriter";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -2153,8 +2155,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
 %%END_DISCUSSION%%
 
 规则：%%DELIVERABLE%% 和 %%END_DELIVERABLE%% 之间只能有 JSON，%%DISCUSSION%% 和 %%END_DISCUSSION%% 之间只能有 JSON。这两个块必须是回复的最后内容，之后不得有任何文字。如果无法生成有效 JSON，则完全省略这两个块，不得输出残缺 JSON。`;
-
-    // ── LEVEL1A3 Phase3: JSON-only Render Path ────────────────────────────────
+    // ── LEVEL1A3 Phase3: JSON-only Render Path ────────────────────────────────────────────
     // Activates for standard/deep analysis on structured task types
     const useJsonOnlyMode = analysisMode !== "quick" &&
       resolvedTaskType !== "general" &&
@@ -2162,6 +2163,28 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     const normalizedTaxonomyBlock = useJsonOnlyMode
       ? formatNormalizedTaxonomyForPrompt(normalizedTaxonomy)
       : "";
+    // ── LEVEL3A: Retrieve prior analysis memory (non-fatal, zero LLM calls) ──────────
+    let priorMemoryBlock = "";
+    let memoryUsed = false;
+    let memoryTicker = "";
+    let memoryRecordCreatedAt = "";
+    let memorySummary = "";
+    if (useJsonOnlyMode && primaryTicker) {
+      const memResult = await getAnalysisMemory({
+        userId,
+        ticker: primaryTicker,
+        taskType: resolvedTaskType,
+      });
+      if (memResult.found) {
+        priorMemoryBlock = buildPriorAnalysisContextBlock(memResult.memory);
+        memoryUsed = true;
+        memoryTicker = memResult.memory.ticker;
+        memoryRecordCreatedAt = memResult.memory.createdAt;
+        memorySummary = `上次分析：${memResult.memory.verdict} (置信度: ${memResult.memory.confidenceLevel})`;
+        console.log(`[LEVEL3A] Prior memory found for ${primaryTicker}, injecting into Step3`);
+      }
+    }
+    // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
     const jsonOnlySystemMsg = useJsonOnlyMode ? buildStep3JsonOnlySystemMessage() : "";
     const jsonOnlyUserMsg = useJsonOnlyMode ? buildStep3JsonOnlyUserMessage({
       ticker: primaryTicker,
@@ -2174,10 +2197,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       evidenceScore: evidencePacket.evidenceScore ?? 50,
       missingBlocking,
       missingImportant,
-      historyBlock: historyBlock ?? "",
+      historyBlock: priorMemoryBlock
+        ? priorMemoryBlock + (historyBlock ? "\n" + historyBlock : "")
+        : (historyBlock ?? ""),
       modeHint: modeConfig?.step3Hint ?? "",
     }) : "";
-    // ── LEVEL1A3 END Phase3 ──────────────────────────────────────────────────────
+    // ── LEVEL1A3 END Phase3 ─────────────────────────────────────────────────
     // -- 先写入占位消息（streaming 状态），前端立即开始接收流 -------------------
     const streamMsgId = await insertMessage({
       taskId,
@@ -2469,6 +2494,14 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     if (missingOptional.length > 0) metadataToSave.missingOptional = missingOptional;
     // 将资源预算摘要写入 metadata
     metadataToSave.resourceBudget = budget.getSummary().utilization;
+    // ── LEVEL3A: Memory signal metadata ──────────────────────────────────────────────────────
+    if (memoryUsed) {
+      metadataToSave.memoryUsed = true;
+      metadataToSave.memoryTicker = memoryTicker;
+      metadataToSave.memoryRecordCreatedAt = memoryRecordCreatedAt;
+      metadataToSave.memorySummary = memorySummary;
+    }
+    // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
     if (Object.keys(metadataToSave).length > 0) {
       await updateMessageContent(streamMsgId, finalReply, metadataToSave);
     }
@@ -2597,6 +2630,27 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
     emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
     removeBudgetTracker(String(taskId)); // 清理预算跟踪器
+
+    // ── LEVEL3A: Write analysis memory (non-fatal, zero LLM calls) ────────────────────
+    if (level1a3Output && primaryTicker) {
+      const memFields = extractMemoryFromOutput(level1a3Output, outputMode);
+      await writeAnalysisMemory({
+        userId,
+        taskId,
+        ticker: primaryTicker,
+        taskType: resolvedTaskType,
+        verdict: memFields.verdict,
+        confidenceLevel: memFields.confidenceLevel,
+        evidenceScore: evidencePacket?.evidenceScore ?? 50,
+        bullCaseSummary: memFields.bullCaseSummary,
+        bearCaseSummary: memFields.bearCaseSummary,
+        keyUncertainty: memFields.keyUncertainty,
+        openHypotheses: memFields.openHypotheses,
+        outputMode,
+        loopRan: !!convergedOutput?.loop_metadata?.loop_ran,
+      });
+    }
+    // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
 
     // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {

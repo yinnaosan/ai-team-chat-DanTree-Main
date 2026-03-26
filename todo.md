@@ -2401,3 +2401,9 @@
 - [x] LEVEL3_PREP: ChatRoom.tsx 集成 HypothesisCards（DiscussionPanel 中 open_hypotheses 渲染）
 - [x] LEVEL3_PREP: ChatRoom.tsx discussionObject 类型添加 open_hypotheses?: string[]
 - [x] 生成 /home/ubuntu/gpt_package_phase2/99_RETURN_PROTOCOL.md
+
+## LEVEL3A: 分析记忆系统（Analysis Memory）
+- [x] LEVEL3A Phase1+2: 创建 analysisMemoryWriter.ts（writeAnalysisMemory + getAnalysisMemory + extractMemoryFromOutput + buildPriorAnalysisContextBlock）
+- [x] LEVEL3A Phase3: routers.ts Step3 检索注入 + emitTaskDone 后写入点 + metadata 信号写入
+- [x] LEVEL3A Phase4: MemoryBadge.tsx 前端组件 + ChatRoom.tsx 类型扩展 + 渲染注入
+- [x] LEVEL3A Phase5: TSC 0 错误确认 + server 200 OK + 所有 gate 条件验证

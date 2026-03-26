@@ -25,6 +25,7 @@ import { BacktestCard } from "@/components/BacktestCard";
 import { TrendRadarCard } from "@/components/TrendRadarCard";
 import { WorldMonitorCard } from "@/components/WorldMonitorCard";
 import { LoopSummaryBadge } from "@/components/LoopSummaryBadge";
+import { MemoryBadge } from "@/components/MemoryBadge";
 import { HypothesisCards } from "@/components/HypothesisCards";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -159,6 +160,11 @@ interface Msg {
     };
     // 附件信息（用户消息中显示已附加的文件）
     attachments?: Array<{ filename: string; mimeType: string; size: number; s3Url: string }>;
+    // LEVEL3A: Analysis memory signal
+    memoryUsed?: boolean;
+    memoryTicker?: string;
+    memoryRecordCreatedAt?: string;
+    memorySummary?: string;
   } | null;
 }
 
@@ -856,6 +862,14 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             <Zap className="w-3 h-3" />
             <span>LEVEL1A3 结构化输出模式</span>
           </div>
+        )}
+        {/* LEVEL3A: Analysis Memory Badge */}
+        {isAssistant && msg.metadata?.memoryUsed && msg.metadata.memoryTicker && (
+          <MemoryBadge
+            ticker={msg.metadata.memoryTicker}
+            recordCreatedAt={msg.metadata.memoryRecordCreatedAt ?? ""}
+            summary={msg.metadata.memorySummary}
+          />
         )}
         {/* LEVEL2D: Reasoning Loop Summary Badge (expandable) */}
         {isAssistant && msg.metadata?.level2LoopMetadata?.loop_ran && (

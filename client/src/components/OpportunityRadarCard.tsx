@@ -67,8 +67,44 @@ interface CandidateRow {
   riskSummary: string;
   relatedTickers: string;
   watchlistReady: number;
+  status: string;  // SELECT | WATCH | PROMOTED | PASS
   addedAt: Date | string | null;
 }
+
+// Lifecycle status config
+type CandidateStatus = "SELECT" | "WATCH" | "PROMOTED" | "PASS";
+const CANDIDATE_STATUS_CONFIG: Record<CandidateStatus, {
+  label: string; bg: string; text: string; border: string; description: string;
+}> = {
+  SELECT: {
+    label: "SELECT",
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-400",
+    border: "border-emerald-500/25",
+    description: "新发现机会",
+  },
+  WATCH: {
+    label: "WATCH",
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/25",
+    description: "等待时机",
+  },
+  PROMOTED: {
+    label: "PROMOTED",
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+    border: "border-blue-500/25",
+    description: "已进入研究",
+  },
+  PASS: {
+    label: "PASS",
+    bg: "bg-zinc-700/20",
+    text: "text-zinc-500",
+    border: "border-zinc-600/20",
+    description: "已放弃",
+  },
+};
 
 // ─── Config Maps ──────────────────────────────────────────────────────────────
 
@@ -433,6 +469,7 @@ export function OpportunityRadarCard() {
 export interface CandidateSelectPayload {
   title: string;
   relatedTickers: string[];
+  candidateId?: number;  // DB row id for auto-PROMOTED update
 }
 
 export function CandidatePoolCard({
@@ -446,9 +483,11 @@ export function CandidatePoolCard({
   const utils = trpc.useUtils();
 
   const removeMutation = trpc.candidates.remove.useMutation({
-    onSuccess: () => {
-      utils.candidates.list.invalidate();
-    },
+    onSuccess: () => { utils.candidates.list.invalidate(); },
+  });
+
+  const updateStatusMutation = trpc.candidates.updateStatus.useMutation({
+    onSuccess: () => { utils.candidates.list.invalidate(); },
   });
 
   const rows = (candidates ?? []) as CandidateRow[];
@@ -507,17 +546,25 @@ export function CandidatePoolCard({
                 ? row.relatedTickers.split(",").filter(Boolean)
                 : [];
 
+              const candidateStatus = (row.status ?? "SELECT") as CandidateStatus;
+              const statusConf = CANDIDATE_STATUS_CONFIG[candidateStatus] ?? CANDIDATE_STATUS_CONFIG.SELECT;
+              const isWaitOpportunity = row.opportunityState === "WAIT";
+              const isPass = candidateStatus === "PASS";
+
               return (
                 <div
                   key={row.id}
-                  className="border border-[#1a2a1a] rounded bg-[#080f08] px-2.5 py-2"
+                  className={`border rounded px-2.5 py-2 transition-opacity ${isPass ? "opacity-40" : ""}`}
+                  style={{ background: "#080f08", borderColor: isPass ? "#1a1a1a" : "#1a2a1a" }}
                 >
+                  {/* Row 1: status badge + title + remove */}
                   <div className="flex items-start gap-2">
-                    {/* State badge */}
+                    {/* Lifecycle status badge */}
                     <span
-                      className={`mt-0.5 shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded border ${stateConf.bg} ${stateConf.text} ${stateConf.border} font-mono tracking-wider`}
+                      className={`mt-0.5 shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded border ${statusConf.bg} ${statusConf.text} ${statusConf.border} font-mono tracking-wider`}
+                      title={statusConf.description}
                     >
-                      {stateConf.label}
+                      {statusConf.label}
                     </span>
 
                     {/* Title + meta */}
@@ -526,6 +573,11 @@ export function CandidatePoolCard({
                         {row.title}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
+                        <span
+                          className={`text-[8px] font-bold px-1 py-0 rounded border ${stateConf.bg} ${stateConf.text} ${stateConf.border} font-mono`}
+                        >
+                          {stateConf.label}
+                        </span>
                         <span className="text-[8px] text-[#2a4a2a] font-mono">
                           {CATEGORY_LABELS[row.category] ?? row.category}
                         </span>
@@ -562,20 +614,74 @@ export function CandidatePoolCard({
                     </p>
                   )}
 
-                  {/* 开始研究 bridge button */}
-                  {onSelectCandidate && (
-                    <div className="mt-1.5 pt-1.5 border-t border-[#1a2a1a]">
+                  {/* Action row: WATCH / PASS buttons + bridge */}
+                  {!isPass && (
+                    <div className="mt-1.5 pt-1.5 border-t border-[#1a2a1a] flex items-center gap-1.5 flex-wrap">
+                      {/* WATCH toggle */}
+                      {candidateStatus !== "WATCH" && candidateStatus !== "PROMOTED" && (
+                        <button
+                          onClick={() => updateStatusMutation.mutate({ id: row.id, status: "WATCH" })}
+                          disabled={updateStatusMutation.isPending}
+                          className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded border text-amber-500 border-amber-500/25 hover:bg-amber-500/10 transition-colors"
+                          title="标记为观察"
+                        >
+                          <Eye className="w-2 h-2" />
+                          观察
+                        </button>
+                      )}
+                      {candidateStatus === "WATCH" && (
+                        <button
+                          onClick={() => updateStatusMutation.mutate({ id: row.id, status: "SELECT" })}
+                          disabled={updateStatusMutation.isPending}
+                          className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded border text-amber-400 border-amber-400/30 bg-amber-500/10 transition-colors"
+                          title="取消观察"
+                        >
+                          <Eye className="w-2 h-2" />
+                          观察中
+                        </button>
+                      )}
+                      {/* PASS button */}
                       <button
-                        onClick={() =>
-                          onSelectCandidate({
-                            title: row.title,
-                            relatedTickers: tickers,
-                          })
-                        }
-                        className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-0.5 rounded border text-[#3a8a6a] border-[#2a5a4a] hover:text-[#5aaa8a] hover:border-[#3a7a5a] hover:bg-emerald-500/5 transition-colors"
+                        onClick={() => updateStatusMutation.mutate({ id: row.id, status: "PASS" })}
+                        disabled={updateStatusMutation.isPending}
+                        className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded border text-zinc-500 border-zinc-600/20 hover:bg-zinc-700/20 transition-colors"
+                        title="标记为放弃"
                       >
-                        <Zap className="w-2.5 h-2.5" />
-                        开始研究
+                        ✕ 放弃
+                      </button>
+                      {/* Bridge: 开始研究 — disabled for WAIT opportunityState */}
+                      {onSelectCandidate && (
+                        isWaitOpportunity ? (
+                          <span
+                            className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded border text-zinc-600 border-zinc-700/20 cursor-not-allowed"
+                            title="等待时机成熟后可进入研究"
+                          >
+                            <Zap className="w-2 h-2" />
+                            等待时机
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              onSelectCandidate({ title: row.title, relatedTickers: tickers, candidateId: row.id })
+                            }
+                            className="flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded border text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/10 transition-colors ml-auto"
+                          >
+                            <Zap className="w-2 h-2" />
+                            开始研究
+                          </button>
+                        )
+                      )}
+                    </div>
+                  )}
+                  {/* Restore PASS */}
+                  {isPass && (
+                    <div className="mt-1 flex justify-end">
+                      <button
+                        onClick={() => updateStatusMutation.mutate({ id: row.id, status: "SELECT" })}
+                        disabled={updateStatusMutation.isPending}
+                        className="text-[8px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors"
+                      >
+                        恢复
                       </button>
                     </div>
                   )}

@@ -425,6 +425,7 @@ export const radarCandidates = mysqlTable("radar_candidates", {
   riskSummary: text("riskSummary").notNull().default(""),
   relatedTickers: varchar("relatedTickers", { length: 255 }).notNull().default(""),  // comma-separated
   watchlistReady: int("watchlistReady").notNull().default(1),
+  status: varchar("status", { length: 16 }).notNull().default("SELECT"),  // SELECT | WATCH | PROMOTED | PASS
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
 export type RadarCandidate = typeof radarCandidates.$inferSelect;

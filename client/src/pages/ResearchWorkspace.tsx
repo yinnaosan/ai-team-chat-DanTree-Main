@@ -1887,8 +1887,10 @@ export default function ResearchWorkspacePage() {
   }, [liveTick, currentTicker]);
 
   // ── SELECT → Research Bridge ──
+  const updateCandidateStatusMutation = trpc.candidates.updateStatus.useMutation();
+
   const handleCandidateSelect = useCallback(
-    (payload: { title: string; relatedTickers: string[] }) => {
+    (payload: CandidateSelectPayload & { candidateId?: number }) => {
       // Build analysis query: prefer first ticker if available, else use title
       const ticker = payload.relatedTickers[0] ?? "";
       const query = ticker
@@ -1897,6 +1899,10 @@ export default function ResearchWorkspacePage() {
       // Inject into input and trigger analysis
       setInput(query);
       if (ticker) setCurrentTicker(ticker.toUpperCase());
+      // Auto-promote candidate status → PROMOTED
+      if (payload.candidateId) {
+        updateCandidateStatusMutation.mutate({ id: payload.candidateId, status: "PROMOTED" });
+      }
       // Auto-scroll to Column 2
       setTimeout(() => {
         column2Ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1920,7 +1926,7 @@ export default function ResearchWorkspacePage() {
         }
       }, 120);
     },
-    [sending, activeConvId, analysisMode, submitMutation]
+    [sending, activeConvId, analysisMode, submitMutation, updateCandidateStatusMutation]
   );
 
   // ── Submit ──

@@ -5614,6 +5614,24 @@ except Exception as e:
           .where(and(eq(radarCandidates.id, input.id), eq(radarCandidates.userId, ctx.user.id)));
         return { removed: true };
       }),
+
+    // Update candidate lifecycle status: SELECT | WATCH | PROMOTED | PASS
+    updateStatus: protectedProcedure
+      .input(z.object({
+        id: z.number().int(),
+        status: z.enum(["SELECT", "WATCH", "PROMOTED", "PASS"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const { radarCandidates } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+        await db.update(radarCandidates)
+          .set({ status: input.status })
+          .where(and(eq(radarCandidates.id, input.id), eq(radarCandidates.userId, ctx.user.id)));
+        return { updated: true, status: input.status };
+      }),
   }),
   // ── LEVEL2E: Telemetry Dashboard Routes ─────────────────────────────────────────────────
   telemetry: router({

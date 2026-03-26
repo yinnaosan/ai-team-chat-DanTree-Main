@@ -2552,3 +2552,16 @@
 - [x] 触发后自动滚动到 Column 2 DecisionStrip 区域
 - [x] TSC 验证 0 错误，728 测试全部通过
 - [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## CANDIDATE_STATUS_EVOLUTION
+
+- [x] radar_candidates 表 ALTER TABLE 添加 status VARCHAR(16) NOT NULL DEFAULT 'SELECT'
+- [x] drizzle/schema.ts 同步添加 status 字段
+- [x] server/db.ts 新增 updateCandidateStatus(id, userId, status) helper
+- [x] server/routers.ts 新增 candidates.updateStatus protectedProcedure
+- [x] CandidatePoolCard：status badge 四色显示（SELECT/WATCH/PROMOTED/PASS）
+- [x] CandidatePoolCard：WATCH/PASS 操作按钮（轻量，不重构布局）
+- [x] CandidatePoolCard：opportunityState=WAIT 时禁用「开始研究」按钮，显示「等待时机」
+- [x] ResearchWorkspace handleCandidateSelect：触发后自动调用 updateStatus → PROMOTED
+- [x] TSC 验证 0 错误，728 测试全部通过
+- [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL

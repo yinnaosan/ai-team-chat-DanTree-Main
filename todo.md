@@ -2423,3 +2423,11 @@
 - [x] 用户首选源注册：yahoo_finance/fred/bloomberg/aqr/citadel/gmo（user_preferred=true, +0.2 加成）
 - [x] 区域自动推断：HK/EU/CN/US 四区
 - [x] V1.5 compat 保留（selectSourcesForFields/buildFieldRouteTrace 无破坏性变更）
+
+## LEVEL1C: 证据引擎（Post-Fetch Evidence Engine）
+
+- [x] postFetchEvidenceEngine.ts: runPostFetchValidation + scoreEvidenceStrength + buildConflictBundle + runLevel1CEvidenceEngine
+- [x] outputGatingController.ts: computeOutputGating（取更严则，与 Level1A2 coexist）
+- [x] routers.ts Phase5: Step2 后注入 + Step3 gating instruction + convergedMetadata LEVEL1C 字段
+- [x] EvidenceWarningBadge.tsx: 前端证据警告组件（强度评分 + 冲突字段 + 门控模式）
+- [x] ChatRoom.tsx: LEVEL1C metadata 类型扩展 + EvidenceWarningBadge 渲染注入

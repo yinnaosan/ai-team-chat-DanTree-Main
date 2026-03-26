@@ -27,6 +27,7 @@ import { WorldMonitorCard } from "@/components/WorldMonitorCard";
 import { LoopSummaryBadge } from "@/components/LoopSummaryBadge";
 import { MemoryBadge } from "@/components/MemoryBadge";
 import { MemoryReasoningBadge } from "@/components/MemoryReasoningBadge";
+import { EvidenceWarningBadge } from "@/components/EvidenceWarningBadge";
 import { HypothesisCards } from "@/components/HypothesisCards";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
@@ -178,6 +179,11 @@ interface Msg {
       current_verdict?: string;
       severity?: "low" | "medium" | "high";
     } | null;
+    // LEVEL1C: Post-Fetch Evidence signals
+    evidenceStrengthScore?: number;
+    evidenceConflictCount?: number;
+    evidenceGatingMode?: "decisive" | "directional" | "framework_only";
+    evidenceConflictFields?: string;
   } | null;
 }
 
@@ -882,6 +888,15 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             ticker={msg.metadata.memoryTicker}
             recordCreatedAt={msg.metadata.memoryRecordCreatedAt ?? ""}
             summary={msg.metadata.memorySummary}
+          />
+        )}
+        {/* LEVEL1C: Evidence Warning Badge (post-fetch validation signal) */}
+        {isAssistant && (msg.metadata?.evidenceStrengthScore !== undefined || (msg.metadata?.evidenceConflictCount ?? 0) > 0) && (
+          <EvidenceWarningBadge
+            evidenceStrengthScore={msg.metadata?.evidenceStrengthScore}
+            evidenceConflictCount={msg.metadata?.evidenceConflictCount}
+            evidenceGatingMode={msg.metadata?.evidenceGatingMode}
+            evidenceConflictFields={msg.metadata?.evidenceConflictFields}
           />
         )}
         {/* LEVEL3B: Memory Reasoning Badge (conflict + seed signal) */}

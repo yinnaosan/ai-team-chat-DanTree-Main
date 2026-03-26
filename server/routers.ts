@@ -140,6 +140,15 @@ import {
   type FinalOutputSchema,
 } from "./outputSchemaValidator";
 
+// ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
+import { evaluateTrigger, initLoopState, advanceLoopState, type LoopState } from "./loopStateTriggerEngine";
+import { generateFollowUpTask } from "./followUpTaskGenerator";
+import { executeSecondPass } from "./secondPassExecutionWrapper";
+import { computeEvidenceDelta } from "./evidenceDeltaEngine";
+import { updateVerdict } from "./verdictUpdater";
+import { evaluateStopCondition } from "./loopStopController";
+import { buildConvergedOutput, type ConvergedOutput } from "./finalConvergedOutput";
+
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
 async function requireAccess(userId: number, openId: string) {
@@ -2459,6 +2468,103 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     if (Object.keys(metadataToSave).length > 0) {
       await updateMessageContent(streamMsgId, finalReply, metadataToSave);
     }
+
+    // ── LEVEL2: Reasoning Loop ───────────────────────────────────────────
+    // Only run in standard/deep mode with JSON-only output and sufficient evidence
+    let convergedOutput: ConvergedOutput | null = null;
+    if (useJsonOnlyMode && level1a3Output !== null && (analysisMode as string) !== "quick") {
+      try {
+        const triggerDecision = evaluateTrigger({
+          loopState: initLoopState(),
+          intentCtx,
+          analysisMode: analysisMode as string,
+          evidenceScore: evidencePacket.evidenceScore,
+          level1a3Output,
+          structuredSynthesis,
+        });
+
+        if (triggerDecision.should_trigger) {
+          // Initialize loop state
+          let loopState: LoopState = initLoopState();
+
+          // Generate follow-up task
+          const followUpTask = generateFollowUpTask({
+            triggerDecision,
+            intentCtx,
+            level1a3Output,
+            structuredSynthesis,
+            primaryTicker,
+            originalTaskDescription: taskDescription,
+            evidenceScore: evidencePacket.evidenceScore,
+          });
+
+          // Execute second pass
+          const secondPassResult = await executeSecondPass({
+            followUpTask,
+            level1a3Output,
+            loopState,
+            dataContext: dataPacketSummary,
+          });
+
+          // Advance loop state
+          loopState = advanceLoopState(loopState, triggerDecision, secondPassResult.llm_calls_used);
+
+          if (secondPassResult.success && secondPassResult.parsed_output) {
+            // Compute evidence delta
+            const evidenceDelta = computeEvidenceDelta({
+              level1Output: level1a3Output,
+              secondPassOutput: secondPassResult.parsed_output,
+              evidenceScoreBefore: evidencePacket.evidenceScore / 100,
+            });
+
+            // Update verdict
+            const updatedVerdict = updateVerdict({
+              level1Output: level1a3Output,
+              secondPassOutput: secondPassResult.parsed_output,
+              evidenceDelta,
+            });
+
+            // Evaluate stop condition
+            const stopDecision = evaluateStopCondition({
+              loopState,
+              evidenceDelta,
+              updatedVerdict,
+              secondPassSucceeded: true,
+            });
+
+            // Build converged output
+            convergedOutput = buildConvergedOutput({
+              level1Output: level1a3Output,
+              loopRan: true,
+              loopState,
+              evidenceDelta,
+              updatedVerdict,
+              stopDecision,
+            });
+
+            // Update message with converged output
+            const convergedMetadata = {
+              ...metadataToSave,
+              level1a3Output: convergedOutput.final_schema,
+              level2LoopMetadata: convergedOutput.loop_metadata,
+            };
+
+            // Append loop summary to finalReply if verdict changed
+            let convergedReply = finalReply;
+            if (convergedOutput.loop_metadata.verdict_changed && convergedOutput.loop_metadata.loop_summary) {
+              convergedReply = finalReply + "\n\n---\n" + convergedOutput.loop_metadata.loop_summary;
+            }
+
+            await updateMessageContent(streamMsgId, convergedReply, convergedMetadata);
+          }
+        }
+      } catch (loopErr) {
+        // LEVEL2 loop failure is non-fatal — Level1 output already saved
+        console.error("[LEVEL2] Reasoning loop error (non-fatal):", loopErr);
+      }
+    }
+    // ── LEVEL2 END ──────────────────────────────────────────────────────────────────────────
+
     await updateTaskStatus(taskId, "completed", { gptSummary: finalReply });
     emitTaskDone(taskId, msgId, finalReply); // SSE 完成推送
     removeBudgetTracker(String(taskId)); // 清理预算跟踪器

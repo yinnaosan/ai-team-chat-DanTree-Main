@@ -139,6 +139,21 @@ interface Msg {
     missingBlocking?: string[];
     missingImportant?: string[];
     missingOptional?: string[];
+    // LEVEL2: Reasoning Loop metadata
+    level2LoopMetadata?: {
+      loop_ran: boolean;
+      iterations_completed: number;
+      stop_reason: string;
+      convergence_signal: string;
+      evidence_score_before: number;
+      evidence_score_after: number;
+      evidence_score_delta: number;
+      confidence_before: string;
+      confidence_after: string;
+      verdict_changed: boolean;
+      change_type: string;
+      loop_summary: string;
+    };
     // 附件信息（用户消息中显示已附加的文件）
     attachments?: Array<{ filename: string; mimeType: string; size: number; s3Url: string }>;
   } | null;
@@ -830,6 +845,20 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
             <Zap className="w-3 h-3" />
             <span>LEVEL1A3 结构化输出模式</span>
+          </div>
+        )}
+        {/* LEVEL2 Reasoning Loop badge */}
+        {isAssistant && msg.metadata?.level2LoopMetadata?.loop_ran && (
+          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md w-fit text-xs"
+            style={{ background: "oklch(0.65 0.18 145 / 0.1)", border: "1px solid oklch(0.65 0.18 145 / 0.3)", color: "oklch(0.65 0.18 145)" }}>
+            <Brain className="w-3 h-3" />
+            <span>LEVEL2 推理循环已运行</span>
+            {msg.metadata.level2LoopMetadata.verdict_changed && (
+              <span className="ml-1 font-semibold">• 判断已更新 ({msg.metadata.level2LoopMetadata.change_type})</span>
+            )}
+            {!msg.metadata.level2LoopMetadata.verdict_changed && (
+              <span className="ml-1">• 判断已强化</span>
+            )}
           </div>
         )}
         {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}

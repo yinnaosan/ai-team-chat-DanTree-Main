@@ -143,11 +143,15 @@ import {
 // ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
 import { evaluateTrigger, initLoopState, advanceLoopState, type LoopState } from "./loopStateTriggerEngine";
 import { generateFollowUpTask } from "./followUpTaskGenerator";
+// ── LEVEL2B: Multi-Hypothesis Engine ─────────────────────────────────────────
+import { runHypothesisEngine } from "./hypothesisEngine";
 import { executeSecondPass } from "./secondPassExecutionWrapper";
 import { computeEvidenceDelta } from "./evidenceDeltaEngine";
 import { updateVerdict } from "./verdictUpdater";
 import { evaluateStopCondition } from "./loopStopController";
 import { buildConvergedOutput, type ConvergedOutput } from "./finalConvergedOutput";
+// ── LEVEL2C: Telemetry Writer ─────────────────────────────────────────────────
+import { writeLoopTelemetry } from "./loopTelemetryWriter";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -2483,18 +2487,27 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           structuredSynthesis,
         });
 
-        if (triggerDecision.should_trigger) {
+         if (triggerDecision.should_trigger) {
           // Initialize loop state
           let loopState: LoopState = initLoopState();
-
-          // Generate follow-up task
+          // ── LEVEL2B: Multi-Hypothesis Selection ──────────────────────────────
+          const hypothesisResult = runHypothesisEngine({
+            level1a3Output,
+            structuredDiscussion,
+            triggerDecision,
+            intentCtx,
+            budgetRemaining: loopState.budget_max - loopState.budget_used,
+          });
+          // Generate follow-up task (hypothesis-driven or legacy fallback)
           const followUpTask = generateFollowUpTask({
             triggerDecision,
             intentCtx,
             level1a3Output,
             structuredSynthesis,
             primaryTicker,
-            originalTaskDescription: taskDescription,
+            originalTaskDescription: hypothesisResult.selected
+              ? `[HYPOTHESIS: ${hypothesisResult.selected.statement.slice(0, 120)}] ${taskDescription}`
+              : taskDescription,
             evidenceScore: evidencePacket.evidenceScore,
           });
 
@@ -2556,6 +2569,22 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
             }
 
             await updateMessageContent(streamMsgId, convergedReply, convergedMetadata);
+
+            // ── LEVEL2C: Write telemetry (non-fatal) ─────────────────────────────────────────────────
+            await writeLoopTelemetry({
+              taskId,
+              userId,
+              primaryTicker,
+              triggerDecision,
+              loopState,
+              hypothesisCandidates: hypothesisResult.selection.candidates,
+              selectedHypothesis: hypothesisResult.selected ?? null,
+              secondPassSuccess: secondPassResult.success,
+              evidenceDelta,
+              verdictChanged: convergedOutput.loop_metadata.verdict_changed,
+              outputMode: analysisMode as string,
+              loopDurationMs: 0,
+            });
           }
         }
       } catch (loopErr) {
@@ -5144,6 +5173,48 @@ except Exception as e:
           .slice(0, 15);
 
         return filtered;
+      }),
+  }),
+
+  // ── LEVEL2E: Telemetry Dashboard Routes ─────────────────────────────────────────────────
+  telemetry: router({
+    // Get recent loop telemetry rows for dashboard
+    getLoopStats: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(200).default(50) }))
+      .query(async ({ input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return { rows: [], summary: null };
+        const { loopTelemetry } = await import("../drizzle/schema");
+        const { desc } = await import("drizzle-orm");
+        const rows = await db
+          .select()
+          .from(loopTelemetry)
+          .orderBy(desc(loopTelemetry.createdAt))
+          .limit(input.limit);
+        // Compute summary stats
+        const total = rows.length;
+        if (total === 0) return { rows: [], summary: null };
+        type TRow = typeof rows[number];
+        const triggered = rows.filter((r: TRow) => r.triggerType !== "no_trigger").length;
+        const verdictChangedCount = rows.filter((r: TRow) => r.verdictChanged === 1).length;
+        const avgDelta = rows.reduce((s: number, r: TRow) => s + Number(r.evidenceDelta), 0) / total;
+        const triggerTypeDistribution: Record<string, number> = {};
+        for (const r of rows) {
+          triggerTypeDistribution[r.triggerType] = (triggerTypeDistribution[r.triggerType] ?? 0) + 1;
+        }
+        return {
+          rows,
+          summary: {
+            total,
+            triggered,
+            triggerRate: triggered / total,
+            verdictChangedCount,
+            verdictChangeRate: verdictChangedCount / Math.max(triggered, 1),
+            avgEvidenceDelta: avgDelta,
+            triggerTypeDistribution,
+          },
+        };
       }),
   }),
 

@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS `source_reliability` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `userId` int NOT NULL,\n  `sourceId` varchar(40) NOT NULL,\n  `ticker` varchar(20) NOT NULL DEFAULT '',\n  `taskType` varchar(40) NOT NULL DEFAULT '',\n  `dataPresent` int NOT NULL DEFAULT 0,\n  `dataUsed` int NOT NULL DEFAULT 0,\n  `fieldsCovered` int NOT NULL DEFAULT 0,\n  `evidenceContribution` decimal(5,3) NOT NULL DEFAULT '0.000',\n  `latencyMs` int NOT NULL DEFAULT 0,\n  `errorOccurred` int NOT NULL DEFAULT 0,\n  `taskId` int NOT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`)\n)\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nCREATE TABLE IF NOT EXISTS `source_reliability` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `userId` int NOT NULL,\n  `sourceId` varchar(40) NOT NULL,\n  `ticker` varchar(20) NOT NULL DEFAULT '',\n  `taskType` varchar(40) NOT NULL DEFAULT '',\n  `dataPresent` int NOT NULL DEFAULT 0,\n  `dataUsed` int NOT NULL DEFAULT 0,\n  `fieldsCovered` int NOT NULL DEFAULT 0,\n  `evidenceContribution` decimal(5,3) NOT NULL DEFAULT '0.000',\n  `latencyMs` int NOT NULL DEFAULT 0,\n  `errorOccurred` int NOT NULL DEFAULT 0,\n  `taskId` int NOT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`)\n)\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 366
+}

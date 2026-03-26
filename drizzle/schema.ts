@@ -343,3 +343,68 @@ export const sentimentHistory = mysqlTable("sentiment_history", {
 });
 export type SentimentHistory = typeof sentimentHistory.$inferSelect;
 export type InsertSentimentHistory = typeof sentimentHistory.$inferInsert;
+
+// ── LEVEL2C: Loop Telemetry Table ─────────────────────────────────────────────
+export const loopTelemetry = mysqlTable("loop_telemetry", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId").notNull(),
+  userId: int("userId").notNull(),
+  primaryTicker: varchar("primaryTicker", { length: 20 }).notNull().default(""),
+  triggerType: varchar("triggerType", { length: 60 }).notNull(),
+  triggerReason: text("triggerReason").notNull(),
+  evidenceScoreAtTrigger: decimal("evidenceScoreAtTrigger", { precision: 5, scale: 3 }).notNull().default("0"),
+  confidenceAtTrigger: varchar("confidenceAtTrigger", { length: 20 }).notNull().default(""),
+  hypothesisCandidateCount: int("hypothesisCandidateCount").notNull().default(0),
+  selectedHypothesisId: varchar("selectedHypothesisId", { length: 20 }).notNull().default(""),
+  selectedFocusArea: varchar("selectedFocusArea", { length: 60 }).notNull().default(""),
+  secondPassSuccess: int("secondPassSuccess").notNull().default(0),
+  evidenceDelta: decimal("evidenceDelta", { precision: 5, scale: 3 }).notNull().default("0"),
+  verdictChanged: int("verdictChanged").notNull().default(0),
+  outputMode: varchar("outputMode", { length: 20 }).notNull().default(""),
+  loopDurationMs: int("loopDurationMs").notNull().default(0),
+  llmCallsUsed: int("llmCallsUsed").notNull().default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type LoopTelemetry = typeof loopTelemetry.$inferSelect;
+export type InsertLoopTelemetry = typeof loopTelemetry.$inferInsert;
+
+// ── LEVEL3A: Analysis Memory Table ────────────────────────────────────────────
+export const analysisMemory = mysqlTable("analysis_memory", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  ticker: varchar("ticker", { length: 20 }).notNull(),
+  taskType: varchar("taskType", { length: 40 }).notNull().default(""),
+  verdict: varchar("verdict", { length: 20 }).notNull().default(""),
+  confidenceLevel: varchar("confidenceLevel", { length: 20 }).notNull().default(""),
+  evidenceScore: decimal("evidenceScore", { precision: 5, scale: 3 }).notNull().default("0"),
+  bullCaseSummary: text("bullCaseSummary"),
+  bearCaseSummary: text("bearCaseSummary"),
+  keyUncertainty: text("keyUncertainty"),
+  openHypotheses: text("openHypotheses"),
+  outputMode: varchar("outputMode", { length: 20 }).notNull().default(""),
+  loopRan: int("loopRan").notNull().default(0),
+  taskId: int("taskId").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AnalysisMemory = typeof analysisMemory.$inferSelect;
+export type InsertAnalysisMemory = typeof analysisMemory.$inferInsert;
+
+// ── LEVEL3B: Source Reliability Table ─────────────────────────────────────────
+export const sourceReliability = mysqlTable("source_reliability", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sourceId: varchar("sourceId", { length: 40 }).notNull(),
+  ticker: varchar("ticker", { length: 20 }).notNull().default(""),
+  taskType: varchar("taskType", { length: 40 }).notNull().default(""),
+  dataPresent: int("dataPresent").notNull().default(0),
+  dataUsed: int("dataUsed").notNull().default(0),
+  fieldsCovered: int("fieldsCovered").notNull().default(0),
+  evidenceContribution: decimal("evidenceContribution", { precision: 5, scale: 3 }).notNull().default("0"),
+  latencyMs: int("latencyMs").notNull().default(0),
+  errorOccurred: int("errorOccurred").notNull().default(0),
+  taskId: int("taskId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type SourceReliability = typeof sourceReliability.$inferSelect;
+export type InsertSourceReliability = typeof sourceReliability.$inferInsert;

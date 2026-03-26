@@ -2384,3 +2384,20 @@
 - [x] ResearchWorkspace.tsx 导航栏全球市场按鈕左侧添加 NavClock（小屏隐藏）
 - [x] 面板标题时间支持本地/纽约/伦敦三键切换，带 UTC 偏移标注
 - [x] TypeScript 编译 0 错误
+
+## PHASE2_MASTER — LEVEL2C/2D/2E + LEVEL3_PREP
+- [x] LEVEL2C: 创建 server/loopTelemetryWriter.ts（遥测写入模块，LOOP_THRESHOLD_CONFIG，writeLoopTelemetry）
+- [x] LEVEL2C: DB 迁移 — 创建 loop_telemetry 表（触发类型/证据评分/判断变更/延迟等字段）
+- [x] LEVEL2C: DB 迁移 — 创建 analysis_memory 表（LEVEL3A 预备，跨任务分析记忆）
+- [x] LEVEL2C: DB 迁移 — 创建 source_reliability 表（LEVEL3B 预备，数据源可靠性归因）
+- [x] LEVEL2C: drizzle/schema.ts 添加三个新表的 Drizzle 定义（loopTelemetry, analysisMemory, sourceReliability）
+- [x] LEVEL2C: routers.ts 集成遥测写入（line ~2573，convergedOutput 构建后，非致命 try/catch）
+- [x] LEVEL2D: 创建 client/src/components/LoopSummaryBadge.tsx（可展开循环摘要面板）
+- [x] LEVEL2D: ChatRoom.tsx 集成 LoopSummaryBadge（替换旧静态 badge）
+- [x] LEVEL2E: routers.ts 添加 telemetry.getLoopStats 路由（统计触发率/判断变更率/证据增益/类型分布）
+- [x] LEVEL2E: 创建 client/src/pages/LoopTelemetryDashboard.tsx（阈值调优仪表盘，/telemetry 路由）
+- [x] LEVEL2E: App.tsx 添加 /telemetry 路由
+- [x] LEVEL3_PREP: 创建 client/src/components/HypothesisCards.tsx（多假设可点击卡片，H1/H2/H3 索引）
+- [x] LEVEL3_PREP: ChatRoom.tsx 集成 HypothesisCards（DiscussionPanel 中 open_hypotheses 渲染）
+- [x] LEVEL3_PREP: ChatRoom.tsx discussionObject 类型添加 open_hypotheses?: string[]
+- [x] 生成 /home/ubuntu/gpt_package_phase2/99_RETURN_PROTOCOL.md

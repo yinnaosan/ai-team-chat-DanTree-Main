@@ -24,6 +24,8 @@ import { AlpacaPortfolioCard } from "@/components/AlpacaPortfolioCard";
 import { BacktestCard } from "@/components/BacktestCard";
 import { TrendRadarCard } from "@/components/TrendRadarCard";
 import { WorldMonitorCard } from "@/components/WorldMonitorCard";
+import { LoopSummaryBadge } from "@/components/LoopSummaryBadge";
+import { HypothesisCards } from "@/components/HypothesisCards";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
@@ -95,6 +97,7 @@ interface Msg {
       alternative_view: string;
       follow_up_questions: string[];
       exploration_paths: string[];
+      open_hypotheses?: string[];
     };
     // LEVEL1A2: Structured Discussion (first-class output)
     structuredDiscussion?: {
@@ -625,6 +628,13 @@ function DiscussionPanel({ discussionObject, onFollowup }: {
               </div>
             </div>
           )}
+          {/* LEVEL3_PREP: Open Hypotheses as clickable cards */}
+          {(discussionObject.open_hypotheses?.length ?? 0) > 0 && (
+            <HypothesisCards
+              hypotheses={discussionObject.open_hypotheses ?? []}
+              onFollowup={onFollowup}
+            />
+          )}
         </div>
       )}
     </div>
@@ -847,19 +857,9 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             <span>LEVEL1A3 结构化输出模式</span>
           </div>
         )}
-        {/* LEVEL2 Reasoning Loop badge */}
+        {/* LEVEL2D: Reasoning Loop Summary Badge (expandable) */}
         {isAssistant && msg.metadata?.level2LoopMetadata?.loop_ran && (
-          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md w-fit text-xs"
-            style={{ background: "oklch(0.65 0.18 145 / 0.1)", border: "1px solid oklch(0.65 0.18 145 / 0.3)", color: "oklch(0.65 0.18 145)" }}>
-            <Brain className="w-3 h-3" />
-            <span>LEVEL2 推理循环已运行</span>
-            {msg.metadata.level2LoopMetadata.verdict_changed && (
-              <span className="ml-1 font-semibold">• 判断已更新 ({msg.metadata.level2LoopMetadata.change_type})</span>
-            )}
-            {!msg.metadata.level2LoopMetadata.verdict_changed && (
-              <span className="ml-1">• 判断已强化</span>
-            )}
-          </div>
+          <LoopSummaryBadge meta={msg.metadata.level2LoopMetadata} />
         )}
         {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}
         {isAssistant && (msg.metadata?.structuredDiscussion || msg.metadata?.discussionObject) && (

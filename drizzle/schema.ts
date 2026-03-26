@@ -408,3 +408,24 @@ export const sourceReliability = mysqlTable("source_reliability", {
 });
 export type SourceReliability = typeof sourceReliability.$inferSelect;
 export type InsertSourceReliability = typeof sourceReliability.$inferInsert;
+
+// ─── Radar Candidates (SELECT-stage candidate pool) ──────────────────────────
+export const radarCandidates = mysqlTable("radar_candidates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  candidateId: varchar("candidateId", { length: 64 }).notNull(),   // radar item id
+  title: varchar("title", { length: 255 }).notNull(),
+  category: varchar("category", { length: 40 }).notNull(),
+  opportunityState: varchar("opportunityState", { length: 20 }).notNull().default("SELECT"),
+  cycle: varchar("cycle", { length: 20 }).notNull().default("Mid"),
+  confidence: int("confidence").notNull().default(50),
+  whySurface: text("whySurface").notNull().default(""),
+  whyTrend: text("whyTrend").notNull().default(""),
+  whyHidden: text("whyHidden").notNull().default(""),
+  riskSummary: text("riskSummary").notNull().default(""),
+  relatedTickers: varchar("relatedTickers", { length: 255 }).notNull().default(""),  // comma-separated
+  watchlistReady: int("watchlistReady").notNull().default(1),
+  addedAt: timestamp("addedAt").defaultNow().notNull(),
+});
+export type RadarCandidate = typeof radarCandidates.$inferSelect;
+export type InsertRadarCandidate = typeof radarCandidates.$inferInsert;

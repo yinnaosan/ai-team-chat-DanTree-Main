@@ -1,0 +1,16 @@
+{
+  "query": "CREATE TABLE `radar_candidates` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`candidateId` varchar(64) NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`category` varchar(40) NOT NULL,\n\t`opportunityState` varchar(20) NOT NULL DEFAULT 'SELECT',\n\t`cycle` varchar(20) NOT NULL DEFAULT 'Mid',\n\t`confidence` int NOT NULL DEFAULT 50,\n\t`whySurface` text NOT NULL DEFAULT (''),\n\t`whyTrend` text NOT NULL DEFAULT (''),\n\t`whyHidden` text NOT NULL DEFAULT (''),\n\t`riskSummary` text NOT NULL DEFAULT (''),\n\t`relatedTickers` varchar(255) NOT NULL DEFAULT '',\n\t`watchlistReady` int NOT NULL DEFAULT 1,\n\t`addedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `radar_candidates_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute CREATE TABLE `radar_candidates` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`candidateId` varchar(64) NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`category` varchar(40) NOT NULL,\n\t`opportunityState` varchar(20) NOT NULL DEFAULT 'SELECT',\n\t`cycle` varchar(20) NOT NULL DEFAULT 'Mid',\n\t`confidence` int NOT NULL DEFAULT 50,\n\t`whySurface` text NOT NULL DEFAULT (''),\n\t`whyTrend` text NOT NULL DEFAULT (''),\n\t`whyHidden` text NOT NULL DEFAULT (''),\n\t`riskSummary` text NOT NULL DEFAULT (''),\n\t`relatedTickers` varchar(255) NOT NULL DEFAULT '',\n\t`watchlistReady` int NOT NULL DEFAULT 1,\n\t`addedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `radar_candidates_id` PRIMARY KEY(`id`)\n);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 10 column 40 near \"''),",
+    "\t`whyTrend` text NOT NULL DEFAULT (''),",
+    "\t`whyHidden` text NOT NULL DEFAULT (''),",
+    "\t`riskSummary` text NOT NULL DEFAULT (''),",
+    "\t`relatedTickers` varchar(255) NOT NULL DEFAULT '',",
+    "\t`watchlistReady` int NOT NULL DEFAULT 1,",
+    "\t`addedAt` timestamp NOT NULL DEFAULT (now()),",
+    "\tCONSTRAINT `radar_candidates_id` PRIMARY KEY(`id`)",
+    ")\""
+  ]
+}

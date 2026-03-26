@@ -5542,6 +5542,79 @@ except Exception as e:
         return await getOpportunityRadarCached();
       }),
   }),
+
+  candidates: router({
+    // Add a radar item as a SELECT-stage candidate
+    add: protectedProcedure
+      .input(z.object({
+        candidateId: z.string(),
+        title: z.string(),
+        category: z.string(),
+        opportunityState: z.string().default("SELECT"),
+        cycle: z.string().default("Mid"),
+        confidence: z.number().int().min(0).max(100).default(50),
+        whySurface: z.string().default(""),
+        whyTrend: z.string().default(""),
+        whyHidden: z.string().default(""),
+        riskSummary: z.string().default(""),
+        relatedTickers: z.string().default(""),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const { radarCandidates } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+        // Check if already added
+        const existing = await db.select().from(radarCandidates)
+          .where(and(eq(radarCandidates.userId, ctx.user.id), eq(radarCandidates.candidateId, input.candidateId)))
+          .limit(1);
+        if (existing.length > 0) return { added: false, id: existing[0].id };
+        const [result] = await db.insert(radarCandidates).values({
+          userId: ctx.user.id,
+          candidateId: input.candidateId,
+          title: input.title,
+          category: input.category,
+          opportunityState: input.opportunityState,
+          cycle: input.cycle,
+          confidence: input.confidence,
+          whySurface: input.whySurface,
+          whyTrend: input.whyTrend,
+          whyHidden: input.whyHidden,
+          riskSummary: input.riskSummary,
+          relatedTickers: input.relatedTickers,
+          watchlistReady: 1,
+        });
+        return { added: true, id: (result as any).insertId };
+      }),
+
+    // List all candidates for current user
+    list: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { getDb } = await import("./db");
+        const { radarCandidates } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(radarCandidates)
+          .where(eq(radarCandidates.userId, ctx.user.id))
+          .orderBy(radarCandidates.addedAt);
+      }),
+
+    // Remove a candidate by id
+    remove: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const { radarCandidates } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+        await db.delete(radarCandidates)
+          .where(and(eq(radarCandidates.id, input.id), eq(radarCandidates.userId, ctx.user.id)));
+        return { removed: true };
+      }),
+  }),
   // ── LEVEL2E: Telemetry Dashboard Routes ─────────────────────────────────────────────────
   telemetry: router({
     // Get recent loop telemetry rows for dashboard

@@ -2530,3 +2530,16 @@
 - [x] 创建 client/src/components/OpportunityRadarCard.tsx（SELECT/WAIT 状态 + WHY三层 + 周期/风险）
 - [x] ResearchWorkspace Column 4 接入 OpportunityRadarCard（位于 QUICK ACCESS 之前）
 - [x] TSC 验证 0 错误
+
+## OPPORTUNITY_RADAR_TO_SELECT_FLOW
+
+- [x] 审计 drizzle/schema.ts，确认 radarCandidates 表已创建（id/userId/candidateId/title/category/opportunityState/cycle/confidence/whySurface/whyTrend/whyHidden/riskSummary/relatedTickers/watchlistReady/addedAt）
+- [x] 执行 migration SQL，数据库 radar_candidates 表已创建
+- [x] server/db.ts 新增 addRadarCandidate / listRadarCandidates / removeRadarCandidate 三个 helper 函数
+- [x] server/routers.ts 新增 candidates router（candidates.add / candidates.list / candidates.remove 三个 protectedProcedure）
+- [x] OpportunityRadarCard.tsx 升级：RadarItemRow 新增「加入观察池」按钮（展开后可见），乐观更新 addedIds，已加入显示「已加入观察池」
+- [x] 新增 CandidatePoolCard 组件（同文件导出），显示 SELECT 阶段候选机会列表，支持移出观察池
+- [x] ResearchWorkspace.tsx Column 4 接入 CandidatePoolCard（紧跟 OpportunityRadarCard 之后）
+- [x] 工作流分离验证：机会雷达（早期发现）与 DecisionStrip（已选标的行动决策）保持独立
+- [x] 底部标注「候选机会 · 进入 SELECT 阶段 · 非买入建议」明确工作流语义
+- [x] TSC 验证 0 错误，728 个测试全部通过

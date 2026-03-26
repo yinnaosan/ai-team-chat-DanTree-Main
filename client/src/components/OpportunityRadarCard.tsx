@@ -1,18 +1,18 @@
 /**
- * OpportunityRadarCard
+ * OpportunityRadarCard + CandidatePoolCard
  * ─────────────────────────────────────────────────────────────────────────────
- * Lightweight Column 4 component for the Opportunity Radar.
- * Displays 4-6 early opportunity items with SELECT/WAIT state,
- * WHY three-layer structure, and cycle/risk info.
+ * OpportunityRadarCard: Lightweight Column 4 component for the Opportunity Radar.
+ * Each item can be added to the SELECT-stage candidate pool via 「加入观察」.
  *
+ * CandidatePoolCard: Shows the persisted candidate pool (SELECT stage).
  * Design: terminal-style, compact, decision-first labels.
  */
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { ChevronDown, ChevronRight, RefreshCw, Radar } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, Radar, Eye, Trash2, ListChecks } from "lucide-react";
 
-// ─── Types (mirrors server/opportunityRadar.ts) ───────────────────────────────
+// ─── Types (mirrors server/opportunityRadar.ts + schema) ─────────────────────
 
 type OpportunityState = "SELECT" | "WAIT";
 type OpportunityCategory =
@@ -51,6 +51,25 @@ interface OpportunityRadarResult {
   totalCount: number;
 }
 
+// DB candidate row type (mirrors radarCandidates schema)
+interface CandidateRow {
+  id: number;
+  userId: number;
+  candidateId: string;
+  title: string;
+  category: string;
+  opportunityState: string;
+  cycle: string;
+  confidence: number;
+  whySurface: string;
+  whyTrend: string;
+  whyHidden: string;
+  riskSummary: string;
+  relatedTickers: string;
+  watchlistReady: number;
+  addedAt: Date | string | null;
+}
+
 // ─── Config Maps ──────────────────────────────────────────────────────────────
 
 const STATE_CONFIG: Record<OpportunityState, { label: string; bg: string; text: string; border: string }> = {
@@ -68,7 +87,7 @@ const STATE_CONFIG: Record<OpportunityState, { label: string; bg: string; text: 
   },
 };
 
-const CATEGORY_LABELS: Record<OpportunityCategory, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   industry_rotation: "行业轮动",
   cycle_shift: "周期转换",
   tech_theme: "技术主题",
@@ -104,10 +123,19 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
-function RadarItemRow({ item }: { item: RadarItem }) {
+function RadarItemRow({
+  item,
+  addedIds,
+  onAdd,
+}: {
+  item: RadarItem;
+  addedIds: Set<string>;
+  onAdd: (item: RadarItem) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const stateConf = STATE_CONFIG[item.opportunityState];
+  const stateConf = STATE_CONFIG[item.opportunityState] ?? STATE_CONFIG.WAIT;
   const cycleConf = CYCLE_CONFIG[item.cycle] ?? CYCLE_CONFIG.Mid;
+  const isAdded = addedIds.has(item.id);
 
   return (
     <div className="border border-[#1a1f2e] rounded bg-[#080b12] overflow-hidden">
@@ -130,7 +158,7 @@ function RadarItemRow({ item }: { item: RadarItem }) {
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-[8px] text-[#3a4558] font-mono">
-              {CATEGORY_LABELS[item.category]}
+              {CATEGORY_LABELS[item.category] ?? item.category}
             </span>
             <span className="text-[8px] text-[#2a3040]">·</span>
             <span className="text-[8px] text-[#3a4558]">{item.currentPhase}</span>
@@ -170,9 +198,8 @@ function RadarItemRow({ item }: { item: RadarItem }) {
             ))}
           </div>
 
-          {/* Cycle + Risk */}
+          {/* Cycle + Tickers */}
           <div className="grid grid-cols-2 gap-2">
-            {/* Cycle */}
             <div>
               <div className="text-[8px] text-[#3a4558] font-mono uppercase tracking-widest mb-1">
                 周期阶段
@@ -188,7 +215,6 @@ function RadarItemRow({ item }: { item: RadarItem }) {
               </div>
             </div>
 
-            {/* Tickers */}
             {item.relatedTickers && item.relatedTickers.length > 0 && (
               <div>
                 <div className="text-[8px] text-[#3a4558] font-mono uppercase tracking-widest mb-1">
@@ -215,18 +241,45 @@ function RadarItemRow({ item }: { item: RadarItem }) {
             </div>
             <p className="text-[10px] text-[#8a6a5a] leading-relaxed">{item.riskSummary}</p>
           </div>
+
+          {/* 加入观察 action */}
+          <div className="pt-1 border-t border-[#1a1f2e]">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(item);
+              }}
+              disabled={isAdded}
+              className={`flex items-center gap-1.5 text-[9px] font-mono px-2 py-1 rounded border transition-colors ${
+                isAdded
+                  ? "text-[#3a5a3a] border-[#2a4a2a] bg-emerald-500/5 cursor-default"
+                  : "text-[#4a8a6a] border-[#2a4a3a] hover:text-[#6aaa8a] hover:border-[#3a6a5a] hover:bg-emerald-500/5"
+              }`}
+            >
+              <Eye className="w-2.5 h-2.5" />
+              {isAdded ? "已加入观察池" : "加入观察池"}
+            </button>
+            {!isAdded && (
+              <p className="text-[8px] text-[#2a3a4a] mt-1 font-mono">
+                候选机会 · 进入 SELECT 阶段
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main OpportunityRadarCard ────────────────────────────────────────────────
 
 export function OpportunityRadarCard() {
   const [result, setResult] = useState<OpportunityRadarResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanTime, setScanTime] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+
+  const utils = trpc.useUtils();
 
   const scanMutation = trpc.radar.scan.useMutation({
     onSuccess: (data) => {
@@ -239,8 +292,35 @@ export function OpportunityRadarCard() {
     },
   });
 
+  const addMutation = trpc.candidates.add.useMutation({
+    onSuccess: (data, variables) => {
+      if (data.added) {
+        setAddedIds((prev) => new Set(Array.from(prev).concat(variables.candidateId)));
+        utils.candidates.list.invalidate();
+      }
+    },
+  });
+
   const handleScan = (forceRefresh = false) => {
     scanMutation.mutate({ forceRefresh });
+  };
+
+  const handleAdd = (item: RadarItem) => {
+    addMutation.mutate({
+      candidateId: item.id,
+      title: item.title,
+      category: item.category,
+      opportunityState: item.opportunityState,
+      cycle: item.cycle,
+      confidence: item.confidence,
+      whySurface: item.why.surface,
+      whyTrend: item.why.trend,
+      whyHidden: item.why.hidden,
+      riskSummary: item.riskSummary,
+      relatedTickers: item.relatedTickers?.join(",") ?? "",
+    });
+    // Optimistic local update
+    setAddedIds((prev) => new Set(Array.from(prev).concat(item.id)));
   };
 
   const isLoading = scanMutation.isPending;
@@ -325,7 +405,12 @@ export function OpportunityRadarCard() {
         {result && !isLoading && (
           <div className="space-y-1.5">
             {result.items.map((item) => (
-              <RadarItemRow key={item.id} item={item} />
+              <RadarItemRow
+                key={item.id}
+                item={item}
+                addedIds={addedIds}
+                onAdd={handleAdd}
+              />
             ))}
             {result.items.length === 0 && (
               <p className="text-[9px] text-[#2a3a4a] text-center py-3 font-mono">
@@ -334,6 +419,146 @@ export function OpportunityRadarCard() {
             )}
             <div className="pt-1 text-[8px] text-[#1a2a3a] font-mono text-right">
               {result.dataSourcesSummary}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── CandidatePoolCard ────────────────────────────────────────────────────────
+// Lightweight SELECT-stage candidate pool display for Column 4
+
+export function CandidatePoolCard() {
+  const { data: candidates, isLoading, refetch } = trpc.candidates.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  const utils = trpc.useUtils();
+
+  const removeMutation = trpc.candidates.remove.useMutation({
+    onSuccess: () => {
+      utils.candidates.list.invalidate();
+    },
+  });
+
+  const rows = (candidates ?? []) as CandidateRow[];
+
+  return (
+    <div className="border border-[#1a1f2e] rounded bg-[#06080f]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1f2e]">
+        <div className="flex items-center gap-2">
+          <ListChecks className="w-3 h-3 text-[#3a6a4a]" />
+          <span className="text-[9px] font-mono text-[#3a6a4a] uppercase tracking-widest">
+            候选机会
+          </span>
+          {rows.length > 0 && (
+            <span className="text-[8px] font-mono text-[#2a4a3a]">
+              {rows.length} 项 · SELECT 阶段
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isLoading}
+          className="text-[8px] font-mono text-[#2a4a3a] hover:text-[#4a7a5a] transition-colors"
+        >
+          <RefreshCw className={`w-2.5 h-2.5 ${isLoading ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-2">
+        {isLoading && (
+          <div className="py-3 text-center">
+            <p className="text-[9px] text-[#2a4a3a] font-mono">加载中...</p>
+          </div>
+        )}
+
+        {!isLoading && rows.length === 0 && (
+          <div className="py-4 text-center">
+            <ListChecks className="w-5 h-5 text-[#1a2a1a] mx-auto mb-1.5" />
+            <p className="text-[9px] text-[#2a3a2a] font-mono">
+              观察池为空
+            </p>
+            <p className="text-[8px] text-[#1a2a1a] mt-0.5">
+              从机会雷达加入候选机会
+            </p>
+          </div>
+        )}
+
+        {!isLoading && rows.length > 0 && (
+          <div className="space-y-1.5">
+            {rows.map((row) => {
+              const stateConf =
+                STATE_CONFIG[(row.opportunityState as OpportunityState)] ?? STATE_CONFIG.WAIT;
+              const cycleConf = CYCLE_CONFIG[row.cycle] ?? CYCLE_CONFIG.Mid;
+              const tickers = row.relatedTickers
+                ? row.relatedTickers.split(",").filter(Boolean)
+                : [];
+
+              return (
+                <div
+                  key={row.id}
+                  className="border border-[#1a2a1a] rounded bg-[#080f08] px-2.5 py-2"
+                >
+                  <div className="flex items-start gap-2">
+                    {/* State badge */}
+                    <span
+                      className={`mt-0.5 shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded border ${stateConf.bg} ${stateConf.text} ${stateConf.border} font-mono tracking-wider`}
+                    >
+                      {stateConf.label}
+                    </span>
+
+                    {/* Title + meta */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] text-[#b8d0b8] font-medium leading-tight truncate">
+                        {row.title}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[8px] text-[#2a4a2a] font-mono">
+                          {CATEGORY_LABELS[row.category] ?? row.category}
+                        </span>
+                        <span className="text-[8px] text-[#1a2a1a]">·</span>
+                        <span className="text-[8px] text-[#2a4a2a]">
+                          {cycleConf.label}
+                        </span>
+                        {tickers.length > 0 && (
+                          <>
+                            <span className="text-[8px] text-[#1a2a1a]">·</span>
+                            <span className="text-[8px] font-mono text-[#3a7a5a]">
+                              {tickers.slice(0, 2).join(" ")}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Remove button */}
+                    <button
+                      onClick={() => removeMutation.mutate({ id: row.id })}
+                      disabled={removeMutation.isPending}
+                      className="shrink-0 text-[#2a3a2a] hover:text-[#8a4a3a] transition-colors mt-0.5"
+                      title="移出观察池"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+
+                  {/* Risk summary */}
+                  {row.riskSummary && (
+                    <p className="text-[9px] text-[#4a6a4a] mt-1.5 leading-relaxed">
+                      {row.riskSummary}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Stage label */}
+            <div className="pt-1 text-[8px] text-[#1a3a1a] font-mono text-center">
+              候选机会 · 进入 SELECT 阶段 · 非买入建议
             </div>
           </div>
         )}

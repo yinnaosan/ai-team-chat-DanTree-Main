@@ -128,6 +128,17 @@ import { normalizeAgentTaxonomy } from "./agentTaxonomyNormalizer";
 import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt } from "./synthesisController";
 import { buildStructuredDiscussion, shouldUseStructuredDiscussion, formatStructuredDiscussionForReport } from "./discussionController";
 import { evaluateRuntimeGate, formatGatingDecisionForPrompt } from "./runtimeGating";
+// ── LEVEL1A3 Imports ────────────────────────────────────────────────────────
+import {
+  validateFinalOutput,
+  buildSafeFallbackOutput,
+  renderFinalOutputToMarkdown,
+  renderDiscussionToMarkdown,
+  buildStep3JsonOnlySystemMessage,
+  buildStep3JsonOnlyUserMessage,
+  formatNormalizedTaxonomyForPrompt,
+  type FinalOutputSchema,
+} from "./outputSchemaValidator";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -2130,6 +2141,30 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
 
 规则：%%DELIVERABLE%% 和 %%END_DELIVERABLE%% 之间只能有 JSON，%%DISCUSSION%% 和 %%END_DISCUSSION%% 之间只能有 JSON。这两个块必须是回复的最后内容，之后不得有任何文字。如果无法生成有效 JSON，则完全省略这两个块，不得输出残缺 JSON。`;
 
+    // ── LEVEL1A3 Phase3: JSON-only Render Path ────────────────────────────────
+    // Activates for standard/deep analysis on structured task types
+    const useJsonOnlyMode = analysisMode !== "quick" &&
+      resolvedTaskType !== "general" &&
+      resolvedTaskType !== "event_driven";
+    const normalizedTaxonomyBlock = useJsonOnlyMode
+      ? formatNormalizedTaxonomyForPrompt(normalizedTaxonomy)
+      : "";
+    const jsonOnlySystemMsg = useJsonOnlyMode ? buildStep3JsonOnlySystemMessage() : "";
+    const jsonOnlyUserMsg = useJsonOnlyMode ? buildStep3JsonOnlyUserMessage({
+      ticker: primaryTicker,
+      taskDescription,
+      outputMode,
+      structuredSynthesisBlock,
+      runtimeGateBlock,
+      normalizedTaxonomyBlock,
+      dataPacketSummary,
+      evidenceScore: evidencePacket.evidenceScore ?? 50,
+      missingBlocking,
+      missingImportant,
+      historyBlock: historyBlock ?? "",
+      modeHint: modeConfig?.step3Hint ?? "",
+    }) : "";
+    // ── LEVEL1A3 END Phase3 ──────────────────────────────────────────────────────
     // -- 先写入占位消息（streaming 状态），前端立即开始接收流 -------------------
     const streamMsgId = await insertMessage({
       taskId,
@@ -2143,7 +2178,84 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     emitTaskStatus(taskId, "streaming", { streamMsgId }); // SSE 推送
 
     let finalReply: string;
-    if (userConfig?.openaiApiKey) {
+    let level1a3Output: FinalOutputSchema | null = null; // LEVEL1A3 structured output
+    if (useJsonOnlyMode) {
+      // ── LEVEL1A3: JSON-only Render Path (standard/deep + structured task types) ──
+      // GPT is a RENDERER, not an author. GPT only fills the schema.
+      let rawJsonOutput = "";
+      try {
+        if (userConfig?.openaiApiKey) {
+          rawJsonOutput = await callOpenAI({
+            apiKey: userConfig.openaiApiKey,
+            model: userConfig.openaiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: jsonOnlySystemMsg },
+              { role: "user", content: jsonOnlyUserMsg },
+            ],
+            maxTokens: modeConfig?.step3MaxTokens ?? 2400,
+          });
+        } else {
+          const fb = await invokeLLMWithRetry({
+            messages: [
+              { role: "system", content: jsonOnlySystemMsg },
+              { role: "user", content: jsonOnlyUserMsg },
+            ],
+          });
+          rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
+        }
+        // ── LEVEL1A3 Phase5: Validation Layer ──
+        let validationResult = validateFinalOutput(rawJsonOutput);
+        if (!validationResult.valid) {
+          // Retry once with error context
+          const retryMsg = jsonOnlyUserMsg + `\n\nPREVIOUS_ATTEMPT_ERRORS: ${validationResult.errors.join(", ")}\nFix these errors and output valid JSON only.`;
+          let retryRaw = "";
+          if (userConfig?.openaiApiKey) {
+            retryRaw = await callOpenAI({
+              apiKey: userConfig.openaiApiKey,
+              model: userConfig.openaiModel || DEFAULT_MODEL,
+              messages: [
+                { role: "system", content: jsonOnlySystemMsg },
+                { role: "user", content: retryMsg },
+              ],
+              maxTokens: modeConfig?.step3MaxTokens ?? 2400,
+            });
+          } else {
+            const retryFb = await invokeLLMWithRetry({
+              messages: [
+                { role: "system", content: jsonOnlySystemMsg },
+                { role: "user", content: retryMsg },
+              ],
+            });
+            retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
+          }
+          validationResult = validateFinalOutput(retryRaw);
+        }
+        if (validationResult.valid && validationResult.output) {
+          level1a3Output = validationResult.output;
+        } else {
+          // Fallback: use safe fallback output
+          level1a3Output = buildSafeFallbackOutput(
+            primaryTicker,
+            outputMode,
+            evidencePacket.evidenceScore ?? 50,
+          );
+        }
+      } catch (jsonErr) {
+        // Fallback on any error
+        level1a3Output = buildSafeFallbackOutput(
+          primaryTicker,
+          outputMode,
+          evidencePacket.evidenceScore ?? 50,
+        );
+      }
+      // ── LEVEL1A3 Phase3: System Renders Markdown from JSON ──
+      const renderedReport = renderFinalOutputToMarkdown(level1a3Output, primaryTicker, outputMode);
+      const renderedDiscussion = renderDiscussionToMarkdown(level1a3Output.discussion);
+      finalReply = renderedReport + renderedDiscussion;
+      await updateMessageContent(streamMsgId, finalReply);
+      emitTaskChunk(taskId, streamMsgId, finalReply);
+    } else if (userConfig?.openaiApiKey) {
+      // ── Legacy Path: streaming with OpenAI key (quick mode or general/event tasks) ──
       try {
         let accumulated = "";
         let lastDbUpdate = Date.now();
@@ -2157,19 +2269,16 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         });
         for await (const chunk of stream) {
           accumulated += chunk;
-          // 每 300ms 批量写入数据库一次（避免频繁写库）
           if (Date.now() - lastDbUpdate > 300) {
             await updateMessageContent(streamMsgId, accumulated);
-            emitTaskChunk(taskId, streamMsgId, accumulated); // SSE 实时推送
+            emitTaskChunk(taskId, streamMsgId, accumulated);
             lastDbUpdate = Date.now();
           }
         }
-        // 最终完整写入，并推送最后一个 chunk（防止最后 300ms 内的内容丢失）
         await updateMessageContent(streamMsgId, accumulated);
-        emitTaskChunk(taskId, streamMsgId, accumulated); // 确保前端收到完整内容
+        emitTaskChunk(taskId, streamMsgId, accumulated);
         finalReply = accumulated;
       } catch (gptErr) {
-        const errMsg = (gptErr as Error)?.message || "";
         const fb = await invokeLLMWithRetry({
           messages: [
             { role: "system", content: gptSystemPrompt },
@@ -2180,6 +2289,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         await updateMessageContent(streamMsgId, finalReply);
       }
     } else {
+      // ── Legacy Path: invokeLLM (no OpenAI key) ──
       const fb = await invokeLLM({
         messages: [
           { role: "system", content: gptSystemPrompt },
@@ -2321,6 +2431,14 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     // Save both structured discussion and legacy hook set to metadata
     metadataToSave.structuredDiscussion = structuredDiscussion;
     metadataToSave.discussionHookSet = discussionHookSet;
+    // ── LEVEL1A3 Phase4: Discussion as First-Class Output ──
+    // If JSON-only mode was used, save the full structured output to metadata
+    if (level1a3Output !== null) {
+      metadataToSave.level1a3Output = level1a3Output;
+      // Override structuredDiscussion with level1a3Output.discussion (authoritative)
+      metadataToSave.structuredDiscussion = level1a3Output.discussion;
+    }
+    metadataToSave.useJsonOnlyMode = useJsonOnlyMode;
     metadataToSave.intentContext = {
       task_type: intentCtx.task_type,
       interaction_mode: intentCtx.interaction_mode,

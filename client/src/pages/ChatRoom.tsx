@@ -114,6 +114,26 @@ interface Msg {
       growth_focus: boolean;
       entity_scope: string[];
     };
+    // LEVEL1A3: Full structured output (JSON-only mode)
+    level1a3Output?: {
+      verdict: string;
+      confidence: "high" | "medium" | "low";
+      horizon: "short-term" | "mid-term" | "long-term";
+      bull_case: string[];
+      reasoning: string[];
+      bear_case: string[];
+      risks: Array<{ description: string; reason: string; magnitude: "high" | "medium" | "low" }>;
+      next_steps: string[];
+      discussion: {
+        key_uncertainty: string;
+        weakest_point: string;
+        alternative_view: string;
+        follow_up_questions: string[];
+        exploration_paths: string[];
+        open_hypotheses: string[];
+      };
+    };
+    useJsonOnlyMode?: boolean;
     evidenceScore?: number;
     outputMode?: "decisive" | "directional" | "framework_only";
     missingBlocking?: string[];
@@ -803,6 +823,14 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             missingImportant={msg.metadata?.missingImportant}
             missingOptional={msg.metadata?.missingOptional}
           />
+        )}
+        {/* LEVEL1A3 JSON-only mode badge */}
+        {isAssistant && msg.metadata?.useJsonOnlyMode && (
+          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md w-fit text-xs"
+            style={{ background: "oklch(0.72 0.18 250 / 0.1)", border: "1px solid oklch(0.72 0.18 250 / 0.3)", color: "oklch(0.72 0.18 250)" }}>
+            <Zap className="w-3 h-3" />
+            <span>LEVEL1A3 结构化输出模式</span>
+          </div>
         )}
         {/* V2.1 Discussion Panel：展示 key_uncertainty / weakest_point / alternative_view / follow_up_questions */}
         {isAssistant && (msg.metadata?.structuredDiscussion || msg.metadata?.discussionObject) && (

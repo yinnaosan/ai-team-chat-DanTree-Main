@@ -299,10 +299,11 @@ interface ActionPanelProps {
   messageId: number;
   ticker: string;
   className?: string;
+  initialResult?: Level4ActionResult | null;
 }
 
-export function ActionPanel({ messageId, ticker, className }: ActionPanelProps) {
-  const [result, setResult] = useState<Level4ActionResult | null>(null);
+export function ActionPanel({ messageId, ticker, className, initialResult }: ActionPanelProps) {
+  const [result, setResult] = useState<Level4ActionResult | null>(initialResult ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = trpc.chat.getLevel4Action.useMutation({

@@ -85,6 +85,8 @@ interface Msg {
     missingBlocking?: string[];
     missingImportant?: string[];
     missingOptional?: string[];
+    level4Result?: Record<string, unknown>;
+    level4GeneratedAt?: number;
   } | null;
 }
 
@@ -1900,6 +1902,7 @@ export default function ResearchWorkspacePage() {
   const discussionObject = lastAssistantMsg?.metadata?.discussionObject;
   const evidenceScore = lastAssistantMsg?.metadata?.evidenceScore;
   const outputMode = lastAssistantMsg?.metadata?.outputMode;
+  const level4Result = lastAssistantMsg?.metadata?.level4Result ?? null;
   const risks = answerObject?.risks;
 
   const alphaFactorsData = useMemo(() => lastAssistantMsg?.content ? parseAlphaFactors(lastAssistantMsg.content) : null, [lastAssistantMsg?.content]);
@@ -2671,6 +2674,7 @@ export default function ResearchWorkspacePage() {
                 <ActionPanel
                   messageId={lastAssistantMsg.id}
                   ticker={currentTicker}
+                  initialResult={level4Result as any}
                 />
               )}
               {/* Decision Signals */}

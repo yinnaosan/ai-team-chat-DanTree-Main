@@ -2456,3 +2456,22 @@
 - [x] 实现 client/src/components/ActionPanel.tsx（STATE 大字/TIMING SIGNAL 色码/WHY 可折叠/TIMING 紧凑指标）
 - [x] ResearchWorkspace Column 4 顶部接入 ActionPanel
 - [x] TSC 验证 0 错误
+
+## Terminal UI Refactor V1 (DANTREE_TERMINAL_UI_REFACTOR_V1)
+
+- [ ] 实现 8 种 Block 类型组件（SYSTEM/PLANNER/SOURCE/REASONING/EVIDENCE/RISK/SYNTHESIS/FINAL）
+- [ ] 实现消息解析器：将 LLM 输出 + metadata 映射到 Block 类型序列
+- [ ] 替换 Column 3 聊天气泡为 Block 渲染器（Execution Stream）
+- [ ] 升级 Command Bar：query input + execution mode selector + run button（非聊天输入框）
+- [ ] 添加 Strategy Module 粘性底部覆盖层（Position/Sizing/Timing + WHY bullets）
+- [ ] 升级 Header：Status Chips（RUNNING/IDLE/COMPLETE/SYNCED/EVIDENCE-GATED/LIVE SOURCES）+ Timer + 动态 Task Title
+- [ ] 严格执行颜色系统（#0f1115 bg / #161a21 card / #1b2130 elevated / #232937 border / #e6e8eb text）
+- [ ] TSC 验证 0 错误
+
+## Level4 Auto-Trigger Integration
+
+- [x] routers.ts 两处最终输出点插入 Level4 自动执行（non-LEVEL2 path + LEVEL2 converged path）
+- [x] try/catch 隔离：Level4 失败不影响主分析
+- [x] metadata 附加 level4Result + level4GeneratedAt
+- [x] ActionPanel 添加 initialResult prop，从 metadata 读取自动显示
+- [x] TSC 验证 0 错误

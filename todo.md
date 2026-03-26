@@ -2415,3 +2415,11 @@
 - [x] LEVEL3B Phase3: loopStateTriggerEngine.ts 记忆感知触发（memory_conflict_override + memory_recurrence_boost + memory_influenced 字段）
 - [x] LEVEL3B Phase3b: routers.ts 注入（MemorySeed 构建 + MemoryConflict 构建 + evaluateTrigger/runHypothesisEngine 传参 + convergedMetadata 信号字段）
 - [x] LEVEL3B Phase4: MemoryReasoningBadge.tsx 前端组件 + ChatRoom.tsx 类型扩展 + 渲染注入
+
+## LEVEL1B: 数据源选择引擎
+
+- [x] sourceSelectionEngine.ts 升级（V1.5→LEVEL1B）：SOURCE_DEFINITIONS(22源) + scoreSourceDynamic + selectTopSources + validateMultiSource + runSourceSelection
+- [x] routers.ts 注入：import + Step2 前 runSourceSelection 调用 + convergedMetadata 字段（sourceSelectionSummary/sourceValidationNote/sourceConfidenceAdjustment）
+- [x] 用户首选源注册：yahoo_finance/fred/bloomberg/aqr/citadel/gmo（user_preferred=true, +0.2 加成）
+- [x] 区域自动推断：HK/EU/CN/US 四区
+- [x] V1.5 compat 保留（selectSourcesForFields/buildFieldRouteTrace 无破坏性变更）

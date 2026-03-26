@@ -155,6 +155,8 @@ import { buildConvergedOutput, type ConvergedOutput } from "./finalConvergedOutp
 import { writeLoopTelemetry } from "./loopTelemetryWriter";
 // ── LEVEL3A: Analysis Memory Writer + Retrieval ───────────────────────────────
 import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildPriorAnalysisContextBlock } from "./analysisMemoryWriter";
+// ── LEVEL1B: Source Selection Engine ─────────────────────────────────────────
+import { runSourceSelection, type TaskType as SourceTaskType, type Region as SourceRegion } from "./sourceSelectionEngine";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1131,6 +1133,30 @@ ${"```"}`;
       );
     };
 
+    // ── LEVEL1B: Source Selection (runs before Step2 fetch) ───────────────────────
+    const level1bTaskType: SourceTaskType = (
+      detectedTaskType === "stock_analysis" ? "stock_analysis"
+      : detectedTaskType === "macro_analysis" ? "macro_analysis"
+      : detectedTaskType === "crypto_analysis" ? "crypto_analysis"
+      : detectedTaskType === "portfolio_review" ? "portfolio_review"
+      : detectedTaskType === "event_driven" ? "event_driven"
+      : "general"
+    ) as SourceTaskType;
+    const level1bRegion: SourceRegion = (
+      isHKTask ? "HK"
+      : /欧元|欧洲|ECB|EUR|euro|eurozone/i.test(taskDescription) ? "EU"
+      : primaryTicker && /^\d{5,6}$/.test(primaryTicker) ? "CN"
+      : "US"
+    ) as SourceRegion;
+    const level1bFields = [
+      ...level1aFieldReqs.blocking,
+      ...level1aFieldReqs.important.slice(0, 5),
+    ];
+    const level1bSelectionResult = runSourceSelection(level1bFields, level1bTaskType, level1bRegion, 3);
+    // Log selection to console (non-blocking, no LLM calls)
+    if (level1bSelectionResult.selection_log.length > 0) {
+      console.log(level1bSelectionResult.selection_log.join("\n"));
+    }
     // ── Step2 三阶段检索引擎（core → conditional → deep）────────────────────────
     // 辅助：批量并发执行，每批最多 concurrency 个
     const runBatch = async <T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<PromiseSettledResult<T>[]> => {
@@ -2674,9 +2700,13 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 (memorySeedForEngine?.memory_found
                   ? `上次分析：${memorySeedForEngine.prior_verdict} (置信度: ${memorySeedForEngine.prior_confidence})`
                   : ""),
-              // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
+              // ── LEVEL3B END ───────────────────────────────────────────────────────────────────────────────────────
+              // ── LEVEL1B: Source Selection Signal ───────────────────────────────────────────────────────────────────────────────────────
+              sourceSelectionSummary: level1bSelectionResult.selected_sources.map(s => `${s.source_name}(${s.score.toFixed(2)})`).join(", "),
+              sourceValidationNote: level1bSelectionResult.validation.note,
+              sourceConfidenceAdjustment: level1bSelectionResult.validation.confidence_adjustment,
+              // ── LEVEL1B END ───────────────────────────────────────────────────────────────────────────────────────
             };
-
             // Append loop summary to finalReply if verdict changed
             let convergedReply = finalReply;
             if (convergedOutput.loop_metadata.verdict_changed && convergedOutput.loop_metadata.loop_summary) {

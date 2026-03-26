@@ -2646,6 +2646,37 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       try {
         const { extractLevel4Input, runLevel4ActionEngine } = await import("./level4ActionEngine");
         const level4Input = extractLevel4Input(primaryTicker, metadataToSave as Record<string, unknown>);
+        // Inject real numeric technical data for Timing Engine
+        try {
+          const indData = await getLocalTechnicalIndicators(primaryTicker);
+          if (indData) {
+            const rsi14 = indData.rsi14?.[0] ?? null;
+            const macdLine = indData.macdLine?.[0] ?? null;
+            const macdSignalLine = indData.macdSignal?.[0] ?? null;
+            const ohlcvData = await getOHLCVForChart(primaryTicker).catch(() => null);
+            const volumes = ohlcvData?.ohlcv?.volumes ?? [];
+            const latestVol = volumes[0] ?? null;
+            const avgVol20 = volumes.length >= 20
+              ? volumes.slice(0, 20).reduce((a: number, b: number) => a + b, 0) / 20
+              : (volumes.length > 0 ? volumes.reduce((a: number, b: number) => a + b, 0) / volumes.length : null);
+            level4Input.realTechnicalData = {
+              rsi14,
+              macdLine,
+              macdSignalLine,
+              macdHistogram: macdLine != null && macdSignalLine != null ? macdLine - macdSignalLine : null,
+              ema20: indData.ema20?.[0] ?? null,
+              ema50: indData.ema50?.[0] ?? null,
+              sma200: indData.sma200?.[0] ?? null,
+              currentPrice: indData.priceData?.current ?? null,
+              bbUpper: indData.bbUpper?.[0] ?? null,
+              bbMiddle: indData.bbMiddle?.[0] ?? null,
+              bbLower: indData.bbLower?.[0] ?? null,
+              latestVolume: latestVol,
+              avgVolume20: avgVol20,
+              volumeRatio: latestVol != null && avgVol20 != null && avgVol20 > 0 ? latestVol / avgVol20 : null,
+            };
+          }
+        } catch { /* non-fatal: timing engine uses fallback */ }
         const level4Result = await runLevel4ActionEngine(level4Input);
         metadataToSave.level4Result = level4Result;
         metadataToSave.level4GeneratedAt = Date.now();
@@ -2803,6 +2834,37 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               try {
                 const { extractLevel4Input, runLevel4ActionEngine } = await import("./level4ActionEngine");
                 const level4Input = extractLevel4Input(primaryTicker, convergedMetadata as Record<string, unknown>);
+                // Inject real numeric technical data for Timing Engine
+                try {
+                  const indData = await getLocalTechnicalIndicators(primaryTicker);
+                  if (indData) {
+                    const rsi14 = indData.rsi14?.[0] ?? null;
+                    const macdLine = indData.macdLine?.[0] ?? null;
+                    const macdSignalLine = indData.macdSignal?.[0] ?? null;
+                    const ohlcvData = await getOHLCVForChart(primaryTicker).catch(() => null);
+            const volumes = ohlcvData?.ohlcv?.volumes ?? [];
+                    const latestVol = volumes[0] ?? null;
+                    const avgVol20 = volumes.length >= 20
+                      ? volumes.slice(0, 20).reduce((a: number, b: number) => a + b, 0) / 20
+                      : (volumes.length > 0 ? volumes.reduce((a: number, b: number) => a + b, 0) / volumes.length : null);
+                    level4Input.realTechnicalData = {
+                      rsi14,
+                      macdLine,
+                      macdSignalLine,
+                      macdHistogram: macdLine != null && macdSignalLine != null ? macdLine - macdSignalLine : null,
+                      ema20: indData.ema20?.[0] ?? null,
+                      ema50: indData.ema50?.[0] ?? null,
+                      sma200: indData.sma200?.[0] ?? null,
+                      currentPrice: indData.priceData?.current ?? null,
+                      bbUpper: indData.bbUpper?.[0] ?? null,
+                      bbMiddle: indData.bbMiddle?.[0] ?? null,
+                      bbLower: indData.bbLower?.[0] ?? null,
+                      latestVolume: latestVol,
+                      avgVolume20: avgVol20,
+                      volumeRatio: latestVol != null && avgVol20 != null && avgVol20 > 0 ? latestVol / avgVol20 : null,
+                    };
+                  }
+                } catch { /* non-fatal: timing engine uses fallback */ }
                 const level4Result = await runLevel4ActionEngine(level4Input);
                 (convergedMetadata as Record<string, unknown>).level4Result = level4Result;
                 (convergedMetadata as Record<string, unknown>).level4GeneratedAt = Date.now();

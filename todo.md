@@ -2503,3 +2503,14 @@
 - [x] Technical terms remain English: RSI/MACD/MA/Boll/Vol
 - [x] DecisionStrip rehydration: useEffect on messageId change (same fix as ActionPanel)
 - [x] TSC: 0 errors
+
+## Timing Engine Formal Integration
+
+- [x] 审计 localIndicators.ts 返回结构（rsi14/macdLine/macdSignal/bbUpper/bbMiddle/bbLower/ema20/ema50/sma200/priceData）
+- [x] level4ActionEngine.ts 新增 Level4RealTechnicalData 接口（15个数值字段）
+- [x] level4ActionEngine.ts Level4Input 新增 realTechnicalData 可选字段
+- [x] level4ActionEngine.ts 升级 system prompt：组合 timingSignal 规则 + volume 确认规则
+- [x] level4ActionEngine.ts 升级 buildUserPrompt：realTechnicalData 优先，fallback 到 technicalSignals
+- [x] routers.ts 两处 Level4 触发点注入真实数值（getLocalTechnicalIndicators + getOHLCVForChart）
+- [x] 修复 volume 字段路径：ohlcvData.ohlcv.volumes（非 ohlcvData.volumes）
+- [x] TSC 验证 0 错误

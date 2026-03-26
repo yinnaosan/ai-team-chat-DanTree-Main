@@ -59,6 +59,30 @@ export interface Level4ActionResult {
   };
 }
 
+// ── Extended technical signals with real numeric values ─────────────────────
+
+export interface Level4RealTechnicalData {
+  // RSI
+  rsi14: number | null;          // latest RSI(14) value
+  // MACD
+  macdLine: number | null;       // latest MACD line value
+  macdSignalLine: number | null; // latest MACD signal line value
+  macdHistogram: number | null;  // macdLine - macdSignalLine
+  // Moving Averages
+  ema20: number | null;
+  ema50: number | null;
+  sma200: number | null;
+  currentPrice: number | null;
+  // Bollinger Bands
+  bbUpper: number | null;
+  bbMiddle: number | null;
+  bbLower: number | null;
+  // Volume
+  latestVolume: number | null;
+  avgVolume20: number | null;    // 20-day average volume
+  volumeRatio: number | null;    // latestVolume / avgVolume20
+}
+
 // ── Input shape (extracted from message metadata) ─────────────────────────────
 
 export interface Level4Input {
@@ -87,6 +111,8 @@ export interface Level4Input {
     maAbove?: boolean | null;
     volumeConfirmation?: boolean | null;
   } | null;
+  // Real numeric indicator data from localIndicators.ts (preferred over technicalSignals)
+  realTechnicalData?: Level4RealTechnicalData | null;
 }
 
 // ── JSON Schema for LLM structured output ────────────────────────────────────
@@ -203,21 +229,30 @@ Your job is to answer THREE questions for the given asset:
 2. When should I act? → TIMING SIGNAL
 3. How should I act? → ACTION
 
-STATE DECISION RULES:
-- BUY: strong trend + positive hidden logic + early/mid cycle + good timing
-- HOLD: good asset, already positioned, no compelling exit signal
-- SELL: overextended + weak momentum + late/decline cycle
-- WAIT: good asset but bad timing (overbought, extended, unclear cycle)
-- SELECT: asset worth monitoring but not yet ready to act
+CORE RULE: WHY decides direction. TIMING decides entry/exit timing. Volume confirms or weakens timing signal.
+No single indicator can dominate the final timing decision.
 
-TIMING SIGNAL RULES (use combination, never single indicator):
-- STRONG ENTRY: RSI oversold + MACD bullish + price above MA + volume confirmation
-- BUILD ENTRY: RSI neutral-low + MACD turning + price near support
-- WAIT: RSI neutral + no clear momentum direction
-- EXTENDED: RSI overbought (>70) + price at Bollinger upper + volume divergence
-- EXIT RISK: RSI overbought + MACD bearish cross + volume divergence
+STATE DECISION RULES:
+- BUY: strong thesis + early/mid cycle + TIMING = STRONG ENTRY or BUILD ENTRY
+- HOLD: good asset already held, no compelling exit, timing not ideal for new entry
+- SELL: deteriorating thesis + late/decline cycle + TIMING = EXIT RISK
+- WAIT: strong thesis but TIMING = EXTENDED or WAIT (overbought, unclear momentum)
+- SELECT: asset worth monitoring but thesis not yet confirmed
+
+TIMING SIGNAL RULES (MUST use combination of all 5, never single indicator):
+- STRONG ENTRY: strong thesis + RSI not overbought (<65) + MACD bullish cross or positive histogram + price above EMA20 + volume ratio > 1.0 (confirming)
+- BUILD ENTRY: decent thesis + RSI neutral-low (40-60) + MACD turning bullish + price near EMA20 support + volume neutral
+- WAIT: strong thesis BUT RSI neutral (50-65) + no clear MACD direction + price between MAs + volume ambiguous
+- EXTENDED: RSI overbought (>70) + price at or above Bollinger upper band + MACD histogram declining + volume diverging (price up, volume down)
+- EXIT RISK: RSI overbought (>72) + MACD bearish cross (line below signal) + price at Bollinger upper + volume divergence (distribution pattern)
+
+VOLUME CONFIRMATION RULES:
+- volumeRatio > 1.3: strong confirmation — upgrades WAIT to BUILD ENTRY, upgrades BUILD ENTRY to STRONG ENTRY
+- volumeRatio 0.8-1.3: neutral — no change to base signal
+- volumeRatio < 0.8: divergence — downgrades STRONG ENTRY to BUILD ENTRY, downgrades BUILD ENTRY to WAIT
 
 PRIORITY ORDER when signals conflict: WHY (fundamental) > CYCLE > TIMING > ACTION
+If timing data is incomplete, use best-effort classification and note uncertainty in interpretation fields.
 
 Output ONLY valid JSON matching the provided schema. No markdown, no explanation outside JSON.`;
 }
@@ -253,15 +288,54 @@ function buildUserPrompt(input: Level4Input): string {
     if (d.alternative_view) lines.push(`  Alternative View: ${d.alternative_view}`);
   }
 
-  // Technical signals
-  const ts = input.technicalSignals;
-  if (ts) {
-    lines.push(`\nTECHNICAL SIGNALS:`);
-    if (ts.rsi != null) lines.push(`  RSI: ${ts.rsi}`);
-    if (ts.macdSignal) lines.push(`  MACD: ${ts.macdSignal}`);
-    if (ts.bollingerPosition) lines.push(`  Bollinger: ${ts.bollingerPosition} band`);
-    if (ts.maAbove != null) lines.push(`  Price vs MA: ${ts.maAbove ? "above" : "below"}`);
-    if (ts.volumeConfirmation != null) lines.push(`  Volume: ${ts.volumeConfirmation ? "confirming" : "diverging"}`);
+  // Real technical data (preferred — numeric values from localIndicators.ts)
+  const rtd = input.realTechnicalData;
+  if (rtd) {
+    lines.push(`\nTECHNICAL DATA (real numeric values):`);
+    // RSI
+    if (rtd.rsi14 != null) {
+      const rsiState = rtd.rsi14 > 72 ? "OVERBOUGHT" : rtd.rsi14 > 65 ? "elevated" : rtd.rsi14 < 30 ? "OVERSOLD" : rtd.rsi14 < 45 ? "low-neutral" : "neutral";
+      lines.push(`  RSI(14): ${rtd.rsi14.toFixed(1)} [${rsiState}]`);
+    }
+    // MACD
+    if (rtd.macdLine != null && rtd.macdSignalLine != null) {
+      const hist = rtd.macdHistogram ?? (rtd.macdLine - rtd.macdSignalLine);
+      const macdDir = rtd.macdLine > rtd.macdSignalLine ? "bullish" : "bearish";
+      lines.push(`  MACD: line=${rtd.macdLine.toFixed(4)}, signal=${rtd.macdSignalLine.toFixed(4)}, histogram=${hist.toFixed(4)} [${macdDir}]`);
+    }
+    // Moving Averages
+    if (rtd.currentPrice != null) {
+      const maLines: string[] = [];
+      if (rtd.ema20 != null) maLines.push(`EMA20=${rtd.ema20.toFixed(2)} (price ${rtd.currentPrice > rtd.ema20 ? "above" : "below"})`);
+      if (rtd.ema50 != null) maLines.push(`EMA50=${rtd.ema50.toFixed(2)} (price ${rtd.currentPrice > rtd.ema50 ? "above" : "below"})`);
+      if (rtd.sma200 != null) maLines.push(`SMA200=${rtd.sma200.toFixed(2)} (price ${rtd.currentPrice > rtd.sma200 ? "above" : "below"})`);
+      if (maLines.length > 0) lines.push(`  MA: price=${rtd.currentPrice.toFixed(2)}, ${maLines.join(", ")}`);
+    }
+    // Bollinger Bands
+    if (rtd.bbUpper != null && rtd.bbLower != null && rtd.currentPrice != null) {
+      const bbRange = rtd.bbUpper - rtd.bbLower;
+      const bbPct = bbRange > 0 ? ((rtd.currentPrice - rtd.bbLower) / bbRange * 100).toFixed(1) : "N/A";
+      const bbPos = rtd.currentPrice >= rtd.bbUpper ? "at/above upper" : rtd.currentPrice <= rtd.bbLower ? "at/below lower" : "mid-band";
+      lines.push(`  Boll: upper=${rtd.bbUpper.toFixed(2)}, mid=${rtd.bbMiddle?.toFixed(2) ?? "N/A"}, lower=${rtd.bbLower.toFixed(2)}, price_pct=${bbPct}% [${bbPos}]`);
+    }
+    // Volume
+    if (rtd.volumeRatio != null) {
+      const volState = rtd.volumeRatio > 1.3 ? "CONFIRMING (strong)" : rtd.volumeRatio > 0.8 ? "neutral" : "DIVERGING (weak)";
+      lines.push(`  Volume: ratio=${rtd.volumeRatio.toFixed(2)}x avg [${volState}]${rtd.latestVolume != null ? `, latest=${(rtd.latestVolume / 1e6).toFixed(1)}M` : ""}`);
+    }
+  } else {
+    // Fallback to legacy technicalSignals if realTechnicalData not available
+    const ts = input.technicalSignals;
+    if (ts) {
+      lines.push(`\nTECHNICAL SIGNALS (partial):`);
+      if (ts.rsi != null) lines.push(`  RSI: ${ts.rsi}`);
+      if (ts.macdSignal) lines.push(`  MACD: ${ts.macdSignal}`);
+      if (ts.bollingerPosition) lines.push(`  Bollinger: ${ts.bollingerPosition} band`);
+      if (ts.maAbove != null) lines.push(`  Price vs MA: ${ts.maAbove ? "above" : "below"}`);
+      if (ts.volumeConfirmation != null) lines.push(`  Volume: ${ts.volumeConfirmation ? "confirming" : "diverging"}`);
+    } else {
+      lines.push(`\nTECHNICAL DATA: Not available — use fundamental analysis only for timing estimate.`);
+    }
   }
 
   lines.push(`\nGenerate the LEVEL4 action decision JSON now.`);

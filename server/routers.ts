@@ -5529,6 +5529,19 @@ except Exception as e:
       }),
   }),
 
+  // ── Opportunity Radar Router ─────────────────────────────────────────────────
+  radar: router({
+    scan: protectedProcedure
+      .input(z.object({ forceRefresh: z.boolean().optional() }))
+      .mutation(async ({ input }) => {
+        const { getOpportunityRadarCached, invalidateRadarCache, runOpportunityRadar } = await import("./opportunityRadar");
+        if (input.forceRefresh) {
+          invalidateRadarCache();
+          return await runOpportunityRadar();
+        }
+        return await getOpportunityRadarCached();
+      }),
+  }),
   // ── LEVEL2E: Telemetry Dashboard Routes ─────────────────────────────────────────────────
   telemetry: router({
     // Get recent loop telemetry rows for dashboard

@@ -2521,3 +2521,12 @@
 - [x] AIVerdictCard 视觉降级：降低视觉主导性，改为支撑分析样式
 - [x] Column 4 决策支撑重排：决策相关卡片置顶，非核心卡片降噪
 - [x] TSC 验证 0 错误
+
+## Opportunity Radar Foundation
+
+- [x] 审计现有数据源（TrendRadar/macro/news/sector/congress/FRED）
+- [x] 创建 server/opportunityRadar.ts（RadarItem 数据模型 + 7类机会探测 + 10分钟缓存 + LLM结构化输出）
+- [x] routers.ts 新增 radar.scan procedure（支持 forceRefresh）
+- [x] 创建 client/src/components/OpportunityRadarCard.tsx（SELECT/WAIT 状态 + WHY三层 + 周期/风险）
+- [x] ResearchWorkspace Column 4 接入 OpportunityRadarCard（位于 QUICK ACCESS 之前）
+- [x] TSC 验证 0 错误

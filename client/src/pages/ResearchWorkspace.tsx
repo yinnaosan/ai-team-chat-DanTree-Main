@@ -42,6 +42,7 @@ import { GlobalMarketPanel, NavClock } from "@/components/GlobalMarketPanel";
 import { detectMarketType } from "@/lib/marketUtils";
 import { ActionPanel } from "@/components/ActionPanel";
 import { DecisionStrip } from "@/components/DecisionStrip";
+import { OpportunityRadarCard } from "@/components/OpportunityRadarCard";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -2724,6 +2725,8 @@ export default function ResearchWorkspacePage() {
                 </div>
               )}
 
+              {/* Opportunity Radar */}
+              <OpportunityRadarCard />
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>

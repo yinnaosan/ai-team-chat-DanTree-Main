@@ -2543,3 +2543,12 @@
 - [x] 工作流分离验证：机会雷达（早期发现）与 DecisionStrip（已选标的行动决策）保持独立
 - [x] 底部标注「候选机会 · 进入 SELECT 阶段 · 非买入建议」明确工作流语义
 - [x] TSC 验证 0 错误，728 个测试全部通过
+
+## SELECT_TO_RESEARCH_BRIDGE
+
+- [x] 审计 ResearchWorkspace Column 1 输入注入路径和分析触发机制
+- [x] CandidatePoolCard 添加 onSelectCandidate callback prop，点击候选行传递 { title, relatedTickers }
+- [x] ResearchWorkspace 定义 handleCandidateSelect，注入 query 到 Column 1 inputValue state 并 auto-trigger 分析
+- [x] 触发后自动滚动到 Column 2 DecisionStrip 区域
+- [x] TSC 验证 0 错误，728 测试全部通过
+- [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL

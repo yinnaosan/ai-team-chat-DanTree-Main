@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { ChevronDown, ChevronRight, RefreshCw, Radar, Eye, Trash2, ListChecks } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, Radar, Eye, Trash2, ListChecks, Zap } from "lucide-react";
 
 // ─── Types (mirrors server/opportunityRadar.ts + schema) ─────────────────────
 
@@ -430,7 +430,16 @@ export function OpportunityRadarCard() {
 // ─── CandidatePoolCard ────────────────────────────────────────────────────────
 // Lightweight SELECT-stage candidate pool display for Column 4
 
-export function CandidatePoolCard() {
+export interface CandidateSelectPayload {
+  title: string;
+  relatedTickers: string[];
+}
+
+export function CandidatePoolCard({
+  onSelectCandidate,
+}: {
+  onSelectCandidate?: (payload: CandidateSelectPayload) => void;
+}) {
   const { data: candidates, isLoading, refetch } = trpc.candidates.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -551,6 +560,24 @@ export function CandidatePoolCard() {
                     <p className="text-[9px] text-[#4a6a4a] mt-1.5 leading-relaxed">
                       {row.riskSummary}
                     </p>
+                  )}
+
+                  {/* 开始研究 bridge button */}
+                  {onSelectCandidate && (
+                    <div className="mt-1.5 pt-1.5 border-t border-[#1a2a1a]">
+                      <button
+                        onClick={() =>
+                          onSelectCandidate({
+                            title: row.title,
+                            relatedTickers: tickers,
+                          })
+                        }
+                        className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-0.5 rounded border text-[#3a8a6a] border-[#2a5a4a] hover:text-[#5aaa8a] hover:border-[#3a7a5a] hover:bg-emerald-500/5 transition-colors"
+                      >
+                        <Zap className="w-2.5 h-2.5" />
+                        开始研究
+                      </button>
+                    </div>
                   )}
                 </div>
               );

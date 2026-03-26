@@ -42,7 +42,7 @@ import { GlobalMarketPanel, NavClock } from "@/components/GlobalMarketPanel";
 import { detectMarketType } from "@/lib/marketUtils";
 import { ActionPanel } from "@/components/ActionPanel";
 import { DecisionStrip } from "@/components/DecisionStrip";
-import { OpportunityRadarCard, CandidatePoolCard } from "@/components/OpportunityRadarCard";
+import { OpportunityRadarCard, CandidatePoolCard, type CandidateSelectPayload } from "@/components/OpportunityRadarCard";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -1603,6 +1603,7 @@ export default function ResearchWorkspacePage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const column2Ref = useRef<HTMLDivElement>(null);
 
   // ── Data ──
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
@@ -1884,6 +1885,43 @@ export default function ResearchWorkspacePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveTick, currentTicker]);
+
+  // ── SELECT → Research Bridge ──
+  const handleCandidateSelect = useCallback(
+    (payload: { title: string; relatedTickers: string[] }) => {
+      // Build analysis query: prefer first ticker if available, else use title
+      const ticker = payload.relatedTickers[0] ?? "";
+      const query = ticker
+        ? `深度分析 ${ticker}：${payload.title} — 估值、基本面、风险与投资建议`
+        : `深度分析：${payload.title} — 估值、基本面、风险与投资建议`;
+      // Inject into input and trigger analysis
+      setInput(query);
+      if (ticker) setCurrentTicker(ticker.toUpperCase());
+      // Auto-scroll to Column 2
+      setTimeout(() => {
+        column2Ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+      // Trigger analysis (use setTimeout to let state settle)
+      setTimeout(() => {
+        if (!sending) {
+          setSending(true);
+          setIsTyping(true);
+          setTaskPhase("manus_working");
+          setConvMessages((prev) => [
+            ...prev,
+            { id: Date.now(), role: "user", content: query, createdAt: new Date() },
+          ]);
+          submitMutation.mutate({
+            title: query,
+            conversationId: activeConvId ?? undefined,
+            analysisMode,
+          });
+          setInput("");
+        }
+      }, 120);
+    },
+    [sending, activeConvId, analysisMode, submitMutation]
+  );
 
   // ── Submit ──
   const handleSubmit = useCallback((text?: string) => {
@@ -2320,7 +2358,7 @@ export default function ResearchWorkspacePage() {
         {/* ════════════════════════════════════════════════════════════
             COLUMN 2: Center Analysis — AI Verdict + Chart
         ════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
+        <div ref={column2Ref} className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{
             background: T.bg0,
             borderRight: `1px solid ${T.border}`,
@@ -2728,7 +2766,7 @@ export default function ResearchWorkspacePage() {
               {/* Opportunity Radar */}
               <OpportunityRadarCard />
               {/* SELECT Stage Candidate Pool */}
-              <CandidatePoolCard />
+              <CandidatePoolCard onSelectCandidate={handleCandidateSelect} />
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>

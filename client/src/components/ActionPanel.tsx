@@ -425,25 +425,28 @@ export function ActionPanel({ messageId, ticker, className, initialResult }: Act
       </div>
 
       <div className="p-3 space-y-3">
-        {/* STATE + TIMING SIGNAL row */}
+        {/* 1. STATE — primary decision badge */}
         <div className="flex items-center justify-between gap-2">
           <StateBadge state={result.state} />
-          <div className="flex flex-col items-end gap-1">
-            <TimingSignalBadge signal={result.timingSignal} />
-            <CycleBar cycle={result.cycle} />
-          </div>
+          <TimingSignalBadge signal={result.timingSignal} />
         </div>
 
-        {/* ACTION block */}
+        {/* 2. ACTION — execution instructions, immediately below STATE */}
         <ActionBlock action={result.action} />
 
-        {/* WHY collapsible */}
+        {/* 3. WHY — three-layer reasoning: Surface / Trend / Hidden */}
         <WhyBlock why={result.why} />
 
-        {/* TIMING collapsible */}
+        {/* 4. CYCLE — business/market cycle phase */}
+        <div className="flex items-center justify-between px-3 py-2 border border-[#2a2f3a] rounded-lg bg-[#1a1f2e]/60">
+          <span className="text-[10px] font-bold tracking-widest text-[#8892a4] font-mono uppercase">CYCLE</span>
+          <CycleBar cycle={result.cycle} />
+        </div>
+
+        {/* 5. TIMING — five indicators collapsible */}
         <TimingBlock indicators={result.timingIndicators} />
 
-        {/* RISKS collapsible */}
+        {/* 6. RISKS collapsible */}
         <RisksBlock risks={result.risks} />
 
         {/* Footer metadata */}

@@ -2466,7 +2466,7 @@
 - [ ] 添加 Strategy Module 粘性底部覆盖层（Position/Sizing/Timing + WHY bullets）
 - [ ] 升级 Header：Status Chips（RUNNING/IDLE/COMPLETE/SYNCED/EVIDENCE-GATED/LIVE SOURCES）+ Timer + 动态 Task Title
 - [ ] 严格执行颜色系统（#0f1115 bg / #161a21 card / #1b2130 elevated / #232937 border / #e6e8eb text）
-- [ ] TSC 验证 0 错误
+- [x] TSC 验证 0 错误
 
 ## Level4 Auto-Trigger Integration
 
@@ -2483,4 +2483,13 @@
 - [x] 修复 rehydration bug：useEffect 监听 messageId 变化，切换对话时同步 initialResult
 - [x] 消除跨对话状态污染：prevMessageIdRef 追踪 messageId，切换时 reset result/error/autoFailed
 - [x] 添加轻量失败状态："行动层暂未生成"（500ms 延迟后显示，非阻塞）
+- [x] TSC 验证 0 错误
+
+## Level4 Output Schema Takeover
+
+- [x] level4ActionEngine.ts: 规范化 WHY 为三层结构（Surface/Trend/Hidden）
+- [x] level4ActionEngine.ts: 强制 CYCLE 四选一（Early/Mid/Late/Decline）
+- [x] level4ActionEngine.ts: 规范 TIMING 五指标（RSI/MACD/MA/Boll/Volume）+ timingSignal
+- [x] ActionPanel.tsx: 决策优先渲染顺序（STATE→ACTION→WHY→CYCLE→TIMING→RISK）
+- [x] ActionPanel.tsx: 深度分析保留在下方（answerObject 内容不删除）
 - [x] TSC 验证 0 错误

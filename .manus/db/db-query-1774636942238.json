@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `memory_records` ADD `failure_intensity_score` decimal(5,4);\nALTER TABLE `memory_records` ADD `success_strength_score` decimal(5,4);\nALTER TABLE `memory_records` ADD `freshness_score` decimal(5,4) DEFAULT '1.0000' NOT NULL;\nALTER TABLE `memory_records` ADD `change_log` json;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `memory_records` ADD `failure_intensity_score` decimal(5,4);\nALTER TABLE `memory_records` ADD `success_strength_score` decimal(5,4);\nALTER TABLE `memory_records` ADD `freshness_score` decimal(5,4) DEFAULT '1.0000' NOT NULL;\nALTER TABLE `memory_records` ADD `change_log` json;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 4112
+}

@@ -495,6 +495,11 @@ export const memoryRecords = mysqlTable("memory_records", {
   affectsStep0:      boolean("affects_step0").notNull().default(false),
   affectsController: boolean("affects_controller").notNull().default(false),
   affectsRouting:    boolean("affects_routing").notNull().default(false),
+  // LEVEL3.5 Evolution fields
+  failureIntensityScore: decimal("failure_intensity_score", { precision: 5, scale: 4 }),
+  successStrengthScore:  decimal("success_strength_score", { precision: 5, scale: 4 }),
+  freshnessScore:        decimal("freshness_score", { precision: 5, scale: 4 }).notNull().default("1.0000"),
+  changeLog:             json("change_log").$type<Array<{ ts: number; from: string | null; to: string; reason: string }>>(),
   // Lifecycle
   createdAt:        bigintCol("created_at", { mode: "number" }).notNull(),
   expiresAt:        bigintCol("expires_at", { mode: "number" }),

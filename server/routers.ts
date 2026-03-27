@@ -159,6 +159,7 @@ import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildP
 import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, runStep0Revalidation, bindStep0Result, dispatchNextProbeFromHistoryControl, enforceRoutingPriority, buildExecutionPathTrace, createStep0Revalidation, attachMemoryToBootstrap, type HistoryBootstrap } from "./historyBootstrap";
 // ── LEVEL3: Memory Engine ─────────────────────────────────────────────────────
 import { writeMemory, retrieveMemory, computeMemoryInfluence, buildMemoryContextBlock } from "./memoryEngine";
+import { detectAndUpdateOutcomes, runPostOutcomeEvolution, batchApplyDecay } from "./memoryEvolution";
 import { buildMemoryTrace, emptyMemoryTrace } from "./memoryTrace";
 // ── LEVEL1B: Source Selection Engine ─────────────────────────────────────────
 import { runSourceSelection, type TaskType as SourceTaskType, type Region as SourceRegion } from "./sourceSelectionEngine";
@@ -3138,8 +3139,39 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         console.warn("[LEVEL3] Memory write failed (non-fatal):", memWriteErr);
       }
     }
-    // ── LEVEL3 Memory Write END ──────────────────────────────────────────────────
-
+     // ── LEVEL3 Memory Write END ──────────────────────────────────────────────────
+    // ── LEVEL3.5: Memory Evolution — Outcome Update + Decay (non-fatal) ─────────
+    if (primaryTicker && convergedOutput?.loop_metadata?.loop_ran) {
+      try {
+        const loopMeta = convergedOutput.loop_metadata;
+        const currentAction = (level1a3Output?.verdict ?? "WAIT").toUpperCase();
+        const currentVerdict = level1a3Output?.verdict ?? "WAIT";
+        const step0Invalidated = loopMeta.step0_ran === true &&
+          (loopMeta.step0_stop_override_applied === true);
+        // 1. Detect and update outcomes for prior memories
+        const outcomeUpdates = await detectAndUpdateOutcomes({
+          userId: String(userId),
+          ticker: primaryTicker,
+          currentAction,
+          currentVerdict,
+          step0Invalidated,
+        });
+        // 2. Run post-outcome evolution for each updated memory
+        for (const update of outcomeUpdates) {
+          if (update.memory_updated) {
+            await runPostOutcomeEvolution(update.memory_id, update.new_outcome as "success" | "failure" | "invalidated");
+          }
+        }
+        // 3. Batch decay for user's active memories (once per session)
+        await batchApplyDecay(String(userId));
+        if (outcomeUpdates.length > 0) {
+          console.log(`[LEVEL3.5] Evolution: ${outcomeUpdates.length} outcome updates for ${primaryTicker}`);
+        }
+      } catch (evoErr) {
+        console.warn("[LEVEL3.5] Memory evolution failed (non-fatal):", evoErr);
+      }
+    }
+    // ── LEVEL3.5 Memory Evolution END ────────────────────────────────────────────
     // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {
       const summaryResponse = await invokeLLMWithRetry({

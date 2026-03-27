@@ -5675,6 +5675,83 @@ except Exception as e:
       }),
   }),
 
+  cycleEngine: router({
+    analyze: protectedProcedure
+      .input(z.object({
+        forceRefresh: z.boolean().optional().default(false),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { cycleEngineCache } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+
+        const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+        const cacheKey = "global";
+
+        // Check cache unless forceRefresh
+        if (!input.forceRefresh) {
+          const cached = await db.select().from(cycleEngineCache)
+            .where(eq(cycleEngineCache.cacheKey, cacheKey))
+            .limit(1);
+          if (cached.length > 0) {
+            const hit = cached[0];
+            const age = Date.now() - hit.generatedAt;
+            if (age < CACHE_TTL_MS) {
+              return {
+                stage: hit.stage,
+                stageLabel: hit.stageLabel,
+                marketStyle: hit.marketStyle,
+                marketStyleLabel: hit.marketStyleLabel,
+                sectorRotation: hit.sectorRotation as any,
+                why: { surface: hit.whySurface, trend: hit.whyTrend, hidden: hit.whyHidden },
+                riskWarnings: hit.riskWarnings as string[],
+                confidence: hit.confidence,
+                dataSnapshot: hit.dataSnapshot as any,
+                generatedAt: hit.generatedAt,
+                cacheHit: true,
+                cacheAgeMinutes: Math.round(age / 60000),
+              };
+            }
+          }
+        }
+
+        // Run fresh analysis
+        const { runCycleEngine } = await import("./cycleEngine");
+        const result = await runCycleEngine();
+
+        // Upsert cache
+        try {
+          await db.delete(cycleEngineCache).where(eq(cycleEngineCache.cacheKey, cacheKey));
+          await db.insert(cycleEngineCache).values({
+            cacheKey,
+            stage: result.stage,
+            stageLabel: result.stageLabel,
+            marketStyle: result.marketStyle,
+            marketStyleLabel: result.marketStyleLabel,
+            sectorRotation: result.sectorRotation as any,
+            whySurface: result.why.surface,
+            whyTrend: result.why.trend,
+            whyHidden: result.why.hidden,
+            riskWarnings: result.riskWarnings as any,
+            confidence: result.confidence,
+            dataSnapshot: result.dataSnapshot as any,
+            generatedAt: result.generatedAt,
+          });
+        } catch {
+          // Cache write failure is non-fatal
+        }
+
+        return {
+          ...result,
+          cacheHit: false,
+          cacheAgeMinutes: 0,
+        };
+      }),
+  }),
+
 });
 
 export type AppRouter = typeof appRouter;

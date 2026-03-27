@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS cycle_engine_cache (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  cache_key VARCHAR(64) NOT NULL DEFAULT 'global',\n  stage VARCHAR(32) NOT NULL,\n  stage_label VARCHAR(32) NOT NULL,\n  market_style VARCHAR(16) NOT NULL,\n  market_style_label VARCHAR(64) NOT NULL,\n  sector_rotation JSON NOT NULL,\n  why_surface TEXT NOT NULL,\n  why_trend TEXT NOT NULL,\n  why_hidden TEXT NOT NULL,\n  risk_warnings JSON NOT NULL,\n  confidence INT NOT NULL DEFAULT 0,\n  data_snapshot JSON NOT NULL,\n  generated_at BIGINT NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  UNIQUE KEY uq_cache_key (cache_key)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nCREATE TABLE IF NOT EXISTS cycle_engine_cache (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  cache_key VARCHAR(64) NOT NULL DEFAULT 'global',\n  stage VARCHAR(32) NOT NULL,\n  stage_label VARCHAR(32) NOT NULL,\n  market_style VARCHAR(16) NOT NULL,\n  market_style_label VARCHAR(64) NOT NULL,\n  sector_rotation JSON NOT NULL,\n  why_surface TEXT NOT NULL,\n  why_trend TEXT NOT NULL,\n  why_hidden TEXT NOT NULL,\n  risk_warnings JSON NOT NULL,\n  confidence INT NOT NULL DEFAULT 0,\n  data_snapshot JSON NOT NULL,\n  generated_at BIGINT NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  UNIQUE KEY uq_cache_key (cache_key)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2847
+}

@@ -2565,3 +2565,14 @@
 - [x] ResearchWorkspace handleCandidateSelect：触发后自动调用 updateStatus → PROMOTED
 - [x] TSC 验证 0 错误，728 测试全部通过
 - [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## CYCLE_ENGINE_FOUNDATION
+- [x] 审计现有数据源（FRED/TrendRadar/sector/policy/yield）可用接口
+- [x] 设计 CycleEngine 推理架构（数据采集 → 周期分类 → 行业轮动 → LLM 三层解释）
+- [x] 实现 server/cycleEngine.ts：fetchCycleData() + classifyMacroCycle() + analyzeSectorRotation() + invokeLLM 三层解释
+- [x] DB: cycle_engine_cache 表（缓存 CycleEngine 输出，TTL 4h）
+- [x] server/routers.ts: cycleEngine.analyze protectedProcedure（含缓存命中逻辑）
+- [x] UI: CycleEngineCard 组件（Column 4 轻量模块，可展开）
+- [x] ResearchWorkspace Column 4 接入 CycleEngineCard
+- [x] TSC 0 错误，测试通过
+- [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL

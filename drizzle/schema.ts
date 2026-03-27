@@ -430,3 +430,24 @@ export const radarCandidates = mysqlTable("radar_candidates", {
 });
 export type RadarCandidate = typeof radarCandidates.$inferSelect;
 export type InsertRadarCandidate = typeof radarCandidates.$inferInsert;
+
+// ─── Cycle Engine Cache (4h TTL macro cycle output) ─────────────────────────────────────────
+export const cycleEngineCache = mysqlTable("cycle_engine_cache", {
+  id: int("id").autoincrement().primaryKey(),
+  cacheKey: varchar("cache_key", { length: 64 }).notNull().default("global"),
+  stage: varchar("stage", { length: 32 }).notNull(),
+  stageLabel: varchar("stage_label", { length: 32 }).notNull(),
+  marketStyle: varchar("market_style", { length: 16 }).notNull(),
+  marketStyleLabel: varchar("market_style_label", { length: 64 }).notNull(),
+  sectorRotation: json("sector_rotation").notNull(),
+  whySurface: text("why_surface").notNull(),
+  whyTrend: text("why_trend").notNull(),
+  whyHidden: text("why_hidden").notNull(),
+  riskWarnings: json("risk_warnings").notNull(),
+  confidence: int("confidence").notNull().default(0),
+  dataSnapshot: json("data_snapshot").notNull(),
+  generatedAt: bigintCol("generated_at", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type CycleEngineCache = typeof cycleEngineCache.$inferSelect;
+export type InsertCycleEngineCache = typeof cycleEngineCache.$inferInsert;

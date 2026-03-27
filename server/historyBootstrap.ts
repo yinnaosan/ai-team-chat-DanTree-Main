@@ -54,6 +54,12 @@ export interface HistoryBootstrap {
   revalidation_mandatory: boolean;       // true → Step0 must be created before loop
   preferred_probe_order: string[];       // ordered probe types based on prior action
   history_control_reason: string;        // why control was activated (or not)
+  // ── LEVEL3: Memory influence fields ──────────────────────────────────────
+  memory_injected: boolean;
+  memory_record_count: number;
+  memory_influence_summary: string;
+  memory_context_block: import('./memoryEngine').MemoryContextBlock | null;
+  memory_influence: import('./memoryEngine').MemoryInfluence | null;
 }
 
 // ── Step0 Revalidation Object ─────────────────────────────────────────────────
@@ -139,6 +145,11 @@ export async function buildHistoryBootstrap(params: {
     revalidation_mandatory: false,
     preferred_probe_order: [],
     history_control_reason: "No prior history — standard loop applies",
+    memory_injected: false,
+    memory_record_count: 0,
+    memory_influence_summary: "no_memory",
+    memory_context_block: null,
+    memory_influence: null,
   };
 
   if (!params.ticker || params.ticker.trim() === "") return empty;
@@ -231,6 +242,12 @@ export async function buildHistoryBootstrap(params: {
       action_pattern: actionPattern,
       days_since_last_decision: daysSince,
       ...controlFlags,
+      // LEVEL3: memory fields — populated externally by attachMemoryToBootstrap()
+      memory_injected: false,
+      memory_record_count: 0,
+      memory_influence_summary: "pending",
+      memory_context_block: null,
+      memory_influence: null,
     };
   } catch (e) {
     console.error("[LEVEL21B] History bootstrap failed (non-fatal):", (e as Error).message);
@@ -1066,4 +1083,100 @@ export function buildExecutionPathTrace(params: {
     path_divergence: divergence,
     final_execution_summary: summary,
   };
+}
+
+// ── LEVEL3: Memory Integration ────────────────────────────────────────────────
+
+import {
+  retrieveMemory,
+  computeMemoryInfluence,
+  buildMemoryContextBlock,
+} from "./memoryEngine";
+
+/**
+ * Attach memory to an existing HistoryBootstrap.
+ * Called AFTER buildHistoryBootstrap(), BEFORE loop initialization.
+ * Priority: Step0 override > memory influence > history control > default logic
+ */
+export async function attachMemoryToBootstrap(
+  bootstrap: HistoryBootstrap,
+  params: {
+    userId: string;
+    ticker: string;
+    currentTags?: string[];
+    currentRiskStructure?: string[];
+    currentScenarioType?: string;
+    budgetUsed?: number;
+    budgetMax?: number;
+  }
+): Promise<HistoryBootstrap> {
+  try {
+    const retrieval = await retrieveMemory({
+      userId: params.userId,
+      ticker: params.ticker,
+      currentTags: params.currentTags,
+      currentRiskStructure: params.currentRiskStructure,
+      currentScenarioType: params.currentScenarioType,
+    });
+
+    const combined = retrieval.combined;
+    if (combined.length === 0) {
+      return {
+        ...bootstrap,
+        memory_injected: false,
+        memory_record_count: 0,
+        memory_influence_summary: "no_memory_found",
+        memory_context_block: null,
+        memory_influence: null,
+      };
+    }
+
+    const influence = computeMemoryInfluence(combined, params.budgetUsed, params.budgetMax);
+    const contextBlock = buildMemoryContextBlock(combined, influence);
+
+    // Memory affects Step0: if failure memory exists, force revalidation_mandatory
+    const revalidation_mandatory_upgraded =
+      bootstrap.revalidation_mandatory || (influence.affects_step0 && influence.has_failure_memory);
+
+    // Memory affects routing: merge elevated_probe into preferred_probe_order
+    let preferred_probe_order = bootstrap.preferred_probe_order;
+    if (influence.affects_routing && influence.elevated_probe) {
+      const elevated = influence.elevated_probe;
+      if (!preferred_probe_order.includes(elevated)) {
+        preferred_probe_order = [elevated, ...preferred_probe_order];
+      }
+    }
+
+    // Memory affects controller: force_continuation overrides early_stop_bias
+    const history_control_reason = influence.force_continuation
+      ? `${bootstrap.history_control_reason} | MEMORY: force_continuation (${influence.invalidation_count} invalidations)`
+      : influence.early_stop_bias
+        ? `${bootstrap.history_control_reason} | MEMORY: early_stop_bias (${influence.success_count} successes)`
+        : bootstrap.history_control_reason;
+
+    return {
+      ...bootstrap,
+      // Apply memory-driven upgrades
+      revalidation_mandatory: revalidation_mandatory_upgraded,
+      preferred_probe_order,
+      history_control_reason,
+      history_requires_control: bootstrap.history_requires_control || influence.affects_controller,
+      // Memory fields
+      memory_injected: true,
+      memory_record_count: combined.length,
+      memory_influence_summary: influence.memory_pattern_summary,
+      memory_context_block: contextBlock,
+      memory_influence: influence,
+    };
+  } catch (e) {
+    console.error("[LEVEL3] attachMemoryToBootstrap failed (non-fatal):", (e as Error).message);
+    return {
+      ...bootstrap,
+      memory_injected: false,
+      memory_record_count: 0,
+      memory_influence_summary: "memory_error",
+      memory_context_block: null,
+      memory_influence: null,
+    };
+  }
 }

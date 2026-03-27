@@ -469,3 +469,38 @@ export const decisionHistory = mysqlTable("decision_history", {
 });
 export type DecisionHistoryRow = typeof decisionHistory.$inferSelect;
 export type InsertDecisionHistory = typeof decisionHistory.$inferInsert;
+
+// ── LEVEL3 Memory Engine: memory_records ─────────────────────────────────────
+export const memoryRecords = mysqlTable("memory_records", {
+  id:               varchar("id", { length: 36 }).primaryKey(),
+  ticker:           varchar("ticker", { length: 20 }).notNull(),
+  userId:           varchar("user_id", { length: 36 }).notNull(),
+  memoryType:       mysqlEnum("memory_type", ["action_record", "thesis_snapshot", "risk_flag", "catalyst_note"]).notNull(),
+  // Level 1 fields
+  action:           varchar("action", { length: 20 }),
+  verdict:          text("verdict"),
+  confidence:       varchar("confidence", { length: 20 }),
+  evidenceScore:    decimal("evidence_score", { precision: 5, scale: 4 }),
+  sourceQuery:      text("source_query"),
+  tags:             json("tags").$type<string[]>(),
+  // Reasoning-grade fields
+  thesisCore:       text("thesis_core"),
+  riskStructure:    json("risk_structure").$type<string[]>(),
+  counterarguments: json("counterarguments").$type<string[]>(),
+  failureModes:     json("failure_modes").$type<string[]>(),
+  reasoningPattern: varchar("reasoning_pattern", { length: 60 }),
+  scenarioType:     varchar("scenario_type", { length: 60 }),
+  outcomeLabel:     mysqlEnum("outcome_label", ["success", "failure", "invalidated"]),
+  // Memory influence flags
+  affectsStep0:      boolean("affects_step0").notNull().default(false),
+  affectsController: boolean("affects_controller").notNull().default(false),
+  affectsRouting:    boolean("affects_routing").notNull().default(false),
+  // Lifecycle
+  createdAt:        bigintCol("created_at", { mode: "number" }).notNull(),
+  expiresAt:        bigintCol("expires_at", { mode: "number" }),
+  isActive:         boolean("is_active").notNull().default(true),
+  embeddingReady:   boolean("embedding_ready").notNull().default(false),
+});
+export type MemoryRecordRow = typeof memoryRecords.$inferSelect;
+export type InsertMemoryRecord = typeof memoryRecords.$inferInsert;
+

@@ -12,6 +12,8 @@ import type { EvidenceDelta } from "./evidenceDeltaEngine";
 import type { UpdatedVerdict } from "./verdictUpdater";
 import type { StopDecision } from "./loopStopController";
 import { buildLoopSummary } from "./loopStopController";
+import type { MemoryTrace } from "./memoryTrace";
+import { emptyMemoryTrace } from "./memoryTrace";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,8 @@ export interface ConvergedOutput {
       path_divergence: string[];
       final_execution_summary: string;
     };
+    // ── LEVEL3: Memory trace ──────────────────────────────────────────
+    memory_trace?: MemoryTrace;
   };
 }
 
@@ -121,6 +125,8 @@ export function buildConvergedOutput(params: {
       path_divergence: string[];
       final_execution_summary: string;
     };
+    // LEVEL3: Memory trace
+    memory_trace?: MemoryTrace;
   };
 }): ConvergedOutput {
   const { level1Output, loopRan, loopState, evidenceDelta, updatedVerdict, stopDecision } = params;
@@ -176,6 +182,8 @@ export function buildConvergedOutput(params: {
           path_divergence: [],
           final_execution_summary: "loop_not_ran",
         },
+        // LEVEL3 defaults
+        memory_trace: emptyMemoryTrace(),
       },
     };
   }
@@ -261,6 +269,8 @@ export function buildConvergedOutput(params: {
       // LEVEL21B: delta stop + loop state history fields (override level21 if present)
       ...deltaStopFields,
       ...loopStateHistoryFields,
+      // LEVEL3: memory trace (pass through if provided)
+      memory_trace: params.level21?.memory_trace ?? emptyMemoryTrace(),
     },
   };
 }

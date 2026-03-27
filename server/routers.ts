@@ -156,7 +156,10 @@ import { writeLoopTelemetry } from "./loopTelemetryWriter";
 // ── LEVEL3A: Analysis Memory Writer + Retrieval ───────────────────────────────
 import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildPriorAnalysisContextBlock } from "./analysisMemoryWriter";
 // ── LEVEL21: History-Driven Reasoning Bootstrap ──────────────────────────────
-import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, runStep0Revalidation, bindStep0Result, dispatchNextProbeFromHistoryControl, enforceRoutingPriority, buildExecutionPathTrace, createStep0Revalidation, type HistoryBootstrap } from "./historyBootstrap";
+import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, runStep0Revalidation, bindStep0Result, dispatchNextProbeFromHistoryControl, enforceRoutingPriority, buildExecutionPathTrace, createStep0Revalidation, attachMemoryToBootstrap, type HistoryBootstrap } from "./historyBootstrap";
+// ── LEVEL3: Memory Engine ─────────────────────────────────────────────────────
+import { writeMemory, retrieveMemory, computeMemoryInfluence, buildMemoryContextBlock } from "./memoryEngine";
+import { buildMemoryTrace, emptyMemoryTrace } from "./memoryTrace";
 // ── LEVEL1B: Source Selection Engine ─────────────────────────────────────────
 import { runSourceSelection, type TaskType as SourceTaskType, type Region as SourceRegion } from "./sourceSelectionEngine";
 // ── LEVEL1C: Post-Fetch Evidence Engine + Output Gating ──────────────────────
@@ -2321,9 +2324,20 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     if (useJsonOnlyMode && primaryTicker) {
       try {
         historyBootstrapResult = await buildHistoryBootstrap({ userId, ticker: primaryTicker, currentQuery: taskDescription });
+        // ── LEVEL3: Attach memory to bootstrap (Step0/Controller/Routing influence) ──
+        historyBootstrapResult = await attachMemoryToBootstrap(historyBootstrapResult, {
+          userId: String(userId),
+          ticker: primaryTicker,
+          currentTags: [],
+          currentRiskStructure: [],
+          currentScenarioType: "",
+        });
         if (historyBootstrapResult.has_prior_history) {
           historyContextBlock = buildDecisionHistoryContextBlock(historyBootstrapResult);
           console.log(`[LEVEL21B] History bootstrap: ${historyBootstrapResult.prior_decision_count} records, pattern: ${historyBootstrapResult.action_pattern}`);
+        }
+        if (historyBootstrapResult.memory_injected) {
+          console.log(`[LEVEL3] Memory injected: ${historyBootstrapResult.memory_record_count} records, influence: ${historyBootstrapResult.memory_influence_summary}`);
         }
       } catch (histErr) {
         console.warn("[LEVEL21] History bootstrap failed (non-fatal):", histErr);
@@ -2936,6 +2950,17 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               effective_step_type: secondPassResult.effective_step_type ?? "",
               forced_from: secondPassResult.forced_from ?? "fallback",
               execution_path_trace: level21dExecutionTrace,
+              // LEVEL3: Memory trace
+              memory_trace: buildMemoryTrace({
+                retrievalAttempted: !!(historyBootstrapResult?.memory_injected !== undefined),
+                retrievalModeUsed: historyBootstrapResult?.memory_influence?.memory_pattern_summary ?? "none",
+                recordsRetrieved: historyBootstrapResult?.memory_record_count ?? 0,
+                influence: historyBootstrapResult?.memory_influence ?? null,
+                contextBlock: historyBootstrapResult?.memory_context_block ?? null,
+                writeAttempted: false,
+                writeResult: "not_attempted",
+                writeSkipReason: "pending_post_loop",
+              }),
             };
             // ── LEVEL21D END ────────────────────────────────────────────────────────────────────────────────
             convergedOutput = buildConvergedOutput({
@@ -3074,6 +3099,46 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       });
     }
     // ── LEVEL3A END ─────────────────────────────────────────────────────────────────
+    // ── LEVEL3: Memory Engine — Conditional Write (non-fatal) ────────────────────
+    if (level1a3Output && primaryTicker && convergedOutput?.loop_metadata?.loop_ran) {
+      try {
+        const loopMeta = convergedOutput.loop_metadata;
+        const finalQuality = (loopMeta.evidence_score_after ?? 0) >= 55;
+        const reasoningStr = Array.isArray(level1a3Output.reasoning)
+          ? (level1a3Output.reasoning as string[]).join(" ")
+          : (level1a3Output.reasoning as string ?? "");
+        const hasThesis = !!reasoningStr.trim();
+        const hasDelta = !!(loopMeta.thesis_delta || loopMeta.action_delta);
+        if (finalQuality && hasThesis && hasDelta) {
+          // Inline memory field extraction (no external helper needed)
+          const verdictStr = level1a3Output.verdict ?? "WAIT";
+          const bearCaseArr = Array.isArray(level1a3Output.bear_case) ? level1a3Output.bear_case as string[] : [];
+          const risksArr = Array.isArray(level1a3Output.risks) ? (level1a3Output.risks as unknown[]).map(r => typeof r === 'string' ? r : JSON.stringify(r)) : [];
+          await writeMemory({
+            userId: String(userId),
+            ticker: primaryTicker,
+            memoryType: "action_record",
+            action: verdictStr,
+            verdict: verdictStr,
+            confidence: level1a3Output.confidence ?? "medium",
+            evidenceScore: loopMeta.evidence_score_after ?? 50,
+            thesisCore: reasoningStr.slice(0, 500),
+            riskStructure: risksArr.slice(0, 5),
+            counterarguments: bearCaseArr.slice(0, 5),
+            failureModes: [],
+            reasoningPattern: loopMeta.stop_reason ?? "default",
+            scenarioType: resolvedTaskType ?? "general",
+            tags: [primaryTicker, verdictStr.toLowerCase()],
+          });
+          console.log(`[LEVEL3] Memory written for ${primaryTicker}: ${level1a3Output.verdict}`);
+        } else {
+          console.log(`[LEVEL3] Memory write skipped: quality=${finalQuality}, hasThesis=${hasThesis}, hasDelta=${hasDelta}`);
+        }
+      } catch (memWriteErr) {
+        console.warn("[LEVEL3] Memory write failed (non-fatal):", memWriteErr);
+      }
+    }
+    // ── LEVEL3 Memory Write END ──────────────────────────────────────────────────
 
     // -- 自动生成任务摘要保存到长期记忆 ---------------------------------------
     try {

@@ -55,6 +55,18 @@ export interface ConvergedOutput {
     history_control_summary_line?: string;
     action_changed?: boolean;
     thesis_changed?: boolean;
+    // ── LEVEL21D: Step0 stop override + forced dispatch + execution trace ──
+    step0_stop_override_applied?: boolean;
+    step0_stop_reason_d?: string;
+    forced_step_type_used?: boolean;
+    effective_step_type?: string;
+    forced_from?: string;
+    execution_path_trace?: {
+      executed_path: string[];
+      intended_path: string[];
+      path_divergence: string[];
+      final_execution_summary: string;
+    };
   };
 }
 
@@ -97,6 +109,18 @@ export function buildConvergedOutput(params: {
     action_changed?: boolean;
     thesis_changed?: boolean;
     change_type?: string;
+    // LEVEL21D: Step0 stop override + forced dispatch + execution trace
+    step0_stop_override_applied?: boolean;
+    step0_stop_reason_d?: string;
+    forced_step_type_used?: boolean;
+    effective_step_type?: string;
+    forced_from?: string;
+    execution_path_trace?: {
+      executed_path: string[];
+      intended_path: string[];
+      path_divergence: string[];
+      final_execution_summary: string;
+    };
   };
 }): ConvergedOutput {
   const { level1Output, loopRan, loopState, evidenceDelta, updatedVerdict, stopDecision } = params;
@@ -140,6 +164,18 @@ export function buildConvergedOutput(params: {
         history_control_summary_line: "",
         action_changed: false,
         thesis_changed: false,
+        // LEVEL21D defaults
+        step0_stop_override_applied: false,
+        step0_stop_reason_d: "",
+        forced_step_type_used: false,
+        effective_step_type: "",
+        forced_from: "fallback",
+        execution_path_trace: {
+          executed_path: [],
+          intended_path: [],
+          path_divergence: [],
+          final_execution_summary: "loop_not_ran",
+        },
       },
     };
   }

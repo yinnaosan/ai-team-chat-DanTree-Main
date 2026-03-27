@@ -17,6 +17,10 @@ export interface SecondPassResult {
   parsed_output: SecondPassOutput | null;
   llm_calls_used: number;
   error?: string;
+  // LEVEL21D: Forced dispatch tracking
+  forced_step_type_used: boolean;
+  effective_step_type: string;
+  forced_from: "dispatchResult" | "fallback";
 }
 
 export interface SecondPassOutput {
@@ -47,11 +51,34 @@ export async function executeSecondPass(params: {
   level1a3Output: FinalOutputSchema;
   loopState: LoopState;
   dataContext: string;  // Serialized data packet from Level1 (reused, not re-fetched)
+  // LEVEL21D: Forced dispatch from dispatchResult
+  forced_step_type?: string;
+  routing_source?: string;
 }): Promise<SecondPassResult> {
-  const { followUpTask, level1a3Output, dataContext } = params;
+  const { followUpTask, level1a3Output, dataContext, forced_step_type, routing_source } = params;
+
+  // LEVEL21D: Determine effective step type
+  // If forced_step_type is provided (from dispatchResult), it wins over followUpTask.focus_area
+  const effectiveStepType = forced_step_type ?? followUpTask.focus_area ?? "general_probe";
+  const forcedFrom: "dispatchResult" | "fallback" = forced_step_type ? "dispatchResult" : "fallback";
+  const forcedStepTypeUsed = !!forced_step_type;
+
+  // LEVEL21D: If forced step type diverges from generated followUpTask, record divergence
+  const generatedFocusArea = followUpTask.focus_area ?? "";
+  const divergenceDetected = forced_step_type && forced_step_type !== generatedFocusArea;
+
+  // Build effective follow-up task — inject forced step type into task description
+  const effectiveFollowUpTask: FollowUpTask = forced_step_type
+    ? {
+        ...followUpTask,
+        focus_area: forced_step_type,
+        task_description: `[FORCED:${forced_step_type}] ${followUpTask.task_description}${divergenceDetected ? ` (divergence: generated=${generatedFocusArea}, forced=${forced_step_type}, forced_wins)` : ""}`,
+        constraint: `Execute ${forced_step_type} probe as forced by history control dispatch (source: ${routing_source ?? "dispatchResult"}).`,
+      }
+    : followUpTask;
 
   const systemPrompt = buildSecondPassSystemPrompt();
-  const userMessage = buildSecondPassUserMessage(followUpTask, level1a3Output, dataContext);
+  const userMessage = buildSecondPassUserMessage(effectiveFollowUpTask, level1a3Output, dataContext);
 
   try {
     const response = await invokeLLM({
@@ -107,6 +134,9 @@ export async function executeSecondPass(params: {
         raw_response: rawContent,
         parsed_output: parsed,
         llm_calls_used: 1,
+        forced_step_type_used: forcedStepTypeUsed,
+        effective_step_type: effectiveStepType,
+        forced_from: forcedFrom,
       };
     } catch {
       return {
@@ -115,6 +145,9 @@ export async function executeSecondPass(params: {
         parsed_output: null,
         llm_calls_used: 1,
         error: "Failed to parse second pass JSON output",
+        forced_step_type_used: forcedStepTypeUsed,
+        effective_step_type: effectiveStepType,
+        forced_from: forcedFrom,
       };
     }
   } catch (err) {
@@ -124,6 +157,9 @@ export async function executeSecondPass(params: {
       parsed_output: null,
       llm_calls_used: 1,
       error: err instanceof Error ? err.message : String(err),
+      forced_step_type_used: forcedStepTypeUsed,
+      effective_step_type: effectiveStepType,
+      forced_from: forcedFrom,
     };
   }
 }

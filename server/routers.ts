@@ -2818,11 +2818,14 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           });
 
           // Execute second pass
+          // LEVEL21D: inject forced_step_type from dispatchResult if available
           const secondPassResult = await executeSecondPass({
             followUpTask,
             level1a3Output,
             loopState,
             dataContext: dataPacketSummary,
+            forced_step_type: level21cDispatchResult?.dispatched_step_type ?? undefined,
+            routing_source: level21cDispatchResult?.routing_source ?? undefined,
           });
 
           // Advance loop state
@@ -2874,6 +2877,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               secondPassSucceeded: true,
               deltaStopEval: level21bDeltaStopEval,
               historyControlSummary: level21bHistoryControlSummary,
+              step0Binding: level21cStep0Binding ?? undefined,  // LEVEL21D
             });
 
             // Build converged output
@@ -2896,6 +2900,13 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                   evidenceDelta.evidence_score_after,
                 )
               : null;
+            // LEVEL21D: Build execution path trace at loop end
+            const level21dExecutionTrace = buildExecutionPathTrace({
+              executedPath: loopState.executed_path ?? [],
+              intendedPath: level21cLoopState.intended_path ?? (historyBootstrapResult?.preferred_probe_order ?? []),
+              stopReason: stopDecision.stop_reason,
+            });
+
             const level21Payload = {
               history_bootstrap_used: !!historyBootstrapResult?.has_prior_history,
               history_record_count: historyBootstrapResult?.prior_decision_count ?? 0,
@@ -2918,8 +2929,15 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               history_control_summary_line: stopDecision.history_control_summary?.summary_line ?? "",
               action_changed: stopDecision.history_control_summary?.action_changed ?? false,
               thesis_changed: stopDecision.history_control_summary?.thesis_changed ?? false,
+              // LEVEL21D: Step0 stop override + forced dispatch + execution trace
+              step0_stop_override_applied: stopDecision.step0_stop_override_applied ?? false,
+              step0_stop_reason_d: stopDecision.step0_stop_reason ?? "",
+              forced_step_type_used: secondPassResult.forced_step_type_used ?? false,
+              effective_step_type: secondPassResult.effective_step_type ?? "",
+              forced_from: secondPassResult.forced_from ?? "fallback",
+              execution_path_trace: level21dExecutionTrace,
             };
-            // ── LEVEL21B END ────────────────────────────────────────────────────────────────────────────────
+            // ── LEVEL21D END ────────────────────────────────────────────────────────────────────────────────
             convergedOutput = buildConvergedOutput({
               level1Output: level1a3Output,
               loopRan: true,

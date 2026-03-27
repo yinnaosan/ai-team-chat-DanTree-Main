@@ -17,6 +17,7 @@ import type { UpdatedVerdict } from "./verdictUpdater";
 import type {
   DeltaStopEvaluation,
   HistoryControlSummary,
+  Step0BindingResult,
 } from "./historyBootstrap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,6 +34,9 @@ export interface StopDecision {
   delta_stop_applied: boolean;
   delta_stop_reason: string;
   require_thesis_update_step: boolean;
+  // LEVEL21D: Step0 stop override
+  step0_stop_override_applied: boolean;
+  step0_stop_reason: string;
 }
 
 export type StopReason =
@@ -64,6 +68,7 @@ export function evaluateStopCondition(params: {
   secondPassSucceeded: boolean;
   deltaStopEval?: DeltaStopEvaluation;         // LEVEL21B
   historyControlSummary?: HistoryControlSummary; // LEVEL21B
+  step0Binding?: Step0BindingResult;              // LEVEL21D
 }): StopDecision {
   const {
     loopState,
@@ -72,9 +77,28 @@ export function evaluateStopCondition(params: {
     secondPassSucceeded,
     deltaStopEval,
     historyControlSummary,
+    step0Binding,
   } = params;
 
   const historyTrace = historyControlSummary ?? null;
+
+  // ── LEVEL21D: Step0 Binding Priority Override (before hard stops) ──────────────
+  // Priority A: step0_forces_continuation → must NOT stop, overrides delta and quality stops
+  if (step0Binding?.step0_forces_continuation) {
+    return {
+      should_stop: false,
+      stop_reason: "history_thesis_update",
+      stop_message: `Step0 revalidation forces continuation: confidence=${step0Binding.step0_confidence}, probe=${step0Binding.step0_followup_probe}`,
+      iterations_completed: loopState.iteration,
+      final_convergence_signal: "inconclusive",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: true,
+      step0_stop_override_applied: true,
+      step0_stop_reason: `step0_forces_continuation=true (confidence=${step0Binding.step0_confidence}, probe=${step0Binding.step0_followup_probe})`,
+    };
+  }
 
   // ── Hard stops ────────────────────────────────────────────────────────────
 
@@ -90,6 +114,8 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
@@ -105,6 +131,8 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
@@ -120,6 +148,8 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
@@ -127,7 +157,8 @@ export function evaluateStopCondition(params: {
 
   if (deltaStopEval) {
     // Case 1: Reaffirmation — thesis and action unchanged → early stop
-    if (deltaStopEval.reaffirmation) {
+    // LEVEL21D: step0_allows_early_stop must also be true (or absent) to allow this
+    if (deltaStopEval.reaffirmation && step0Binding?.step0_allows_early_stop !== false) {
       return {
         should_stop: true,
         stop_reason: "history_reaffirmed",
@@ -138,6 +169,8 @@ export function evaluateStopCondition(params: {
         delta_stop_applied: true,
         delta_stop_reason: deltaStopEval.stop_reason,
         require_thesis_update_step: false,
+        step0_stop_override_applied: !!step0Binding,
+        step0_stop_reason: step0Binding ? `step0_allows_early_stop=true (confidence=${step0Binding.step0_confidence})` : "",
       };
     }
 
@@ -153,6 +186,8 @@ export function evaluateStopCondition(params: {
         delta_stop_applied: true,
         delta_stop_reason: deltaStopEval.stop_reason,
         require_thesis_update_step: true,
+        step0_stop_override_applied: false,
+        step0_stop_reason: "",
       };
     }
 
@@ -168,6 +203,8 @@ export function evaluateStopCondition(params: {
         delta_stop_applied: true,
         delta_stop_reason: deltaStopEval.stop_reason,
         require_thesis_update_step: deltaStopEval.require_thesis_update_step,
+        step0_stop_override_applied: false,
+        step0_stop_reason: "",
       };
     }
   }
@@ -186,11 +223,14 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
   // High confidence achieved
-  if (updatedVerdict.final_confidence === "high") {
+  // LEVEL21D: step0_allows_early_stop must also be true (or absent) to allow this
+  if (updatedVerdict.final_confidence === "high" && step0Binding?.step0_allows_early_stop !== false) {
     return {
       should_stop: true,
       stop_reason: "high_confidence",
@@ -201,11 +241,14 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
   // Evidence converged
-  if (evidenceDelta.convergence_signal === "converged") {
+  // LEVEL21D: step0_allows_early_stop must also be true (or absent) to allow this
+  if (evidenceDelta.convergence_signal === "converged" && step0Binding?.step0_allows_early_stop !== false) {
     return {
       should_stop: true,
       stop_reason: "converged",
@@ -216,6 +259,8 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
 
@@ -223,7 +268,8 @@ export function evaluateStopCondition(params: {
   if (
     evidenceDelta.evidence_score_delta < 0.02 &&
     !evidenceDelta.confidence_changed &&
-    updatedVerdict.change_type === "unchanged"
+    updatedVerdict.change_type === "unchanged" &&
+    step0Binding?.step0_allows_early_stop !== false  // LEVEL21D: respect step0 override
   ) {
     return {
       should_stop: true,
@@ -235,10 +281,11 @@ export function evaluateStopCondition(params: {
       delta_stop_applied: false,
       delta_stop_reason: "",
       require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
     };
   }
-
-  // ── Continue loop ─────────────────────────────────────────────────────────
+  // ── Continue loop ────────────────────────────────────────────────────────────
   return {
     should_stop: false,
     stop_reason: "converged",  // placeholder — not used when should_stop=false
@@ -249,10 +296,10 @@ export function evaluateStopCondition(params: {
     delta_stop_applied: false,
     delta_stop_reason: "",
     require_thesis_update_step: false,
+    step0_stop_override_applied: false,
+    step0_stop_reason: "",
   };
-}
-
-/**
+}/**
  * Build a human-readable loop summary for inclusion in the final report.
  * LEVEL21B: Includes history control summary when present.
  */

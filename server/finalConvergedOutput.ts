@@ -71,6 +71,9 @@ export interface ConvergedOutput {
     };
     // ── LEVEL3: Memory trace ──────────────────────────────────────────
     memory_trace?: MemoryTrace;
+    // ── LEVEL3.6 Patch 2: Learning control trace ──────────────────────
+    early_stop_bias_applied?: boolean;
+    adjusted_threshold?: string;
   };
 }
 
@@ -184,6 +187,9 @@ export function buildConvergedOutput(params: {
         },
         // LEVEL3 defaults
         memory_trace: emptyMemoryTrace(),
+        // LEVEL3.6 Patch 2: learning control trace defaults
+        early_stop_bias_applied: false,
+        adjusted_threshold: "0.65 (default)",
       },
     };
   }
@@ -271,6 +277,9 @@ export function buildConvergedOutput(params: {
       ...loopStateHistoryFields,
       // LEVEL3: memory trace (pass through if provided)
       memory_trace: params.level21?.memory_trace ?? emptyMemoryTrace(),
+      // LEVEL3.6 Patch 2: learning control trace from stopDecision
+      early_stop_bias_applied: stopDecision.early_stop_bias_applied ?? false,
+      adjusted_threshold: stopDecision.adjusted_threshold ?? "0.65 (default)",
     },
   };
 }

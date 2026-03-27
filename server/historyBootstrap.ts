@@ -13,6 +13,7 @@
 import { getDb } from "./db";
 import { decisionHistory } from "../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { getLearningConfig } from "./learningConfig";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -941,15 +942,16 @@ export function dispatchNextProbeFromHistoryControl(params: {
     };
   }
 
-  // Priority A.5 (LEVEL3.6): High failure_intensity_score → force risk_probe
-  // Per GPT: prior failure case → increase risk probe priority
-  // Threshold: >= 0.6 forces risk_probe before history routing table
-  if (failureIntensityScore !== undefined && failureIntensityScore >= 0.6) {
+  // Priority A.5 (LEVEL3.6 Patch 3): High failure_intensity_score → force risk_probe (HIGH+ priority)
+  // Per GPT Patch 3: failure_weight > success_weight — risk control dominates optimization
+  // Threshold from learningConfig (default 0.6)
+  const _lcfg = getLearningConfig();
+  if (failureIntensityScore !== undefined && failureIntensityScore >= _lcfg.failure_threshold) {
     // High failure intensity forces risk_probe regardless of alreadyRanProbes
-    // Per LEVEL3.6: repeat failure pattern must always get risk probe
+    // Per LEVEL3.6 Patch 3: repeat failure pattern must always get risk probe (HIGH+ priority)
     return {
       dispatched_step_type: "risk_probe",
-      dispatch_reason: `LEVEL3.6 failure_intensity_score=${failureIntensityScore.toFixed(2)} >= 0.6 — forcing risk_probe to prevent repeat failure pattern`,
+      dispatch_reason: `LEVEL3.6 failure_intensity_score=${failureIntensityScore.toFixed(2)} >= ${_lcfg.failure_threshold} — forcing risk_probe (HIGH+ priority, risk control dominates)`,
       routing_source: `failure_intensity_score=${failureIntensityScore.toFixed(2)}`,
     };
   }

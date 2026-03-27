@@ -19,6 +19,7 @@ import type {
   HistoryControlSummary,
   Step0BindingResult,
 } from "./historyBootstrap";
+import { getLearningConfig } from "./learningConfig";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,10 @@ export function evaluateStopCondition(params: {
   // LEVEL3.6: Compute adjusted stop threshold based on early_stop_bias
   // Per GPT Q3: does NOT change max_iterations, only affects stop threshold
   const biasActive = earlyStopBiasEligible === true;
-  // When bias active: lower evidence convergence threshold by 0.05
-  // and allow early stop at medium confidence if evidence >= 0.60
-  const ADJUSTED_EVIDENCE_THRESHOLD = biasActive ? 0.60 : 0.65;
+  // When bias active: lower evidence convergence threshold (from learningConfig)
+  // Per GPT Q3: does NOT change max_iterations, only affects stop threshold
+  const _cfg = getLearningConfig();
+  const ADJUSTED_EVIDENCE_THRESHOLD = biasActive ? _cfg.stop_bias_evidence_floor : 0.65;
 
   // ── LEVEL21D: Step0 Binding Priority Override (before hard stops) ──────────────
   // Priority A: step0_forces_continuation → must NOT stop, overrides delta and quality stops

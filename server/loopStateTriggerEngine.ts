@@ -14,6 +14,7 @@ import type { FinalOutputSchema } from "./outputSchemaValidator";
 import type { StructuredSynthesis } from "./synthesisController";
 import type { MemorySeed, MemoryConflict } from "./hypothesisEngine";
 import type { HistoryBootstrap, Step0Revalidation, Step0Result, Step0BindingResult, DispatchResult, RoutingPriorityTrace } from "./historyBootstrap";
+import { getLearningConfig } from "./learningConfig";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -407,20 +408,20 @@ export function evaluateTrigger(params: {
 
   const confidence = level1a3Output?.confidence ?? "medium";
 
-  // LEVEL3.6: success_strength_score confidence boost
-  // Per GPT: strong prior success → allow early stop bias (affects evaluateStopCondition threshold)
-  // Here: if successStrengthScore >= 0.7 AND confidence=medium AND evidenceScore >= 0.65
-  // → upgrade to allow early stop (do not trigger second pass)
+  // LEVEL3.6 Patch 1+3: success_strength_score confidence boost (MODERATE priority)
+  // Per GPT Patch 3: failure_weight > success_weight — success is optimization, not safety override
+  // Thresholds from learningConfig (default: success_threshold=0.7, success_evidence_floor=0.65)
+  const _lcfg = getLearningConfig();
   if (
     successStrengthScore !== undefined &&
-    successStrengthScore >= 0.7 &&
+    successStrengthScore >= _lcfg.success_threshold &&
     confidence === "medium" &&
-    evidenceScore >= 0.65 &&
+    evidenceScore >= _lcfg.stop_bias_evidence_floor &&
     !historyBootstrap?.revalidation_mandatory
   ) {
     return {
       should_trigger: false,
-      reason: `LEVEL3.6 success_strength_score=${successStrengthScore.toFixed(2)} >= 0.7 with medium confidence + evidenceScore=${evidenceScore.toFixed(2)} >= 0.65 — prior success pattern supports early stop`,
+      reason: `LEVEL3.6 success_strength_score=${successStrengthScore.toFixed(2)} >= ${_lcfg.success_threshold} with medium confidence + evidenceScore=${evidenceScore.toFixed(2)} >= ${_lcfg.stop_bias_evidence_floor} — prior success pattern supports early stop (MODERATE priority)`,
       trigger_type: "no_trigger_success_strength_bias",
       evidence_score_at_trigger: evidenceScore,
       confidence_at_trigger: confidence,

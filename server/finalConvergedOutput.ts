@@ -31,6 +31,15 @@ export interface ConvergedOutput {
     verdict_changed: boolean;
     change_type: string;
     loop_summary: string;
+    // ── LEVEL21: History-Driven Reasoning fields ──────────────────────────
+    history_bootstrap_used?: boolean;
+    history_record_count?: number;
+    history_action_pattern?: string;
+    history_days_since_last?: number;
+    history_revalidation_summary?: string;
+    thesis_delta?: string;
+    action_delta?: string;
+    step0_ran?: boolean;
   };
 }
 
@@ -47,6 +56,17 @@ export function buildConvergedOutput(params: {
   evidenceDelta?: EvidenceDelta;
   updatedVerdict?: UpdatedVerdict;
   stopDecision?: StopDecision;
+  // LEVEL21 history-driven fields (optional, non-breaking)
+  level21?: {
+    history_bootstrap_used: boolean;
+    history_record_count: number;
+    history_action_pattern: string;
+    history_days_since_last: number;
+    history_revalidation_summary: string;
+    thesis_delta: string;
+    action_delta: string;
+    step0_ran: boolean;
+  };
 }): ConvergedOutput {
   const { level1Output, loopRan, loopState, evidenceDelta, updatedVerdict, stopDecision } = params;
 
@@ -67,6 +87,15 @@ export function buildConvergedOutput(params: {
         verdict_changed: false,
         change_type: "unchanged",
         loop_summary: "",
+        // LEVEL21 defaults
+        history_bootstrap_used: false,
+        history_record_count: 0,
+        history_action_pattern: "",
+        history_days_since_last: -1,
+        history_revalidation_summary: "",
+        thesis_delta: "",
+        action_delta: "",
+        step0_ran: false,
       },
     };
   }
@@ -117,6 +146,17 @@ export function buildConvergedOutput(params: {
       verdict_changed: updatedVerdict.verdict_changed,
       change_type: updatedVerdict.change_type,
       loop_summary: loopSummary,
+      // LEVEL21: pass through history-driven fields if provided
+      ...(params.level21 ?? {
+        history_bootstrap_used: false,
+        history_record_count: 0,
+        history_action_pattern: "",
+        history_days_since_last: -1,
+        history_revalidation_summary: "",
+        thesis_delta: "",
+        action_delta: "",
+        step0_ran: false,
+      }),
     },
   };
 }

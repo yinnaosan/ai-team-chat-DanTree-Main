@@ -155,6 +155,8 @@ import { buildConvergedOutput, type ConvergedOutput } from "./finalConvergedOutp
 import { writeLoopTelemetry } from "./loopTelemetryWriter";
 // ── LEVEL3A: Analysis Memory Writer + Retrieval ───────────────────────────────
 import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildPriorAnalysisContextBlock } from "./analysisMemoryWriter";
+// ── LEVEL21: History-Driven Reasoning Bootstrap ──────────────────────────────
+import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, type HistoryBootstrap } from "./historyBootstrap";
 // ── LEVEL1B: Source Selection Engine ─────────────────────────────────────────
 import { runSourceSelection, type TaskType as SourceTaskType, type Region as SourceRegion } from "./sourceSelectionEngine";
 // ── LEVEL1C: Post-Fetch Evidence Engine + Output Gating ──────────────────────
@@ -2311,8 +2313,23 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       } catch (memSeedErr) {
         console.warn("[LEVEL3B] MemorySeed build failed (non-fatal):", memSeedErr);
       }
+    }    // ── LEVEL3B END ────────────────────────────────────────────────────────────────────────────────
+
+    // ── LEVEL21: History-Driven Reasoning Bootstrap (non-fatal, zero LLM calls) ───────────
+    let historyBootstrapResult: HistoryBootstrap | null = null;
+    let historyContextBlock = "";
+    if (useJsonOnlyMode && primaryTicker) {
+      try {
+        historyBootstrapResult = await buildHistoryBootstrap({ userId, ticker: primaryTicker });
+        if (historyBootstrapResult.has_prior_history) {
+          historyContextBlock = buildDecisionHistoryContextBlock(historyBootstrapResult);
+          console.log(`[LEVEL21] History bootstrap: ${historyBootstrapResult.prior_decision_count} records, pattern: ${historyBootstrapResult.action_pattern}`);
+        }
+      } catch (histErr) {
+        console.warn("[LEVEL21] History bootstrap failed (non-fatal):", histErr);
+      }
     }
-    // ── LEVEL3B END ─────────────────────────────────────────────────────────────────
+    // ── LEVEL21 END ────────────────────────────────────────────────────────────────────────────────
 
     const jsonOnlySystemMsg = useJsonOnlyMode ? buildStep3JsonOnlySystemMessage() : "";
     const jsonOnlyUserMsg = useJsonOnlyMode ? buildStep3JsonOnlyUserMessage({
@@ -2788,6 +2805,36 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
             });
 
             // Build converged output
+            // ── LEVEL21: Compute thesis/action delta from history bootstrap ───────────────────────────────────
+            const level21Deltas = historyBootstrapResult
+              ? buildDeltaObjects({
+                  bootstrap: historyBootstrapResult,
+                  currentAction: level1a3Output.verdict?.slice(0, 30) ?? "",  // FinalOutputSchema has no action field
+                  currentVerdict: level1a3Output.verdict ?? "",
+                  currentConfidence: level1a3Output.confidence ?? "unknown",
+                  previousConfidence: historyBootstrapResult.has_prior_history
+                    ? historyBootstrapResult.previous_action  // use previous_action as confidence proxy
+                    : undefined,
+                })
+              : null;
+            const historyTriggerAdj = historyBootstrapResult
+              ? evaluateHistoryTriggerAdjustment(
+                  historyBootstrapResult,
+                  level1a3Output.confidence ?? "unknown",
+                  evidenceDelta.evidence_score_after,
+                )
+              : null;
+            const level21Payload = {
+              history_bootstrap_used: !!historyBootstrapResult?.has_prior_history,
+              history_record_count: historyBootstrapResult?.prior_decision_count ?? 0,
+              history_action_pattern: historyBootstrapResult?.action_pattern ?? "",
+              history_days_since_last: historyBootstrapResult?.days_since_last_decision ?? -1,
+              history_revalidation_summary: historyTriggerAdj?.adjustment_reason ?? "",
+              thesis_delta: level21Deltas ? JSON.stringify(level21Deltas.thesis_delta) : "",
+              action_delta: level21Deltas ? JSON.stringify(level21Deltas.action_delta) : "",
+              step0_ran: !!(historyBootstrapResult?.has_prior_history),
+            };
+            // ── LEVEL21 END ────────────────────────────────────────────────────────────────────────────────
             convergedOutput = buildConvergedOutput({
               level1Output: level1a3Output,
               loopRan: true,
@@ -2795,6 +2842,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               evidenceDelta,
               updatedVerdict,
               stopDecision,
+              level21: level21Payload,
             });
 
             // Update message with converged output

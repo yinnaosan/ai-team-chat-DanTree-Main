@@ -2603,3 +2603,13 @@
 - [x] CandidatePoolCard: 拉取 checkTickers，候选行显示「已分析」徽章 + hover 最近 action/时间
 - [x] TSC 0 错误，测试通过，保存检查点
 - [x] 输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## DANTREE_LEVEL21_HISTORY_DRIVEN_REASONING
+- [x] Phase 1: analysisMemoryWriter 扩展 — 输出 history bootstrap 对象（has_prior_history/previous_action/previous_verdict/previous_key_thesis/previous_risks/history_quality）
+- [x] Phase 2: loopStateTriggerEngine 添加 Step 0 thesis_revalidation 逻辑（has_prior_history=true 时前置插入）
+- [x] Phase 3: loop controller 升级 — history_requires_revalidation / thesis_shift_detected / action_reconsideration_required 决策字段
+- [x] Phase 4: thesis_delta + action_delta 输出对象（change_type: unchanged/strengthened/weakened/invalidated/reversed）
+- [x] Phase 5: history_revalidation_summary 注入 finalConvergedOutput.loop_metadata
+- [x] Phase 6: cost/trigger 规则 — 仅在 has_prior_history=true 且 query 有决策相关性时触发，强确认时提前停止
+- [x] Phase 7: TSC 0 错误，回归测试（3个 case），保存检查点
+- [x] 输出 RETURN_PROTOCOL 完整审计报告

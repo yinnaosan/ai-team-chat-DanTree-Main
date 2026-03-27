@@ -27,6 +27,7 @@ import { WorldMonitorCard } from "@/components/WorldMonitorCard";
 import { LoopSummaryBadge } from "@/components/LoopSummaryBadge";
 import { MemoryBadge } from "@/components/MemoryBadge";
 import { MemoryReasoningBadge } from "@/components/MemoryReasoningBadge";
+import { HistoryRevalidationBadge } from "@/components/HistoryRevalidationBadge";
 import { EvidenceWarningBadge } from "@/components/EvidenceWarningBadge";
 import { HypothesisCards } from "@/components/HypothesisCards";
 import {
@@ -184,6 +185,15 @@ interface Msg {
     evidenceConflictCount?: number;
     evidenceGatingMode?: "decisive" | "directional" | "framework_only";
     evidenceConflictFields?: string;
+    // LEVEL21: History-Driven Reasoning signals
+    historyBootstrapUsed?: boolean;
+    historyRecordCount?: number;
+    historyActionPattern?: string;
+    historyDaysSinceLast?: number;
+    historyRevalidationSummary?: string;
+    thesisDelta?: string;
+    actionDelta?: string;
+    step0Ran?: boolean;
   } | null;
 }
 
@@ -897,6 +907,19 @@ function AIMessage({ msg, taskTitle, onFollowup }: { msg: Msg; taskTitle?: strin
             evidenceConflictCount={msg.metadata?.evidenceConflictCount}
             evidenceGatingMode={msg.metadata?.evidenceGatingMode}
             evidenceConflictFields={msg.metadata?.evidenceConflictFields}
+          />
+        )}
+        {/* LEVEL21: History Revalidation Badge */}
+        {isAssistant && (msg.metadata?.historyBootstrapUsed || msg.metadata?.step0Ran) && (
+          <HistoryRevalidationBadge
+            historyBootstrapUsed={msg.metadata?.historyBootstrapUsed ?? false}
+            historyRecordCount={msg.metadata?.historyRecordCount ?? 0}
+            historyActionPattern={msg.metadata?.historyActionPattern ?? ""}
+            historyDaysSinceLast={msg.metadata?.historyDaysSinceLast ?? -1}
+            historyRevalidationSummary={msg.metadata?.historyRevalidationSummary ?? ""}
+            thesisDelta={msg.metadata?.thesisDelta}
+            actionDelta={msg.metadata?.actionDelta}
+            step0Ran={msg.metadata?.step0Ran ?? false}
           />
         )}
         {/* LEVEL3B: Memory Reasoning Badge (conflict + seed signal) */}

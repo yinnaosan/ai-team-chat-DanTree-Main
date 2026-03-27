@@ -59,7 +59,8 @@ export interface TriggerDecision {
     | "no_trigger_discussion_mode"
     | "no_trigger_budget_exhausted"
     | "no_trigger_max_iterations"
-    | "no_trigger_history_reaffirmed"; // LEVEL21B: early stop via history
+    | "no_trigger_history_reaffirmed"  // LEVEL21B: early stop via history
+    | "no_trigger_success_strength_bias"; // LEVEL3.6: early stop via success_strength_score
   evidence_score_at_trigger: number;
   confidence_at_trigger: string;
   memory_influenced: boolean;
@@ -223,6 +224,7 @@ export function evaluateTrigger(params: {
   memorySeed?: MemorySeed;
   memoryConflict?: MemoryConflict;
   historyBootstrap?: HistoryBootstrap;  // LEVEL21B
+  successStrengthScore?: number;        // LEVEL3.6: from memoryEvolution
 }): TriggerDecision {
   const {
     loopState,
@@ -234,6 +236,7 @@ export function evaluateTrigger(params: {
     memorySeed,
     memoryConflict,
     historyBootstrap,
+    successStrengthScore,
   } = params;
 
   // ── Default history controller fields ────────────────────────────────────
@@ -404,6 +407,34 @@ export function evaluateTrigger(params: {
 
   const confidence = level1a3Output?.confidence ?? "medium";
 
+  // LEVEL3.6: success_strength_score confidence boost
+  // Per GPT: strong prior success → allow early stop bias (affects evaluateStopCondition threshold)
+  // Here: if successStrengthScore >= 0.7 AND confidence=medium AND evidenceScore >= 0.65
+  // → upgrade to allow early stop (do not trigger second pass)
+  if (
+    successStrengthScore !== undefined &&
+    successStrengthScore >= 0.7 &&
+    confidence === "medium" &&
+    evidenceScore >= 0.65 &&
+    !historyBootstrap?.revalidation_mandatory
+  ) {
+    return {
+      should_trigger: false,
+      reason: `LEVEL3.6 success_strength_score=${successStrengthScore.toFixed(2)} >= 0.7 with medium confidence + evidenceScore=${evidenceScore.toFixed(2)} >= 0.65 — prior success pattern supports early stop`,
+      trigger_type: "no_trigger_success_strength_bias",
+      evidence_score_at_trigger: evidenceScore,
+      confidence_at_trigger: confidence,
+      memory_influenced: true,
+      memory_influence_summary: `success_strength_score=${successStrengthScore.toFixed(2)} — prior success pattern applied`,
+      history_controlled: !!historyActive,
+      next_step_type: "reaffirmation_stop",
+      probe_priority: historyBootstrap?.preferred_probe_order ?? [],
+      history_requires_revalidation: false,
+      action_reconsideration_required: false,
+      thesis_shift_detected: false,
+      controller_stop_reason: `success_strength_score=${successStrengthScore.toFixed(2)} — early stop bias applied`,
+    };
+  }
   // HIGH confidence + good evidence
   if (confidence === "high" && evidenceScore >= 0.75) {
     if (memorySeed?.memory_found && memorySeed.prior_open_hypotheses.length > 0) {

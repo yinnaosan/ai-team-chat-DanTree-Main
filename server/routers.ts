@@ -2379,6 +2379,10 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           previousAction: historyBootstrapResult.previous_action,
           step0Binding,
           alreadyRanProbes: level21cLoopState.executed_path,
+          // LEVEL3.6: pass failure_intensity_score if memory has failure pattern
+          failureIntensityScore: historyBootstrapResult.memory_influence?.has_failure_memory
+            ? 0.65  // failure memory present → treat as high intensity
+            : 0.0,
         });
         level21cDispatchResult = dispatchResult;
         level21cLoopState = applyDispatchToLoopState(level21cLoopState, dispatchResult, routingTrace);
@@ -2804,6 +2808,10 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           memorySeed: memorySeedForEngine,
           memoryConflict: memoryConflictForEngine,
           historyBootstrap: historyBootstrapResult ?? undefined,  // LEVEL21B
+          // LEVEL3.6: pass learning signals from memory evolution
+          successStrengthScore: historyBootstrapResult?.memory_influence?.early_stop_bias
+            ? 0.75  // early_stop_bias = strong success pattern
+            : undefined,
         });
 
          if (triggerDecision.should_trigger) {

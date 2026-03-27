@@ -37,6 +37,9 @@ export interface StopDecision {
   // LEVEL21D: Step0 stop override
   step0_stop_override_applied: boolean;
   step0_stop_reason: string;
+  // LEVEL3.6: Learning control
+  early_stop_bias_applied: boolean;
+  adjusted_threshold: string;
 }
 
 export type StopReason =
@@ -69,6 +72,7 @@ export function evaluateStopCondition(params: {
   deltaStopEval?: DeltaStopEvaluation;         // LEVEL21B
   historyControlSummary?: HistoryControlSummary; // LEVEL21B
   step0Binding?: Step0BindingResult;              // LEVEL21D
+  earlyStopBiasEligible?: boolean;                // LEVEL3.6: from memory success_strength_score
 }): StopDecision {
   const {
     loopState,
@@ -78,9 +82,16 @@ export function evaluateStopCondition(params: {
     deltaStopEval,
     historyControlSummary,
     step0Binding,
+    earlyStopBiasEligible,
   } = params;
 
   const historyTrace = historyControlSummary ?? null;
+  // LEVEL3.6: Compute adjusted stop threshold based on early_stop_bias
+  // Per GPT Q3: does NOT change max_iterations, only affects stop threshold
+  const biasActive = earlyStopBiasEligible === true;
+  // When bias active: lower evidence convergence threshold by 0.05
+  // and allow early stop at medium confidence if evidence >= 0.60
+  const ADJUSTED_EVIDENCE_THRESHOLD = biasActive ? 0.60 : 0.65;
 
   // ── LEVEL21D: Step0 Binding Priority Override (before hard stops) ──────────────
   // Priority A: step0_forces_continuation → must NOT stop, overrides delta and quality stops
@@ -97,6 +108,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: true,
       step0_stop_override_applied: true,
       step0_stop_reason: `step0_forces_continuation=true (confidence=${step0Binding.step0_confidence}, probe=${step0Binding.step0_followup_probe})`,
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -116,6 +129,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -133,6 +148,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -150,6 +167,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -171,6 +190,8 @@ export function evaluateStopCondition(params: {
         require_thesis_update_step: false,
         step0_stop_override_applied: !!step0Binding,
         step0_stop_reason: step0Binding ? `step0_allows_early_stop=true (confidence=${step0Binding.step0_confidence})` : "",
+        early_stop_bias_applied: false,
+        adjusted_threshold: "",
       };
     }
 
@@ -188,6 +209,8 @@ export function evaluateStopCondition(params: {
         require_thesis_update_step: true,
         step0_stop_override_applied: false,
         step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
       };
     }
 
@@ -205,6 +228,8 @@ export function evaluateStopCondition(params: {
         require_thesis_update_step: deltaStopEval.require_thesis_update_step,
         step0_stop_override_applied: false,
         step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
       };
     }
   }
@@ -225,6 +250,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -234,7 +261,9 @@ export function evaluateStopCondition(params: {
     return {
       should_stop: true,
       stop_reason: "high_confidence",
-      stop_message: `High confidence achieved after ${loopState.iteration} iteration(s). Loop complete.`,
+      stop_message: `High confidence achieved after ${loopState.iteration} iteration(s). Loop complete.${
+        biasActive ? " [early_stop_bias_applied]" : ""
+      }`,
       iterations_completed: loopState.iteration,
       final_convergence_signal: "converged",
       history_control_summary: historyTrace,
@@ -243,6 +272,31 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: biasActive,
+      adjusted_threshold: biasActive ? `evidence>=${ADJUSTED_EVIDENCE_THRESHOLD}` : "",
+    };
+  }
+
+  // LEVEL3.6: Early stop bias — medium confidence but evidence >= adjusted threshold
+  // Per GPT Q3: does NOT change max_iterations, only affects stop threshold
+  if (biasActive &&
+      updatedVerdict.final_confidence === "medium" &&
+      evidenceDelta.evidence_score_after >= ADJUSTED_EVIDENCE_THRESHOLD &&
+      step0Binding?.step0_allows_early_stop !== false) {
+    return {
+      should_stop: true,
+      stop_reason: "high_confidence",
+      stop_message: `Early stop bias: medium confidence but evidence (${evidenceDelta.evidence_score_after.toFixed(2)}) >= adjusted threshold (${ADJUSTED_EVIDENCE_THRESHOLD}). Prior success pattern supports convergence.`,
+      iterations_completed: loopState.iteration,
+      final_convergence_signal: "converged",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
+      step0_stop_override_applied: false,
+      step0_stop_reason: "",
+      early_stop_bias_applied: true,
+      adjusted_threshold: `evidence>=${ADJUSTED_EVIDENCE_THRESHOLD} (bias from success_strength_score)`,
     };
   }
 
@@ -261,6 +315,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
 
@@ -283,6 +339,8 @@ export function evaluateStopCondition(params: {
       require_thesis_update_step: false,
       step0_stop_override_applied: false,
       step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
     };
   }
   // ── Continue loop ────────────────────────────────────────────────────────────
@@ -298,6 +356,8 @@ export function evaluateStopCondition(params: {
     require_thesis_update_step: false,
     step0_stop_override_applied: false,
     step0_stop_reason: "",
+      early_stop_bias_applied: false,
+      adjusted_threshold: "",
   };
 }/**
  * Build a human-readable loop summary for inclusion in the final report.

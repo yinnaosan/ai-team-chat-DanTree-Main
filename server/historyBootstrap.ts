@@ -908,7 +908,7 @@ export function bindStep0Result(step0Result: Step0Result): Step0BindingResult {
 export interface DispatchResult {
   dispatched_step_type: string;
   dispatch_reason: string;
-  routing_source: "step0_override" | "history_table" | "controller_override";
+  routing_source: "step0_override" | "history_table" | "controller_override" | `failure_intensity_score=${string}`;
 }
 
 const HARD_ROUTING_TABLE: Record<string, string> = {
@@ -927,8 +927,9 @@ export function dispatchNextProbeFromHistoryControl(params: {
   step0Binding: Step0BindingResult | null;
   controllerOverride?: string;
   alreadyRanProbes?: string[];
+  failureIntensityScore?: number;  // LEVEL3.6: from memoryEvolution
 }): DispatchResult {
-  const { previousAction, step0Binding, controllerOverride, alreadyRanProbes = [] } = params;
+  const { previousAction, step0Binding, controllerOverride, alreadyRanProbes = [], failureIntensityScore } = params;
 
   // Priority A: Step0 explicit required_follow_up_probe
   const step0Probe = step0Binding?.step0_followup_probe ?? "";
@@ -940,6 +941,18 @@ export function dispatchNextProbeFromHistoryControl(params: {
     };
   }
 
+  // Priority A.5 (LEVEL3.6): High failure_intensity_score → force risk_probe
+  // Per GPT: prior failure case → increase risk probe priority
+  // Threshold: >= 0.6 forces risk_probe before history routing table
+  if (failureIntensityScore !== undefined && failureIntensityScore >= 0.6) {
+    // High failure intensity forces risk_probe regardless of alreadyRanProbes
+    // Per LEVEL3.6: repeat failure pattern must always get risk probe
+    return {
+      dispatched_step_type: "risk_probe",
+      dispatch_reason: `LEVEL3.6 failure_intensity_score=${failureIntensityScore.toFixed(2)} >= 0.6 — forcing risk_probe to prevent repeat failure pattern`,
+      routing_source: `failure_intensity_score=${failureIntensityScore.toFixed(2)}`,
+    };
+  }
   // Priority B: History routing table
   const tableProbe = HARD_ROUTING_TABLE[previousAction] ?? "";
   if (tableProbe && !alreadyRanProbes.includes(tableProbe)) {
@@ -973,7 +986,7 @@ export interface RoutingPriorityTrace {
   selected_probe: string;
   selection_reason: string;
   routing_enforced: boolean;
-  routing_source: "step0_override" | "history_table" | "controller_override";
+  routing_source: "step0_override" | "history_table" | "controller_override" | `failure_intensity_score=${string}`;
   skipped_probes: string[];
 }
 

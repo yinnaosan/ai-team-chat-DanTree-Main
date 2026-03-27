@@ -745,3 +745,325 @@ export function shouldTriggerHistoryRevalidation(
   if (bootstrap.history_quality === "none") return false;
   return bootstrap.history_requires_control || bootstrap.revalidation_mandatory;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DANTREE_LEVEL21C: Execution Closure
+// Phase 1: Real Step0 Execution
+// Phase 2: Step0 Result Binding
+// Phase 3: Hard Routing Dispatch
+// Phase 4: Routing Priority Enforcement
+// Phase 5: Execution Path Trace
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Phase 1: Step0 Result Type ────────────────────────────────────────────────
+
+export interface Step0Result {
+  revalidation_verdict: string;
+  prior_thesis_still_valid: boolean;
+  weakening_signals: string[];
+  strengthening_signals: string[];
+  required_follow_up_probe: string;
+  thesis_tension_level: "low" | "medium" | "high";
+}
+
+// ── Phase 2: Step0 Binding Result ────────────────────────────────────────────
+
+export interface Step0BindingResult {
+  step0_result: Step0Result;
+  step0_confidence: "low" | "medium" | "high";
+  step0_followup_probe: string;
+  step0_tension_level: "low" | "medium" | "high";
+  step0_allows_early_stop: boolean;
+  step0_forces_continuation: boolean;
+}
+
+/**
+ * LEVEL21C Phase 1: Run Step0 as a real narrow reasoning execution.
+ * Uses invokeLLM in compact JSON-schema mode — NOT a full research report.
+ * Budget impact: exactly 1 LLM call, compact prompt.
+ */
+export async function runStep0Revalidation(params: {
+  invokeLLM: (args: {
+    messages: Array<{ role: string; content: string }>;
+    response_format?: unknown;
+  }) => Promise<{ choices: Array<{ message: { content: string } }> }>;
+  bootstrap: HistoryBootstrap;
+  currentQuery: string;
+  evidenceContext?: string;
+}): Promise<Step0Result> {
+  const { invokeLLM: llm, bootstrap, currentQuery, evidenceContext } = params;
+
+  const systemPrompt =
+    `You are a narrow thesis revalidation engine. ` +
+    `Evaluate if a prior investment decision thesis is still valid. ` +
+    `Return ONLY valid JSON. No prose, no markdown, no explanation.`;
+
+  const userPrompt =
+    `PRIOR DECISION:\n` +
+    `Action: ${bootstrap.previous_action}\n` +
+    `Verdict: ${bootstrap.previous_verdict}\n` +
+    `Key Thesis: ${bootstrap.previous_key_thesis}\n` +
+    `Known Risks: ${bootstrap.previous_risks}\n` +
+    `Days Elapsed: ${bootstrap.days_since_last_decision ?? "unknown"}\n\n` +
+    `CURRENT QUERY: ${currentQuery}\n\n` +
+    (evidenceContext ? `CURRENT CONTEXT:\n${evidenceContext}\n\n` : "") +
+    `Return JSON only:\n` +
+    `{"revalidation_verdict":"<one sentence>","prior_thesis_still_valid":true,"weakening_signals":[],"strengthening_signals":[],"required_follow_up_probe":"","thesis_tension_level":"low"}`;
+
+  try {
+    const response = await llm({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "step0_result",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              revalidation_verdict: { type: "string" },
+              prior_thesis_still_valid: { type: "boolean" },
+              weakening_signals: { type: "array", items: { type: "string" } },
+              strengthening_signals: { type: "array", items: { type: "string" } },
+              required_follow_up_probe: { type: "string" },
+              thesis_tension_level: { type: "string", enum: ["low", "medium", "high"] },
+            },
+            required: [
+              "revalidation_verdict",
+              "prior_thesis_still_valid",
+              "weakening_signals",
+              "strengthening_signals",
+              "required_follow_up_probe",
+              "thesis_tension_level",
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw) as Step0Result;
+    return parsed;
+  } catch {
+    // Non-fatal fallback
+    return {
+      revalidation_verdict: "Step0 execution failed — assuming prior thesis tentatively valid",
+      prior_thesis_still_valid: true,
+      weakening_signals: [],
+      strengthening_signals: [],
+      required_follow_up_probe: "",
+      thesis_tension_level: "low",
+    };
+  }
+}
+
+/**
+ * LEVEL21C Phase 2: Bind Step0 result into controller-consumable object.
+ */
+export function bindStep0Result(step0Result: Step0Result): Step0BindingResult {
+  const tensionLevel = step0Result.thesis_tension_level;
+  const stillValid = step0Result.prior_thesis_still_valid;
+  const followUp = (step0Result.required_follow_up_probe ?? "").trim();
+
+  const confidence: "low" | "medium" | "high" =
+    tensionLevel === "low" && stillValid ? "high" :
+    tensionLevel === "high" || !stillValid ? "low" : "medium";
+
+  const allowsEarlyStop = stillValid && tensionLevel === "low" && !followUp;
+  const forcesContinuation = !stillValid || tensionLevel === "high" || !!followUp;
+
+  return {
+    step0_result: step0Result,
+    step0_confidence: confidence,
+    step0_followup_probe: followUp,
+    step0_tension_level: tensionLevel,
+    step0_allows_early_stop: allowsEarlyStop,
+    step0_forces_continuation: forcesContinuation,
+  };
+}
+
+// ── Phase 3: Hard Routing Dispatch ───────────────────────────────────────────
+
+export interface DispatchResult {
+  dispatched_step_type: string;
+  dispatch_reason: string;
+  routing_source: "step0_override" | "history_table" | "controller_override";
+}
+
+const HARD_ROUTING_TABLE: Record<string, string> = {
+  BUY:  "risk_probe",
+  SELL: "business_probe",
+  HOLD: "valuation_probe",
+  WAIT: "trigger_condition_check",
+};
+
+/**
+ * LEVEL21C Phase 3: Hard-dispatch next probe type.
+ * Priority: Step0 explicit override > history routing table > controller fallback.
+ */
+export function dispatchNextProbeFromHistoryControl(params: {
+  previousAction: string;
+  step0Binding: Step0BindingResult | null;
+  controllerOverride?: string;
+  alreadyRanProbes?: string[];
+}): DispatchResult {
+  const { previousAction, step0Binding, controllerOverride, alreadyRanProbes = [] } = params;
+
+  // Priority A: Step0 explicit required_follow_up_probe
+  const step0Probe = step0Binding?.step0_followup_probe ?? "";
+  if (step0Probe && !alreadyRanProbes.includes(step0Probe)) {
+    return {
+      dispatched_step_type: step0Probe,
+      dispatch_reason: `Step0 explicitly required: ${step0Probe} (tension=${step0Binding?.step0_tension_level})`,
+      routing_source: "step0_override",
+    };
+  }
+
+  // Priority B: History routing table
+  const tableProbe = HARD_ROUTING_TABLE[previousAction] ?? "";
+  if (tableProbe && !alreadyRanProbes.includes(tableProbe)) {
+    return {
+      dispatched_step_type: tableProbe,
+      dispatch_reason: `History routing table: prior ${previousAction} → ${tableProbe}`,
+      routing_source: "history_table",
+    };
+  }
+
+  // Priority C: Controller override
+  if (controllerOverride && !alreadyRanProbes.includes(controllerOverride)) {
+    return {
+      dispatched_step_type: controllerOverride,
+      dispatch_reason: `Controller override: ${controllerOverride}`,
+      routing_source: "controller_override",
+    };
+  }
+
+  return {
+    dispatched_step_type: "thesis_update",
+    dispatch_reason: "All priority probes exhausted — fallback to thesis_update",
+    routing_source: "controller_override",
+  };
+}
+
+// ── Phase 4: Routing Priority Enforcement ────────────────────────────────────
+
+export interface RoutingPriorityTrace {
+  routing_priority: string[];
+  selected_probe: string;
+  selection_reason: string;
+  routing_enforced: boolean;
+  routing_source: "step0_override" | "history_table" | "controller_override";
+  skipped_probes: string[];
+}
+
+/**
+ * LEVEL21C Phase 4: Build full routing priority trace and enforce selection.
+ */
+export function enforceRoutingPriority(params: {
+  previousAction: string;
+  step0Binding: Step0BindingResult | null;
+  preferredProbeOrder: string[];
+  alreadyRanProbes?: string[];
+  controllerOverride?: string;
+}): RoutingPriorityTrace {
+  const {
+    previousAction,
+    step0Binding,
+    preferredProbeOrder,
+    alreadyRanProbes = [],
+    controllerOverride,
+  } = params;
+
+  const step0Probe = step0Binding?.step0_followup_probe ?? "";
+  const tableProbe = HARD_ROUTING_TABLE[previousAction] ?? "";
+
+  const fullPriority: string[] = [];
+  if (step0Probe) fullPriority.push(step0Probe);
+  for (const p of preferredProbeOrder) {
+    if (!fullPriority.includes(p)) fullPriority.push(p);
+  }
+  if (tableProbe && !fullPriority.includes(tableProbe)) fullPriority.push(tableProbe);
+  if (!fullPriority.includes("thesis_update")) fullPriority.push("thesis_update");
+
+  const skipped: string[] = [];
+  let selected = "";
+  let selectionReason = "";
+  let routingSource: RoutingPriorityTrace["routing_source"] = "controller_override";
+
+  for (const probe of fullPriority) {
+    if (alreadyRanProbes.includes(probe)) {
+      skipped.push(`${probe} (already ran)`);
+      continue;
+    }
+    selected = probe;
+    if (probe === step0Probe) {
+      selectionReason = `Step0 required: ${probe}`;
+      routingSource = "step0_override";
+    } else if (probe === tableProbe) {
+      selectionReason = `History table: prior ${previousAction} → ${probe}`;
+      routingSource = "history_table";
+    } else {
+      selectionReason = `Preferred probe order: ${probe}`;
+      routingSource = "controller_override";
+    }
+    break;
+  }
+
+  if (!selected) {
+    selected = controllerOverride ?? "thesis_update";
+    selectionReason = "All priority probes exhausted — fallback";
+    routingSource = "controller_override";
+  }
+
+  return {
+    routing_priority: fullPriority,
+    selected_probe: selected,
+    selection_reason: selectionReason,
+    routing_enforced: true,
+    routing_source: routingSource,
+    skipped_probes: skipped,
+  };
+}
+
+// ── Phase 5: Execution Path Trace ────────────────────────────────────────────
+
+export interface ExecutionPathTrace {
+  executed_path: string[];
+  intended_path: string[];
+  path_divergence: string[];
+  final_execution_summary: string;
+}
+
+/**
+ * LEVEL21C Phase 5: Build execution path trace comparing intended vs actual.
+ */
+export function buildExecutionPathTrace(params: {
+  intendedPath: string[];
+  executedPath: string[];
+  stopReason: string;
+}): ExecutionPathTrace {
+  const { intendedPath, executedPath, stopReason } = params;
+
+  const divergence: string[] = [];
+  for (const step of intendedPath) {
+    if (!executedPath.includes(step)) {
+      divergence.push(`${step} (intended but not executed — stopped at: ${stopReason})`);
+    }
+  }
+
+  const summary =
+    executedPath.length === 0
+      ? "No steps executed"
+      : `Executed ${executedPath.length} step(s): ${executedPath.join(" → ")}. Stop: ${stopReason}.`;
+
+  return {
+    executed_path: executedPath,
+    intended_path: intendedPath,
+    path_divergence: divergence,
+    final_execution_summary: summary,
+  };
+}

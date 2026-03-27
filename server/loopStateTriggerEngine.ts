@@ -13,7 +13,7 @@ import type { IntentContext } from "./intentInterpreter";
 import type { FinalOutputSchema } from "./outputSchemaValidator";
 import type { StructuredSynthesis } from "./synthesisController";
 import type { MemorySeed, MemoryConflict } from "./hypothesisEngine";
-import type { HistoryBootstrap, Step0Revalidation } from "./historyBootstrap";
+import type { HistoryBootstrap, Step0Revalidation, Step0Result, Step0BindingResult, DispatchResult, RoutingPriorityTrace } from "./historyBootstrap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,15 @@ export interface LoopState {
   step0_object: Step0Revalidation | null;  // The Step0 object if created
   history_controlled: boolean; // Whether history altered this loop's behavior
   controller_path: string[];   // Audit trail of control decisions taken
+  // LEVEL21C: Real Step0 execution result
+  step0_result: Step0Result | null;           // Actual Step0 LLM output
+  step0_binding: Step0BindingResult | null;   // Bound controller inputs from Step0
+  // LEVEL21C: Hard routing dispatch
+  dispatch_result: DispatchResult | null;     // Hard-dispatched probe type
+  routing_trace: RoutingPriorityTrace | null; // Full routing priority trace
+  // LEVEL21C: Execution path trace
+  executed_path: string[];     // Steps actually executed
+  intended_path: string[];     // Steps that were planned
 }
 
 export interface TriggerDecision {
@@ -110,6 +119,13 @@ export function initLoopState(options?: {
     step0_object: null,
     history_controlled: false,
     controller_path: [],
+    // LEVEL21C
+    step0_result: null,
+    step0_binding: null,
+    dispatch_result: null,
+    routing_trace: null,
+    executed_path: [],
+    intended_path: [],
   };
 }
 
@@ -128,6 +144,62 @@ export function attachStep0ToLoopState(
     step0_ran: true,
     history_controlled: true,
     controller_path: [...loopState.controller_path, "step0_revalidation"],
+    // LEVEL21C: step0_result will be filled after runStep0Revalidation() completes
+    intended_path: [...loopState.intended_path, "step0_revalidation"],
+  };
+}
+
+/**
+ * LEVEL21C: Bind Step0 execution result into loop state.
+ * Called after runStep0Revalidation() completes.
+ */
+export function bindStep0ResultToLoopState(
+  loopState: LoopState,
+  step0Result: Step0Result,
+  step0Binding: Step0BindingResult
+): LoopState {
+  return {
+    ...loopState,
+    step0_result: step0Result,
+    step0_binding: step0Binding,
+    // Mark step0 as actually executed in executed_path
+    executed_path: [...loopState.executed_path, "step0_revalidation"],
+  };
+}
+
+/**
+ * LEVEL21C: Apply hard routing dispatch result to loop state.
+ * Called after dispatchNextProbeFromHistoryControl() or enforceRoutingPriority().
+ */
+export function applyDispatchToLoopState(
+  loopState: LoopState,
+  dispatchResult: DispatchResult,
+  routingTrace: RoutingPriorityTrace
+): LoopState {
+  return {
+    ...loopState,
+    dispatch_result: dispatchResult,
+    routing_trace: routingTrace,
+    // Extend intended_path with the dispatched probe
+    intended_path: loopState.intended_path.includes(dispatchResult.dispatched_step_type)
+      ? loopState.intended_path
+      : [...loopState.intended_path, dispatchResult.dispatched_step_type],
+  };
+}
+
+/**
+ * LEVEL21C: Record a step as actually executed.
+ * Called after each probe/step completes successfully.
+ */
+export function recordExecutedStep(
+  loopState: LoopState,
+  stepType: string
+): LoopState {
+  if (loopState.executed_path.includes(stepType)) return loopState;
+  return {
+    ...loopState,
+    executed_path: [...loopState.executed_path, stepType],
+    controller_path: [...loopState.controller_path, stepType],
   };
 }
 

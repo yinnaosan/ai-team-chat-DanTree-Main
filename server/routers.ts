@@ -141,7 +141,7 @@ import {
 } from "./outputSchemaValidator";
 
 // ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
-import { evaluateTrigger, initLoopState, advanceLoopState, type LoopState } from "./loopStateTriggerEngine";
+import { evaluateTrigger, initLoopState, advanceLoopState, attachStep0ToLoopState, bindStep0ResultToLoopState, applyDispatchToLoopState, recordExecutedStep, type LoopState } from "./loopStateTriggerEngine";
 import { generateFollowUpTask } from "./followUpTaskGenerator";
 // ── LEVEL2B: Multi-Hypothesis Engine ─────────────────────────────────────────
 import { runHypothesisEngine, type MemorySeed, type MemoryConflict } from "./hypothesisEngine";
@@ -156,7 +156,7 @@ import { writeLoopTelemetry } from "./loopTelemetryWriter";
 // ── LEVEL3A: Analysis Memory Writer + Retrieval ───────────────────────────────
 import { writeAnalysisMemory, getAnalysisMemory, extractMemoryFromOutput, buildPriorAnalysisContextBlock } from "./analysisMemoryWriter";
 // ── LEVEL21: History-Driven Reasoning Bootstrap ──────────────────────────────
-import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, type HistoryBootstrap } from "./historyBootstrap";
+import { buildHistoryBootstrap, buildDecisionHistoryContextBlock, evaluateHistoryTriggerAdjustment, buildDeltaObjects, runStep0Revalidation, bindStep0Result, dispatchNextProbeFromHistoryControl, enforceRoutingPriority, buildExecutionPathTrace, createStep0Revalidation, type HistoryBootstrap } from "./historyBootstrap";
 // ── LEVEL1B: Source Selection Engine ─────────────────────────────────────────
 import { runSourceSelection, type TaskType as SourceTaskType, type Region as SourceRegion } from "./sourceSelectionEngine";
 // ── LEVEL1C: Post-Fetch Evidence Engine + Output Gating ──────────────────────
@@ -2329,8 +2329,54 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         console.warn("[LEVEL21] History bootstrap failed (non-fatal):", histErr);
       }
     }
-    // ── LEVEL21 END ────────────────────────────────────────────────────────────────────────────────
-
+     // ── LEVEL21C: Real Step0 Execution ──────────────────────────────────────────────────────────
+    let level21cLoopState = initLoopState();
+    let level21cStep0Result = null;
+    let level21cStep0Binding = null;
+    let level21cDispatchResult = null;
+    let level21cRoutingTrace = null;
+    if (historyBootstrapResult?.history_requires_control && historyBootstrapResult.revalidation_mandatory) {
+      try {
+        // Phase 1: Create Step0 object and attach to loop state
+        const step0Object = createStep0Revalidation(historyBootstrapResult);
+        level21cLoopState = attachStep0ToLoopState(level21cLoopState, step0Object);
+        // Phase 2: Run Step0 as real LLM call
+        const step0Result = await runStep0Revalidation({
+          invokeLLM: invokeLLM as Parameters<typeof runStep0Revalidation>[0]["invokeLLM"],
+          bootstrap: historyBootstrapResult,
+          currentQuery: taskDescription,
+          evidenceContext: dataPacketSummary?.slice(0, 800) ?? "",
+        });
+        level21cStep0Result = step0Result;
+        // Phase 2: Bind result
+        const step0Binding = bindStep0Result(step0Result);
+        level21cStep0Binding = step0Binding;
+        level21cLoopState = bindStep0ResultToLoopState(level21cLoopState, step0Result, step0Binding);
+        // Phase 3+4: Hard routing dispatch
+        const routingTrace = enforceRoutingPriority({
+          previousAction: historyBootstrapResult.previous_action,
+          step0Binding,
+          preferredProbeOrder: historyBootstrapResult.preferred_probe_order,
+          alreadyRanProbes: level21cLoopState.executed_path,
+        });
+        level21cRoutingTrace = routingTrace;
+        const dispatchResult = dispatchNextProbeFromHistoryControl({
+          previousAction: historyBootstrapResult.previous_action,
+          step0Binding,
+          alreadyRanProbes: level21cLoopState.executed_path,
+        });
+        level21cDispatchResult = dispatchResult;
+        level21cLoopState = applyDispatchToLoopState(level21cLoopState, dispatchResult, routingTrace);
+        // Enrich historyContextBlock with Step0 result
+        if (historyContextBlock) {
+          historyContextBlock += `\n[STEP0_REVALIDATION_RESULT]\nVERDICT: ${step0Result.revalidation_verdict}\nPRIOR_THESIS_VALID: ${step0Result.prior_thesis_still_valid}\nTENSION: ${step0Result.thesis_tension_level}\nFOLLOW_UP_PROBE: ${step0Result.required_follow_up_probe}\nDISPATCHED_PROBE: ${dispatchResult.dispatched_step_type} (${dispatchResult.routing_source})\n[/STEP0_REVALIDATION_RESULT]`;
+        }
+        console.log(`[LEVEL21C] Step0 ran: valid=${step0Result.prior_thesis_still_valid}, tension=${step0Result.thesis_tension_level}, dispatch=${dispatchResult.dispatched_step_type}`);
+      } catch (c21Err) {
+        console.warn("[LEVEL21C] Step0 execution failed (non-fatal):", c21Err);
+      }
+    }
+    // ── LEVEL21C END ────────────────────────────────────────────────────────────────────────────────
     const jsonOnlySystemMsg = useJsonOnlyMode ? buildStep3JsonOnlySystemMessage() : "";
     const jsonOnlyUserMsg = useJsonOnlyMode ? buildStep3JsonOnlyUserMessage({
       ticker: primaryTicker,

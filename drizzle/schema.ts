@@ -451,3 +451,21 @@ export const cycleEngineCache = mysqlTable("cycle_engine_cache", {
 });
 export type CycleEngineCache = typeof cycleEngineCache.$inferSelect;
 export type InsertCycleEngineCache = typeof cycleEngineCache.$inferInsert;
+
+// ─── Decision History (records each DecisionStrip output) ────────────────────
+export const decisionHistory = mysqlTable("decision_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  ticker: varchar("ticker", { length: 32 }).notNull(),
+  action: varchar("action", { length: 16 }).notNull(),
+  state: varchar("state", { length: 64 }),
+  timingSignal: text("timing_signal"),
+  whySurface: text("why_surface"),
+  whyTrend: text("why_trend"),
+  whyHidden: text("why_hidden"),
+  cycle: varchar("cycle", { length: 64 }),
+  source: varchar("source", { length: 32 }).notNull().default("manual"),
+  createdAt: bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type DecisionHistoryRow = typeof decisionHistory.$inferSelect;
+export type InsertDecisionHistory = typeof decisionHistory.$inferInsert;

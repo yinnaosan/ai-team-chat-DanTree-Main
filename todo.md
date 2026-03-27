@@ -2580,3 +2580,13 @@
 ## AGENTS_MD_INTEGRATION
 - [x] 创建 /AGENTS.md（7个章节：系统概览/核心原则/组件角色/硬性规则/UI原则/开发规则/未来层级）
 - [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## DECISION_HISTORY_FOUNDATION
+- [x] DB: decision_history 表（11字段）+ drizzle schema 同步
+- [x] server/db.ts: saveDecisionHistory() + listDecisionHistory(userId) helpers
+- [x] server/routers.ts: decisionHistory.save + decisionHistory.list protectedProcedures
+- [x] ResearchWorkspace: DecisionStrip 生成后自动触发 save mutation
+- [x] UI: DecisionHistoryPanel 组件（Column 4 轻量面板，显示最近决策记录）
+- [x] ResearchWorkspace Column 4 接入 DecisionHistoryPanel
+- [x] TSC 0 错误，测试通过，保存检查点
+- [x] 输出 EXECUTION_FEEDBACK_PROTOCOL

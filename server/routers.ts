@@ -5675,6 +5675,62 @@ except Exception as e:
       }),
   }),
 
+  decisionHistory: router({
+    save: protectedProcedure
+      .input(z.object({
+        ticker: z.string().min(1).max(32),
+        action: z.string().min(1).max(16),
+        state: z.string().optional(),
+        timingSignal: z.string().optional(),
+        whySurface: z.string().optional(),
+        whyTrend: z.string().optional(),
+        whyHidden: z.string().optional(),
+        cycle: z.string().optional(),
+        source: z.enum(["manual", "candidate", "radar"]).default("manual"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) throw new Error("DB unavailable");
+        const { decisionHistory } = await import("../drizzle/schema");
+        const [row] = await db.insert(decisionHistory).values({
+          userId: ctx.user.id,
+          ticker: input.ticker.toUpperCase(),
+          action: input.action,
+          state: input.state ?? null,
+          timingSignal: input.timingSignal ?? null,
+          whySurface: input.whySurface ?? null,
+          whyTrend: input.whyTrend ?? null,
+          whyHidden: input.whyHidden ?? null,
+          cycle: input.cycle ?? null,
+          source: input.source,
+          createdAt: Date.now(),
+        });
+        return { saved: true, id: (row as any)?.insertId ?? null };
+      }),
+
+    list: protectedProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(20),
+        ticker: z.string().optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return [];
+        const { decisionHistory } = await import("../drizzle/schema");
+        const { desc, eq, and } = await import("drizzle-orm");
+        const conditions = [eq(decisionHistory.userId, ctx.user.id)];
+        if (input.ticker) {
+          conditions.push(eq(decisionHistory.ticker, input.ticker.toUpperCase()));
+        }
+        return db.select().from(decisionHistory)
+          .where(and(...conditions))
+          .orderBy(desc(decisionHistory.createdAt))
+          .limit(input.limit);
+      }),
+  }),
+
   cycleEngine: router({
     analyze: protectedProcedure
       .input(z.object({

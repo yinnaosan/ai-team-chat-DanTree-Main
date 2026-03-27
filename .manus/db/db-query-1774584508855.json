@@ -1,0 +1,9 @@
+{
+  "query": "\nCREATE TABLE IF NOT EXISTS decision_history (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  user_id INT NOT NULL,\n  ticker VARCHAR(32) NOT NULL,\n  action VARCHAR(16) NOT NULL,\n  state VARCHAR(64),\n  timing_signal TEXT,\n  why_surface TEXT,\n  why_trend TEXT,\n  why_hidden TEXT,\n  cycle VARCHAR(64),\n  source VARCHAR(32) NOT NULL DEFAULT 'manual',\n  created_at BIGINT NOT NULL\n);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute \nCREATE TABLE IF NOT EXISTS decision_history (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  user_id INT NOT NULL,\n  ticker VARCHAR(32) NOT NULL,\n  action VARCHAR(16) NOT NULL,\n  state VARCHAR(64),\n  timing_signal TEXT,\n  why_surface TEXT,\n  why_trend TEXT,\n  why_hidden TEXT,\n  cycle VARCHAR(64),\n  source VARCHAR(32) NOT NULL DEFAULT 'manual',\n  created_at BIGINT NOT NULL\n);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 644
+}

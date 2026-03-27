@@ -44,6 +44,7 @@ import { ActionPanel } from "@/components/ActionPanel";
 import { DecisionStrip } from "@/components/DecisionStrip";
 import { OpportunityRadarCard, CandidatePoolCard, type CandidateSelectPayload } from "@/components/OpportunityRadarCard";
 import { CycleEngineCard } from "@/components/CycleEngineCard";
+import { DecisionHistoryPanel } from "@/components/DecisionHistoryPanel";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -1890,6 +1891,10 @@ export default function ResearchWorkspacePage() {
   // ── SELECT → Research Bridge ──
   const updateCandidateStatusMutation = trpc.candidates.updateStatus.useMutation();
 
+  // ── Decision History Auto-Record mutation (useEffect placed after level4Result declaration below) ──
+  const saveDecisionHistoryMutation = trpc.decisionHistory.save.useMutation();
+  const autoRecordedRef = React.useRef<string | null>(null);
+
   const handleCandidateSelect = useCallback(
     (payload: CandidateSelectPayload & { candidateId?: number }) => {
       // Build analysis query: prefer first ticker if available, else use title
@@ -1954,6 +1959,29 @@ export default function ResearchWorkspacePage() {
   const outputMode = lastAssistantMsg?.metadata?.outputMode;
   const level4Result = lastAssistantMsg?.metadata?.level4Result ?? null;
   const risks = answerObject?.risks;
+
+  // ── Decision History Auto-Record ──
+  React.useEffect(() => {
+    if (!level4Result || !currentTicker) return;
+    const r = level4Result as Record<string, unknown>;
+    const action = (r.action ?? r.ACTION ?? r.recommendation ?? "") as string;
+    if (!action) return;
+    const recordKey = `${currentTicker}-${action}-${lastAssistantMsg?.id ?? 0}`;
+    if (autoRecordedRef.current === recordKey) return;
+    autoRecordedRef.current = recordKey;
+    saveDecisionHistoryMutation.mutate({
+      ticker: currentTicker,
+      action: String(action).toUpperCase().slice(0, 16),
+      state: (r.state ?? r.STATE ?? r.status ?? "") as string | undefined,
+      timingSignal: (r.timing ?? r.TIMING ?? r.timingSignal ?? "") as string | undefined,
+      whySurface: (r.whySurface ?? r.why_surface ?? r.surface ?? "") as string | undefined,
+      whyTrend: (r.whyTrend ?? r.why_trend ?? r.trend ?? "") as string | undefined,
+      whyHidden: (r.whyHidden ?? r.why_hidden ?? r.hidden ?? "") as string | undefined,
+      cycle: (r.cycle ?? r.CYCLE ?? "") as string | undefined,
+      source: "manual",
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level4Result, currentTicker, lastAssistantMsg?.id]);
 
   const alphaFactorsData = useMemo(() => lastAssistantMsg?.content ? parseAlphaFactors(lastAssistantMsg.content) : null, [lastAssistantMsg?.content]);
   const healthScoreData = useMemo(() => lastAssistantMsg?.content ? parseHealthScore(lastAssistantMsg.content) : null, [lastAssistantMsg?.content]);
@@ -2776,6 +2804,8 @@ export default function ResearchWorkspacePage() {
               <CandidatePoolCard onSelectCandidate={handleCandidateSelect} />
               {/* Macro Cycle Engine */}
               <CycleEngineCard />
+              {/* Decision History — auto-archived records */}
+              <DecisionHistoryPanel />
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>

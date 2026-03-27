@@ -1,0 +1,28 @@
+# AI Team Reports — Manus → GPT
+
+此文件夹存放所有 Manus 向 GPT 递交的内部技术报告。
+
+## 命名规范
+
+```
+{MODULE_ID}_RETURN_REPORT.md
+```
+
+例：`LEVEL21B_RETURN_REPORT.md`
+
+## 报告标准结构
+
+每份报告必须包含以下部分：
+
+1. **Header** — MODULE_ID / DATE / STATUS / CHECKPOINT / 验证结果
+2. **PHASE COMPLETION MATRIX** — 各 Phase 交付物与状态表格
+3. **BEHAVIORAL CONTRACT** — 行为规则代码块（供 GPT 直接消费）
+4. **FIELDS ADDED / CHANGED** — 新增或变更的数据字段清单
+5. **OPEN ITEMS** — 待 GPT 决策的未决事项（编号列表）
+6. **GUARANTEES** — 零副作用保证（LLM 调用数、向后兼容性、非致命性）
+
+## 报告索引
+
+| 文件 | 模块 | 日期 | 状态 |
+|---|---|---|---|
+| [LEVEL21B_RETURN_REPORT.md](./LEVEL21B_RETURN_REPORT.md) | DANTREE_LEVEL21B_HISTORY_CONTROL | 2026-03-27 | COMPLETE |

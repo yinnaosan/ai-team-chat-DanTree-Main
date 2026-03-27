@@ -2,11 +2,22 @@
  * DANTREE_LEVEL2 Phase6: Loop Stop Controller
  * Determines whether the reasoning loop should stop or continue.
  * Enforces hard stops and convergence detection.
+ *
+ * LEVEL21B: Extended with delta-driven stop/continue logic.
+ *   - DeltaStopEvaluation from historyBootstrap drives stop decision
+ *   - History reaffirmation → early stop allowed
+ *   - Action change → require thesis_update step before stop
+ *   - Thesis invalidated/reversed → must continue until coherent
+ *   - HistoryControlSummary is attached to StopDecision for frontend trace
  */
 
 import type { LoopState } from "./loopStateTriggerEngine";
 import type { EvidenceDelta } from "./evidenceDeltaEngine";
 import type { UpdatedVerdict } from "./verdictUpdater";
+import type {
+  DeltaStopEvaluation,
+  HistoryControlSummary,
+} from "./historyBootstrap";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +27,12 @@ export interface StopDecision {
   stop_message: string;
   iterations_completed: number;
   final_convergence_signal: "converged" | "diverged" | "inconclusive" | "forced_stop";
+
+  // LEVEL21B: History control trace
+  history_control_summary: HistoryControlSummary | null;
+  delta_stop_applied: boolean;
+  delta_stop_reason: string;
+  require_thesis_update_step: boolean;
 }
 
 export type StopReason =
@@ -25,21 +42,39 @@ export type StopReason =
   | "verdict_reversed"       // Verdict was reversed — stop and report
   | "high_confidence"        // Confidence reached high — no more passes needed
   | "no_improvement"         // Second pass added nothing material
-  | "error_fallback";        // Second pass failed — stop gracefully
+  | "error_fallback"         // Second pass failed — stop gracefully
+  | "history_reaffirmed"     // LEVEL21B: prior action reaffirmed — early stop
+  | "history_delta_stop"     // LEVEL21B: delta evaluation forced stop
+  | "history_thesis_update"; // LEVEL21B: thesis update step required before stop
 
 // ── Main Function ─────────────────────────────────────────────────────────────
 
 /**
  * Determine whether the reasoning loop should stop.
  * Called after each second pass completes.
+ *
+ * LEVEL21B: deltaStopEval and historyControlSummary are optional inputs.
+ * When provided, they take precedence over standard convergence logic
+ * for reaffirmation and reconsideration cases.
  */
 export function evaluateStopCondition(params: {
   loopState: LoopState;
   evidenceDelta: EvidenceDelta;
   updatedVerdict: UpdatedVerdict;
   secondPassSucceeded: boolean;
+  deltaStopEval?: DeltaStopEvaluation;         // LEVEL21B
+  historyControlSummary?: HistoryControlSummary; // LEVEL21B
 }): StopDecision {
-  const { loopState, evidenceDelta, updatedVerdict, secondPassSucceeded } = params;
+  const {
+    loopState,
+    evidenceDelta,
+    updatedVerdict,
+    secondPassSucceeded,
+    deltaStopEval,
+    historyControlSummary,
+  } = params;
+
+  const historyTrace = historyControlSummary ?? null;
 
   // ── Hard stops ────────────────────────────────────────────────────────────
 
@@ -51,6 +86,10 @@ export function evaluateStopCondition(params: {
       stop_message: "Second pass execution failed. Proceeding with Level1 output as final.",
       iterations_completed: loopState.iteration,
       final_convergence_signal: "forced_stop",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -62,6 +101,10 @@ export function evaluateStopCondition(params: {
       stop_message: `Maximum iterations reached (${loopState.iteration}/${loopState.max_iterations}). Proceeding with best available synthesis.`,
       iterations_completed: loopState.iteration,
       final_convergence_signal: evidenceDelta.convergence_signal === "converged" ? "converged" : "forced_stop",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -73,7 +116,60 @@ export function evaluateStopCondition(params: {
       stop_message: `LLM budget exhausted (${loopState.budget_used}/${loopState.budget_max} calls). Proceeding with current synthesis.`,
       iterations_completed: loopState.iteration,
       final_convergence_signal: "forced_stop",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
+  }
+
+  // ── LEVEL21B: Delta-Driven Stop/Continue ─────────────────────────────────
+
+  if (deltaStopEval) {
+    // Case 1: Reaffirmation — thesis and action unchanged → early stop
+    if (deltaStopEval.reaffirmation) {
+      return {
+        should_stop: true,
+        stop_reason: "history_reaffirmed",
+        stop_message: `History reaffirmation: ${deltaStopEval.stop_reason}`,
+        iterations_completed: loopState.iteration,
+        final_convergence_signal: "converged",
+        history_control_summary: historyTrace,
+        delta_stop_applied: true,
+        delta_stop_reason: deltaStopEval.stop_reason,
+        require_thesis_update_step: false,
+      };
+    }
+
+    // Case 2: Reconsideration + thesis_update required → must not stop yet
+    if (deltaStopEval.reconsideration && deltaStopEval.require_thesis_update_step) {
+      return {
+        should_stop: false,
+        stop_reason: "history_thesis_update",
+        stop_message: `History reconsideration: ${deltaStopEval.stop_reason} — thesis_update step required`,
+        iterations_completed: loopState.iteration,
+        final_convergence_signal: "inconclusive",
+        history_control_summary: historyTrace,
+        delta_stop_applied: true,
+        delta_stop_reason: deltaStopEval.stop_reason,
+        require_thesis_update_step: true,
+      };
+    }
+
+    // Case 3: High materiality change → continue
+    if (deltaStopEval.change_materiality === "high" && !deltaStopEval.reaffirmation) {
+      return {
+        should_stop: false,
+        stop_reason: "history_delta_stop",
+        stop_message: `High-materiality change detected: ${deltaStopEval.stop_reason} — continuing loop`,
+        iterations_completed: loopState.iteration,
+        final_convergence_signal: "inconclusive",
+        history_control_summary: historyTrace,
+        delta_stop_applied: true,
+        delta_stop_reason: deltaStopEval.stop_reason,
+        require_thesis_update_step: deltaStopEval.require_thesis_update_step,
+      };
+    }
   }
 
   // ── Quality-based stops ───────────────────────────────────────────────────
@@ -86,6 +182,10 @@ export function evaluateStopCondition(params: {
       stop_message: "Verdict reversed by second pass. Stopping loop to prevent further divergence. Reporting updated verdict.",
       iterations_completed: loopState.iteration,
       final_convergence_signal: "diverged",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -97,6 +197,10 @@ export function evaluateStopCondition(params: {
       stop_message: `High confidence achieved after ${loopState.iteration} iteration(s). Loop complete.`,
       iterations_completed: loopState.iteration,
       final_convergence_signal: "converged",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -108,6 +212,10 @@ export function evaluateStopCondition(params: {
       stop_message: `Evidence converged: ${evidenceDelta.convergence_reason}`,
       iterations_completed: loopState.iteration,
       final_convergence_signal: "converged",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -123,6 +231,10 @@ export function evaluateStopCondition(params: {
       stop_message: "Second pass added no material new information. Stopping loop to conserve resources.",
       iterations_completed: loopState.iteration,
       final_convergence_signal: "inconclusive",
+      history_control_summary: historyTrace,
+      delta_stop_applied: false,
+      delta_stop_reason: "",
+      require_thesis_update_step: false,
     };
   }
 
@@ -133,11 +245,16 @@ export function evaluateStopCondition(params: {
     stop_message: `Iteration ${loopState.iteration} complete. Evidence score improved by ${(evidenceDelta.evidence_score_delta * 100).toFixed(1)}%. Continuing loop.`,
     iterations_completed: loopState.iteration,
     final_convergence_signal: "inconclusive",
+    history_control_summary: historyTrace,
+    delta_stop_applied: false,
+    delta_stop_reason: "",
+    require_thesis_update_step: false,
   };
 }
 
 /**
  * Build a human-readable loop summary for inclusion in the final report.
+ * LEVEL21B: Includes history control summary when present.
  */
 export function buildLoopSummary(
   stopDecision: StopDecision,
@@ -162,6 +279,16 @@ export function buildLoopSummary(
     parts.push(`证据强度：${scoreChange}，置信度：${evidenceDelta.confidence_before} → ${evidenceDelta.confidence_after}。`);
   } else if (stopDecision.final_convergence_signal === "diverged") {
     parts.push(`⚠️ 二次分析发现重要分歧，请重点关注修正后的判断。`);
+  }
+
+  // LEVEL21B: History control summary
+  if (stopDecision.delta_stop_applied && stopDecision.history_control_summary) {
+    const hcs = stopDecision.history_control_summary;
+    if (hcs.action_changed) {
+      parts.push(`**[历史对比]** ${hcs.summary_line}`);
+    } else if (hcs.thesis_changed) {
+      parts.push(`**[历史追踪]** ${hcs.summary_line}`);
+    }
   }
 
   return parts.join(" ");

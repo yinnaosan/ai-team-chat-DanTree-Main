@@ -2320,10 +2320,10 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     let historyContextBlock = "";
     if (useJsonOnlyMode && primaryTicker) {
       try {
-        historyBootstrapResult = await buildHistoryBootstrap({ userId, ticker: primaryTicker });
+        historyBootstrapResult = await buildHistoryBootstrap({ userId, ticker: primaryTicker, currentQuery: taskDescription });
         if (historyBootstrapResult.has_prior_history) {
           historyContextBlock = buildDecisionHistoryContextBlock(historyBootstrapResult);
-          console.log(`[LEVEL21] History bootstrap: ${historyBootstrapResult.prior_decision_count} records, pattern: ${historyBootstrapResult.action_pattern}`);
+          console.log(`[LEVEL21B] History bootstrap: ${historyBootstrapResult.prior_decision_count} records, pattern: ${historyBootstrapResult.action_pattern}`);
         }
       } catch (histErr) {
         console.warn("[LEVEL21] History bootstrap failed (non-fatal):", histErr);
@@ -2742,6 +2742,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           structuredSynthesis,
           memorySeed: memorySeedForEngine,
           memoryConflict: memoryConflictForEngine,
+          historyBootstrap: historyBootstrapResult ?? undefined,  // LEVEL21B
         });
 
          if (triggerDecision.should_trigger) {
@@ -2797,11 +2798,36 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
             });
 
             // Evaluate stop condition
+            // LEVEL21B: compute delta stop eval before calling evaluateStopCondition
+            const level21bDeltaStopEval = historyBootstrapResult
+              ? (() => {
+                  const { evaluateDeltaDrivenStop, buildHistoryControlSummary } = require('./historyBootstrap');
+                  return evaluateDeltaDrivenStop({
+                    bootstrap: historyBootstrapResult,
+                    currentAction: level1a3Output.verdict?.slice(0, 30) ?? "",
+                    currentVerdict: level1a3Output.verdict ?? "",
+                    currentConfidence: level1a3Output.confidence ?? "unknown",
+                  });
+                })()
+              : undefined;
+            const level21bHistoryControlSummary = historyBootstrapResult
+              ? (() => {
+                  const { buildHistoryControlSummary } = require('./historyBootstrap');
+                  return buildHistoryControlSummary({
+                    bootstrap: historyBootstrapResult,
+                    currentAction: level1a3Output.verdict?.slice(0, 30) ?? "",
+                    currentVerdict: level1a3Output.verdict ?? "",
+                    currentConfidence: level1a3Output.confidence ?? "unknown",
+                  });
+                })()
+              : undefined;
             const stopDecision = evaluateStopCondition({
               loopState,
               evidenceDelta,
               updatedVerdict,
               secondPassSucceeded: true,
+              deltaStopEval: level21bDeltaStopEval,
+              historyControlSummary: level21bHistoryControlSummary,
             });
 
             // Build converged output
@@ -2833,8 +2859,21 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               thesis_delta: level21Deltas ? JSON.stringify(level21Deltas.thesis_delta) : "",
               action_delta: level21Deltas ? JSON.stringify(level21Deltas.action_delta) : "",
               step0_ran: !!(historyBootstrapResult?.has_prior_history),
+              // LEVEL21B: history control trace
+              history_requires_control: historyBootstrapResult?.history_requires_control ?? false,
+              revalidation_mandatory: historyBootstrapResult?.revalidation_mandatory ?? false,
+              history_control_reason: historyBootstrapResult?.history_control_reason ?? "",
+              preferred_probe_order: historyBootstrapResult?.preferred_probe_order ?? [],
+              history_controlled: loopState.history_controlled ?? false,
+              controller_path: loopState.controller_path ?? [],
+              delta_stop_applied: stopDecision.delta_stop_applied ?? false,
+              delta_stop_reason: stopDecision.delta_stop_reason ?? "",
+              require_thesis_update_step: stopDecision.require_thesis_update_step ?? false,
+              history_control_summary_line: stopDecision.history_control_summary?.summary_line ?? "",
+              action_changed: stopDecision.history_control_summary?.action_changed ?? false,
+              thesis_changed: stopDecision.history_control_summary?.thesis_changed ?? false,
             };
-            // ── LEVEL21 END ────────────────────────────────────────────────────────────────────────────────
+            // ── LEVEL21B END ────────────────────────────────────────────────────────────────────────────────
             convergedOutput = buildConvergedOutput({
               level1Output: level1a3Output,
               loopRan: true,

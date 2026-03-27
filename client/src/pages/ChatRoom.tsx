@@ -160,6 +160,26 @@ interface Msg {
       verdict_changed: boolean;
       change_type: string;
       loop_summary: string;
+      // LEVEL21 history fields
+      history_bootstrap_used?: boolean;
+      history_record_count?: number;
+      history_action_pattern?: string;
+      history_days_since_last?: number;
+      history_revalidation_summary?: string;
+      step0_ran?: boolean;
+      // LEVEL21B history control trace
+      history_requires_control?: boolean;
+      revalidation_mandatory?: boolean;
+      history_control_reason?: string;
+      preferred_probe_order?: string[];
+      history_controlled?: boolean;
+      controller_path?: string[];
+      delta_stop_applied?: boolean;
+      delta_stop_reason?: string;
+      require_thesis_update_step?: boolean;
+      history_control_summary_line?: string;
+      action_changed?: boolean;
+      thesis_changed?: boolean;
     };
     // 附件信息（用户消息中显示已附加的文件）
     attachments?: Array<{ filename: string; mimeType: string; size: number; s3Url: string }>;

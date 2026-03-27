@@ -2,6 +2,8 @@
  * DANTREE_LEVEL2 Phase7: Final Converged Output Builder
  * Merges Level1 output with Level2 reasoning loop results into a single
  * authoritative final output. This is the last step before report rendering.
+ *
+ * LEVEL21B: Extended loop_metadata with history control trace fields.
  */
 
 import type { FinalOutputSchema } from "./outputSchemaValidator";
@@ -40,6 +42,19 @@ export interface ConvergedOutput {
     thesis_delta?: string;
     action_delta?: string;
     step0_ran?: boolean;
+    // ── LEVEL21B: History Control Trace fields ────────────────────────────
+    history_requires_control?: boolean;
+    revalidation_mandatory?: boolean;
+    history_control_reason?: string;
+    preferred_probe_order?: string[];
+    history_controlled?: boolean;
+    controller_path?: string[];
+    delta_stop_applied?: boolean;
+    delta_stop_reason?: string;
+    require_thesis_update_step?: boolean;
+    history_control_summary_line?: string;
+    action_changed?: boolean;
+    thesis_changed?: boolean;
   };
 }
 
@@ -48,6 +63,8 @@ export interface ConvergedOutput {
 /**
  * Build the final converged output by merging Level1 and Level2 results.
  * If Level2 loop did not run, returns Level1 output unchanged.
+ *
+ * LEVEL21B: level21 parameter extended with history control trace fields.
  */
 export function buildConvergedOutput(params: {
   level1Output: FinalOutputSchema;
@@ -56,7 +73,7 @@ export function buildConvergedOutput(params: {
   evidenceDelta?: EvidenceDelta;
   updatedVerdict?: UpdatedVerdict;
   stopDecision?: StopDecision;
-  // LEVEL21 history-driven fields (optional, non-breaking)
+  // LEVEL21 + LEVEL21B history-driven fields (optional, non-breaking)
   level21?: {
     history_bootstrap_used: boolean;
     history_record_count: number;
@@ -66,6 +83,20 @@ export function buildConvergedOutput(params: {
     thesis_delta: string;
     action_delta: string;
     step0_ran: boolean;
+    // LEVEL21B: control trace
+    history_requires_control?: boolean;
+    revalidation_mandatory?: boolean;
+    history_control_reason?: string;
+    preferred_probe_order?: string[];
+    history_controlled?: boolean;
+    controller_path?: string[];
+    delta_stop_applied?: boolean;
+    delta_stop_reason?: string;
+    require_thesis_update_step?: boolean;
+    history_control_summary_line?: string;
+    action_changed?: boolean;
+    thesis_changed?: boolean;
+    change_type?: string;
   };
 }): ConvergedOutput {
   const { level1Output, loopRan, loopState, evidenceDelta, updatedVerdict, stopDecision } = params;
@@ -96,6 +127,19 @@ export function buildConvergedOutput(params: {
         thesis_delta: "",
         action_delta: "",
         step0_ran: false,
+        // LEVEL21B defaults
+        history_requires_control: false,
+        revalidation_mandatory: false,
+        history_control_reason: "",
+        preferred_probe_order: [],
+        history_controlled: false,
+        controller_path: [],
+        delta_stop_applied: false,
+        delta_stop_reason: "",
+        require_thesis_update_step: false,
+        history_control_summary_line: "",
+        action_changed: false,
+        thesis_changed: false,
       },
     };
   }
@@ -131,6 +175,27 @@ export function buildConvergedOutput(params: {
     discussion: mergeDiscussion(level1Output.discussion, updatedVerdict, evidenceDelta),
   };
 
+  // LEVEL21B: Extract delta stop fields from stopDecision
+  const deltaStopFields = {
+    delta_stop_applied: stopDecision.delta_stop_applied ?? false,
+    delta_stop_reason: stopDecision.delta_stop_reason ?? "",
+    require_thesis_update_step: stopDecision.require_thesis_update_step ?? false,
+    history_control_summary_line: stopDecision.history_control_summary?.summary_line ?? "",
+    action_changed: stopDecision.history_control_summary?.action_changed ?? false,
+    thesis_changed: stopDecision.history_control_summary?.thesis_changed ?? false,
+  };
+
+  // LEVEL21B: Extract loop state history control fields
+  const loopStateHistoryFields = params.loopState
+    ? {
+        history_controlled: params.loopState.history_controlled ?? false,
+        controller_path: params.loopState.controller_path ?? [],
+      }
+    : {
+        history_controlled: false,
+        controller_path: [] as string[],
+      };
+
   return {
     final_schema: mergedSchema,
     loop_metadata: {
@@ -146,7 +211,7 @@ export function buildConvergedOutput(params: {
       verdict_changed: updatedVerdict.verdict_changed,
       change_type: updatedVerdict.change_type,
       loop_summary: loopSummary,
-      // LEVEL21: pass through history-driven fields if provided
+      // LEVEL21 + LEVEL21B: pass through history-driven fields if provided
       ...(params.level21 ?? {
         history_bootstrap_used: false,
         history_record_count: 0,
@@ -157,6 +222,9 @@ export function buildConvergedOutput(params: {
         action_delta: "",
         step0_ran: false,
       }),
+      // LEVEL21B: delta stop + loop state history fields (override level21 if present)
+      ...deltaStopFields,
+      ...loopStateHistoryFields,
     },
   };
 }

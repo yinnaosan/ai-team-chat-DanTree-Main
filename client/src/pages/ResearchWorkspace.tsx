@@ -45,6 +45,7 @@ import { DecisionStrip } from "@/components/DecisionStrip";
 import { OpportunityRadarCard, CandidatePoolCard, type CandidateSelectPayload } from "@/components/OpportunityRadarCard";
 import { CycleEngineCard } from "@/components/CycleEngineCard";
 import { DecisionHistoryPanel } from "@/components/DecisionHistoryPanel";
+import { DecisionAnalyticsPanel } from "@/components/DecisionAnalyticsPanel";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -2806,6 +2807,8 @@ export default function ResearchWorkspacePage() {
               <CycleEngineCard />
               {/* Decision History — auto-archived records */}
               <DecisionHistoryPanel />
+              {/* Decision Analytics — lightweight pattern stats */}
+              <DecisionAnalyticsPanel />
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>

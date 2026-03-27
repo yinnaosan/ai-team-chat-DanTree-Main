@@ -5729,6 +5729,63 @@ except Exception as e:
           .orderBy(desc(decisionHistory.createdAt))
           .limit(input.limit);
       }),
+
+    analytics: protectedProcedure
+      .input(z.object({
+        days: z.number().min(7).max(365).default(30),
+      }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return { actionDistribution: [], topTickers: [], timeline: [] };
+        const { decisionHistory } = await import("../drizzle/schema");
+        const { desc, eq, gte } = await import("drizzle-orm");
+
+        const since = Date.now() - input.days * 24 * 60 * 60 * 1000;
+        const { and: andOp } = await import("drizzle-orm");
+        const rows = await db.select().from(decisionHistory)
+          .where(andOp(eq(decisionHistory.userId, ctx.user.id), gte(decisionHistory.createdAt, since)))
+          .orderBy(desc(decisionHistory.createdAt));
+
+        // Action distribution
+        const actionMap: Record<string, number> = {};
+        for (const r of rows) {
+          const a = r.action.toUpperCase();
+          actionMap[a] = (actionMap[a] ?? 0) + 1;
+        }
+        const actionDistribution = Object.entries(actionMap)
+          .map(([action, count]) => ({ action, count }))
+          .sort((a, b) => b.count - a.count);
+
+        // Top tickers
+        const tickerMap: Record<string, number> = {};
+        for (const r of rows) {
+          tickerMap[r.ticker] = (tickerMap[r.ticker] ?? 0) + 1;
+        }
+        const topTickers = Object.entries(tickerMap)
+          .map(([ticker, count]) => ({ ticker, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+
+        // Timeline: group by day (YYYY-MM-DD)
+        const dayMap: Record<string, number> = {};
+        for (const r of rows) {
+          const d = new Date(r.createdAt);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          dayMap[key] = (dayMap[key] ?? 0) + 1;
+        }
+        const timeline = Object.entries(dayMap)
+          .map(([date, count]) => ({ date, count }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        return {
+          total: rows.length,
+          actionDistribution,
+          topTickers,
+          timeline,
+          days: input.days,
+        };
+      }),
   }),
 
   cycleEngine: router({

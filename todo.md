@@ -2590,3 +2590,10 @@
 - [x] ResearchWorkspace Column 4 接入 DecisionHistoryPanel
 - [x] TSC 0 错误，测试通过，保存检查点
 - [x] 输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## DECISION_HISTORY_ANALYTICS
+- [x] server/routers.ts: decisionHistory.analytics protectedProcedure（action 分布 + top tickers + 时间线）
+- [x] UI: DecisionAnalyticsPanel 组件（action 分布饼/条 + top tickers + 简单时间线）
+- [x] ResearchWorkspace Column 4 接入 DecisionAnalyticsPanel
+- [x] TSC 0 错误，测试通过，保存检查点
+- [x] 输出 EXECUTION_FEEDBACK_PROTOCOL

@@ -2576,3 +2576,7 @@
 - [x] ResearchWorkspace Column 4 接入 CycleEngineCard
 - [x] TSC 0 错误，测试通过
 - [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## AGENTS_MD_INTEGRATION
+- [x] 创建 /AGENTS.md（7个章节：系统概览/核心原则/组件角色/硬性规则/UI原则/开发规则/未来层级）
+- [x] 保存检查点，输出 EXECUTION_FEEDBACK_PROTOCOL

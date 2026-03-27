@@ -5786,6 +5786,40 @@ except Exception as e:
           days: input.days,
         };
       }),
+
+    checkTickers: protectedProcedure
+      .input(z.object({
+        tickers: z.array(z.string()).min(1).max(50),
+      }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const db = await getDb();
+        if (!db) return {};
+        const { decisionHistory } = await import("../drizzle/schema");
+        const { desc, eq, inArray } = await import("drizzle-orm");
+
+        const normalizedTickers = input.tickers.map(t => t.toUpperCase());
+
+        // Get most recent record per ticker for this user
+        const rows = await db.select({
+          ticker: decisionHistory.ticker,
+          action: decisionHistory.action,
+          createdAt: decisionHistory.createdAt,
+        })
+          .from(decisionHistory)
+          .where(eq(decisionHistory.userId, ctx.user.id))
+          .orderBy(desc(decisionHistory.createdAt));
+
+        // Build map: ticker → { action, createdAt } (first = most recent)
+        const result: Record<string, { action: string; createdAt: number }> = {};
+        for (const row of rows) {
+          const t = row.ticker.toUpperCase();
+          if (normalizedTickers.includes(t) && !result[t]) {
+            result[t] = { action: row.action, createdAt: row.createdAt };
+          }
+        }
+        return result;
+      }),
   }),
 
   cycleEngine: router({

@@ -472,6 +472,12 @@ export interface CandidateSelectPayload {
   candidateId?: number;  // DB row id for auto-PROMOTED update
 }
 
+// ── Action color map for analyzed badge detail ──────────────────────────────
+const ANALYZED_ACTION_COLOR: Record<string, string> = {
+  BUY: "#10b981", HOLD: "#3b82f6", WAIT: "#f59e0b",
+  SELL: "#ef4444", SELECT: "#8b5cf6", WATCH: "#6366f1", PASS: "#6b7280",
+};
+
 export function CandidatePoolCard({
   onSelectCandidate,
 }: {
@@ -491,6 +497,24 @@ export function CandidatePoolCard({
   });
 
   const rows = (candidates ?? []) as CandidateRow[];
+
+  // Collect all unique tickers from candidate pool for batch check
+  const allTickers = Array.from(
+    new Set(
+      rows.flatMap(r =>
+        r.relatedTickers ? r.relatedTickers.split(",").filter(Boolean).map(t => t.trim().toUpperCase()) : []
+      )
+    )
+  );
+
+  const { data: analyzedMap } = trpc.decisionHistory.checkTickers.useQuery(
+    { tickers: allTickers },
+    {
+      enabled: allTickers.length > 0,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   return (
     <div className="border border-[#1a1f2e] rounded bg-[#06080f]">
@@ -551,6 +575,13 @@ export function CandidatePoolCard({
               const isWaitOpportunity = row.opportunityState === "WAIT";
               const isPass = candidateStatus === "PASS";
 
+              // Check if any ticker in this candidate has been analyzed
+              const analyzedTicker = tickers.find(t => analyzedMap?.[t.toUpperCase()]);
+              const analyzedInfo = analyzedTicker ? analyzedMap?.[analyzedTicker.toUpperCase()] : undefined;
+              const analyzedActionColor = analyzedInfo
+                ? (ANALYZED_ACTION_COLOR[analyzedInfo.action.toUpperCase()] ?? "#94a3b8")
+                : undefined;
+
               return (
                 <div
                   key={row.id}
@@ -592,6 +623,20 @@ export function CandidatePoolCard({
                               {tickers.slice(0, 2).join(" ")}
                             </span>
                           </>
+                        )}
+                        {/* 已分析 badge */}
+                        {analyzedInfo && (
+                          <span
+                            className="text-[7px] font-mono px-1 py-0 rounded border ml-auto shrink-0"
+                            style={{
+                              color: analyzedActionColor,
+                              borderColor: `${analyzedActionColor}40`,
+                              background: `${analyzedActionColor}12`,
+                            }}
+                            title={`最近分析: ${analyzedInfo.action} · ${new Date(analyzedInfo.createdAt).toLocaleDateString()}`}
+                          >
+                            已分析 {analyzedInfo.action}
+                          </span>
                         )}
                       </div>
                     </div>

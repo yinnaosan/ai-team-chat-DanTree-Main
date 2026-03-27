@@ -2597,3 +2597,9 @@
 - [x] ResearchWorkspace Column 4 接入 DecisionAnalyticsPanel
 - [x] TSC 0 错误，测试通过，保存检查点
 - [x] 输出 EXECUTION_FEEDBACK_PROTOCOL
+
+## HISTORY_TO_CANDIDATE_LINK
+- [x] server/routers.ts: decisionHistory.checkTickers procedure（批量查询 ticker 分析状态）
+- [x] CandidatePoolCard: 拉取 checkTickers，候选行显示「已分析」徽章 + hover 最近 action/时间
+- [x] TSC 0 错误，测试通过，保存检查点
+- [x] 输出 EXECUTION_FEEDBACK_PROTOCOL

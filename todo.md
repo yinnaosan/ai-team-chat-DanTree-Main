@@ -2613,3 +2613,14 @@
 - [x] Phase 6: cost/trigger 规则 — 仅在 has_prior_history=true 且 query 有决策相关性时触发，强确认时提前停止
 - [x] Phase 7: TSC 0 错误，回归测试（3个 case），保存检查点
 - [x] 输出 RETURN_PROTOCOL 完整审计报告
+
+## DANTREE LEVEL4 — Execution Layer
+
+- [x] Phase 1: Watchlist State Model — watch schema + trigger condition schema (watchlistEngine.ts)
+- [x] Phase 2: Trigger Engine — 7 trigger types, deterministic, no LLM (watchlistEngine.ts)
+- [x] Phase 3: Action Recommendation Engine — low/medium/high/critical severity mapping (actionRecommendationEngine.ts)
+- [x] Phase 4: Alert + Workflow Output — alert schema, workflow schema, dedup/cooldown (actionRecommendationEngine.ts)
+- [x] Phase 5: State Transitions + Audit — transition tracking, audit summary, reconstructable (watchlistAudit.ts)
+- [x] Phase 6: Cost Safety + Rate Limits — cooldown, eval cap, no-auto-trade safeguard (costSafetyGuard.ts)
+- [x] Phase 7: Validation — 4 test cases + full regression (level4.test.ts)
+- [x] LEVEL4 Return Report → ai-reports/DANTREE_LEVEL4_RETURN_REPORT.md

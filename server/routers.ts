@@ -6155,6 +6155,110 @@ except Exception as e:
       }),
   }),
 
+  // ─── LEVEL4.1 Watchlist Internal API ────────────────────────────────────────
+  watchlist: router({
+    create: protectedProcedure
+      .input(z.object({
+        primaryTicker: z.string().min(1).max(20),
+        watchType: z.string(),
+        thesisSummary: z.string(),
+        priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+        notes: z.string().optional(),
+        triggerConditions: z.array(z.unknown()).optional(),
+        riskConditions: z.array(z.string()).optional(),
+        linkedMemoryIds: z.array(z.string()).optional(),
+        linkedLoopIds: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.createWatch({
+          userId: String(ctx.user.id),
+          ...input,
+        });
+      }),
+
+    list: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.listWatches(String(ctx.user.id));
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ watchId: z.string() }))
+      .query(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.getWatch(input.watchId);
+      }),
+
+    pause: protectedProcedure
+      .input(z.object({ watchId: z.string(), reason: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        await WatchService.pauseWatch(input.watchId, input.reason);
+        return { success: true };
+      }),
+
+    archive: protectedProcedure
+      .input(z.object({ watchId: z.string(), reason: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        await WatchService.archiveWatch(input.watchId, input.reason);
+        return { success: true };
+      }),
+
+    reactivate: protectedProcedure
+      .input(z.object({ watchId: z.string() }))
+      .mutation(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        await WatchService.reactivateWatch(input.watchId);
+        return { success: true };
+      }),
+
+    auditTimeline: protectedProcedure
+      .input(z.object({ watchId: z.string() }))
+      .query(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.getAuditTimeline(input.watchId);
+      }),
+
+    alerts: protectedProcedure
+      .input(z.object({ watchId: z.string() }))
+      .query(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.getAlerts(input.watchId);
+      }),
+
+    workflows: protectedProcedure
+      .input(z.object({ watchId: z.string() }))
+      .query(async ({ input }) => {
+        const { WatchService } = await import("./watchService");
+        return WatchService.getWorkflows(input.watchId);
+      }),
+
+    dryRunBatch: protectedProcedure
+      .input(z.object({ batchSize: z.number().min(1).max(200).optional() }))
+      .mutation(async ({ input }) => {
+        const { SchedulerService } = await import("./watchService");
+        return SchedulerService.batchEvaluateTriggers(
+          async (tickers) => Object.fromEntries(tickers.map(t => [t, { evaluated_at: Date.now() }])),
+          { dry_run: true, batch_size: input.batchSize ?? 50 }
+        );
+      }),
+
+    latestRun: protectedProcedure
+      .query(async () => {
+        const { SchedulerService } = await import("./watchService");
+        return SchedulerService.getLatestRun();
+      }),
+
+    recentRuns: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).optional() }))
+      .query(async ({ input }) => {
+        const { SchedulerService } = await import("./watchService");
+        return SchedulerService.listRecentRuns(input.limit ?? 10);
+      }),
+  }),
+
 });
 
 export type AppRouter = typeof appRouter;

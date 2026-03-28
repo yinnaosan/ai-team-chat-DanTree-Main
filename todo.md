@@ -2624,3 +2624,14 @@
 - [x] Phase 6: Cost Safety + Rate Limits — cooldown, eval cap, no-auto-trade safeguard (costSafetyGuard.ts)
 - [x] Phase 7: Validation — 4 test cases + full regression (level4.test.ts)
 - [x] LEVEL4 Return Report → ai-reports/DANTREE_LEVEL4_RETURN_REPORT.md
+
+## DANTREE LEVEL4.1 — DB + Scheduler + Operational
+
+- [ ] Phase 1: DB Schema — watch_items, watch_audit_log, watch_alerts, watch_workflows, scheduler_runs
+- [ ] Phase 2: Repository + Service Layer — 5 repos + 4 services
+- [ ] Phase 3: Scheduler + Batch Evaluation — batchEvaluateTriggers, dry_run, concurrency lock
+- [ ] Phase 4: Internal API (tRPC) — watch CRUD + manual batch trigger
+- [ ] Phase 5: Observability — audit timeline, scheduler summary, dedup visibility
+- [ ] Phase 6: Recovery + Idempotency — dedup key, scheduler lock, partial failure recovery
+- [ ] Phase 7: Validation — 5 test cases + full regression
+- [ ] LEVEL4.1 Return Report → ai-reports/DANTREE_LEVEL41_RETURN_REPORT.md

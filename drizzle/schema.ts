@@ -509,3 +509,96 @@ export const memoryRecords = mysqlTable("memory_records", {
 export type MemoryRecordRow = typeof memoryRecords.$inferSelect;
 export type InsertMemoryRecord = typeof memoryRecords.$inferInsert;
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DANTREE LEVEL4.1 — Execution Layer Persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
+// watch_items: persisted WatchItem state
+export const watchItems = mysqlTable("watch_items", {
+  watchId:           varchar("watch_id", { length: 64 }).primaryKey(),
+  userId:            varchar("user_id", { length: 64 }).notNull(),
+  primaryTicker:     varchar("primary_ticker", { length: 20 }).notNull(),
+  watchType:         varchar("watch_type", { length: 40 }).notNull(),
+  watchStatus:       varchar("watch_status", { length: 20 }).notNull().default("active"),
+  currentActionBias: varchar("current_action_bias", { length: 10 }).notNull().default("NONE"),
+  thesisSummary:     text("thesis_summary").notNull(),
+  riskConditions:    json("risk_conditions").$type<string[]>().default([]),
+  triggerConditions: json("trigger_conditions").$type<unknown[]>().default([]),
+  priority:          varchar("priority", { length: 20 }).notNull().default("medium"),
+  linkedMemoryIds:   json("linked_memory_ids").$type<string[]>().default([]),
+  linkedLoopIds:     json("linked_loop_ids").$type<string[]>().default([]),
+  notes:             text("notes"),
+  lastEvaluatedAt:   bigintCol("last_evaluated_at", { mode: "number" }),
+  lastTriggeredAt:   bigintCol("last_triggered_at", { mode: "number" }),
+  createdAt:         bigintCol("created_at", { mode: "number" }).notNull(),
+  updatedAt:         bigintCol("updated_at", { mode: "number" }).notNull(),
+});
+export type WatchItemRow = typeof watchItems.$inferSelect;
+export type InsertWatchItem = typeof watchItems.$inferInsert;
+
+// watch_audit_log: append-only audit trail for all watch state transitions
+export const watchAuditLog = mysqlTable("watch_audit_log", {
+  auditId:     varchar("audit_id", { length: 64 }).primaryKey(),
+  watchId:     varchar("watch_id", { length: 64 }).notNull(),
+  eventType:   varchar("event_type", { length: 40 }).notNull(),
+  fromStatus:  varchar("from_status", { length: 40 }),
+  toStatus:    varchar("to_status", { length: 40 }),
+  triggerId:   varchar("trigger_id", { length: 64 }),
+  actionId:    varchar("action_id", { length: 64 }),
+  payloadJson: json("payload_json").$type<Record<string, unknown>>(),
+  createdAt:   bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type WatchAuditLogRow = typeof watchAuditLog.$inferSelect;
+export type InsertWatchAuditLog = typeof watchAuditLog.$inferInsert;
+
+// watch_alerts: persisted alerts with dedup/cooldown support
+export const watchAlerts = mysqlTable("watch_alerts", {
+  alertId:        varchar("alert_id", { length: 64 }).primaryKey(),
+  watchId:        varchar("watch_id", { length: 64 }).notNull(),
+  triggerId:      varchar("trigger_id", { length: 64 }),
+  actionId:       varchar("action_id", { length: 64 }),
+  severity:       varchar("severity", { length: 20 }).notNull(),
+  title:          varchar("title", { length: 255 }).notNull(),
+  message:        text("message").notNull(),
+  workflowStatus: varchar("workflow_status", { length: 30 }).notNull().default("new"),
+  cooldownKey:    varchar("cooldown_key", { length: 128 }).notNull(),
+  schedulerRunId: varchar("scheduler_run_id", { length: 64 }),
+  createdAt:      bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type WatchAlertRow = typeof watchAlerts.$inferSelect;
+export type InsertWatchAlert = typeof watchAlerts.$inferInsert;
+
+// watch_workflows: persisted workflow lifecycle tracking
+export const watchWorkflows = mysqlTable("watch_workflows", {
+  workflowId:     varchar("workflow_id", { length: 64 }).primaryKey(),
+  watchId:        varchar("watch_id", { length: 64 }).notNull(),
+  triggerId:      varchar("trigger_id", { length: 64 }),
+  actionId:       varchar("action_id", { length: 64 }),
+  workflowStep:   varchar("workflow_step", { length: 40 }).notNull().default("triggered"),
+  status:         varchar("status", { length: 20 }).notNull().default("open"),
+  summary:        text("summary"),
+  schedulerRunId: varchar("scheduler_run_id", { length: 64 }),
+  createdAt:      bigintCol("created_at", { mode: "number" }).notNull(),
+  updatedAt:      bigintCol("updated_at", { mode: "number" }).notNull(),
+});
+export type WatchWorkflowRow = typeof watchWorkflows.$inferSelect;
+export type InsertWatchWorkflow = typeof watchWorkflows.$inferInsert;
+
+// scheduler_runs: audit log for every batch evaluation run
+export const schedulerRuns = mysqlTable("scheduler_runs", {
+  runId:          varchar("run_id", { length: 64 }).primaryKey(),
+  startedAt:      bigintCol("started_at", { mode: "number" }).notNull(),
+  finishedAt:     bigintCol("finished_at", { mode: "number" }),
+  runStatus:      varchar("run_status", { length: 20 }).notNull().default("running"),
+  watchesScanned: int("watches_scanned").notNull().default(0),
+  triggersFired:  int("triggers_fired").notNull().default(0),
+  actionsCreated: int("actions_created").notNull().default(0),
+  alertsCreated:  int("alerts_created").notNull().default(0),
+  errorsCount:    int("errors_count").notNull().default(0),
+  abortedEarly:   boolean("aborted_early").notNull().default(false),
+  dryRun:         boolean("dry_run").notNull().default(false),
+  summaryJson:    json("summary_json").$type<Record<string, unknown>>(),
+});
+export type SchedulerRunRow = typeof schedulerRuns.$inferSelect;
+export type InsertSchedulerRun = typeof schedulerRuns.$inferInsert;

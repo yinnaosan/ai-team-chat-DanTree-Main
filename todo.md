@@ -2643,3 +2643,14 @@
 - [ ] Phase 5+6: Scheduler 真实运行（接入 snapshotProvider）+ Feedback Loop（结果写入学习记忆）
 - [ ] Phase 7: Safety Layer 验证 + level5.test.ts
 - [ ] LEVEL5 Return Report
+
+## DANTREE LEVEL5.1 — Live Operations Enablement
+
+- [ ] Phase 1: Cron 调度器启用（shadow_mode 默认）
+- [ ] Phase 2: 主源路由与回退链（Finnhub → TwelveData → Polygon → FMP）
+- [ ] Phase 3: 源健康监控（health_status: healthy/degraded/failing）
+- [ ] Phase 4: 运行日志与样本捕获（run summary + per-watch sample）
+- [ ] Phase 5: 滚动防护与故障保险（kill switch + auto-failsafe）
+- [ ] Phase 6: 最小运营视图（tRPC ops summary）
+- [ ] Phase 7: 验证测试（level51.test.ts — 5 test cases）
+- [ ] LEVEL5.1 Return Report

@@ -6251,7 +6251,7 @@ except Exception as e:
         return SchedulerService.getLatestRun();
       }),
 
-    recentRuns: protectedProcedure
+     recentRuns: protectedProcedure
       .input(z.object({ limit: z.number().min(1).max(50).optional() }))
       .query(async ({ input }) => {
         const { SchedulerService } = await import("./watchService");
@@ -6259,8 +6259,76 @@ except Exception as e:
       }),
   }),
 
+  // ─── LEVEL5.1 Live Ops ────────────────────────────────────────────────────
+  liveOps: router({
+    /** Get full ops summary: guard state + health + stats + recent runs */
+    summary: protectedProcedure
+      .input(z.object({ recentRunsLimit: z.number().min(1).max(20).optional() }))
+      .query(async ({ input }) => {
+        const { buildOpsSummary } = await import("./liveOpsGuard");
+        return buildOpsSummary(input.recentRunsLimit ?? 5);
+      }),
+    /** Get guard state only */
+    guardState: protectedProcedure
+      .query(async () => {
+        const { getGuardState } = await import("./liveOpsGuard");
+        return getGuardState();
+      }),
+    /** Activate kill switch */
+    activateKillSwitch: protectedProcedure
+      .input(z.object({ reason: z.string().min(1).max(200) }))
+      .mutation(async ({ input }) => {
+        const { activateKillSwitch } = await import("./liveOpsGuard");
+        activateKillSwitch(input.reason);
+        return { success: true, kill_switch_active: true, reason: input.reason };
+      }),
+    /** Deactivate kill switch */
+    deactivateKillSwitch: protectedProcedure
+      .mutation(async () => {
+        const { deactivateKillSwitch } = await import("./liveOpsGuard");
+        deactivateKillSwitch();
+        return { success: true, kill_switch_active: false };
+      }),
+    /** Clear auto-failsafe */
+    clearFailsafe: protectedProcedure
+      .mutation(async () => {
+        const { clearAutoFailsafe } = await import("./liveOpsGuard");
+        clearAutoFailsafe();
+        return { success: true, auto_failsafe_active: false };
+      }),
+    /** Trigger a manual shadow run */
+    triggerShadowRun: protectedProcedure
+      .mutation(async () => {
+        const { triggerManualRun } = await import("./liveOpsScheduler");
+        const { ingestRunResult } = await import("./sourceHealthMonitor");
+        const { checkAndTriggerFailsafe } = await import("./liveOpsGuard");
+        const result = await triggerManualRun([], "shadow");
+        ingestRunResult(result);
+        checkAndTriggerFailsafe();
+        return result;
+      }),
+    /** Get source health summary */
+    sourceHealth: protectedProcedure
+      .query(async () => {
+        const { getHealthSummary } = await import("./sourceHealthMonitor");
+        return getHealthSummary();
+      }),
+    /** Get run log */
+    runLog: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).optional() }))
+      .query(async ({ input }) => {
+        const { getRunLog } = await import("./sourceHealthMonitor");
+        return getRunLog(input.limit ?? 10);
+      }),
+    /** Evaluate guard for a given mode */
+    evaluateGuard: protectedProcedure
+      .input(z.object({ mode: z.enum(["shadow", "live"]).optional() }))
+      .query(async ({ input }) => {
+        const { evaluateGuard } = await import("./liveOpsGuard");
+        return evaluateGuard(input.mode ?? "shadow");
+      }),
+  }),
 });
-
 export type AppRouter = typeof appRouter;
 
 // NOTE: netWorth router appended below the closing }); of appRouter

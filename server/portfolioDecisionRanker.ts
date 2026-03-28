@@ -345,6 +345,12 @@ export function generateAdvisoryOutput(
 import { fuseMultipleSignals, type SignalInput } from "./portfolioState";
 import { computePositionSize, evaluateRiskBudget, DEFAULT_SIZING_CONFIG, DEFAULT_RISK_BUDGET_CONFIG } from "./positionSizingEngine";
 import type { SizingConfig, RiskBudgetConfig } from "./positionSizingEngine";
+import {
+  runPortfolioSafetyGuards,
+  type GuardOrchestratorInput,
+  type GuardOrchestratorOutput,
+} from "./portfolioGuardOrchestrator";
+import type { RecentAction, SignalHistoryEntry } from "./portfolioSafetyGuard";
 
 export interface Level7PipelineInput {
   portfolio: PortfolioState;
@@ -352,17 +358,26 @@ export interface Level7PipelineInput {
   sizing_config?: SizingConfig;
   risk_budget_config?: RiskBudgetConfig;
   top_n?: number;
+  // LEVEL7.1: Safety guard inputs (all optional — guards run with empty defaults)
+  recent_actions?: RecentAction[];
+  signal_history?: SignalHistoryEntry[];
+  sample_counts?: Map<string, number>;
 }
 
 export interface Level7PipelineOutput {
   portfolio_view: PortfolioView;
   advisory_output: AdvisoryOutput;
   risk_budget: RiskBudgetReport;
+  // LEVEL7.1: Guard outputs attached to every pipeline result
+  guard_output: GuardOrchestratorOutput;
   advisory_only: true;
 }
 
 export function runLevel7Pipeline(input: Level7PipelineInput): Level7PipelineOutput {
-  const { portfolio, signals, sizing_config, risk_budget_config, top_n = 10 } = input;
+  const {
+    portfolio, signals, sizing_config, risk_budget_config, top_n = 10,
+    recent_actions = [], signal_history = [], sample_counts = new Map(),
+  } = input;
 
   // Phase 2: Fuse signals
   const decisions = fuseMultipleSignals(signals);
@@ -376,16 +391,40 @@ export function runLevel7Pipeline(input: Level7PipelineInput): Level7PipelineOut
   // Phase 4: Risk budget
   const risk_budget = evaluateRiskBudget(portfolio, decisions, risk_budget_config ?? DEFAULT_RISK_BUDGET_CONFIG);
 
-  // Phase 5: Rank decisions
-  const portfolio_view = rankDecisions(decisions, sizings, portfolio, risk_budget);
+  // Phase 5: Rank decisions (pre-guard)
+  const pre_guard_view = rankDecisions(decisions, sizings, portfolio, risk_budget);
 
-  // Phase 6: Advisory output
-  const advisory_output = generateAdvisoryOutput(portfolio_view, risk_budget, top_n);
+  // LEVEL7.1 Phase 5.5: Mandatory safety guard pass
+  const guard_input: GuardOrchestratorInput = {
+    ranked_decisions: pre_guard_view.ranked_decisions,
+    decisions,
+    sizings,
+    risk_budget,
+    recent_actions,
+    signal_history,
+    sample_counts,
+  };
+  const guard_output = runPortfolioSafetyGuards(guard_input);
+
+  // Phase 5.6: Re-rank using guarded decisions
+  const guarded_view: PortfolioView = {
+    ...pre_guard_view,
+    ranked_decisions: guard_output.guarded_ranked,
+    actionable_count: guard_output.guarded_ranked.filter(r =>
+      ["INITIATE", "ADD", "TRIM", "EXIT"].includes(r.action_label)
+    ).length,
+    monitor_count: guard_output.guarded_ranked.filter(r => r.action_label === "MONITOR").length,
+    avoid_count: guard_output.guarded_ranked.filter(r => r.action_label === "AVOID").length,
+  };
+
+  // Phase 6: Advisory output (uses guarded view)
+  const advisory_output = generateAdvisoryOutput(guarded_view, risk_budget, top_n);
 
   return {
-    portfolio_view,
+    portfolio_view: guarded_view,
     advisory_output,
     risk_budget,
+    guard_output,
     advisory_only: true,
   };
 }

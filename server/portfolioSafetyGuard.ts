@@ -150,6 +150,8 @@ export function detectDecisionConflicts(
     ["ADD", "EXIT"],
     ["INITIATE", "AVOID"],
     ["ADD", "AVOID"],
+    ["INITIATE", "TRIM"],  // Building new position while trimming another in same session
+    ["ADD", "TRIM"],       // Adding to one while trimming another — directional conflict
   ];
 
   for (let i = 0; i < ranked.length; i++) {

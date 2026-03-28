@@ -2707,3 +2707,15 @@
 - [x] Full regression: 1099/1099 tests pass (59 test files)
 - [x] TSC: 0 errors
 - [x] Return Report: ai-reports/DANTREE_LEVEL7_PORTFOLIO_DECISION_REPORT.md
+
+## DANTREE LEVEL7.1 — Safety Guard Integration
+- [x] portfolioGuardOrchestrator.ts: runPortfolioSafetyGuards() 统一入口
+- [x] 守卫优先级抑制（CONFLICT > OVERFIT > CHURN > SAMPLE > CONCENTRATION）
+- [x] Level71SafetyReport 完整输出结构
+- [x] 4 类守卫全部激活路径（Churn/Overfit/Conflict/Sample）
+- [x] runLevel7Pipeline() 接入 Guard Orchestrator
+- [x] detectDecisionConflicts 扩展 INITIATE vs TRIM 冲突对
+- [x] level71.test.ts: 10/10 PASS（TC-01 ~ TC-06 + 回归）
+- [x] LEVEL7 回归: 35/35 PASS（全套 45/45）
+- [x] TSC 0 errors
+- [x] ai-reports/MANUS_TO_GPT_LEVEL71_HANDOFF.md 交接报告

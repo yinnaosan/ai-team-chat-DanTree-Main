@@ -2719,3 +2719,20 @@
 - [x] LEVEL7 回归: 35/35 PASS（全套 45/45）
 - [x] TSC 0 errors
 - [x] ai-reports/MANUS_TO_GPT_LEVEL71_HANDOFF.md 交接报告
+
+## DANTREE LEVEL7.1B — Guard Precision Patch
+- [ ] Phase 1: Danger Guard 一级控制（danger_score>=0.75 CRITICAL, >=0.55 HIGH）
+- [ ] Phase 2: 守卫优先级重排（CONFLICT>DANGER>CONCENTRATION>CHURN>SAMPLE>OVERFIT）
+- [ ] Phase 3: Sample Guard 软降级（低样本不再全量抑制，改为 cap sizing + monitor）
+- [ ] Phase 4: 守卫感知 Sizing Decay 表（CONFLICT 0.2x, DANGER 0.3x, CONCENTRATION 0.5x...）
+- [ ] Phase 5: 5 个验证测试用例 + 全套回归
+- [ ] 生成 GPT 交接报告
+
+## DANTREE LEVEL7.1B — Guard Precision Patch
+- [x] Danger Guard 一级控制（CRITICAL_DANGER / HIGH_DANGER）
+- [x] 守卫优先级重排（CONFLICT > CRITICAL_DANGER > HIGH_DANGER > CONCENTRATION > CHURN > SAMPLE_SOFT > OVERFIT）
+- [x] Sample Guard 软降级（strong_buy→buy，buy→hold，不再全量抑制到 monitor）
+- [x] 守卫感知 Sizing Decay 表（每个守卫独立乘数 + 次级守卫 sqrt 复合）
+- [x] SizingDecayTrace 字段（original/guarded allocation + decay trace 数组）
+- [x] Level71SafetyReport 新增 danger_guard_active / danger_critical_tickers / danger_high_tickers
+- [x] 7/7 TC-B 测试通过 | 45/45 回归测试通过 | TSC 0 errors

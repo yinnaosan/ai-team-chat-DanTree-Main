@@ -371,6 +371,50 @@ export interface Level7PipelineOutput {
   // LEVEL7.1: Guard outputs attached to every pipeline result
   guard_output: GuardOrchestratorOutput;
   advisory_only: true;
+  // LEVEL8: Persistence result (present when userId is provided)
+  persistence?: {
+    portfolioId: number;
+    snapshotId: number;
+    decisionIds: number[];
+    guardIds: number[];
+    consistency_check: {
+      decisions_match_guards: boolean;
+      snapshot_tickers_match: boolean;
+    };
+  };
+}
+
+/**
+ * LEVEL8 Full Patch — Auto-persist wrapper.
+ * Runs the full pipeline synchronously, then persists to DB if userId is provided.
+ * Persistence failure is non-blocking (advisory output always returned).
+ */
+export async function runLevel7PipelineWithPersist(
+  input: Level7PipelineInput & { userId?: number }
+): Promise<Level7PipelineOutput> {
+  const output = runLevel7Pipeline(input);
+  if (input.userId != null) {
+    try {
+      const { persistPipelineRun } = await import("./portfolioPersistence");
+      const result = await persistPipelineRun(input.userId, output);
+      const decisionsMatchGuards = result.decisionIds.length === result.guardIds.length;
+      const snapshotTickersMatch =
+        result.decisionIds.length === (output.portfolio_view?.ranked_decisions?.length ?? 0);
+      (output as any).persistence = {
+        portfolioId: result.portfolioId,
+        snapshotId: result.snapshotId,
+        decisionIds: result.decisionIds,
+        guardIds: result.guardIds,
+        consistency_check: {
+          decisions_match_guards: decisionsMatchGuards,
+          snapshot_tickers_match: snapshotTickersMatch,
+        },
+      };
+    } catch (err) {
+      console.error("[Level7Pipeline] persistPipelineRun failed (non-blocking):", err);
+    }
+  }
+  return output;
 }
 
 export function runLevel7Pipeline(input: Level7PipelineInput): Level7PipelineOutput {

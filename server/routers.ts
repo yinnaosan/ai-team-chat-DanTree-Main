@@ -6388,6 +6388,41 @@ except Exception as e:
         const result = await persistPipelineRun(ctx.user.id, input.pipelineOutput);
         return { ...result, advisory_only: true as const };
       }),
+
+    /** Validate consistency of a snapshot (decisions == guards == totalTickers) */
+    validateConsistency: protectedProcedure
+      .input(z.object({ snapshotId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const { getPortfolioByUserId, validateSnapshotConsistency } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No portfolio found" });
+        return validateSnapshotConsistency(portfolios[0].id, input.snapshotId);
+      }),
+
+    /** Get snapshot history (last N snapshots, metadata only) */
+    getSnapshotHistory: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(30).optional() }))
+      .query(async ({ ctx, input }) => {
+        const { getPortfolioByUserId } = await import("./portfolioPersistence");
+        const { getDb } = await import("./db");
+        const { portfolioSnapshot } = await import("../drizzle/schema");
+        const { eq, desc } = await import("drizzle-orm");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) return [];
+        const db = await getDb();
+        if (!db) return [];
+        return db
+          .select({
+            id: portfolioSnapshot.id,
+            guardStatus: portfolioSnapshot.guardStatus,
+            totalTickers: portfolioSnapshot.totalTickers,
+            createdAt: portfolioSnapshot.createdAt,
+          })
+          .from(portfolioSnapshot)
+          .where(eq(portfolioSnapshot.portfolioId, portfolios[0].id))
+          .orderBy(desc(portfolioSnapshot.createdAt))
+          .limit(input.limit ?? 10);
+      }),
   }),
 });
 export type AppRouter = typeof appRouter;

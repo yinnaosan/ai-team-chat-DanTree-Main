@@ -38,6 +38,7 @@ const menuItems = [
   { icon: MessageSquare, label: "AI 对话模式", path: "/chat", shortcut: "⌘C", group: "main" },
   { icon: FlaskConical, label: "因子回测", path: "/backtest", shortcut: "⌘2", group: "main" },
   { icon: Wallet, label: "资产负债表", path: "/networth", shortcut: "⌘3", group: "main" },
+  { icon: Activity, label: "组合决策面板", path: "/portfolio", shortcut: "⌘5", group: "main" },
   { icon: BookOpen, label: "投资知识库", path: "/library", shortcut: "⌘4", group: "main" },
   { icon: Settings, label: "设置", path: "/settings", shortcut: "⌘,", group: "system" },
 ];

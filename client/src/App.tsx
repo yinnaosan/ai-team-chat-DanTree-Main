@@ -15,6 +15,7 @@ import FactorBacktest from "./pages/FactorBacktest";
 import ResearchWorkspace from "./pages/ResearchWorkspace";
 import TerminalEntry from "./pages/TerminalEntry";
 import LoopTelemetryDashboard from "./pages/LoopTelemetryDashboard";
+import PortfolioDashboard from "./pages/PortfolioDashboard";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
 
@@ -33,6 +34,7 @@ function Router() {
       <Route path={"/backtest"} component={FactorBacktest} />
       <Route path={"/research"} component={ResearchWorkspace} />
       <Route path={"/telemetry"} component={LoopTelemetryDashboard} />
+      <Route path={"/portfolio"} component={PortfolioDashboard} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

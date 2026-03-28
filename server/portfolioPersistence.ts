@@ -280,6 +280,13 @@ export async function persistPipelineRun(
     });
   }
 
+  // Phase 4: Enforce snapshot retention (keep last 30)
+  try {
+    await enforceSnapshotRetention(portfolioId, 30);
+  } catch (err) {
+    console.error("[portfolioPersistence] enforceSnapshotRetention failed (non-blocking):", err);
+  }
+
   return {
     portfolioId,
     snapshotId,
@@ -288,9 +295,8 @@ export async function persistPipelineRun(
     advisory_only: true,
   };
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 3: Replay System
+// Phase 3: Replay Systemm
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -443,4 +449,111 @@ export async function getLatestSnapshot(portfolioId: number) {
     .orderBy(desc(portfolioSnapshot.createdAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4: Snapshot Retention (keep last 30 per portfolio)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Enforce snapshot retention: keep only the last 30 snapshots per portfolio.
+ * Older snapshots are deleted automatically after each new snapshot is saved.
+ * Replay is still functional as long as snapshotId is within the retained window.
+ */
+export async function enforceSnapshotRetention(
+  portfolioId: number,
+  maxSnapshots = 30
+): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("[portfolioPersistence] DB not available");
+
+  // Get all snapshot IDs ordered newest-first
+  const allSnapshots = await db
+    .select({ id: portfolioSnapshot.id })
+    .from(portfolioSnapshot)
+    .where(eq(portfolioSnapshot.portfolioId, portfolioId))
+    .orderBy(desc(portfolioSnapshot.createdAt));
+
+  if (allSnapshots.length <= maxSnapshots) return 0; // nothing to delete
+
+  // IDs to delete (everything beyond the latest maxSnapshots)
+  const toDelete = allSnapshots.slice(maxSnapshots).map(s => s.id);
+  let deleted = 0;
+
+  for (const snapshotId of toDelete) {
+    // Delete associated decision_log and guard_log rows first (FK safety)
+    await db.delete(decisionLog).where(
+      and(eq(decisionLog.portfolioId, portfolioId), eq(decisionLog.snapshotId, snapshotId))
+    );
+    await db.delete(guardLog).where(
+      and(eq(guardLog.portfolioId, portfolioId), eq(guardLog.snapshotId, snapshotId))
+    );
+    await db.delete(portfolioSnapshot).where(
+      and(eq(portfolioSnapshot.id, snapshotId), eq(portfolioSnapshot.portfolioId, portfolioId))
+    );
+    deleted++;
+  }
+
+  return deleted;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2: Data Consistency Validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ConsistencyReport {
+  portfolioId: number;
+  snapshotId: number;
+  decision_count: number;
+  guard_count: number;
+  decisions_match_guards: boolean;
+  snapshot_total_tickers: number;
+  snapshot_tickers_match: boolean;
+  is_consistent: boolean;
+}
+
+/**
+ * Validate that decision_log, guard_log, and snapshot are consistent for a given snapshot.
+ */
+export async function validateSnapshotConsistency(
+  portfolioId: number,
+  snapshotId: number
+): Promise<ConsistencyReport> {
+  const db = await getDb();
+  if (!db) throw new Error("[portfolioPersistence] DB not available");
+
+  const decisions = await db
+    .select({ id: decisionLog.id })
+    .from(decisionLog)
+    .where(and(eq(decisionLog.portfolioId, portfolioId), eq(decisionLog.snapshotId, snapshotId)));
+
+  const guards = await db
+    .select({ id: guardLog.id })
+    .from(guardLog)
+    .where(and(eq(guardLog.portfolioId, portfolioId), eq(guardLog.snapshotId, snapshotId)));
+
+  const snap = await db
+    .select({ totalTickers: portfolioSnapshot.totalTickers })
+    .from(portfolioSnapshot)
+    .where(and(eq(portfolioSnapshot.id, snapshotId), eq(portfolioSnapshot.portfolioId, portfolioId)))
+    .limit(1);
+
+  const decision_count = decisions.length;
+  const guard_count = guards.length;
+  const snapshot_total_tickers = snap[0]?.totalTickers ?? 0;
+
+  const decisions_match_guards = decision_count === guard_count;
+  const snapshot_tickers_match = decision_count === snapshot_total_tickers;
+  const is_consistent = decisions_match_guards && snapshot_tickers_match;
+
+  return {
+    portfolioId,
+    snapshotId,
+    decision_count,
+    guard_count,
+    decisions_match_guards,
+    snapshot_total_tickers,
+    snapshot_tickers_match,
+    is_consistent,
+  };
 }

@@ -2756,3 +2756,13 @@
 - [x] 全套回归: 56/56 PASS（level7 35 + level71 10 + level71b 7 + level8 4）
 - [x] TSC 0 errors
 - [x] ai-reports/MANUS_TO_GPT_LEVEL8_HANDOFF.md 交接报告
+
+## DANTREE LEVEL8 Full Patch — Product Readiness
+- [ ] Phase 1: 自动持久化接入（runLevel7Pipeline → persistPipelineRun 强制调用）
+- [ ] Phase 2: 数据一致性强制（decision_ids == guard_ids，snapshot total_tickers == decision count）
+- [ ] Phase 3: SAMPLE_INSUFFICIENT → SAMPLE_SOFT 命名修复（enum + DB migration）
+- [ ] Phase 4: 快照保留策略（每用户最多30条，自动删除旧快照）
+- [ ] Phase 5: 回放完整性保证（DB-driven only，不重新计算）
+- [ ] Phase 6: 前端最小 UI（Positions Table + Guard Badge + Decision Timeline）
+- [ ] Phase 7: API 契约修复（一致 JSON 格式，分页，DB-only 响应）
+- [ ] 验证测试 + 全套回归 + 6 项 PROOF 报告

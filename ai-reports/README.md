@@ -42,3 +42,4 @@
 | [DANTREE_LEVEL51_RETURN_REPORT.md](./DANTREE_LEVEL51_RETURN_REPORT.md) | DANTREE_LEVEL5.1_LIVE_OPS — Cron scheduler, source health monitor, kill switch, auto-failsafe, ops summary | 2026-03-27 | GO ✅ |
 | [DANTREE_LEVEL6_RETURN_REPORT.md](./DANTREE_LEVEL6_RETURN_REPORT.md) | DANTREE_LEVEL6_STRATEGY_ALPHA — Signal Journal, Outcome Attribution, Scoring, Portfolio Aggregation, Regime Slicing, Alpha Prioritization, Anti-Overfit Guards | 2026-03-27 | GO ✅ |
 | [DANTREE_LEVEL61_RETURN_REPORT.md](./DANTREE_LEVEL61_RETURN_REPORT.md) | DANTREE_LEVEL6.1_OPERATIONAL_ALPHA — signal_journal + signal_outcome DB, auto-ingestion hook, scoring sync, failsafe | 2026-03-28 | GO ✅ |
+| [DANTREE_CRON_OUTCOME_RETURN_REPORT.md](./DANTREE_CRON_OUTCOME_RETURN_REPORT.md) | DANTREE_CRON_OUTCOME_AUTORESOLVE — Cron 服务器挂载、Outcome Horizon Schema、Auto-Resolve Engine、Price Lookup、Post-Run Hook | 2026-03-28 | GO ✅ |

@@ -2675,3 +2675,11 @@
 - [ ] Phase 5: Failsafe (ingestion failure 不中断 scheduler, dedup, log-only fallback)
 - [ ] Phase 6: Validation Tests (level61.test.ts)
 - [ ] LEVEL6.1 Return Report
+
+## DANTREE CRON + Outcome Auto-Resolve
+
+- [ ] Phase 1+2: Cron 服务器挂载 + 调度器启动守卫 (cronServerMount.ts)
+- [ ] Phase 3+4: Outcome Horizon Schema + Auto-Resolve Engine (outcomeAutoResolve.ts)
+- [ ] Phase 5+6: Price Lookup 抽象 + Post-Run Hook 批量解析 (outcomePriceLookup.ts)
+- [ ] Phase 7+8: 可观测性 + 故障保险 + 验证测试 (cronOutcome.test.ts)
+- [ ] CRON_OUTCOME Return Report

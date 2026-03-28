@@ -6328,6 +6328,67 @@ except Exception as e:
         return evaluateGuard(input.mode ?? "shadow");
       }),
   }),
+
+  // ─── LEVEL8: Portfolio Persistence API ───────────────────────────────────────
+  portfolioDB: router({
+    /** Get current portfolio (positions + latest snapshot) for the logged-in user */
+    getMyPortfolio: protectedProcedure
+      .query(async ({ ctx }) => {
+        const {
+          getPortfolioByUserId,
+          getActivePositions,
+          getLatestSnapshot,
+        } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) return { portfolio: null, positions: [], snapshot: null };
+        const p = portfolios[0];
+        const positions = await getActivePositions(p.id);
+        const snapshot = await getLatestSnapshot(p.id);
+        return { portfolio: p, positions, snapshot };
+      }),
+
+    /** Get recent decision log entries */
+    getDecisionLog: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(100).optional() }))
+      .query(async ({ ctx, input }) => {
+        const { getPortfolioByUserId, getRecentDecisions } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) return [];
+        return getRecentDecisions(portfolios[0].id, input.limit ?? 50);
+      }),
+
+    /** Get recent guard log entries */
+    getGuardLog: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(100).optional() }))
+      .query(async ({ ctx, input }) => {
+        const { getPortfolioByUserId, getRecentGuardLogs } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) return [];
+        return getRecentGuardLogs(portfolios[0].id, input.limit ?? 50);
+      }),
+
+    /** Replay decision path for a ticker at a given snapshot */
+    replayDecision: protectedProcedure
+      .input(z.object({
+        ticker: z.string().min(1).max(20),
+        snapshotId: z.number().optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const { getPortfolioByUserId, replayDecision } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No portfolio found" });
+        return replayDecision(portfolios[0].id, input.ticker, input.snapshotId);
+      }),
+
+    /** Persist a Level7 pipeline run (advisory_only: true always enforced) */
+    persistRun: protectedProcedure
+      .input(z.object({ pipelineOutput: z.any() }))
+      .mutation(async ({ ctx, input }) => {
+        const { persistPipelineRun } = await import("./portfolioPersistence");
+        const result = await persistPipelineRun(ctx.user.id, input.pipelineOutput);
+        return { ...result, advisory_only: true as const };
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;
 

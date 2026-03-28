@@ -640,3 +640,82 @@ export const signalOutcome = mysqlTable("signal_outcome", {
 });
 export type SignalOutcomeRow = typeof signalOutcome.$inferSelect;
 export type InsertSignalOutcome = typeof signalOutcome.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DANTREE LEVEL8 — Portfolio Persistence Tables
+// ─────────────────────────────────────────────────────────────────────────────
+
+// portfolio: 每个用户的投资组合（一个用户可有多个组合）
+export const portfolio = mysqlTable("portfolio", {
+  id:          int("id").autoincrement().primaryKey(),
+  userId:      int("user_id").notNull(),
+  name:        varchar("name", { length: 128 }).notNull().default("Default Portfolio"),
+  description: text("description"),
+  createdAt:   bigintCol("created_at", { mode: "number" }).notNull(),
+  updatedAt:   bigintCol("updated_at", { mode: "number" }).notNull(),
+});
+export type Portfolio = typeof portfolio.$inferSelect;
+export type InsertPortfolio = typeof portfolio.$inferInsert;
+
+// portfolio_position: 组合内的持仓记录
+export const portfolioPosition = mysqlTable("portfolio_position", {
+  id:             int("id").autoincrement().primaryKey(),
+  portfolioId:    int("portfolio_id").notNull(),
+  ticker:         varchar("ticker", { length: 20 }).notNull(),
+  allocationPct:  decimal("allocation_pct", { precision: 8, scale: 4 }).notNull().default("0"),
+  actionLabel:    varchar("action_label", { length: 30 }).notNull().default("HOLD"),
+  decisionBias:   varchar("decision_bias", { length: 30 }),
+  fusionScore:    decimal("fusion_score", { precision: 8, scale: 6 }),
+  sizingBucket:   varchar("sizing_bucket", { length: 20 }),
+  isActive:       boolean("is_active").notNull().default(true),
+  createdAt:      bigintCol("created_at", { mode: "number" }).notNull(),
+  updatedAt:      bigintCol("updated_at", { mode: "number" }).notNull(),
+});
+export type PortfolioPosition = typeof portfolioPosition.$inferSelect;
+export type InsertPortfolioPosition = typeof portfolioPosition.$inferInsert;
+
+// portfolio_snapshot: 组合快照（每次 pipeline 运行时保存完整状态）
+export const portfolioSnapshot = mysqlTable("portfolio_snapshot", {
+  id:           int("id").autoincrement().primaryKey(),
+  portfolioId:  int("portfolio_id").notNull(),
+  snapshotData: json("snapshot_data").notNull(),
+  guardStatus:  varchar("guard_status", { length: 30 }).notNull().default("healthy"),
+  totalTickers: int("total_tickers").notNull().default(0),
+  createdAt:    bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type PortfolioSnapshot = typeof portfolioSnapshot.$inferSelect;
+export type InsertPortfolioSnapshot = typeof portfolioSnapshot.$inferInsert;
+
+// decision_log: 每次 pipeline 运行产生的决策记录（每个 ticker 一条）
+export const decisionLog = mysqlTable("decision_log", {
+  id:            int("id").autoincrement().primaryKey(),
+  portfolioId:   int("portfolio_id").notNull(),
+  snapshotId:    int("snapshot_id"),
+  ticker:        varchar("ticker", { length: 20 }).notNull(),
+  fusionScore:   decimal("fusion_score", { precision: 8, scale: 6 }).notNull(),
+  decisionBias:  varchar("decision_bias", { length: 30 }).notNull(),
+  actionLabel:   varchar("action_label", { length: 30 }).notNull(),
+  sizingBucket:  varchar("sizing_bucket", { length: 20 }),
+  allocationPct: decimal("allocation_pct", { precision: 8, scale: 4 }),
+  advisoryText:  text("advisory_text"),
+  advisoryOnly:  boolean("advisory_only").notNull().default(true),
+  createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type DecisionLog = typeof decisionLog.$inferSelect;
+export type InsertDecisionLog = typeof decisionLog.$inferInsert;
+
+// guard_log: 每次 pipeline 运行的守卫记录（每个 ticker 一条）
+export const guardLog = mysqlTable("guard_log", {
+  id:              int("id").autoincrement().primaryKey(),
+  portfolioId:     int("portfolio_id").notNull(),
+  snapshotId:      int("snapshot_id"),
+  ticker:          varchar("ticker", { length: 20 }).notNull(),
+  dominantGuard:   varchar("dominant_guard", { length: 40 }).notNull().default("NONE"),
+  suppressed:      boolean("suppressed").notNull().default(false),
+  decayMultiplier: decimal("decay_multiplier", { precision: 6, scale: 4 }).notNull().default("1.0000"),
+  decayTrace:      json("decay_trace"),
+  safetyReport:    json("safety_report"),
+  createdAt:       bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type GuardLog = typeof guardLog.$inferSelect;
+export type InsertGuardLog = typeof guardLog.$inferInsert;

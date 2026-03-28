@@ -2736,3 +2736,23 @@
 - [x] SizingDecayTrace 字段（original/guarded allocation + decay trace 数组）
 - [x] Level71SafetyReport 新增 danger_guard_active / danger_critical_tickers / danger_high_tickers
 - [x] 7/7 TC-B 测试通过 | 45/45 回归测试通过 | TSC 0 errors
+
+## DANTREE LEVEL8 — Persistence & Productization
+- [ ] Phase 1: DB schema（portfolio, portfolio_position, portfolio_snapshot, decision_log, guard_log 5张表）
+- [ ] Phase 2: 持久化写入层（db.ts helpers：saveDecision, saveGuardLog, saveSnapshot）
+- [ ] Phase 3: 快照与回放系统（snapshotPortfolio, replayDecision）
+- [ ] Phase 4: tRPC API 层（GET /portfolio, /decisions, /safety, /replay/:ticker）
+- [ ] Phase 5: 用户隔离（user_id 字段，多用户支持）
+- [ ] Phase 6: 4 个验证测试 + 全套回归测试
+
+## DANTREE LEVEL8 — Persistence & Productization (COMPLETED)
+- [x] DB schema: 5 张表（portfolio, portfolio_position, portfolio_snapshot, decision_log, guard_log）+ 迁移 SQL 执行成功
+- [x] portfolioPersistence.ts: 持久化写入层（getOrCreatePortfolio, snapshotPortfolio, saveDecision, saveGuardLog, upsertPosition, persistPipelineRun）
+- [x] 快照与回放系统（snapshotPortfolio, replayDecision）
+- [x] tRPC API 层（portfolioDB router: getMyPortfolio, getDecisionLog, getGuardLog, replayDecision, persistRun）
+- [x] 用户隔离（ctx.user.id → portfolioId 链，所有 endpoints 强制隔离）
+- [x] advisory_only: true 强制执行（所有 decision_log 行 + persistRun 返回值）
+- [x] level8.test.ts: 4/4 TC-L8 测试通过
+- [x] 全套回归: 56/56 PASS（level7 35 + level71 10 + level71b 7 + level8 4）
+- [x] TSC 0 errors
+- [x] ai-reports/MANUS_TO_GPT_LEVEL8_HANDOFF.md 交接报告

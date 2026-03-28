@@ -2683,3 +2683,27 @@
 - [ ] Phase 5+6: Price Lookup 抽象 + Post-Run Hook 批量解析 (outcomePriceLookup.ts)
 - [ ] Phase 7+8: 可观测性 + 故障保险 + 验证测试 (cronOutcome.test.ts)
 - [ ] CRON_OUTCOME Return Report
+
+## DANTREE LEVEL7 — Portfolio Decision Layer
+- [ ] Phase 1: Portfolio State + Holding Abstraction (portfolioState.ts)
+- [ ] Phase 2: Multi-Signal Decision Fusion (portfolioState.ts)
+- [ ] Phase 3: Position Sizing Engine (positionSizingEngine.ts)
+- [ ] Phase 4: Risk Budget + Concentration Control (positionSizingEngine.ts)
+- [ ] Phase 5: Decision Ranking + Portfolio View (portfolioDecisionRanker.ts)
+- [ ] Phase 6: Advisory Output + Explanation Layer (portfolioDecisionRanker.ts)
+- [ ] Phase 7: Anti-Overfit + Decision Safety Guards (portfolioDecisionRanker.ts)
+- [ ] Phase 8: Validation Tests (level7.test.ts)
+- [ ] LEVEL7 Return Report
+
+## DANTREE LEVEL7 — Portfolio Decision Layer
+- [x] Phase 1: Portfolio State & Holding Abstraction (portfolioState.ts)
+- [x] Phase 2: Multi-Signal Decision Fusion (portfolioState.ts)
+- [x] Phase 3: Position Sizing Engine (positionSizingEngine.ts)
+- [x] Phase 4: Risk Budget & Concentration Control (positionSizingEngine.ts)
+- [x] Phase 5: Decision Ranking & Portfolio View (portfolioDecisionRanker.ts)
+- [x] Phase 6: Advisory Output / Explanation Layer (portfolioDecisionRanker.ts)
+- [x] Phase 7: Anti-Overfit & Decision Safety Guards (portfolioSafetyGuard.ts)
+- [x] Phase 8: Validation Tests — 35/35 tests pass (level7.test.ts)
+- [x] Full regression: 1099/1099 tests pass (59 test files)
+- [x] TSC: 0 errors
+- [x] Return Report: ai-reports/DANTREE_LEVEL7_PORTFOLIO_DECISION_REPORT.md

@@ -2666,3 +2666,12 @@
 - [ ] Phase 7: Anti-Overfit Guards — sample guard + stability guard
 - [ ] Phase 8: Validation Tests (level6.test.ts — 5 test cases)
 - [ ] LEVEL6 Return Report (RETURN_PROTOCOL format)
+
+## DANTREE LEVEL6.1 — Operational Alpha
+- [ ] Phase 1: DB Schema — signal_journal + signal_outcome 两张表
+- [ ] Phase 2: Signal Persistence Repository (signalPersistence.ts)
+- [ ] Phase 3: Auto-Ingestion Hook (scheduler → postRunHook → ingestSignal)
+- [ ] Phase 4: Scoring Auto-Update (增量更新 trigger/action scores)
+- [ ] Phase 5: Failsafe (ingestion failure 不中断 scheduler, dedup, log-only fallback)
+- [ ] Phase 6: Validation Tests (level61.test.ts)
+- [ ] LEVEL6.1 Return Report

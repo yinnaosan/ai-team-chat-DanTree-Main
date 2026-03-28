@@ -602,3 +602,41 @@ export const schedulerRuns = mysqlTable("scheduler_runs", {
 });
 export type SchedulerRunRow = typeof schedulerRuns.$inferSelect;
 export type InsertSchedulerRun = typeof schedulerRuns.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DANTREE LEVEL6.1 — Operational Alpha Persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
+// signal_journal: persistent record of every signal emitted by the trigger engine
+export const signalJournal = mysqlTable("signal_journal", {
+  signalId:          varchar("signal_id", { length: 64 }).primaryKey(),
+  watchId:           varchar("watch_id", { length: 64 }).notNull(),
+  ticker:            varchar("ticker", { length: 20 }).notNull(),
+  triggerType:       varchar("trigger_type", { length: 40 }).notNull(),
+  actionType:        varchar("action_type", { length: 40 }).notNull(),
+  snapshotQuality:   varchar("snapshot_quality", { length: 20 }).notNull().default("unknown"),
+  memoryInfluence:   boolean("memory_influence").notNull().default(false),
+  learningInfluence: boolean("learning_influence").notNull().default(false),
+  schedulerRunId:    varchar("scheduler_run_id", { length: 64 }),
+  signalScoreJson:   json("signal_score_json").$type<Record<string, unknown>>(),
+  createdAt:         bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type SignalJournalRow = typeof signalJournal.$inferSelect;
+export type InsertSignalJournal = typeof signalJournal.$inferInsert;
+
+// signal_outcome: outcome record for a previously emitted signal
+export const signalOutcome = mysqlTable("signal_outcome", {
+  outcomeId:           varchar("outcome_id", { length: 64 }).primaryKey(),
+  signalId:            varchar("signal_id", { length: 64 }).notNull(),
+  horizon:             varchar("horizon", { length: 20 }).notNull().default("short"),
+  priceChangePct:      decimal("price_change_pct", { precision: 8, scale: 4 }),
+  priceDirection:      varchar("price_direction", { length: 10 }),
+  outcomeScore:        decimal("outcome_score", { precision: 5, scale: 4 }),
+  riskAdjustedScore:   decimal("risk_adjusted_score", { precision: 5, scale: 4 }),
+  thesisStatus:        varchar("thesis_status", { length: 30 }).notNull().default("inconclusive"),
+  outcomeLabel:        varchar("outcome_label", { length: 40 }).notNull().default("inconclusive"),
+  resolvedAt:          bigintCol("resolved_at", { mode: "number" }),
+  createdAt:           bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type SignalOutcomeRow = typeof signalOutcome.$inferSelect;
+export type InsertSignalOutcome = typeof signalOutcome.$inferInsert;

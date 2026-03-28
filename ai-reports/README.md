@@ -38,3 +38,4 @@
 | [DANTREE_E2E_RETURN_REPORT.md](./DANTREE_E2E_RETURN_REPORT.md) | DANTREE_E2E_TEST_PACKAGE_V2 — Full Pipeline E2E | 2026-03-27 | GO ✅ |
 | [DANTREE_LEVEL4_RETURN_REPORT.md](./DANTREE_LEVEL4_RETURN_REPORT.md) | DANTREE_LEVEL4_EXECUTION_LAYER — Watchlist + Trigger + Action + Alert + Audit + Cost Safety | 2026-03-27 | COMPLETE |
 | [DANTREE_LEVEL41_RETURN_REPORT.md](./DANTREE_LEVEL41_RETURN_REPORT.md) | DANTREE_LEVEL4.1_DB_SCHEDULER — Persistent watchlist, audit trail, tRPC API, batch evaluation | 2026-03-27 | GO ✅ |
+| [DANTREE_LEVEL5_RETURN_REPORT.md](./DANTREE_LEVEL5_RETURN_REPORT.md) | DANTREE_LEVEL5_REALWORLD — Real market data, snapshot quality gate, real scheduler, feedback loop | 2026-03-27 | GO ✅ |

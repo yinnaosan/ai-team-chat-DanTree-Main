@@ -2635,3 +2635,11 @@
 - [ ] Phase 6: Recovery + Idempotency — dedup key, scheduler lock, partial failure recovery
 - [ ] Phase 7: Validation — 5 test cases + full regression
 - [ ] LEVEL4.1 Return Report → ai-reports/DANTREE_LEVEL41_RETURN_REPORT.md
+
+## DANTREE LEVEL5 — Real World Data Integration
+
+- [ ] Phase 1+2: marketSnapshotProvider.ts — getMarketSnapshot() + 标准化 MarketSnapshot 格式
+- [ ] Phase 3+4: snapshotToTriggerInput() 适配器 + Action 验证（真实快照喂入触发引擎）
+- [ ] Phase 5+6: Scheduler 真实运行（接入 snapshotProvider）+ Feedback Loop（结果写入学习记忆）
+- [ ] Phase 7: Safety Layer 验证 + level5.test.ts
+- [ ] LEVEL5 Return Report

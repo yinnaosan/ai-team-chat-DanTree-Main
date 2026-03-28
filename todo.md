@@ -2654,3 +2654,15 @@
 - [ ] Phase 6: 最小运营视图（tRPC ops summary）
 - [ ] Phase 7: 验证测试（level51.test.ts — 5 test cases）
 - [ ] LEVEL5.1 Return Report
+
+## DANTREE LEVEL6 — Strategy & Alpha Layer
+
+- [ ] Phase 1: Signal Journal Schema + Storage (signalJournal.ts)
+- [ ] Phase 2: Outcome Attribution — scoreOutcomeForSignal() + attribution summary
+- [ ] Phase 3: Trigger/Signal Scoring — aggregate scoring + low-sample discount
+- [ ] Phase 4: Portfolio + Cross-Watch Aggregation
+- [ ] Phase 5: Regime/Context Slicing
+- [ ] Phase 6: Alpha Prioritization — opportunity + danger surfacing
+- [ ] Phase 7: Anti-Overfit Guards — sample guard + stability guard
+- [ ] Phase 8: Validation Tests (level6.test.ts — 5 test cases)
+- [ ] LEVEL6 Return Report (RETURN_PROTOCOL format)

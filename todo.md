@@ -2794,3 +2794,12 @@
 - [x] 批量修复 level103/103b/103c.test.ts 中的 async/await 调用（44个测试全部通过）
 - [x] 生成 MANUS_TO_GPT_LEVEL104_HANDOFF.md 交接报告
 - [x] TSC 0 errors，1326/1332 回归测试通过（6个预存失败与本次无关）
+
+## LEVEL10.5: Asymmetry & Position Layer
+- [x] 创建 server/level105PositionLayer.ts（5个核心模块：computeAsymmetryScore / computePositionSizing / computeSizeAdjustment / enforceNoBetDiscipline / computePortfolioConcentration + runPositionLayer 复合入口）
+- [x] 升级 deepResearchEngine.ts：ResearchNarrativeOutput 添加 positioning_lens 字段，runDeepResearch() 集成 runPositionLayer（非阻塞）
+- [x] 扩展 portfolioPersistence.ts：ReplayResult 添加 position_layer 字段，新增 updateDecisionPositionLayer() 函数
+- [x] 数据库迁移：decision_log 表新增 7 个字段（asymmetry_score/asymmetry_label/position_target_pct/position_size_bucket/no_bet_restriction/concentration_risk/positioning_lens_json）
+- [x] 编写 server/level105.test.ts（6个 describe，11个 it 用例，全部通过）
+- [x] 生成 MANUS_TO_GPT_LEVEL105_HANDOFF.md 交接报告
+- [x] TSC 0 errors，1337/1343 回归测试通过（6个预存失败与本次无关）

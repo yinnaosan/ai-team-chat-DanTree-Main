@@ -627,6 +627,7 @@ export interface ResearchNarrativeOutput {
     deeper_layer?: string;          // Implicit factors (capital-reality language)
     experience_layer_insight?: string; // [NEW 10.3-C] Drift + confidence + gradient risk
     experience_learning_insight?: string; // [NEW 10.4] Learning from judgment history
+    positioning_lens?: string;      // [NEW 10.5] Asymmetry + sizing + PM-style rationale
     investment_lens: string;        // Lens type + conviction + why
   };
   word_count: number;
@@ -646,7 +647,8 @@ export function composeResearchNarrative(
   businessContext: BusinessContext,
   ticker: string,
   experienceInsightText?: string,  // [NEW 10.3-C] Optional experience layer insight
-  experienceLearningInsightText?: string  // [NEW 10.4] Optional learning history insight
+  experienceLearningInsightText?: string,  // [NEW 10.4] Optional learning history insight
+  positioningLensText?: string  // [NEW 10.5] Optional positioning lens text
 ): ResearchNarrativeOutput {
   const moat = businessContext.businessUnderstanding.moat_strength;
   const eligibility = businessContext.eligibility.eligibility_status;
@@ -732,7 +734,7 @@ export function composeResearchNarrative(
   // This section surfaces meta-learning from historical decision patterns
   // It is injected from buildExperienceHistorySummary() (async, non-blocking)
 
-  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", experienceLearningInsightText ?? "", investment_lens].join(" ");
+  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", experienceLearningInsightText ?? "", positioningLensText ?? "", investment_lens].join(" ");
   const word_count = fullText.split(/\s+/).filter(Boolean).length;
 
   return {
@@ -746,6 +748,7 @@ export function composeResearchNarrative(
       ...(deeper_layer ? { deeper_layer } : {}),
       ...(experienceInsightText ? { experience_layer_insight: experienceInsightText } : {}),
       ...(experienceLearningInsightText ? { experience_learning_insight: experienceLearningInsightText } : {}),
+      ...(positioningLensText ? { positioning_lens: positioningLensText } : {}),
       investment_lens,
     },
     word_count,
@@ -992,9 +995,11 @@ export async function runDeepResearch(
   // [LEVEL10.4] Run Experience Learning History (async, non-blocking)
   let experienceHistory: ExperienceHistorySummaryEmbed | undefined;
   let experienceLearningInsightText: string | undefined;
+  let experienceHistorySummary: ExperienceHistorySummary | undefined;
   try {
     const historySummary: ExperienceHistorySummary = await buildExperienceHistorySummary(ctx.ticker);
     if (historySummary.record_count > 0) {
+      experienceHistorySummary = historySummary;
       experienceHistory = {
         record_count: historySummary.record_count,
         dominant_drift_trend: historySummary.drift_analysis.dominant_trend,
@@ -1014,6 +1019,40 @@ export async function runDeepResearch(
     // Non-blocking: experience history failure does not break the pipeline
     experienceHistory = undefined;
     experienceLearningInsightText = undefined;
+    experienceHistorySummary = undefined;
+  }
+
+  // [LEVEL10.5] Build Positioning Lens text (non-blocking, advisory only)
+  let positioningLensText: string | undefined;
+  try {
+    const { runPositionLayer } = await import("./level105PositionLayer");
+    const payoutMapForLayer = payoutMap;
+    const gradientRiskForLayer = experienceLayer?.gradient_risk ?? {
+      risk_state: "low" as const,
+      risk_trend: "stable" as const,
+      early_warning_signs: [],
+      advisory_only: true as const,
+    };
+    const posLayer = runPositionLayer({
+      thesis,
+      payoutMap: payoutMapForLayer,
+      gradientRisk: gradientRiskForLayer,
+      businessContext: ctx.businessContext,
+      experienceHistory: experienceHistorySummary,
+      regimeTag: ctx.regime?.regime_tag,
+    });
+    positioningLensText =
+      `[Positioning Lens — ADVISORY ONLY] ` +
+      `Asymmetry: ${posLayer.asymmetry.asymmetry_label} (score: ${(posLayer.asymmetry.asymmetry_score * 100).toFixed(0)}%). ` +
+      `${posLayer.asymmetry.why}. ` +
+      `Suggested size: ${posLayer.sizing.size_bucket} (${posLayer.sizing.target_position_pct}% of portfolio). ` +
+      `${posLayer.sizing.sizing_rationale}. ` +
+      (posLayer.no_bet_discipline.restriction_level !== "none"
+        ? `Restriction: ${posLayer.no_bet_discipline.reason}`
+        : `No position restriction — proceed with sizing framework.`);
+  } catch {
+    // Non-blocking: position layer failure does not break the pipeline
+    positioningLensText = undefined;
   }
 
   // Attach ctx reference for composeResearchNarrative to access injectJudgmentTension
@@ -1027,7 +1066,8 @@ export async function runDeepResearch(
     businessContextWithCtx,
     ctx.ticker,
     experienceInsightText,  // [NEW 10.3-C]
-    experienceLearningInsightText  // [NEW 10.4]
+    experienceLearningInsightText,  // [NEW 10.4]
+    positioningLensText  // [NEW 10.5]
   );
   const lens = generateLens(thesis, payoutMap, ctx.businessContext);
   const signalDensity = validateSignalDensity(narrative);

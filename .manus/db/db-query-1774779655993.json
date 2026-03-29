@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `decision_log` ADD `asymmetry_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `asymmetry_label` varchar(20);\nALTER TABLE `decision_log` ADD `position_target_pct` decimal(6,2);\nALTER TABLE `decision_log` ADD `position_size_bucket` varchar(10);\nALTER TABLE `decision_log` ADD `no_bet_restriction` varchar(10);\nALTER TABLE `decision_log` ADD `concentration_risk` varchar(10);\nALTER TABLE `decision_log` ADD `positioning_lens_json` json;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `decision_log` ADD `asymmetry_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `asymmetry_label` varchar(20);\nALTER TABLE `decision_log` ADD `position_target_pct` decimal(6,2);\nALTER TABLE `decision_log` ADD `position_size_bucket` varchar(10);\nALTER TABLE `decision_log` ADD `no_bet_restriction` varchar(10);\nALTER TABLE `decision_log` ADD `concentration_risk` varchar(10);\nALTER TABLE `decision_log` ADD `positioning_lens_json` json;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1618
+}

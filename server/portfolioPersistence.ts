@@ -91,6 +91,16 @@ export interface ReplayResult {
     gradient_risk_state: string | null;
     gradient_risk_score: number | null;
   } | null;
+  /** LEVEL10.5: Position layer output (null if pre-LEVEL10.5 or no position data) */
+  position_layer: {
+    asymmetry_score: number | null;
+    asymmetry_label: string | null;
+    position_target_pct: number | null;
+    position_size_bucket: string | null;
+    no_bet_restriction: string | null;
+    concentration_risk: string | null;
+    positioning_lens: unknown | null;
+  } | null;
   advisory_only: true;
 }
 
@@ -577,8 +587,55 @@ export async function replayDecision(
           decayTrace: guards[0].decayTrace,
         }
       : null,
+    position_layer: (() => {
+      if (decisions.length === 0) return null;
+      const row = decisions[0];
+      const hasPositionData = row.asymmetryScore != null || row.positionSizeBucket != null;
+      if (!hasPositionData) return null;
+      return {
+        asymmetry_score: row.asymmetryScore != null ? parseFloat(row.asymmetryScore) : null,
+        asymmetry_label: row.asymmetryLabel ?? null,
+        position_target_pct: row.positionTargetPct != null ? parseFloat(row.positionTargetPct) : null,
+        position_size_bucket: row.positionSizeBucket ?? null,
+        no_bet_restriction: row.noBetRestriction ?? null,
+        concentration_risk: row.concentrationRisk ?? null,
+        positioning_lens: row.positioningLensJson ?? null,
+      };
+    })(),
     advisory_only: true,
   };
+}
+
+/**
+ * [LEVEL10.5] Update decision_log with position layer data after it is computed.
+ * Called non-blocking after saveDecision() completes.
+ */
+export async function updateDecisionPositionLayer(
+  decisionId: number,
+  positionData: {
+    asymmetryScore: number;
+    asymmetryLabel: string;
+    positionTargetPct: number;
+    positionSizeBucket: string;
+    noBetRestriction: string;
+    concentrationRisk: string;
+    positioningLensJson: unknown;
+  }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(decisionLog)
+    .set({
+      asymmetryScore: positionData.asymmetryScore.toFixed(4),
+      asymmetryLabel: positionData.asymmetryLabel,
+      positionTargetPct: positionData.positionTargetPct.toFixed(2),
+      positionSizeBucket: positionData.positionSizeBucket,
+      noBetRestriction: positionData.noBetRestriction,
+      concentrationRisk: positionData.concentrationRisk,
+      positioningLensJson: positionData.positioningLensJson,
+    } as Partial<InsertDecisionLog>)
+    .where(eq(decisionLog.id, decisionId));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

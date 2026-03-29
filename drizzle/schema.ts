@@ -726,6 +726,14 @@ export const decisionLog = mysqlTable("decision_log", {
   businessFlagsJson:          json("business_flags_json"),                          // string[]
   // LEVEL10.4 — Experience Persistence
   experienceContextJson:      json("experience_context_json"),                       // ExperienceContextSnapshot (nullable, append-only)
+  // LEVEL10.5 — Asymmetry & Position Layer
+  asymmetryScore:             decimal("asymmetry_score", { precision: 6, scale: 4 }),  // 0–1
+  asymmetryLabel:             varchar("asymmetry_label", { length: 20 }),              // "poor" | "neutral" | "favorable" | "highly_favorable"
+  positionTargetPct:          decimal("position_target_pct", { precision: 6, scale: 2 }), // 0–15
+  positionSizeBucket:         varchar("position_size_bucket", { length: 10 }),         // "none" | "starter" | "small" | "medium" | "large" | "max"
+  noBetRestriction:           varchar("no_bet_restriction", { length: 10 }),           // "none" | "soft" | "hard"
+  concentrationRisk:          varchar("concentration_risk", { length: 10 }),           // "low" | "medium" | "high"
+  positioningLensJson:        json("positioning_lens_json"),                           // PositionLayerOutput (nullable)
   createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
 });
 export type DecisionLog = typeof decisionLog.$inferSelect;

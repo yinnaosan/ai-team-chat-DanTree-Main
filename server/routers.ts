@@ -6387,6 +6387,38 @@ except Exception as e:
         const { generateDecisionFeedback } = await import("./decisionOutcomeEngine");
         return generateDecisionFeedback(ctx.user.id);
       }),
+
+    // ── LEVEL9 endpoints ────────────────────────────────────────────────────
+
+    /** LEVEL9: Strategy insight patterns (strengths, weaknesses, failure clusters) */
+    getStrategyInsights: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { analyzeStrategyPatterns } = await import("./strategyInsightEngine");
+        return analyzeStrategyPatterns(ctx.user.id);
+      }),
+
+    /** LEVEL9: Regime analysis from live signal context */
+    getRegimeAnalysis: protectedProcedure
+      .input(z.object({
+        fedFundsRate: z.number().optional(),
+        tenYearYield: z.number().optional(),
+        avgVolatility: z.number().optional(),
+        maxEventSeverity: z.number().optional(),
+        avgMomentum: z.number().optional(),
+        avgDanger: z.number().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        const { computeRegimeTag, buildRegimeInputFromSignals } = await import("./regimeEngine");
+        const regimeInput = buildRegimeInputFromSignals(input ?? {});
+        return computeRegimeTag(regimeInput);
+      }),
+
+    /** LEVEL9: Falsification performance analysis */
+    getFalsificationAnalysis: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { analyzeFalsificationPerformance } = await import("./falsificationAnalysis");
+        return analyzeFalsificationPerformance(ctx.user.id);
+      }),
   }),
 
   // ─── LEVEL8: Portfolio Persistence API ───────────────────────────────────────

@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `decision_log` ADD `business_quality_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `moat_strength` varchar(20);\nALTER TABLE `decision_log` ADD `event_type` varchar(40);\nALTER TABLE `decision_log` ADD `event_severity` decimal(6,4);\nALTER TABLE `decision_log` ADD `danger_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `alpha_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `trigger_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `memory_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `dominant_factor` varchar(40);\nALTER TABLE `decision_log` ADD `regime_tag` varchar(30);\nALTER TABLE `decision_log` ADD `falsification_tags_json` json;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `decision_log` ADD `business_quality_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `moat_strength` varchar(20);\nALTER TABLE `decision_log` ADD `event_type` varchar(40);\nALTER TABLE `decision_log` ADD `event_severity` decimal(6,4);\nALTER TABLE `decision_log` ADD `danger_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `alpha_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `trigger_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `memory_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `dominant_factor` varchar(40);\nALTER TABLE `decision_log` ADD `regime_tag` varchar(30);\nALTER TABLE `decision_log` ADD `falsification_tags_json` json;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 4269
+}

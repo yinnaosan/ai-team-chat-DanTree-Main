@@ -699,6 +699,18 @@ export const decisionLog = mysqlTable("decision_log", {
   allocationPct: decimal("allocation_pct", { precision: 8, scale: 4 }),
   advisoryText:  text("advisory_text"),
   advisoryOnly:  boolean("advisory_only").notNull().default(true),
+  // LEVEL9 — Structured Attribution Fields (written at decision creation time)
+  businessQualityScore: decimal("business_quality_score", { precision: 6, scale: 4 }),
+  moatStrength:         varchar("moat_strength", { length: 20 }),          // "wide" | "narrow" | "none" | "unknown"
+  eventType:            varchar("event_type", { length: 40 }),             // e.g. "earnings" | "macro" | "tech" | "none"
+  eventSeverity:        decimal("event_severity", { precision: 6, scale: 4 }),
+  dangerScore:          decimal("danger_score", { precision: 6, scale: 4 }),
+  alphaScore:           decimal("alpha_score", { precision: 6, scale: 4 }),
+  triggerScore:         decimal("trigger_score", { precision: 6, scale: 4 }),
+  memoryScore:          decimal("memory_score", { precision: 6, scale: 4 }),
+  dominantFactor:       varchar("dominant_factor", { length: 40 }),        // e.g. "business_quality" | "event" | "momentum"
+  regimeTag:            varchar("regime_tag", { length: 30 }),             // "risk_on" | "risk_off" | "neutral" | "macro_stress" | "event_shock"
+  falsificationTagsJson: json("falsification_tags_json"),                  // string[]
   createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
 });
 export type DecisionLog = typeof decisionLog.$inferSelect;

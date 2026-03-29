@@ -225,6 +225,13 @@
       "when": 1774748186939,
       "tag": "0031_shiny_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1774750630417,
+      "tag": "0032_loose_carnage",
+      "breakpoints": true
     }
   ]
 }

@@ -80,6 +80,17 @@ export interface ReplayResult {
     business_eligibility_status: string | null;
     business_flags: string[] | null;
   } | null;
+  /** LEVEL10.4: Experience context snapshot (null if pre-LEVEL10.4 or no experience data) */
+  experience_context: {
+    drift_direction: string | null;
+    drift_intensity: number | null;
+    confidence_level: number | null;
+    confidence_trend: string | null;
+    management_behavior: string | null;
+    market_behavior: string | null;
+    gradient_risk_state: string | null;
+    gradient_risk_score: number | null;
+  } | null;
   advisory_only: true;
 }
 
@@ -537,6 +548,27 @@ export async function replayDecision(
         ? (decisions[0].businessFlagsJson as string[])
         : null,
     } : null,
+    experience_context: (() => {
+      if (decisions.length === 0) return null;
+      const raw = decisions[0].experienceContextJson;
+      if (!raw || typeof raw !== 'object') return null;
+      const snap = raw as Record<string, unknown>;
+      const drift = snap.drift as Record<string, unknown> | undefined;
+      const confidence = snap.confidence as Record<string, unknown> | undefined;
+      const management = snap.management as Record<string, unknown> | undefined;
+      const marketBehavior = snap.market_behavior as Record<string, unknown> | undefined;
+      const gradientRisk = snap.gradient_risk as Record<string, unknown> | undefined;
+      return {
+        drift_direction: typeof drift?.drift_direction === 'string' ? drift.drift_direction : null,
+        drift_intensity: typeof drift?.drift_intensity === 'number' ? drift.drift_intensity : null,
+        confidence_level: typeof confidence?.updated_confidence === 'number' ? confidence.updated_confidence : null,
+        confidence_trend: typeof confidence?.confidence_trend === 'string' ? confidence.confidence_trend : null,
+        management_behavior: typeof management?.pattern === 'string' ? management.pattern : null,
+        market_behavior: typeof marketBehavior?.behavior_type === 'string' ? marketBehavior.behavior_type : null,
+        gradient_risk_state: typeof gradientRisk?.risk_state === 'string' ? gradientRisk.risk_state : null,
+        gradient_risk_score: typeof gradientRisk?.risk_score === 'number' ? gradientRisk.risk_score : null,
+      };
+    })(),
     guardAtSnapshot: guards.length > 0
       ? {
           dominantGuard: guards[0].dominantGuard,

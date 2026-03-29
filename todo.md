@@ -2783,3 +2783,14 @@
 - [ ] Module 6: Signal cache 15min TTL per ticker
 - [ ] Module 7: Twelve Data fallback + FRED DGS10 (10Y yield)
 - [ ] Module 8: Pipeline integration + 5 PROOF validation
+
+## LEVEL10.4: Experience Persistence & Learning Layer
+- [x] 创建 server/experienceLearningEngine.ts（5个分析函数 + buildExperienceHistorySummary 主入口）
+- [x] 升级 composeResearchNarrative() 添加 experience_learning_insight 字段（Section 8）
+- [x] 升级 runDeepResearch() 为 async，集成 buildExperienceHistorySummary（非阻塞）
+- [x] 扩展 replayDecision() 返回 experience_context 字段（从 experienceContextJson 解析）
+- [x] 修复 danTreeSystem.ts 中 await runDeepResearch() 调用
+- [x] 编写 server/level104.test.ts（4个 describe，12个 it 用例，全部通过）
+- [x] 批量修复 level103/103b/103c.test.ts 中的 async/await 调用（44个测试全部通过）
+- [x] 生成 MANUS_TO_GPT_LEVEL104_HANDOFF.md 交接报告
+- [x] TSC 0 errors，1326/1332 回归测试通过（6个预存失败与本次无关）

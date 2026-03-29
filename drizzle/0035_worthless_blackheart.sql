@@ -1,0 +1,1 @@
+ALTER TABLE `decision_log` ADD `experience_context_json` json;

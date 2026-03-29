@@ -170,8 +170,8 @@ describe("TC-L103-01: Wide moat + high BQ → long_term_compounder thesis", () =
     expect(lens.advisory_only).toBe(true);
   });
 
-  it("runDeepResearch returns complete output with all 7 modules", () => {
-    const output = runDeepResearch(ctx);
+  it("runDeepResearch returns complete output with all 7 modules", async () => {
+    const output = await runDeepResearch(ctx);
     expect(output.thesis).toBeDefined();
     expect(output.key_variables).toBeDefined();
     expect(output.payout_map).toBeDefined();
@@ -227,8 +227,8 @@ describe("TC-L103-02: Outside competence → avoid_for_now thesis", () => {
     expect(lens.advisory_only).toBe(true);
   });
 
-  it("composeResearchNarrative includes competence boundary warning", () => {
-    const output = runDeepResearch(ctx);
+  it("composeResearchNarrative includes competence boundary warning", async () => {
+    const output = await runDeepResearch(ctx);
     const narrativeText = Object.values(output.narrative.narrative).join(" ");
     expect(narrativeText).toContain("SOME_BIOTECH");
     expect(output.advisory_only).toBe(true);
@@ -300,17 +300,17 @@ describe("TC-L103-03: Risk-off regime + weak moat → negative asymmetry", () =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("TC-L103-04: Signal density validation", () => {
-  it("validateSignalDensity returns passed for high-quality narrative", () => {
+  it("validateSignalDensity returns passed for high-quality narrative", async () => {
     const ctx = makeCtx({ signalFusionScore: 0.75, dataQualityScore: 0.85 });
-    const output = runDeepResearch(ctx);
+    const output = await runDeepResearch(ctx);
     const density = validateSignalDensity(output.narrative);
     expect(density.density_score).toBeGreaterThanOrEqual(0);
     expect(density.advisory_only).toBe(true);
   });
 
-  it("validateSignalDensity returns lower density for low-quality context", () => {
+  it("validateSignalDensity returns lower density for low-quality context", async () => {
     const ctx = makeCtx({ signalFusionScore: 0.20, dataQualityScore: 0.15 });
-    const output = runDeepResearch(ctx);
+    const output = await runDeepResearch(ctx);
     const density = validateSignalDensity(output.narrative);
     // density_score should be a number between 0 and 1
     expect(density.density_score).toBeGreaterThanOrEqual(0);
@@ -318,18 +318,18 @@ describe("TC-L103-04: Signal density validation", () => {
     expect(density.advisory_only).toBe(true);
   });
 
-  it("runDeepResearch completes for low-quality context without throwing", () => {
+  it("runDeepResearch completes for low-quality context without throwing", async () => {
     const ctx = makeCtx({ signalFusionScore: 0.15, dataQualityScore: 0.10 });
-    const output = runDeepResearch(ctx);
+    const output = await runDeepResearch(ctx);
     // signal_density.passed may be false for low quality
     expect(typeof output.signal_density.passed).toBe("boolean");
     expect(output.narrative.narrative.business_and_thesis).toBeTruthy();
     expect(output.advisory_only).toBe(true);
   });
 
-  it("advisory_only is always true across all outputs", () => {
+  it("advisory_only is always true across all outputs", async () => {
     const ctx = makeCtx();
-    const output = runDeepResearch(ctx);
+    const output = await runDeepResearch(ctx);
     expect(output.advisory_only).toBe(true);
     expect(output.thesis.advisory_only).toBe(true);
     expect(output.lens.advisory_only).toBe(true);

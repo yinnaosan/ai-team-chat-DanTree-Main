@@ -724,6 +724,8 @@ export const decisionLog = mysqlTable("decision_log", {
   businessEligibilityStatus:  varchar("business_eligibility_status", { length: 30 }), // "eligible" | "research_required" | "avoid_for_now"
   businessPriorityMultiplier: decimal("business_priority_multiplier", { precision: 6, scale: 4 }),
   businessFlagsJson:          json("business_flags_json"),                          // string[]
+  // LEVEL10.4 — Experience Persistence
+  experienceContextJson:      json("experience_context_json"),                       // ExperienceContextSnapshot (nullable, append-only)
   createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
 });
 export type DecisionLog = typeof decisionLog.$inferSelect;

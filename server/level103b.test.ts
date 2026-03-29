@@ -353,16 +353,16 @@ describe("LEVEL10.3-B Case 1: Wide-moat compounder (AAPL) — valuation tension"
     expect(tension.advisory_only).toBe(true);
   });
 
-  it("TC-L103B-05: runDeepResearch output includes judgment_tension field", () => {
-    const output = runDeepResearch(ctx);
+  it("TC-L103B-05: runDeepResearch output includes judgment_tension field", async () => {
+    const output = await runDeepResearch(ctx);
     expect(output.judgment_tension).toBeDefined();
     expect(output.judgment_tension.tension_type).toBe("valuation_vs_quality");
     expect(output.narrative.narrative.judgment_tension).toBeDefined();
     expect(output.narrative.narrative.judgment_tension.length).toBeGreaterThan(50);
   });
 
-  it("TC-L103B-06: validateSignalDensity passes for high-quality narrative", () => {
-    const output = runDeepResearch(ctx);
+  it("TC-L103B-06: validateSignalDensity passes for high-quality narrative", async () => {
+    const output = await runDeepResearch(ctx);
     const density = validateSignalDensity(output.narrative);
     // Wide moat + high BQ should produce high-density narrative
     expect(density.density_score).toBeGreaterThan(0.5);
@@ -404,8 +404,8 @@ describe("LEVEL10.3-B Case 2: Narrow-moat watchlist (INTC) — regime tension", 
     expect(["watchlist", "speculative", "compounder"]).toContain(lens.lens_type);
   });
 
-  it("TC-L103B-10: narrative risk_break_point is non-empty", () => {
-    const output = runDeepResearch(ctx);
+  it("TC-L103B-10: narrative risk_break_point is non-empty", async () => {
+    const output = await runDeepResearch(ctx);
     const riskText = output.narrative.narrative.risk_break_point;
     expect(riskText.length).toBeGreaterThan(30);
   });
@@ -437,8 +437,8 @@ describe("LEVEL10.3-B Case 3: Outside competence — avoid (COIN)", () => {
     expect(payout.if_wrong.trigger.length).toBeGreaterThan(20);
   });
 
-  it("TC-L103B-13: narrative investment_lens explicitly states no position warranted", () => {
-    const output = runDeepResearch(ctx);
+  it("TC-L103B-13: narrative investment_lens explicitly states no position warranted", async () => {
+    const output = await runDeepResearch(ctx);
     const lens_text = output.narrative.narrative.investment_lens.toLowerCase();
     // Should reference avoid or outside competence
     expect(lens_text).toMatch(/no position|outside competence|avoid|not warranted/);
@@ -578,9 +578,9 @@ describe("LEVEL10.3-B Case 4: Judgment tension coverage — all types", () => {
     expect(tension.tension_statement.length).toBeGreaterThan(30);
   });
 
-  it("TC-L103B-18: validateSignalDensity detects missing judgment_tension", () => {
+  it("TC-L103B-18: validateSignalDensity detects missing judgment_tension", async () => {
     const ctx = makeCtx();
-    const output = runDeepResearch(ctx);
+    const output = await runDeepResearch(ctx);
     // Manually remove judgment_tension to test rejection
     const narrativeWithoutTension = {
       ...output.narrative,

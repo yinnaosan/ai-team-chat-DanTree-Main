@@ -28,6 +28,10 @@ import {
   type PriceActionContext,
   type CapitalFlowContext,
 } from "./experienceLayer";
+import {
+  buildExperienceHistorySummary,
+  type ExperienceHistorySummary,
+} from "./experienceLearningEngine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Context Map — aggregates all upstream layer outputs
@@ -622,6 +626,7 @@ export interface ResearchNarrativeOutput {
     judgment_tension: string;       // [NEW 10.3-B] The core judgment tension
     deeper_layer?: string;          // Implicit factors (capital-reality language)
     experience_layer_insight?: string; // [NEW 10.3-C] Drift + confidence + gradient risk
+    experience_learning_insight?: string; // [NEW 10.4] Learning from judgment history
     investment_lens: string;        // Lens type + conviction + why
   };
   word_count: number;
@@ -640,7 +645,8 @@ export function composeResearchNarrative(
   implicitFactors: ImplicitFactorsOutput,
   businessContext: BusinessContext,
   ticker: string,
-  experienceInsightText?: string  // [NEW 10.3-C] Optional experience layer insight
+  experienceInsightText?: string,  // [NEW 10.3-C] Optional experience layer insight
+  experienceLearningInsightText?: string  // [NEW 10.4] Optional learning history insight
 ): ResearchNarrativeOutput {
   const moat = businessContext.businessUnderstanding.moat_strength;
   const eligibility = businessContext.eligibility.eligibility_status;
@@ -722,7 +728,11 @@ export function composeResearchNarrative(
     investment_lens = `Mixed risk/reward (${payout.asymmetry_ratio.toFixed(1)}x asymmetry). A small, monitored position may be appropriate for those with specific insight into the critical driver, but this is not a high-conviction setup. Size to reflect the uncertainty.`;
   }
 
-  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", investment_lens].join(" ");
+  // Section 8: Experience Learning Insight — [NEW 10.4] Pattern from judgment history
+  // This section surfaces meta-learning from historical decision patterns
+  // It is injected from buildExperienceHistorySummary() (async, non-blocking)
+
+  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", experienceLearningInsightText ?? "", investment_lens].join(" ");
   const word_count = fullText.split(/\s+/).filter(Boolean).length;
 
   return {
@@ -735,6 +745,7 @@ export function composeResearchNarrative(
       judgment_tension,
       ...(deeper_layer ? { deeper_layer } : {}),
       ...(experienceInsightText ? { experience_layer_insight: experienceInsightText } : {}),
+      ...(experienceLearningInsightText ? { experience_learning_insight: experienceLearningInsightText } : {}),
       investment_lens,
     },
     word_count,
@@ -907,6 +918,16 @@ export function validateSignalDensity(narrative: ResearchNarrativeOutput): Signa
 // PIPELINE RUNNER — Run all modules in sequence
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface ExperienceHistorySummaryEmbed {
+  record_count: number;
+  dominant_drift_trend: string;
+  confidence_trend: string;
+  pattern_consistency: number;
+  meta_insight: string;
+  recommended_adjustment: string;
+  advisory_only: true;
+}
+
 export interface DeepResearchOutput {
   ticker: string;
   thesis: InvestmentThesisOutput;
@@ -915,6 +936,7 @@ export interface DeepResearchOutput {
   implicit_factors: ImplicitFactorsOutput;
   judgment_tension: JudgmentTensionOutput;  // [NEW 10.3-B]
   experience_layer?: ExperienceLayerOutput; // [NEW 10.3-C] Optional, non-blocking
+  experience_history?: ExperienceHistorySummaryEmbed; // [NEW 10.4] Optional async history
   narrative: ResearchNarrativeOutput;
   lens: LensOutput;
   signal_density: SignalDensityResult;
@@ -922,17 +944,18 @@ export interface DeepResearchOutput {
 }
 
 /**
- * [LEVEL10.3-C] Run the full deep research pipeline for a single ticker.
- * Upgraded: Experience Layer integrated (non-blocking, backward compatible).
+ * [LEVEL10.4] Run the full deep research pipeline for a single ticker.
+ * Upgraded: Experience Learning History integrated (async, non-blocking).
+ * Returns a Promise to support async experience history lookup.
  */
-export function runDeepResearch(
+export async function runDeepResearch(
   ctx: DeepResearchContextMap,
   experienceParams?: {
     priceAction: PriceActionContext;
     capitalFlow: CapitalFlowContext;
     signalFusionScore?: number;
   }
-): DeepResearchOutput {
+): Promise<DeepResearchOutput> {
   const thesis = buildInvestmentThesis(ctx);
   const keyVariables = identifyKeyVariables(ctx);
   const payoutMap = buildPayoutMap(ctx);
@@ -966,6 +989,33 @@ export function runDeepResearch(
     }
   }
 
+  // [LEVEL10.4] Run Experience Learning History (async, non-blocking)
+  let experienceHistory: ExperienceHistorySummaryEmbed | undefined;
+  let experienceLearningInsightText: string | undefined;
+  try {
+    const historySummary: ExperienceHistorySummary = await buildExperienceHistorySummary(ctx.ticker);
+    if (historySummary.record_count > 0) {
+      experienceHistory = {
+        record_count: historySummary.record_count,
+        dominant_drift_trend: historySummary.drift_analysis.dominant_trend,
+        confidence_trend: historySummary.confidence_trajectory.trend,
+        pattern_consistency: historySummary.behavior_evolution.pattern_consistency,
+        meta_insight: historySummary.meta_insight.meta_insight,
+        recommended_adjustment: historySummary.meta_insight.recommended_adjustment,
+        advisory_only: true,
+      };
+      // Build learning insight text for narrative injection
+      experienceLearningInsightText =
+        `[Experience Learning — ${historySummary.record_count} historical records] ` +
+        `${historySummary.meta_insight.meta_insight} ` +
+        `Recommended adjustment: ${historySummary.meta_insight.recommended_adjustment}`;
+    }
+  } catch {
+    // Non-blocking: experience history failure does not break the pipeline
+    experienceHistory = undefined;
+    experienceLearningInsightText = undefined;
+  }
+
   // Attach ctx reference for composeResearchNarrative to access injectJudgmentTension
   const businessContextWithCtx = { ...ctx.businessContext, __ctx__: ctx };
 
@@ -976,7 +1026,8 @@ export function runDeepResearch(
     implicitFactors,
     businessContextWithCtx,
     ctx.ticker,
-    experienceInsightText  // [NEW 10.3-C]
+    experienceInsightText,  // [NEW 10.3-C]
+    experienceLearningInsightText  // [NEW 10.4]
   );
   const lens = generateLens(thesis, payoutMap, ctx.businessContext);
   const signalDensity = validateSignalDensity(narrative);
@@ -989,6 +1040,7 @@ export function runDeepResearch(
     implicit_factors: implicitFactors,
     judgment_tension: judgmentTension,
     ...(experienceLayer ? { experience_layer: experienceLayer } : {}),
+    ...(experienceHistory ? { experience_history: experienceHistory } : {}),
     narrative,
     lens,
     signal_density: signalDensity,

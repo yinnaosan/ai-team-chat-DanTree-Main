@@ -392,7 +392,7 @@ export async function runDanTreeSystem(
               dataQualityScore: 0.7,
               priceChangePercent: undefined,
             };
-            deepResearchMap.set(signal.ticker, runDeepResearch(ctx));
+            deepResearchMap.set(signal.ticker, await runDeepResearch(ctx));
           }
           console.log(`[DanTreeSystem] LEVEL10.3 deep research completed for ${deepResearchMap.size} tickers`);
         }

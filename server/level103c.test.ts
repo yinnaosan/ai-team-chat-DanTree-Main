@@ -364,9 +364,9 @@ describe("TC-L103C-05: runDeepResearch with Experience Layer", () => {
     clearTimeContext();
   });
 
-  it("should run full pipeline without experienceParams (backward compatible)", () => {
+  it("should run full pipeline without experienceParams (backward compatible)", async () => {
     const ctx = makeDeepResearchCtx("MSFT");
-    const result = runDeepResearch(ctx);
+    const result = await runDeepResearch(ctx);
 
     expect(result.advisory_only).toBe(true);
     expect(result.ticker).toBe("MSFT");
@@ -375,9 +375,9 @@ describe("TC-L103C-05: runDeepResearch with Experience Layer", () => {
     expect(result.experience_layer).toBeUndefined(); // Not provided
   });
 
-  it("should run full pipeline WITH experienceParams and inject experience_layer", () => {
+  it("should run full pipeline WITH experienceParams and inject experience_layer", async () => {
     const ctx = makeDeepResearchCtx("AAPL");
-    const result = runDeepResearch(ctx, {
+    const result = await runDeepResearch(ctx, {
       priceAction: makePriceAction({ price_change_pct_5d: 3.2, volume_ratio_vs_avg: 1.5 }),
       capitalFlow: makeCapitalFlow({ institutional_flow_direction: "inflow" }),
       signalFusionScore: 0.72,
@@ -395,9 +395,9 @@ describe("TC-L103C-05: runDeepResearch with Experience Layer", () => {
     expect(typeof result.narrative.narrative.experience_layer_insight).toBe("string");
   });
 
-  it("should persist time context after runDeepResearch with experienceParams", () => {
+  it("should persist time context after runDeepResearch with experienceParams", async () => {
     const ctx = makeDeepResearchCtx("GOOGL");
-    runDeepResearch(ctx, {
+    await runDeepResearch(ctx, {
       priceAction: makePriceAction(),
       capitalFlow: makeCapitalFlow(),
     });

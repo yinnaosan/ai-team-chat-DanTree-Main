@@ -246,6 +246,13 @@
       "when": 1774759273232,
       "tag": "0034_tired_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1774776089571,
+      "tag": "0035_worthless_blackheart",
+      "breakpoints": true
     }
   ]
 }

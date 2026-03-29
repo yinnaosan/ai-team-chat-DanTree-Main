@@ -28,6 +28,7 @@ import { runInvestorThinking, type InvestorThinkingOutput } from "./investorThin
 import { computeRegimeTag, type RegimeInput, type RegimeOutput } from "./regimeEngine";
 import { applyFactorInteraction, type FactorInteractionInput, type FactorInteractionOutput } from "./factorInteractionEngine";
 import { buildAttributionMap, type AttributionMap } from "./attributionWriteBack";
+import { runDeepResearch, type DeepResearchOutput, type DeepResearchContextMap } from "./deepResearchEngine";
 import { getActiveVersionId } from "./antiPBOEngine";
 import {
   computeCompetenceFit,
@@ -343,6 +344,62 @@ export async function runDanTreeSystem(
       console.warn("[DanTreeSystem] LEVEL10.2 business context failed (non-blocking):", (bizErr as Error).message);
     }
 
+    // LEVEL10.3: Run Deep Research for each ticker (non-blocking)
+    let deepResearchMap: Map<string, DeepResearchOutput> | undefined;
+    try {
+      // Need liveSignals reference — reconstruct from input.signals
+      if (attributionMap && businessContextMap) {
+        // Get thinkingMap and regimeOutput from attributionMap entries
+        const thinkingEntries = Array.from(attributionMap.entries());
+        if (thinkingEntries.length > 0) {
+          deepResearchMap = new Map<string, DeepResearchOutput>();
+          const avgDanger2 = input.signals.reduce((s, sig) => s + ((sig as any).danger_score ?? 0), 0) / Math.max(input.signals.length, 1);
+          const avgRisk2 = input.signals.reduce((s, sig) => s + ((sig as any).risk_score ?? 0), 0) / Math.max(input.signals.length, 1);
+          const avgAlpha2 = input.signals.reduce((s, sig) => s + ((sig as any).alpha_score ?? 0.5), 0) / Math.max(input.signals.length, 1);
+          const regimeForDR = computeRegimeTag({ dangerScore: avgDanger2, volatilityProxy: avgRisk2, momentumStress: avgAlpha2 * 2 - 1 });
+          for (const signal of input.signals) {
+            const attr = attributionMap.get(signal.ticker);
+            const bizCtx = businessContextMap.get(signal.ticker);
+            if (!attr || !bizCtx) continue;
+            // Reconstruct minimal InvestorThinkingOutput from attribution
+            const thinking = {
+              business_quality: { business_quality_score: attr.business_quality_score ?? 0.5, moat_strength: 0.5, business_flags: [] },
+              event_adjustment: { adjusted_alpha_weight: 1.0, adjusted_risk_weight: 1.0, adjusted_macro_weight: 1.0, adjusted_momentum_weight: 1.0, event_bias: (attr.event_type ?? "neutral") as any, event_summary: attr.event_type ?? "neutral" },
+              falsification: { why_might_be_wrong: [], key_risk_flags: attr.falsification_tags_json ?? [], invalidation_conditions: [] },
+              adjusted_alpha_score: (signal as any).alpha_score ?? 0.5,
+              adjusted_danger_score: (signal as any).danger_score ?? 0,
+              adjusted_trigger_score: (signal as any).trigger_score ?? 0.3,
+              adjusted_memory_score: (signal as any).memory_score ?? 0.5,
+              dominant_factor: "alpha_score" as const,
+              advisory_only: true as const,
+            };
+            const interactionForDR = {
+              adjusted_alpha_score: (signal as any).alpha_score ?? 0.5,
+              adjusted_danger_score: (signal as any).danger_score ?? 0,
+              adjusted_trigger_score: (signal as any).trigger_score ?? 0.3,
+              interaction_reasons: [],
+              interaction_dominant_effect: "none",
+              advisory_only: true as const,
+            };
+            const ctx: DeepResearchContextMap = {
+              ticker: signal.ticker,
+              sector: (signal as any).sector ?? "technology",
+              investorThinking: thinking as any,
+              regime: regimeForDR,
+              factorInteraction: interactionForDR,
+              businessContext: bizCtx,
+              signalFusionScore: (signal as any).alpha_score ?? 0.5,
+              dataQualityScore: 0.7,
+              priceChangePercent: undefined,
+            };
+            deepResearchMap.set(signal.ticker, runDeepResearch(ctx));
+          }
+          console.log(`[DanTreeSystem] LEVEL10.3 deep research completed for ${deepResearchMap.size} tickers`);
+        }
+      }
+    } catch (drErr) {
+      console.warn("[DanTreeSystem] LEVEL10.3 deep research failed (non-blocking):", (drErr as Error).message);
+    }
     // LEVEL10: Get active strategy version for this user (non-blocking)
     let activeVersionId: string | null = null;
     try {

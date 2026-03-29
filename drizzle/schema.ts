@@ -711,6 +711,8 @@ export const decisionLog = mysqlTable("decision_log", {
   dominantFactor:       varchar("dominant_factor", { length: 40 }),        // e.g. "business_quality" | "event" | "momentum"
   regimeTag:            varchar("regime_tag", { length: 30 }),             // "risk_on" | "risk_off" | "neutral" | "macro_stress" | "event_shock"
   falsificationTagsJson: json("falsification_tags_json"),                  // string[]
+  // LEVEL10 — Anti-PBO: Strategy Version Linking
+  strategyVersionId: varchar("strategy_version_id", { length: 36 }),        // FK → strategy_version.id
   createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
 });
 export type DecisionLog = typeof decisionLog.$inferSelect;
@@ -749,3 +751,37 @@ export const decisionOutcome = mysqlTable("decision_outcome", {
 });
 export type DecisionOutcome = typeof decisionOutcome.$inferSelect;
 export type InsertDecisionOutcome = typeof decisionOutcome.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEVEL10 — Anti-PBO Layer
+// ─────────────────────────────────────────────────────────────────────────────
+
+// strategyVersion: LEVEL10 Module 1 — 策略版本控制（不可变）
+export const strategyVersion = mysqlTable("strategy_version", {
+  id:              varchar("id", { length: 36 }).primaryKey(),  // UUID
+  versionName:     varchar("version_name", { length: 100 }).notNull(),
+  createdAt:       bigintCol("created_at", { mode: "number" }).notNull(),
+  description:     text("description"),
+  changeSummary:   text("change_summary"),
+  parentVersionId: varchar("parent_version_id", { length: 36 }),  // nullable FK
+  isActive:        boolean("is_active").notNull().default(true),
+  isExperimental:  boolean("is_experimental").notNull().default(false),
+  userId:          int("user_id").notNull().default(0),
+});
+export type StrategyVersion = typeof strategyVersion.$inferSelect;
+export type InsertStrategyVersion = typeof strategyVersion.$inferInsert;
+
+// strategyEvolutionLog: LEVEL10 Module 8 — 策略演化日志（不可变）
+export const strategyEvolutionLog = mysqlTable("strategy_evolution_log", {
+  id:                 int("id").autoincrement().primaryKey(),
+  versionId:          varchar("version_id", { length: 36 }).notNull(),
+  performanceSummary: json("performance_summary"),  // { win_rate, avg_return, sample_count }
+  keyChanges:         text("key_changes"),
+  evaluationResult:   varchar("evaluation_result", { length: 20 }),  // "pass" | "fail" | "pending"
+  overfitFlag:        boolean("overfit_flag").notNull().default(false),
+  isOosValidated:     boolean("is_oos_validated").notNull().default(false),
+  degradationRatio:   decimal("degradation_ratio", { precision: 8, scale: 4 }),
+  createdAt:          bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type StrategyEvolutionLog = typeof strategyEvolutionLog.$inferSelect;
+export type InsertStrategyEvolutionLog = typeof strategyEvolutionLog.$inferInsert;

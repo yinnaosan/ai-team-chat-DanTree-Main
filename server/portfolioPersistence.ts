@@ -170,7 +170,8 @@ export async function saveDecision(
   snapshotId: number | null,
   decision: GuardedDecision,
   rankedDecision?: { action_label: string; suggested_allocation_pct?: number; fusion_score?: number },
-  attribution?: StructuredAttribution | null
+  attribution?: StructuredAttribution | null,
+  strategyVersionId?: string | null  // LEVEL10: auto-link to current strategy version
 ): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("[portfolioPersistence] DB not available");
@@ -222,6 +223,7 @@ export async function saveDecision(
       : null,
     advisoryText: null,
     advisoryOnly: true,
+    strategyVersionId: strategyVersionId ?? null,  // LEVEL10
     createdAt: now,
     ...attrFields,
   } as InsertDecisionLog);
@@ -297,7 +299,8 @@ export async function snapshotPortfolio(
 export async function persistPipelineRun(
   userId: number,
   pipelineOutput: Level7PipelineOutput,
-  attributionMap?: AttributionMap
+  attributionMap?: AttributionMap,
+  strategyVersionId?: string | null  // LEVEL10: link all decisions to this version
 ): Promise<PersistenceResult> {
   const portfolioId = await getOrCreatePortfolio(userId);
   const snapshotId = await snapshotPortfolio(portfolioId, pipelineOutput);
@@ -323,7 +326,7 @@ export async function persistPipelineRun(
     const ranked = rankedMap.get(gd.ticker);
     // LEVEL9.1: Pass attribution for this ticker (null if not available)
     const attribution = attributionMap?.get(gd.ticker) ?? null;
-    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked, attribution);
+    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked, attribution, strategyVersionId ?? null);
     decisionIds.push(dId);
 
     const gId = await saveGuardLog(portfolioId, snapshotId, gd, safetyReport);

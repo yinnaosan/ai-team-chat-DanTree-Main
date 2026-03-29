@@ -28,6 +28,7 @@ import { runInvestorThinking, type InvestorThinkingOutput } from "./investorThin
 import { computeRegimeTag, type RegimeInput, type RegimeOutput } from "./regimeEngine";
 import { applyFactorInteraction, type FactorInteractionInput, type FactorInteractionOutput } from "./factorInteractionEngine";
 import { buildAttributionMap, type AttributionMap } from "./attributionWriteBack";
+import { getActiveVersionId } from "./antiPBOEngine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // System Run Result
@@ -279,9 +280,20 @@ export async function runDanTreeSystem(
       // attributionMap remains undefined → saveDecision will use null fields
     }
 
+    // LEVEL10: Get active strategy version for this user (non-blocking)
+    let activeVersionId: string | null = null;
+    try {
+      activeVersionId = await getActiveVersionId(userId);
+      if (activeVersionId) {
+        console.log(`[DanTreeSystem] Linking decisions to strategy version: ${activeVersionId}`);
+      }
+    } catch (versionErr) {
+      console.warn("[DanTreeSystem] Could not fetch active strategy version (non-blocking):", (versionErr as Error).message);
+    }
+
     // Step 3: Run Level7 pipeline with automatic persistence
     console.log(`[DanTreeSystem] Running Level7 pipeline for userId=${userId}, tickers=${input.portfolio.holdings.map(h => h.ticker).join(",")}, liveData=${liveDataUsed}`);
-    const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap } as any);
+    const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap, strategyVersionId: activeVersionId } as any);
 
     // Step 4: Build summary
     const safetyReport = output.guard_output?.safety_report;

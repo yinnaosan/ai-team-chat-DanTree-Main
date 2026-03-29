@@ -396,7 +396,7 @@ export async function runLevel7PipelineWithPersist(
   if (input.userId != null) {
     try {
       const { persistPipelineRun } = await import("./portfolioPersistence");
-      const result = await persistPipelineRun(input.userId, output, (input as any).attributionMap, (input as any).strategyVersionId ?? null);
+      const result = await persistPipelineRun(input.userId, output, (input as any).attributionMap, (input as any).strategyVersionId ?? null, (input as any).businessContextMap);
       const decisionsMatchGuards = result.decisionIds.length === result.guardIds.length;
       const snapshotTickersMatch =
         result.decisionIds.length === (output.portfolio_view?.ranked_decisions?.length ?? 0);

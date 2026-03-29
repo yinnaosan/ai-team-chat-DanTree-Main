@@ -239,6 +239,13 @@
       "when": 1774755082428,
       "tag": "0033_lowly_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "5",
+      "when": 1774759273232,
+      "tag": "0034_tired_blue_blade",
+      "breakpoints": true
     }
   ]
 }

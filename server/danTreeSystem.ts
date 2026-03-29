@@ -29,6 +29,13 @@ import { computeRegimeTag, type RegimeInput, type RegimeOutput } from "./regimeE
 import { applyFactorInteraction, type FactorInteractionInput, type FactorInteractionOutput } from "./factorInteractionEngine";
 import { buildAttributionMap, type AttributionMap } from "./attributionWriteBack";
 import { getActiveVersionId } from "./antiPBOEngine";
+import {
+  computeCompetenceFit,
+  evaluateBusinessUnderstanding,
+  evaluateManagementProxy,
+  computeBusinessEligibility,
+  type BusinessContext,
+} from "./businessUnderstandingEngine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // System Run Result
@@ -280,6 +287,62 @@ export async function runDanTreeSystem(
       // attributionMap remains undefined → saveDecision will use null fields
     }
 
+    // LEVEL10.2: Build business context map per ticker (non-blocking)
+    let businessContextMap: Map<string, BusinessContext> | undefined;
+    try {
+      businessContextMap = new Map<string, BusinessContext>();
+      for (const signal of input.signals) {
+        const sector = (signal as any).sector ?? "technology";
+        const themes: string[] = (signal as any).themes ?? [];
+        const alphaScore: number = (signal as any).alpha_score ?? 0.5;
+        const dangerScore: number = (signal as any).danger_score ?? 0;
+        const riskScore: number = (signal as any).risk_score ?? 0.3;
+
+        const competenceFit = computeCompetenceFit({
+          ticker: signal.ticker,
+          sector,
+          themes,
+          dataQualityScore: 0.7,
+          businessDescriptionAvailable: true,
+        });
+        const businessUnderstanding = evaluateBusinessUnderstanding({
+          ticker: signal.ticker,
+          sector,
+          volatility: riskScore,
+          signalConsistency: alphaScore,
+          businessQualityScore: alphaScore,
+          eventSensitivity: dangerScore,
+          valuationSanity: 1 - dangerScore,
+          isRecurringBusiness: sector.toLowerCase().includes("software") || sector.toLowerCase().includes("saas"),
+          isTechDisruptionTarget: dangerScore > 0.5,
+          marginQualityProxy: alphaScore,
+        });
+        const managementProxy = evaluateManagementProxy({
+          ticker: signal.ticker,
+          eventReversalCount: dangerScore > 0.6 ? 2 : 0,
+          valuationStretch: 1 - alphaScore,
+          executionConsistency: alphaScore,
+          dataConfidence: 0.7,
+        });
+        const eligibility = computeBusinessEligibility({
+          ticker: signal.ticker,
+          competenceFit,
+          businessUnderstanding,
+          managementProxy,
+          signalFusionScore: alphaScore,
+        });
+        businessContextMap.set(signal.ticker, {
+          competenceFit,
+          businessUnderstanding,
+          managementProxy,
+          eligibility,
+        });
+      }
+      console.log(`[DanTreeSystem] Business context built for ${businessContextMap.size} tickers`);
+    } catch (bizErr) {
+      console.warn("[DanTreeSystem] LEVEL10.2 business context failed (non-blocking):", (bizErr as Error).message);
+    }
+
     // LEVEL10: Get active strategy version for this user (non-blocking)
     let activeVersionId: string | null = null;
     try {
@@ -293,7 +356,7 @@ export async function runDanTreeSystem(
 
     // Step 3: Run Level7 pipeline with automatic persistence
     console.log(`[DanTreeSystem] Running Level7 pipeline for userId=${userId}, tickers=${input.portfolio.holdings.map(h => h.ticker).join(",")}, liveData=${liveDataUsed}`);
-    const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap, strategyVersionId: activeVersionId } as any);
+    const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap, strategyVersionId: activeVersionId, businessContextMap } as any);
 
     // Step 4: Build summary
     const safetyReport = output.guard_output?.safety_report;

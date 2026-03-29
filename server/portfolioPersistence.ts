@@ -71,6 +71,15 @@ export interface ReplayResult {
     regime_tag: string | null;
     falsification_tags: string[] | null;
   } | null;
+  /** LEVEL10.2: Business understanding context (null if pre-LEVEL10.2 decision) */
+  business_context: {
+    competence_fit: string | null;
+    moat_strength: string | null;
+    business_model_quality: string | null;
+    capital_allocation_quality: string | null;
+    business_eligibility_status: string | null;
+    business_flags: string[] | null;
+  } | null;
   advisory_only: true;
 }
 
@@ -171,7 +180,8 @@ export async function saveDecision(
   decision: GuardedDecision,
   rankedDecision?: { action_label: string; suggested_allocation_pct?: number; fusion_score?: number },
   attribution?: StructuredAttribution | null,
-  strategyVersionId?: string | null  // LEVEL10: auto-link to current strategy version
+  strategyVersionId?: string | null,  // LEVEL10: auto-link to current strategy version
+  businessContext?: import('./businessUnderstandingEngine').BusinessContext | null  // LEVEL10.2
 ): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("[portfolioPersistence] DB not available");
@@ -210,6 +220,24 @@ export async function saveDecision(
     console.warn(`[AttributionWrite] No attribution for ${decision.ticker} — fields will be null`);
   }
 
+  // LEVEL10.2: Build business understanding fields (all nullable for backward compat)
+  const bizFields = businessContext ? {
+    competenceFit: businessContext.competenceFit.competence_fit,
+    competenceConfidence: String(businessContext.competenceFit.competence_confidence),
+    businessUnderstandingScore: String(businessContext.businessUnderstanding.business_understanding_score),
+    businessMoatStrength: businessContext.businessUnderstanding.moat_strength,
+    businessModelQuality: businessContext.businessUnderstanding.business_model_quality,
+    managementProxyScore: String(businessContext.managementProxy.management_proxy_score),
+    capitalAllocationQuality: businessContext.managementProxy.capital_allocation_quality,
+    businessEligibilityStatus: businessContext.eligibility.eligibility_status,
+    businessPriorityMultiplier: String(businessContext.eligibility.business_priority_multiplier),
+    businessFlagsJson: businessContext.eligibility.filter_flags,
+  } : {};
+
+  if (businessContext) {
+    console.log(`[BusinessWrite] ${decision.ticker}: competence=${businessContext.competenceFit.competence_fit}, moat=${businessContext.businessUnderstanding.moat_strength}, eligibility=${businessContext.eligibility.eligibility_status}`);
+  }
+
   const inserted = await db.insert(decisionLog).values({
     portfolioId,
     snapshotId: snapshotId ?? undefined,
@@ -226,6 +254,7 @@ export async function saveDecision(
     strategyVersionId: strategyVersionId ?? null,  // LEVEL10
     createdAt: now,
     ...attrFields,
+    ...bizFields,  // LEVEL10.2
   } as InsertDecisionLog);
 
   return (inserted as any).insertId as number;
@@ -300,7 +329,8 @@ export async function persistPipelineRun(
   userId: number,
   pipelineOutput: Level7PipelineOutput,
   attributionMap?: AttributionMap,
-  strategyVersionId?: string | null  // LEVEL10: link all decisions to this version
+  strategyVersionId?: string | null,  // LEVEL10: link all decisions to this version
+  businessContextMap?: Map<string, import('./businessUnderstandingEngine').BusinessContext>  // LEVEL10.2
 ): Promise<PersistenceResult> {
   const portfolioId = await getOrCreatePortfolio(userId);
   const snapshotId = await snapshotPortfolio(portfolioId, pipelineOutput);
@@ -326,7 +356,9 @@ export async function persistPipelineRun(
     const ranked = rankedMap.get(gd.ticker);
     // LEVEL9.1: Pass attribution for this ticker (null if not available)
     const attribution = attributionMap?.get(gd.ticker) ?? null;
-    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked, attribution, strategyVersionId ?? null);
+    // LEVEL10.2: Pass business context for this ticker (null if not available)
+    const businessContext = businessContextMap?.get(gd.ticker) ?? null;
+    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked, attribution, strategyVersionId ?? null, businessContext);
     decisionIds.push(dId);
 
     const gId = await saveGuardLog(portfolioId, snapshotId, gd, safetyReport);
@@ -495,6 +527,16 @@ export async function replayDecision(
         }
       : null,
     structured_attribution: decisions.length > 0 ? buildStructuredAttribution(decisions[0]) : null,
+    business_context: decisions.length > 0 ? {
+      competence_fit: decisions[0].competenceFit ?? null,
+      moat_strength: decisions[0].businessMoatStrength ?? null,
+      business_model_quality: decisions[0].businessModelQuality ?? null,
+      capital_allocation_quality: decisions[0].capitalAllocationQuality ?? null,
+      business_eligibility_status: decisions[0].businessEligibilityStatus ?? null,
+      business_flags: Array.isArray(decisions[0].businessFlagsJson)
+        ? (decisions[0].businessFlagsJson as string[])
+        : null,
+    } : null,
     guardAtSnapshot: guards.length > 0
       ? {
           dominantGuard: guards[0].dominantGuard,

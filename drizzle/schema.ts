@@ -713,6 +713,17 @@ export const decisionLog = mysqlTable("decision_log", {
   falsificationTagsJson: json("falsification_tags_json"),                  // string[]
   // LEVEL10 — Anti-PBO: Strategy Version Linking
   strategyVersionId: varchar("strategy_version_id", { length: 36 }),        // FK → strategy_version.id
+  // LEVEL10.2 — Business Understanding Layer
+  competenceFit:              varchar("competence_fit", { length: 20 }),           // "inside" | "borderline" | "outside"
+  competenceConfidence:       decimal("competence_confidence", { precision: 6, scale: 4 }),
+  businessUnderstandingScore: decimal("business_understanding_score", { precision: 6, scale: 4 }),
+  businessMoatStrength:       varchar("business_moat_strength", { length: 20 }),   // "weak" | "narrow" | "wide" | "unknown"
+  businessModelQuality:       varchar("business_model_quality", { length: 20 }),   // "fragile" | "average" | "strong" | "unknown"
+  managementProxyScore:       decimal("management_proxy_score", { precision: 6, scale: 4 }),
+  capitalAllocationQuality:   varchar("capital_allocation_quality", { length: 20 }), // "poor" | "mixed" | "disciplined" | "unknown"
+  businessEligibilityStatus:  varchar("business_eligibility_status", { length: 30 }), // "eligible" | "research_required" | "avoid_for_now"
+  businessPriorityMultiplier: decimal("business_priority_multiplier", { precision: 6, scale: 4 }),
+  businessFlagsJson:          json("business_flags_json"),                          // string[]
   createdAt:     bigintCol("created_at", { mode: "number" }).notNull(),
 });
 export type DecisionLog = typeof decisionLog.$inferSelect;

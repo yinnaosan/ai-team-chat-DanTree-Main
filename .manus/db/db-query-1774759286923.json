@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `decision_log` ADD `competence_fit` varchar(20);\nALTER TABLE `decision_log` ADD `competence_confidence` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_understanding_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_moat_strength` varchar(20);\nALTER TABLE `decision_log` ADD `business_model_quality` varchar(20);\nALTER TABLE `decision_log` ADD `management_proxy_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `capital_allocation_quality` varchar(20);\nALTER TABLE `decision_log` ADD `business_eligibility_status` varchar(30);\nALTER TABLE `decision_log` ADD `business_priority_multiplier` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_flags_json` json;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute ALTER TABLE `decision_log` ADD `competence_fit` varchar(20);\nALTER TABLE `decision_log` ADD `competence_confidence` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_understanding_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_moat_strength` varchar(20);\nALTER TABLE `decision_log` ADD `business_model_quality` varchar(20);\nALTER TABLE `decision_log` ADD `management_proxy_score` decimal(6,4);\nALTER TABLE `decision_log` ADD `capital_allocation_quality` varchar(20);\nALTER TABLE `decision_log` ADD `business_eligibility_status` varchar(30);\nALTER TABLE `decision_log` ADD `business_priority_multiplier` decimal(6,4);\nALTER TABLE `decision_log` ADD `business_flags_json` json;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 3491
+}

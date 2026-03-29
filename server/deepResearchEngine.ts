@@ -22,6 +22,12 @@ import type { InvestorThinkingOutput } from "./investorThinkingLayer";
 import type { RegimeOutput } from "./regimeEngine";
 import type { FactorInteractionOutput } from "./factorInteractionEngine";
 import type { BusinessContext } from "./businessUnderstandingEngine";
+import {
+  runExperienceLayer,
+  type ExperienceLayerOutput,
+  type PriceActionContext,
+  type CapitalFlowContext,
+} from "./experienceLayer";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Context Map — aggregates all upstream layer outputs
@@ -615,6 +621,7 @@ export interface ResearchNarrativeOutput {
     upside_vs_downside: string;     // Payout map with explicit triggers
     judgment_tension: string;       // [NEW 10.3-B] The core judgment tension
     deeper_layer?: string;          // Implicit factors (capital-reality language)
+    experience_layer_insight?: string; // [NEW 10.3-C] Drift + confidence + gradient risk
     investment_lens: string;        // Lens type + conviction + why
   };
   word_count: number;
@@ -632,7 +639,8 @@ export function composeResearchNarrative(
   payout: PayoutMapOutput,
   implicitFactors: ImplicitFactorsOutput,
   businessContext: BusinessContext,
-  ticker: string
+  ticker: string,
+  experienceInsightText?: string  // [NEW 10.3-C] Optional experience layer insight
 ): ResearchNarrativeOutput {
   const moat = businessContext.businessUnderstanding.moat_strength;
   const eligibility = businessContext.eligibility.eligibility_status;
@@ -714,7 +722,7 @@ export function composeResearchNarrative(
     investment_lens = `Mixed risk/reward (${payout.asymmetry_ratio.toFixed(1)}x asymmetry). A small, monitored position may be appropriate for those with specific insight into the critical driver, but this is not a high-conviction setup. Size to reflect the uncertainty.`;
   }
 
-  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", investment_lens].join(" ");
+  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", investment_lens].join(" ");
   const word_count = fullText.split(/\s+/).filter(Boolean).length;
 
   return {
@@ -726,6 +734,7 @@ export function composeResearchNarrative(
       upside_vs_downside,
       judgment_tension,
       ...(deeper_layer ? { deeper_layer } : {}),
+      ...(experienceInsightText ? { experience_layer_insight: experienceInsightText } : {}),
       investment_lens,
     },
     word_count,
@@ -905,6 +914,7 @@ export interface DeepResearchOutput {
   payout_map: PayoutMapOutput;
   implicit_factors: ImplicitFactorsOutput;
   judgment_tension: JudgmentTensionOutput;  // [NEW 10.3-B]
+  experience_layer?: ExperienceLayerOutput; // [NEW 10.3-C] Optional, non-blocking
   narrative: ResearchNarrativeOutput;
   lens: LensOutput;
   signal_density: SignalDensityResult;
@@ -912,15 +922,49 @@ export interface DeepResearchOutput {
 }
 
 /**
- * [LEVEL10.3-B] Run the full deep research pipeline for a single ticker.
- * Upgraded: judgment tension injected, narrative hardened, density rules expanded.
+ * [LEVEL10.3-C] Run the full deep research pipeline for a single ticker.
+ * Upgraded: Experience Layer integrated (non-blocking, backward compatible).
  */
-export function runDeepResearch(ctx: DeepResearchContextMap): DeepResearchOutput {
+export function runDeepResearch(
+  ctx: DeepResearchContextMap,
+  experienceParams?: {
+    priceAction: PriceActionContext;
+    capitalFlow: CapitalFlowContext;
+    signalFusionScore?: number;
+  }
+): DeepResearchOutput {
   const thesis = buildInvestmentThesis(ctx);
   const keyVariables = identifyKeyVariables(ctx);
   const payoutMap = buildPayoutMap(ctx);
   const implicitFactors = inferImplicitFactors(ctx);
   const judgmentTension = injectJudgmentTension(ctx);
+
+  // [LEVEL10.3-C] Run Experience Layer (non-blocking)
+  let experienceLayer: ExperienceLayerOutput | undefined;
+  let experienceInsightText: string | undefined;
+  if (experienceParams) {
+    try {
+      experienceLayer = runExperienceLayer({
+        ticker: ctx.ticker,
+        thesis: {
+          thesis_confidence: thesis.thesis_confidence,
+          failure_condition: thesis.failure_condition,
+          core_thesis: thesis.core_thesis,
+        },
+        signalFusionScore: experienceParams.signalFusionScore ?? 0.5,
+        bqScore: ctx.investorThinking.business_quality.business_quality_score,
+        regimeTag: ctx.regime?.regime_tag ?? "neutral",
+        hasEventShock: ctx.investorThinking.event_adjustment?.event_bias === "bearish" ||
+                       ctx.investorThinking.event_adjustment?.event_bias === "volatile",
+        priceAction: experienceParams.priceAction,
+        capitalFlow: experienceParams.capitalFlow,
+      });
+      experienceInsightText = experienceLayer.experience_insight.full_insight;
+    } catch {
+      // Non-blocking: experience layer failure does not break the pipeline
+      experienceLayer = undefined;
+    }
+  }
 
   // Attach ctx reference for composeResearchNarrative to access injectJudgmentTension
   const businessContextWithCtx = { ...ctx.businessContext, __ctx__: ctx };
@@ -931,7 +975,8 @@ export function runDeepResearch(ctx: DeepResearchContextMap): DeepResearchOutput
     payoutMap,
     implicitFactors,
     businessContextWithCtx,
-    ctx.ticker
+    ctx.ticker,
+    experienceInsightText  // [NEW 10.3-C]
   );
   const lens = generateLens(thesis, payoutMap, ctx.businessContext);
   const signalDensity = validateSignalDensity(narrative);
@@ -943,6 +988,7 @@ export function runDeepResearch(ctx: DeepResearchContextMap): DeepResearchOutput
     payout_map: payoutMap,
     implicit_factors: implicitFactors,
     judgment_tension: judgmentTension,
+    ...(experienceLayer ? { experience_layer: experienceLayer } : {}),
     narrative,
     lens,
     signal_density: signalDensity,

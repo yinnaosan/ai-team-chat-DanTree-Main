@@ -24,6 +24,10 @@ import {
 import type { Holding } from "./portfolioState";
 import { fuseMultipleSignals, type SignalInput } from "./portfolioState";
 import { buildSignalsFromLiveData, liveSignalToSignalInput } from "./liveSignalEngine";
+import { runInvestorThinking, type InvestorThinkingOutput } from "./investorThinkingLayer";
+import { computeRegimeTag, type RegimeInput, type RegimeOutput } from "./regimeEngine";
+import { applyFactorInteraction, type FactorInteractionInput, type FactorInteractionOutput } from "./factorInteractionEngine";
+import { buildAttributionMap, type AttributionMap } from "./attributionWriteBack";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // System Run Result
@@ -216,9 +220,68 @@ export async function runDanTreeSystem(
     // Step 2: Fetch live signals + build pipeline input
     const { input, liveDataUsed, fallbackSignalCount } = await buildLiveInput(holdings, inputOverride);
 
+    // Step 3a: Run LEVEL9 thinking modules (non-blocking, failure-safe)
+    let attributionMap: AttributionMap | undefined;
+    try {
+      const thinkingMap = new Map<string, InvestorThinkingOutput>();
+      for (const signal of input.signals) {
+        // Convert SignalInput to LiveSignalData for runInvestorThinking
+        const liveSignalData = {
+          ticker: signal.ticker,
+          price_momentum: ((signal as any).alpha_score ?? 0.5) * 2 - 1,  // [0,1] → [-1,1]
+          volatility: (signal as any).risk_score ?? 0.3,
+          valuation_proxy: (signal as any).alpha_score ?? 0.5,
+          news_sentiment: ((signal as any).alpha_score ?? 0.5) * 2 - 1,
+          macro_exposure: -((signal as any).danger_score ?? 0) * 2 + 1,  // invert danger
+          sector: (signal as any).sector ?? "technology",
+        };
+        const thinking = runInvestorThinking(liveSignalData as any);
+        thinkingMap.set(signal.ticker, thinking);
+      }
+
+      // Compute regime from macro signals
+      const avgDanger = input.signals.reduce((s, sig) => s + ((sig as any).danger_score ?? 0), 0) / Math.max(input.signals.length, 1);
+      const avgRisk = input.signals.reduce((s, sig) => s + ((sig as any).risk_score ?? 0), 0) / Math.max(input.signals.length, 1);
+      const avgAlpha = input.signals.reduce((s, sig) => s + ((sig as any).alpha_score ?? 0.5), 0) / Math.max(input.signals.length, 1);
+      const regimeInput: RegimeInput = {
+        dangerScore: avgDanger,
+        volatilityProxy: avgRisk,
+        momentumStress: avgAlpha * 2 - 1,  // [0,1] → [-1,1]
+      };
+      const regimeOutput: RegimeOutput = computeRegimeTag(regimeInput);
+      console.log(`[DanTreeSystem] Regime: ${regimeOutput.regime_tag} (confidence=${regimeOutput.regime_confidence})`);
+
+      // Apply factor interactions per ticker
+      const interactionMap = new Map<string, FactorInteractionOutput>();
+      for (const [ticker, thinking] of Array.from(thinkingMap.entries())) {
+        const signal = input.signals.find(s => s.ticker === ticker);
+        if (!signal) continue;
+        const eventSev = Math.abs(thinking.event_adjustment.adjusted_alpha_weight - 1.0);
+        const interactionInput: FactorInteractionInput = {
+          businessQualityScore: thinking.business_quality.business_quality_score,
+          eventType: thinking.event_adjustment.event_bias,
+          eventSeverity: eventSev,
+          regimeTag: regimeOutput.regime_tag,
+          alphaScore: thinking.adjusted_alpha_score,
+          dangerScore: thinking.adjusted_danger_score,
+          triggerScore: thinking.adjusted_trigger_score,
+          valuationSensitivity: 0.5,
+          momentumStress: ((signal as any).alpha_score ?? 0.5) * 2 - 1,
+        };
+        interactionMap.set(ticker, applyFactorInteraction(interactionInput));
+      }
+
+      // Build attribution map (Module 1)
+      attributionMap = buildAttributionMap(thinkingMap, regimeOutput, interactionMap);
+      console.log(`[DanTreeSystem] Attribution map built for ${attributionMap.size} tickers`);
+    } catch (thinkingErr) {
+      console.warn("[DanTreeSystem] LEVEL9 thinking modules failed (non-blocking):", (thinkingErr as Error).message);
+      // attributionMap remains undefined → saveDecision will use null fields
+    }
+
     // Step 3: Run Level7 pipeline with automatic persistence
     console.log(`[DanTreeSystem] Running Level7 pipeline for userId=${userId}, tickers=${input.portfolio.holdings.map(h => h.ticker).join(",")}, liveData=${liveDataUsed}`);
-    const output = await runLevel7PipelineWithPersist({ ...input, userId });
+    const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap } as any);
 
     // Step 4: Build summary
     const safetyReport = output.guard_output?.safety_report;

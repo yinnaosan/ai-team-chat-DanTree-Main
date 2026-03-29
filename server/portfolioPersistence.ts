@@ -21,6 +21,7 @@ import {
   type InsertDecisionLog,
   type InsertGuardLog,
 } from "../drizzle/schema";
+import type { StructuredAttribution, AttributionMap } from "./attributionWriteBack";
 import { eq, desc, and } from "drizzle-orm";
 import type { Level7PipelineOutput } from "./portfolioDecisionRanker";
 import type { GuardedDecision } from "./portfolioGuardOrchestrator";
@@ -55,6 +56,20 @@ export interface ReplayResult {
     suppressed: boolean;
     decayMultiplier: number;
     decayTrace: unknown;
+  } | null;
+  /** LEVEL9.1: Structured attribution from decision_log (null if pre-LEVEL9.1 decision) */
+  structured_attribution: {
+    business_quality_score: number | null;
+    moat_strength: string | null;
+    event_type: string | null;
+    event_severity: number | null;
+    danger_score: number | null;
+    alpha_score: number | null;
+    trigger_score: number | null;
+    memory_score: number | null;
+    dominant_factor: string | null;
+    regime_tag: string | null;
+    falsification_tags: string[] | null;
   } | null;
   advisory_only: true;
 }
@@ -154,11 +169,46 @@ export async function saveDecision(
   portfolioId: number,
   snapshotId: number | null,
   decision: GuardedDecision,
-  rankedDecision?: { action_label: string; suggested_allocation_pct?: number; fusion_score?: number }
+  rankedDecision?: { action_label: string; suggested_allocation_pct?: number; fusion_score?: number },
+  attribution?: StructuredAttribution | null
 ): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("[portfolioPersistence] DB not available");
   const now = Date.now();
+
+  // LEVEL9.1: Build attribution fields (all nullable for backward compat)
+  const attrFields = attribution ? {
+    businessQualityScore: attribution.business_quality_score != null
+      ? String(attribution.business_quality_score)
+      : null,
+    moatStrength: attribution.moat_strength ?? null,
+    eventType: attribution.event_type ?? null,
+    eventSeverity: attribution.event_severity != null
+      ? String(attribution.event_severity)
+      : null,
+    dangerScore: attribution.danger_score != null
+      ? String(attribution.danger_score)
+      : null,
+    alphaScore: attribution.alpha_score != null
+      ? String(attribution.alpha_score)
+      : null,
+    triggerScore: attribution.trigger_score != null
+      ? String(attribution.trigger_score)
+      : null,
+    memoryScore: attribution.memory_score != null
+      ? String(attribution.memory_score)
+      : null,
+    dominantFactor: attribution.dominant_factor ?? null,
+    regimeTag: attribution.regime_tag ?? null,
+    falsificationTagsJson: attribution.falsification_tags_json ?? null,
+  } : {};
+
+  if (attribution) {
+    console.log(`[AttributionWrite] Writing attribution for ${decision.ticker}: BQ=${attribution.business_quality_score}, regime=${attribution.regime_tag}`);
+  } else {
+    console.warn(`[AttributionWrite] No attribution for ${decision.ticker} — fields will be null`);
+  }
+
   const inserted = await db.insert(decisionLog).values({
     portfolioId,
     snapshotId: snapshotId ?? undefined,
@@ -173,6 +223,7 @@ export async function saveDecision(
     advisoryText: null,
     advisoryOnly: true,
     createdAt: now,
+    ...attrFields,
   } as InsertDecisionLog);
 
   return (inserted as any).insertId as number;
@@ -239,10 +290,14 @@ export async function snapshotPortfolio(
 /**
  * Full pipeline persistence: snapshot → decisions → guards → positions.
  * Returns PersistenceResult with all inserted IDs.
+ *
+ * LEVEL9.1: Accepts optional attributionMap to write structured attribution
+ * fields into each decision_log row. All fields nullable for backward compat.
  */
 export async function persistPipelineRun(
   userId: number,
-  pipelineOutput: Level7PipelineOutput
+  pipelineOutput: Level7PipelineOutput,
+  attributionMap?: AttributionMap
 ): Promise<PersistenceResult> {
   const portfolioId = await getOrCreatePortfolio(userId);
   const snapshotId = await snapshotPortfolio(portfolioId, pipelineOutput);
@@ -266,7 +321,9 @@ export async function persistPipelineRun(
 
   for (const gd of guardedDecisions) {
     const ranked = rankedMap.get(gd.ticker);
-    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked);
+    // LEVEL9.1: Pass attribution for this ticker (null if not available)
+    const attribution = attributionMap?.get(gd.ticker) ?? null;
+    const dId = await saveDecision(portfolioId, snapshotId, gd, ranked, attribution);
     decisionIds.push(dId);
 
     const gId = await saveGuardLog(portfolioId, snapshotId, gd, safetyReport);
@@ -397,6 +454,28 @@ export async function replayDecision(
     )
     .limit(1);
 
+  // LEVEL9.1: Extract structured attribution from decision_log row
+  const buildStructuredAttribution = (row: typeof decisions[0]) => {
+    const hasBQ = row.businessQualityScore != null;
+    const hasAny = hasBQ || row.moatStrength != null || row.regimeTag != null;
+    if (!hasAny) return null;
+    return {
+      business_quality_score: row.businessQualityScore != null ? parseFloat(row.businessQualityScore) : null,
+      moat_strength: row.moatStrength ?? null,
+      event_type: row.eventType ?? null,
+      event_severity: row.eventSeverity != null ? parseFloat(row.eventSeverity) : null,
+      danger_score: row.dangerScore != null ? parseFloat(row.dangerScore) : null,
+      alpha_score: row.alphaScore != null ? parseFloat(row.alphaScore) : null,
+      trigger_score: row.triggerScore != null ? parseFloat(row.triggerScore) : null,
+      memory_score: row.memoryScore != null ? parseFloat(row.memoryScore) : null,
+      dominant_factor: row.dominantFactor ?? null,
+      regime_tag: row.regimeTag ?? null,
+      falsification_tags: Array.isArray(row.falsificationTagsJson)
+        ? (row.falsificationTagsJson as string[])
+        : null,
+    };
+  };
+
   return {
     ticker,
     snapshotId: resolvedSnapshotId,
@@ -412,6 +491,7 @@ export async function replayDecision(
           advisoryText: decisions[0].advisoryText ?? null,
         }
       : null,
+    structured_attribution: decisions.length > 0 ? buildStructuredAttribution(decisions[0]) : null,
     guardAtSnapshot: guards.length > 0
       ? {
           dominantGuard: guards[0].dominantGuard,

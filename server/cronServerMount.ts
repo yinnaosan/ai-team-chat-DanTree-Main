@@ -162,6 +162,29 @@ async function onCronTick(): Promise<void> {
       console.warn("[DanTree Cron] Ingestion hook failed (non-critical):", ingestionErr);
     }
 
+    // LEVEL8 Final Patch — ITEM 2B: Auto-run DanTree Level8 system for owner on each cron tick
+    // Only authorized path: runDanTreeSystem → runLevel7PipelineWithPersist → persistPipelineRun
+    try {
+      const { ENV } = await import("./_core/env");
+      const { getUserByOpenId } = await import("./db");
+      const { runDanTreeSystem } = await import("./danTreeSystem");
+      if (ENV.ownerOpenId) {
+        const ownerUser = await getUserByOpenId(ENV.ownerOpenId);
+        if (ownerUser) {
+          const ownerUserId = ownerUser.id;
+          const sysResult = await runDanTreeSystem(ownerUserId);
+          console.log(
+            `[DanTree Cron] Level8 run — snapshotId=${sysResult.snapshotId} ` +
+            `decisions=${sysResult.decisionCount} guard=${sysResult.guardStatus} ` +
+            `suppressed=${sysResult.suppressedCount} danger=${sysResult.dangerCount} ` +
+            `duration=${sysResult.durationMs}ms`
+          );
+        }
+      }
+    } catch (sysErr) {
+      console.warn("[DanTree Cron] Level8 system run failed (non-critical):", sysErr);
+    }
+
   } catch (err) {
     console.error("[DanTree Cron] Tick error (non-critical):", err);
   }

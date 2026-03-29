@@ -35,6 +35,8 @@ export interface PersistenceResult {
   decisionIds: number[];
   guardIds: number[];
   advisory_only: true;
+  consistency_valid: boolean;
+  consistency_issues: string[];
 }
 
 export interface ReplayResult {
@@ -287,12 +289,42 @@ export async function persistPipelineRun(
     console.error("[portfolioPersistence] enforceSnapshotRetention failed (non-blocking):", err);
   }
 
+  // LEVEL8 Final Patch — ITEM 5: Auto-validate consistency after persist
+  // If invalid: log error + mark snapshot INVALID (do NOT silently pass)
+  let consistencyValid = true;
+  let consistencyIssues: string[] = [];
+  try {
+    const consistency = await validateSnapshotConsistency(portfolioId, snapshotId);
+    if (!consistency.is_consistent) {
+      consistencyValid = false;
+      if (!consistency.decisions_match_guards) consistencyIssues.push(`decisions(${consistency.decision_count}) != guards(${consistency.guard_count})`);
+      if (!consistency.snapshot_tickers_match) consistencyIssues.push(`snapshot_total_tickers(${consistency.snapshot_total_tickers}) != decisions(${consistency.decision_count})`);
+      console.error(
+        `[portfolioPersistence] CONSISTENCY VIOLATION snapshotId=${snapshotId} ` +
+        `issues=${consistencyIssues.join(" | ")}`
+      );
+      // Mark snapshot as INVALID in DB
+      const dbInvalid = await getDb();
+      if (dbInvalid) {
+        await dbInvalid
+          .update(portfolioSnapshot)
+          .set({ guardStatus: "INVALID" })
+          .where(eq(portfolioSnapshot.id, snapshotId));
+        console.error(`[portfolioPersistence] Snapshot ${snapshotId} marked INVALID in DB`);
+      }
+    }
+  } catch (consistencyErr) {
+    console.error("[portfolioPersistence] Consistency auto-check failed:", consistencyErr);
+  }
+
   return {
     portfolioId,
     snapshotId,
     decisionIds,
     guardIds,
     advisory_only: true,
+    consistency_valid: consistencyValid,
+    consistency_issues: consistencyIssues,
   };
 }
 // ─────────────────────────────────────────────────────────────────────────────

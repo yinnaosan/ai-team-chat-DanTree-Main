@@ -49,9 +49,9 @@ vi.mock("./db", async (importOriginal) => {
             // Return portfolio rows for getOrCreatePortfolio
             return Promise.resolve(stores.portfolio.slice(0, n));
           },
-          orderBy: (_order: unknown) => ({
-            limit: (n: number) => Promise.resolve(stores.snapshot.slice(-n)),
-          }),
+          orderBy: (_order: unknown) =>
+            // enforceSnapshotRetention: select().from().where().orderBy() → returns all snapshot ids
+            Promise.resolve(stores.snapshot.map((s: Record<string, unknown>) => ({ id: s.id }))),
         }),
         orderBy: (_order: unknown) => ({
           limit: (n: number) => Promise.resolve(stores.snapshot.slice(-n)),

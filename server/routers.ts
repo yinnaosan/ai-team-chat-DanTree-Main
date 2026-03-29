@@ -6380,13 +6380,29 @@ except Exception as e:
         return replayDecision(portfolios[0].id, input.ticker, input.snapshotId);
       }),
 
-    /** Persist a Level7 pipeline run (advisory_only: true always enforced) */
+    /**
+     * ITEM 7: persistRun is SEALED — direct calls are forbidden.
+     * Only authorized path: runSystem → runDanTreeSystem → runLevel7PipelineWithPersist → persistPipelineRun
+     */
     persistRun: protectedProcedure
-      .input(z.object({ pipelineOutput: z.any() }))
-      .mutation(async ({ ctx, input }) => {
-        const { persistPipelineRun } = await import("./portfolioPersistence");
-        const result = await persistPipelineRun(ctx.user.id, input.pipelineOutput);
-        return { ...result, advisory_only: true as const };
+      .input(z.object({ __internal_bypass: z.literal("SYSTEM_ONLY").optional() }))
+      .mutation(async () => {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "[DanTree] Direct persistRun is sealed. Use portfolioDB.runSystem instead.",
+        });
+      }),
+    /**
+     * ITEM 2A: Unified system run entry — calls runDanTreeSystem(userId)
+     * This is the ONLY authorized way to trigger a pipeline run + persist.
+     * advisory_only: ALWAYS true | auto_trade_allowed: NEVER
+     */
+    runSystem: protectedProcedure
+      .input(z.object({ signalOverrides: z.any().optional() }).optional())
+      .mutation(async ({ ctx }) => {
+        const { runDanTreeSystem } = await import("./danTreeSystem");
+        const result = await runDanTreeSystem(ctx.user.id);
+        return result;
       }),
 
     /** Validate consistency of a snapshot (decisions == guards == totalTickers) */

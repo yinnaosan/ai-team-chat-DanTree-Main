@@ -719,3 +719,21 @@ export const guardLog = mysqlTable("guard_log", {
 });
 export type GuardLog = typeof guardLog.$inferSelect;
 export type InsertGuardLog = typeof guardLog.$inferInsert;
+
+// decision_outcome: LEVEL8.4 — 决策结果追踪（每个 horizon 一条）
+export const decisionOutcome = mysqlTable("decision_outcome", {
+  id:                  int("id").autoincrement().primaryKey(),
+  decisionId:          int("decision_id").notNull(),           // FK → decision_log.id
+  ticker:              varchar("ticker", { length: 20 }).notNull(),
+  decisionTimestamp:   bigintCol("decision_timestamp", { mode: "number" }).notNull(),
+  initialPrice:        decimal("initial_price", { precision: 12, scale: 4 }).notNull(),
+  evaluationPrice:     decimal("evaluation_price", { precision: 12, scale: 4 }),
+  evaluationTimestamp: bigintCol("evaluation_timestamp", { mode: "number" }),
+  horizon:             varchar("horizon", { length: 5 }).notNull(), // "1d" | "3d" | "7d"
+  returnPct:           decimal("return_pct", { precision: 10, scale: 6 }),
+  isPositive:          boolean("is_positive"),
+  evaluated:           boolean("evaluated").notNull().default(false),
+  createdAt:           bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type DecisionOutcome = typeof decisionOutcome.$inferSelect;
+export type InsertDecisionOutcome = typeof decisionOutcome.$inferInsert;

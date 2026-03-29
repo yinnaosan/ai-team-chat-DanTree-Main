@@ -6329,6 +6329,66 @@ except Exception as e:
       }),
   }),
 
+  // ─── LEVEL8.4: Performance & Validation Layer ─────────────────────────────────
+  performance: router({
+    /** Get performance metrics for the current user's decisions */
+    getMetrics: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { computePerformanceMetrics } = await import("./decisionOutcomeEngine");
+        return computePerformanceMetrics(ctx.user.id);
+      }),
+    /** Get decision outcomes (paginated, newest first) */
+    getDecisionOutcomes: protectedProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(100).optional(),
+        horizon: z.enum(["1d", "3d", "7d"]).optional(),
+        evaluated: z.boolean().optional(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const { decisionOutcome, decisionLog } = await import("../drizzle/schema");
+        const { eq, and, desc } = await import("drizzle-orm");
+        const { getPortfolioByUserId } = await import("./portfolioPersistence");
+        const portfolios = await getPortfolioByUserId(ctx.user.id);
+        if (portfolios.length === 0) return [];
+        const db = await getDb();
+        if (!db) return [];
+        const conditions: ReturnType<typeof eq>[] = [eq(decisionLog.portfolioId, portfolios[0].id)];
+        if (input.horizon) conditions.push(eq(decisionOutcome.horizon, input.horizon));
+        if (input.evaluated !== undefined) conditions.push(eq(decisionOutcome.evaluated, input.evaluated));
+        return db
+          .select({
+            id: decisionOutcome.id,
+            ticker: decisionOutcome.ticker,
+            horizon: decisionOutcome.horizon,
+            initialPrice: decisionOutcome.initialPrice,
+            evaluationPrice: decisionOutcome.evaluationPrice,
+            returnPct: decisionOutcome.returnPct,
+            isPositive: decisionOutcome.isPositive,
+            evaluated: decisionOutcome.evaluated,
+            decisionTimestamp: decisionOutcome.decisionTimestamp,
+            evaluationTimestamp: decisionOutcome.evaluationTimestamp,
+          })
+          .from(decisionOutcome)
+          .innerJoin(decisionLog, eq(decisionOutcome.decisionId, decisionLog.id))
+          .where(and(...conditions))
+          .orderBy(desc(decisionOutcome.createdAt))
+          .limit(input.limit ?? 50);
+      }),
+    /** Get attribution analysis (performance grouped by BQ, event, risk) */
+    getAttribution: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { analyzeDecisionAttribution } = await import("./decisionOutcomeEngine");
+        return analyzeDecisionAttribution(ctx.user.id);
+      }),
+    /** Get decision feedback signal (system health, strengths, weaknesses) */
+    getFeedback: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { generateDecisionFeedback } = await import("./decisionOutcomeEngine");
+        return generateDecisionFeedback(ctx.user.id);
+      }),
+  }),
+
   // ─── LEVEL8: Portfolio Persistence API ───────────────────────────────────────
   portfolioDB: router({
     /** Get current portfolio (positions + latest snapshot) for the logged-in user */

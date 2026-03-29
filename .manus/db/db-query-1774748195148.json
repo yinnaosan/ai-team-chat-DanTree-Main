@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `decision_outcome` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`decision_id` int NOT NULL,\n\t`ticker` varchar(20) NOT NULL,\n\t`decision_timestamp` bigint NOT NULL,\n\t`initial_price` decimal(12,4) NOT NULL,\n\t`evaluation_price` decimal(12,4),\n\t`evaluation_timestamp` bigint,\n\t`horizon` varchar(5) NOT NULL,\n\t`return_pct` decimal(10,6),\n\t`is_positive` boolean,\n\t`evaluated` boolean NOT NULL DEFAULT false,\n\t`created_at` bigint NOT NULL,\n\tCONSTRAINT `decision_outcome_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3aCZfsD9brUWuDm.root --database Sfk3bwgkEZLNATmH8kTpez --execute CREATE TABLE `decision_outcome` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`decision_id` int NOT NULL,\n\t`ticker` varchar(20) NOT NULL,\n\t`decision_timestamp` bigint NOT NULL,\n\t`initial_price` decimal(12,4) NOT NULL,\n\t`evaluation_price` decimal(12,4),\n\t`evaluation_timestamp` bigint,\n\t`horizon` varchar(5) NOT NULL,\n\t`return_pct` decimal(10,6),\n\t`is_positive` boolean,\n\t`evaluated` boolean NOT NULL DEFAULT false,\n\t`created_at` bigint NOT NULL,\n\tCONSTRAINT `decision_outcome_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2729
+}

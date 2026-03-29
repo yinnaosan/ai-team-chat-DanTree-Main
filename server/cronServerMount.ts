@@ -185,6 +185,25 @@ async function onCronTick(): Promise<void> {
       console.warn("[DanTree Cron] Level8 system run failed (non-critical):", sysErr);
     }
 
+    // LEVEL8.4 — Performance & Validation Layer: evaluate decision outcomes (max once per hour)
+    try {
+      const now = Date.now();
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const lastEvalKey = "_lastDecisionOutcomeEvalMs";
+      const lastEval = (global as Record<string, unknown>)[lastEvalKey] as number | undefined;
+      if (!lastEval || now - lastEval >= ONE_HOUR_MS) {
+        const { safeEvaluateDecisionOutcome } = await import("./decisionOutcomeEngine");
+        const evalResult = await safeEvaluateDecisionOutcome();
+        (global as Record<string, unknown>)[lastEvalKey] = now;
+        console.log(
+          `[DanTree Cron] Level8.4 outcome eval: evaluated=${evalResult.evaluated} ` +
+          `skipped_not_due=${evalResult.skipped_not_due} errors=${evalResult.errors}`
+        );
+      }
+    } catch (evalErr) {
+      console.warn("[DanTree Cron] Level8.4 outcome evaluation failed (non-critical):", evalErr);
+    }
+
   } catch (err) {
     console.error("[DanTree Cron] Tick error (non-critical):", err);
   }

@@ -1,10 +1,14 @@
 /**
- * DANTREE LEVEL8.2 — Live Signal Engine
+ * DANTREE LEVEL8.3 — Live Signal Engine (Module 6+7 upgrade)
  *
- * Replaces buildDemoSignals() with real market data from:
- * - Yahoo Finance (price momentum + volatility)
- * - Finnhub (news sentiment + event detection)
- * - FRED (macro exposure: Fed Funds Rate, 10Y yield)
+ * Data sources:
+ * - Yahoo Finance (primary: price momentum + volatility)
+ * - Twelve Data  (Module 7 fallback: price momentum + volatility)
+ * - Finnhub      (news sentiment + event detection)
+ * - FRED         (macro exposure: Fed Funds Rate, 10Y yield)
+ *
+ * Module 6: Per-ticker signal cache with 15-min TTL
+ * Module 7: Twelve Data as fallback when Yahoo Finance fails
  *
  * Rules:
  * - All signals normalized to -1..+1 or 0..1
@@ -162,6 +166,46 @@ function computeValuationProxy(pe: number | undefined): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Module 7: Twelve Data — fallback price data source
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchTwelveDataHistory(ticker: string): Promise<number[]> {
+  try {
+    const apiKey = env.TWELVE_DATA_API_KEY;
+    if (!apiKey) return [];
+    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=22&apikey=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const json = await res.json() as any;
+    if (json?.status === "error" || !Array.isArray(json?.values)) return [];
+    // Twelve Data returns newest first → reverse to oldest-first
+    const closes = (json.values as any[])
+      .map((v: any) => parseFloat(v.close))
+      .filter((v) => !isNaN(v))
+      .reverse();
+    return closes;
+  } catch (err) {
+    console.warn(`[SignalEngine] Twelve Data history failed for ${ticker}:`, (err as Error).message);
+    return [];
+  }
+}
+
+async function fetchTwelveDataQuote(ticker: string): Promise<{ price: number } | null> {
+  try {
+    const apiKey = env.TWELVE_DATA_API_KEY;
+    if (!apiKey) return null;
+    const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const json = await res.json() as any;
+    if (json?.status === "error" || !json?.close) return null;
+    return { price: parseFloat(json.close) };
+  } catch {
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Finnhub — news sentiment + event detection
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -207,6 +251,35 @@ function computeNewsSentiment(items: FinnhubNewsItem[]): number {
 // ─────────────────────────────────────────────────────────────────────────────
 // FRED — macro exposure (Fed Funds Rate + 10Y yield)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module 6: Per-ticker signal cache (15min TTL)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SIGNAL_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const _signalCache = new Map<string, { signal: LiveSignal; ts: number }>();
+
+export function getCachedSignal(ticker: string): LiveSignal | null {
+  const entry = _signalCache.get(ticker);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > SIGNAL_CACHE_TTL_MS) {
+    _signalCache.delete(ticker);
+    return null;
+  }
+  return entry.signal;
+}
+
+export function setCachedSignal(ticker: string, signal: LiveSignal): void {
+  _signalCache.set(ticker, { signal, ts: Date.now() });
+}
+
+export function clearSignalCache(): void {
+  _signalCache.clear();
+}
+
+export function getSignalCacheSize(): number {
+  return _signalCache.size;
+}
 
 let _fredCache: { fedFunds: number; tenYear: number; ts: number } | null = null;
 const FRED_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -272,11 +345,19 @@ export async function buildSignalsFromLiveData(tickers: string[]): Promise<LiveS
   // Fetch all tickers in parallel
   const results = await Promise.all(
     tickers.map(async (ticker): Promise<LiveSignal> => {
+      // ── Module 6: Check 15min cache first ──
+      const cached = getCachedSignal(ticker);
+      if (cached) {
+        const ageSeconds = Math.round((Date.now() - cached.metadata.timestamp) / 1000);
+        console.log(`[SignalEngine] ${ticker}: cache hit (age=${ageSeconds}s)`);
+        return cached;
+      }
+
       const sources: string[] = [];
       const missingFields: string[] = [];
       let fallbackUsed = false;
 
-      // --- Yahoo Finance ---
+      // ── Primary: Yahoo Finance ──
       let priceMomentum = 0;
       let volatility = 0.5;
       let valuationProxy = 0.5;
@@ -286,7 +367,7 @@ export async function buildSignalsFromLiveData(tickers: string[]): Promise<LiveS
         fetchYahooHistory(ticker),
       ]);
 
-      if (quote || closes.length > 0) {
+      if (quote || closes.length >= 5) {
         sources.push("Yahoo Finance");
         priceMomentum = closes.length >= 5 ? computeMomentum(closes) : 0;
         volatility = closes.length >= 5 ? computeVolatility(closes) : 0.5;
@@ -294,9 +375,25 @@ export async function buildSignalsFromLiveData(tickers: string[]): Promise<LiveS
         if (closes.length < 5) { missingFields.push("price_history"); fallbackUsed = true; }
         if (!quote?.trailingPE) { missingFields.push("trailing_pe"); }
       } else {
-        missingFields.push("yahoo_quote", "price_history");
-        fallbackUsed = true;
-        console.warn(`[SignalEngine] Yahoo Finance unavailable for ${ticker}, using neutral signals`);
+        // ── Module 7: Twelve Data fallback ──
+        console.warn(`[SignalEngine] Yahoo Finance unavailable for ${ticker}, trying Twelve Data fallback`);
+        const [tdCloses] = await Promise.all([
+          fetchTwelveDataHistory(ticker),
+          fetchTwelveDataQuote(ticker), // fire-and-forget for future PE enrichment
+        ]);
+
+        if (tdCloses.length >= 5) {
+          sources.push("Twelve Data (fallback)");
+          priceMomentum = computeMomentum(tdCloses);
+          volatility = computeVolatility(tdCloses);
+          valuationProxy = 0.5; // PE not available from Twelve Data basic plan
+          fallbackUsed = true;
+          console.log(`[SignalEngine] ${ticker}: Twelve Data fallback succeeded (${tdCloses.length} closes)`);
+        } else {
+          missingFields.push("yahoo_quote", "price_history", "twelve_data");
+          fallbackUsed = true;
+          console.warn(`[SignalEngine] Both Yahoo Finance and Twelve Data unavailable for ${ticker}, using neutral signals`);
+        }
       }
 
       // --- Finnhub News ---
@@ -322,7 +419,7 @@ export async function buildSignalsFromLiveData(tickers: string[]): Promise<LiveS
 
       console.log(`[SignalEngine] ${ticker} signals: momentum=${priceMomentum.toFixed(2)} vol=${volatility.toFixed(2)} val=${valuationProxy.toFixed(2)} news=${newsSentiment.toFixed(2)} macro=${macroExposure.toFixed(2)} fallback=${fallbackUsed}`);
 
-      return {
+      const signal: LiveSignal = {
         ticker,
         signals: {
           price_momentum: priceMomentum,
@@ -339,6 +436,11 @@ export async function buildSignalsFromLiveData(tickers: string[]): Promise<LiveS
           fallback_used: fallbackUsed,
         },
       };
+
+      // ── Module 6: Store in cache ──
+      setCachedSignal(ticker, signal);
+
+      return signal;
     })
   );
 

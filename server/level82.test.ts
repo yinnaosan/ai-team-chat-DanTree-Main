@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   buildSignalsFromLiveData,
   liveSignalToSignalInput,
+  clearSignalCache,
   type LiveSignal,
 } from "./liveSignalEngine";
 
@@ -150,6 +151,7 @@ describe("TC-L82-01: liveSignalToSignalInput mapping", () => {
 
 describe("TC-L82-02: Event detection — policy", () => {
   beforeEach(() => {
+    clearSignalCache();
     mockFetch.mockReset();
     // Yahoo Finance (chart endpoint)
     mockFetch.mockImplementation((url: string) => {
@@ -183,6 +185,7 @@ describe("TC-L82-02: Event detection — policy", () => {
 
 describe("TC-L82-03: Event detection — earnings", () => {
   beforeEach(() => {
+    clearSignalCache();
     mockFetch.mockReset();
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("finance.yahoo.com")) {
@@ -216,6 +219,7 @@ describe("TC-L82-03: Event detection — earnings", () => {
 
 describe("TC-L82-04: Momentum normalization", () => {
   beforeEach(() => {
+    clearSignalCache();
     mockFetch.mockReset();
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("finance.yahoo.com")) {
@@ -251,6 +255,7 @@ describe("TC-L82-04: Momentum normalization", () => {
 
 describe("TC-L82-05: Failure safety", () => {
   beforeEach(() => {
+    clearSignalCache();
     mockFetch.mockReset();
     // All fetches fail
     mockFetch.mockRejectedValue(new Error("Network error"));
@@ -278,6 +283,7 @@ describe("TC-L82-05: Failure safety", () => {
 
 describe("TC-L82-06: Signal metadata accuracy", () => {
   beforeEach(() => {
+    clearSignalCache();
     mockFetch.mockReset();
     mockFetch.mockImplementation((url: string) => {
       if (url.includes("finance.yahoo.com")) {

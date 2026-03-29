@@ -2773,3 +2773,13 @@
 - [ ] Phase 4+5+6: wire runDanTreeSystem() to real data + failure safety + [SignalEngine] logging
 - [ ] Phase 7: validation tests + 6 OUTPUT PROOF items
 - [ ] GPT handoff report: MANUS_TO_GPT_LEVEL82_HANDOFF.md
+
+## DANTREE LEVEL8.3 — Investor Thinking Layer
+- [ ] Module 1: computeBusinessQuality() — business_quality_score + moat_strength + flags
+- [ ] Module 2: applyEventImpactAdjustment() — event modifies system weights
+- [ ] Module 3: Factor hierarchy — business quality gates alpha_score cap
+- [ ] Module 4: generateFalsification() — every decision must include falsification
+- [ ] Module 5: Decision output upgrade — add BQ/event/falsification to decisionLog + replay + UI
+- [ ] Module 6: Signal cache 15min TTL per ticker
+- [ ] Module 7: Twelve Data fallback + FRED DGS10 (10Y yield)
+- [ ] Module 8: Pipeline integration + 5 PROOF validation

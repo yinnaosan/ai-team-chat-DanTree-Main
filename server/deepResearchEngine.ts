@@ -45,16 +45,19 @@ export interface DeepResearchContextMap {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface InvestmentThesisOutput {
-  core_thesis: string;
-  main_contradiction: string;
-  thesis_confidence: number;  // 0–1
+  core_thesis: string;          // MUST include specific mechanism + observable signal
+  main_contradiction: string;   // MUST express judgment tension
+  critical_driver: string;      // [NEW 10.3-B] The ONE variable that determines outcome
+  failure_condition: string;    // [NEW 10.3-B] Explicit thesis-breaking condition
+  thesis_confidence: number;    // 0–1
   advisory_only: true;
 }
 
 /**
- * Build the core investment thesis from upstream context.
- * core_thesis = ONE dominant idea.
- * main_contradiction = the real tension (e.g. growth vs disruption).
+ * [LEVEL10.3-B] Build the core investment thesis — HARDENED.
+ * MUST include: specific mechanism, observable signal, failure trigger.
+ * REJECT if: no concrete variable, no failure condition.
+ * Style: PM-to-PM, not AI-summarizing-data.
  */
 export function buildInvestmentThesis(ctx: DeepResearchContextMap): InvestmentThesisOutput {
   const { ticker, sector, investorThinking, regime, businessContext, signalFusionScore, dataQualityScore } = ctx;
@@ -65,50 +68,81 @@ export function buildInvestmentThesis(ctx: DeepResearchContextMap): InvestmentTh
   const regimeTag = regime.regime_tag;
   const dominantFactor = investorThinking.dominant_factor;
   const falsification = investorThinking.falsification;
+  const event = investorThinking.event_adjustment;
+  const mgmt = businessContext.managementProxy;
+  const goodReasons = businessContext.businessUnderstanding.why_this_business_might_be_good;
+  const fragileReasons = businessContext.businessUnderstanding.why_this_business_might_be_fragile;
 
-  // Determine thesis confidence: data quality + BQ score + signal fusion
+  // Thesis confidence: data quality + BQ score + signal fusion
   const raw_confidence = (bq.business_quality_score * 0.4) + (signalFusionScore * 0.35) + (dataQualityScore * 0.25);
   const thesis_confidence = Math.min(0.95, Math.max(0.1, raw_confidence));
 
-  // Build core thesis based on moat + eligibility + regime
   let core_thesis = "";
   let main_contradiction = "";
+  let critical_driver = "";
+  let failure_condition = "";
 
   if (eligibility === "avoid_for_now" || competence === "outside") {
-    core_thesis = `${ticker} operates outside the defined competence boundary — the business model and competitive dynamics are insufficiently understood to form a reliable thesis.`;
-    main_contradiction = `Sector familiarity gap vs. potential signal noise masquerading as opportunity.`;
+    // REJECTION BRANCH: outside competence = thesis is explicitly weak
+    core_thesis = `${ticker} operates outside the defined competence boundary. Without domain expertise in ${sector}, the risk of misreading competitive dynamics or regulatory shifts is unquantifiable — any apparent signal may be noise.`;
+    main_contradiction = `Observable price signal vs. inability to distinguish genuine opportunity from domain-specific risk we cannot properly evaluate.`;
+    critical_driver = `Competence boundary — without sufficient sector understanding, no signal can be reliably interpreted.`;
+    failure_condition = `Thesis is already in failure state: no position is warranted until ${sector} competence is established. Any entry here is speculative by definition.`;
   } else if (moat === 'wide' && bq.business_quality_score >= 0.75) {
-    // High-quality compounder thesis
-    const moatSource = businessContext.businessUnderstanding.why_this_business_might_be_good[0] ?? "durable competitive advantage";
-    core_thesis = `${ticker} is a high-quality ${sector} business with a wide moat anchored by ${moatSource}. The core thesis is that the market is underpricing the durability and reinvestment capacity of this franchise.`;
-    if (regimeTag === "risk_off" || regimeTag === "macro_stress") {
-      main_contradiction = `Franchise durability vs. near-term macro headwinds compressing multiples.`;
-    } else if (falsification.key_risk_flags.includes("valuation_stretch")) {
-      main_contradiction = `Compounding power vs. current valuation already pricing in optimistic outcomes.`;
-    } else {
-      main_contradiction = `Long-term compounding potential vs. short-term market focus on quarterly noise.`;
-    }
+    // HIGH-QUALITY COMPOUNDER: must name the specific mechanism
+    const mechanism = goodReasons[0] ?? "durable competitive advantage and recurring revenue";
+    const observableSignal = bq.business_quality_score >= 0.85
+      ? "services revenue share rising as a percentage of total revenue"
+      : "consistent free cash flow generation above sector peers";
+    const valuationRisk = falsification.key_risk_flags.includes("valuation_stretch");
+    const macroRisk = regimeTag === "risk_off" || regimeTag === "macro_stress";
+
+    core_thesis = `${ticker} is a wide-moat ${sector} franchise whose earnings durability is driven by ${mechanism}. The observable signal is ${observableSignal}. The market is currently ${
+      valuationRisk ? "pricing in optimistic outcomes — the thesis only works if growth sustains at current multiples" :
+      macroRisk ? "compressing multiples due to macro pressure, creating a potential entry window if the franchise is intact" :
+      "underpricing the reinvestment capacity of this franchise relative to its long-term compounding potential"
+    }.`;
+    main_contradiction = valuationRisk
+      ? `Structural compounding power vs. current pricing that already reflects much of that strength — the quality is real, but so is the valuation risk.`
+      : macroRisk
+      ? `Franchise durability vs. near-term multiple compression — the business is fine, but the market is not paying for quality right now.`
+      : `Long-term compounding potential vs. short-term market focus on quarterly noise that obscures the underlying trajectory.`;
+    critical_driver = mgmt.capital_allocation_quality === "disciplined"
+      ? `Capital allocation discipline — whether management continues to reinvest at high returns determines if the moat compounds or stagnates.`
+      : `Moat durability — the thesis requires that ${mechanism} remains intact as the competitive environment evolves.`;
+    failure_condition = valuationRisk
+      ? `Thesis breaks if earnings growth decelerates below ${(bq.business_quality_score * 20).toFixed(0)}% while the multiple remains elevated — any guidance cut at current prices triggers disproportionate de-rating.`
+      : `Thesis breaks if ${fragileReasons[0] ?? "competitive position erodes"} materializes, or if management pivots to value-destructive capital allocation.`;
   } else if (moat === 'narrow' && bq.business_quality_score >= 0.55) {
-    // Solid but not exceptional business
-    core_thesis = `${ticker} is a solid ${sector} business with a defensible but not dominant position. The thesis depends on execution consistency and avoiding competitive erosion rather than structural expansion.`;
-    if (dominantFactor === "alpha_score") {
-      main_contradiction = `Positive near-term momentum vs. limited structural moat to sustain it.`;
-    } else {
-      main_contradiction = `Adequate business quality vs. risk of mean reversion if execution falters.`;
-    }
+    const mechanism = goodReasons[0] ?? "defensible market position with moderate switching costs";
+    const alphaSignal = dominantFactor === "alpha_score" ? "positive momentum" : "stable earnings delivery";
+    core_thesis = `${ticker} is a solid ${sector} business with a narrow moat anchored by ${mechanism}. The thesis is not about structural expansion — it is about whether ${alphaSignal} can persist long enough to justify current pricing. The market is treating this as a compounder; the reality is more execution-dependent.`;
+    main_contradiction = dominantFactor === "alpha_score"
+      ? `Positive near-term momentum vs. limited structural moat — momentum can reverse faster than the market expects when the catalyst fades.`
+      : `Adequate business quality vs. risk of mean reversion if execution falters — narrow moats require flawless execution to avoid competitive erosion.`;
+    critical_driver = `Execution consistency — a single missed quarter or margin compression event can trigger a re-rating disproportionate to the fundamental change.`;
+    failure_condition = `Thesis breaks if ${fragileReasons[0] ?? "competitive pressure intensifies"} or if the dominant factor (${dominantFactor}) reverses — at that point the business has no structural floor to prevent de-rating.`;
   } else if (regimeTag === "event_shock" || dominantFactor === "danger_score") {
-    // Event-driven or distressed thesis
-    core_thesis = `${ticker} is currently in an event-driven situation where near-term catalysts dominate the risk/reward. The thesis is not about business quality but about whether the market is mispricing the event outcome.`;
-    main_contradiction = `Event-driven upside vs. structural business weakness that may persist post-event.`;
+    const eventBias = event.event_bias;
+    const eventSummary = event.event_summary ?? "an unresolved event catalyst";
+    core_thesis = `${ticker} is in an event-driven situation — the thesis is not about business quality but about whether the market is mispricing the outcome of ${eventSummary}. The event bias is ${eventBias}. This is a binary setup, not a structural position.`;
+    main_contradiction = `Event-driven upside from ${eventBias === "bullish" ? "favorable resolution" : "mean reversion"} vs. structural business weakness that reasserts once the event fades.`;
+    critical_driver = `Event resolution — the entire risk/reward is contingent on how ${eventSummary} resolves. Fundamentals are secondary until the event clears.`;
+    failure_condition = `Thesis breaks if the event resolves ${eventBias === "bullish" ? "unfavorably or is delayed" : "in a way that triggers further negative re-rating"}, or if the market shifts focus back to structural weakness before recovery.`;
   } else {
-    // Low conviction / uncertain thesis
-    core_thesis = `${ticker} presents a mixed signal profile with insufficient data density to form a high-conviction thesis. The business quality and competitive positioning remain unclear.`;
-    main_contradiction = `Potential upside from signal improvement vs. risk of false positives in low-data environment.`;
+    // LOW CONVICTION: explicit about what is missing
+    const missingElement = dataQualityScore < 0.4 ? "data quality" : signalFusionScore < 0.4 ? "signal coherence" : "business quality clarity";
+    core_thesis = `${ticker} presents insufficient ${missingElement} to form a concrete thesis. The signals are present but not coherent enough to identify a specific mechanism or observable driver. This is not a thesis — it is an observation that something may be happening.`;
+    main_contradiction = `Potential opportunity from improving signals vs. high probability that current data reflects noise rather than a genuine edge.`;
+    critical_driver = `${missingElement.charAt(0).toUpperCase() + missingElement.slice(1)} improvement — without this, no specific mechanism can be identified and the thesis remains unactionable.`;
+    failure_condition = `Thesis is already in low-conviction state. It fails to become actionable if ${missingElement} does not improve within the next observation cycle.`;
   }
 
   return {
     core_thesis,
     main_contradiction,
+    critical_driver,
+    failure_condition,
     thesis_confidence,
     advisory_only: true,
   };
@@ -124,6 +158,7 @@ export interface KeyVariable {
   variable: string;
   why_it_matters: string;
   directional_impact: DirectionalImpact;
+  update_frequency: "real_time" | "quarterly" | "annual" | "event_driven"; // [NEW 10.3-B]
 }
 
 export interface KeyVariablesOutput {
@@ -147,74 +182,88 @@ export function identifyKeyVariables(ctx: DeepResearchContextMap): KeyVariablesO
   const regimeTag = regime.regime_tag;
   const interaction = factorInteraction;
 
-  // Variable 1: Business quality / moat durability
+  // Variable 1: Business quality / moat durability — HARDENED with specific mechanism
   if (moat === "wide" || moat === "narrow") {
+    const moatMechanism = businessContext.businessUnderstanding.why_this_business_might_be_good[0] ?? "competitive positioning";
+    const bqLabel = bq.business_quality_score >= 0.80 ? "high" : bq.business_quality_score >= 0.60 ? "moderate" : "borderline";
     variables.push({
-      variable: "Moat durability and reinvestment rate",
-      why_it_matters: `With a ${moat} moat, the key question is whether the business can sustain its competitive advantage while deploying capital at high returns. BQ score is ${bq.business_quality_score.toFixed(2)}.`,
+      variable: moat === "wide" ? "Moat durability and reinvestment capacity" : "Execution consistency and competitive defense",
+      why_it_matters: `${moat === "wide" ? "Wide moat" : "Narrow moat"} anchored by ${moatMechanism}. BQ score ${bq.business_quality_score.toFixed(2)} (${bqLabel}). The question is whether this advantage is durable enough to justify current pricing — not whether the business is good, but whether it is good enough for the price.`,
       directional_impact: bq.business_quality_score >= 0.65 ? "positive" : "uncertain",
+      update_frequency: "quarterly",
     });
   } else if (moat === "weak" || moat === "unknown") {
+    const fragileReason = businessContext.businessUnderstanding.why_this_business_might_be_fragile[0] ?? "limited competitive differentiation";
     variables.push({
-      variable: "Competitive erosion risk",
-      why_it_matters: `A weak or unverifiable moat means the business is vulnerable to margin compression or market share loss. This is the primary risk variable.`,
+      variable: "Competitive erosion and structural floor",
+      why_it_matters: `Weak or unverifiable moat with primary fragility driver: ${fragileReason}. Without a structural floor, any margin compression or market share loss becomes self-reinforcing. The key question is not if erosion happens, but how fast.`,
       directional_impact: "negative",
+      update_frequency: "quarterly",
     });
   }
 
-  // Variable 2: Event / catalyst sensitivity
-  if (event.adjusted_risk_weight > 1.1 || event.adjusted_alpha_weight > 1.1) {
+  // Variable 2: Event / catalyst sensitivity — HARDENED with specific bias + mechanism
+  if (event.adjusted_risk_weight > 1.1 || (event.adjusted_alpha_weight ?? 0) > 1.1) {
     const impactDir: DirectionalImpact = event.event_bias === "bullish" ? "positive" : event.event_bias === "bearish" ? "negative" : "uncertain";
+    const eventSummary = event.event_summary ?? "an active event catalyst";
     variables.push({
-      variable: `Event catalyst (bias: ${event.event_bias})`,
-      why_it_matters: `The current event context has a ${event.event_bias} bias. Alpha weight: ${event.adjusted_alpha_weight.toFixed(2)}, Risk weight: ${event.adjusted_risk_weight.toFixed(2)}. ${event.event_summary}`,
+      variable: `Event catalyst: ${event.event_bias} bias (${eventSummary.slice(0, 60)}${eventSummary.length > 60 ? "..." : ""})`,
+      why_it_matters: `This is not a macro observation — it is a specific catalyst with a ${event.event_bias ?? "mixed"} directional bias. Alpha weight ${(event.adjusted_alpha_weight ?? 1.0).toFixed(2)}, Risk weight ${event.adjusted_risk_weight.toFixed(2)}. The market will re-price when the event resolves; the question is whether current pricing already reflects the expected outcome.`,
       directional_impact: impactDir,
+      update_frequency: "event_driven",
     });
   } else if (regimeTag === "macro_stress" || regimeTag === "risk_off") {
     variables.push({
-      variable: "Macro regime pressure",
-      why_it_matters: `The current ${regimeTag} regime creates systematic headwinds. Even quality businesses face multiple compression in this environment.`,
+      variable: `Macro regime: ${regimeTag} (systematic multiple compression)`,
+      why_it_matters: `${regimeTag === "macro_stress" ? "Macro stress" : "Risk-off environment"} is compressing multiples across the board. Even quality businesses are not immune — the question is whether the business can sustain earnings while the market re-prices risk. This is a timing variable, not a fundamental one.`,
       directional_impact: "negative",
+      update_frequency: "real_time",
     });
   }
 
-  // Variable 3: Factor interaction or management quality
+  // Variable 3: Factor interaction or management quality — HARDENED
   if (variables.length < 3) {
     if (interaction.interaction_dominant_effect && interaction.interaction_dominant_effect !== "none" && interaction.interaction_reasons.length > 0) {
       const alphaAdj = interaction.adjusted_alpha_score - 0.5;
       const dir: DirectionalImpact = alphaAdj > 0.05 ? "positive" : alphaAdj < -0.05 ? "negative" : "uncertain";
       variables.push({
         variable: `Factor interaction: ${interaction.interaction_dominant_effect}`,
-        why_it_matters: `Active factor interaction detected. ${interaction.interaction_reasons[0] ?? ""}`,
+        why_it_matters: `${interaction.interaction_reasons[0] ?? "Active factor interaction detected"}. Adjusted alpha: ${interaction.adjusted_alpha_score.toFixed(2)}, adjusted danger: ${interaction.adjusted_danger_score.toFixed(2)}. This interaction is not visible in single-factor analysis — it only appears when factors are evaluated together.`,
         directional_impact: dir,
+        update_frequency: "real_time",
       });
     } else if (mgmt === "disciplined") {
       variables.push({
-        variable: "Management capital allocation discipline",
-        why_it_matters: `Disciplined capital allocation (score: ${businessContext.managementProxy.management_proxy_score.toFixed(2)}) is a compounding multiplier — it determines whether earnings translate into shareholder value.`,
+        variable: "Capital allocation quality (disciplined management)",
+        why_it_matters: `Management proxy score: ${businessContext.managementProxy.management_proxy_score.toFixed(2)}. Disciplined capital allocation is the difference between a business that compounds and one that merely earns. The key question is whether management will continue to deploy capital at high returns or shift to value-destructive acquisitions.`,
         directional_impact: "positive",
+        update_frequency: "annual",
       });
     } else if (mgmt === "poor" || mgmt === "unknown") {
       variables.push({
-        variable: "Management execution risk",
-        why_it_matters: `Poor or unverifiable management quality (score: ${businessContext.managementProxy.management_proxy_score.toFixed(2)}) introduces execution risk that can erode even a structurally sound business.`,
+        variable: "Management execution risk (poor or unverifiable)",
+        why_it_matters: `Management proxy score: ${businessContext.managementProxy.management_proxy_score.toFixed(2)}. Poor capital allocation destroys value even in structurally sound businesses. The risk is not that the business fails — it is that management extracts value from shareholders through dilution, bad acquisitions, or excessive leverage.`,
         directional_impact: "negative",
+        update_frequency: "annual",
       });
     } else if (dataQualityScore < 0.5) {
       variables.push({
-        variable: "Data quality and signal reliability",
-        why_it_matters: `Low data quality (${dataQualityScore.toFixed(2)}) means conclusions are built on incomplete information. The uncertainty itself is a key variable.`,
+        variable: `Signal reliability (data quality: ${dataQualityScore.toFixed(2)})`,
+        why_it_matters: `Low data quality means the system is drawing conclusions from incomplete information. The uncertainty is not just about the business — it is about whether the signals themselves are trustworthy. Any apparent edge here may be an artifact of missing data.`,
         directional_impact: "uncertain",
+        update_frequency: "real_time",
       });
     }
   }
 
   // Falsification override: if falsification tags are present, add as variable
   if (falsification.key_risk_flags.length > 0 && variables.length < 3) {
+    const riskFlag = falsification.key_risk_flags[0];
     variables.push({
-      variable: `Falsification risk: ${falsification.key_risk_flags[0]}`,
-      why_it_matters: `The system has flagged ${falsification.key_risk_flags[0]} as a potential thesis-breaking condition. If this materializes, the core thesis is invalidated.`,
+      variable: `Falsification trigger: ${riskFlag}`,
+      why_it_matters: `The system has flagged ${riskFlag} as a potential thesis-breaking condition. This is not a risk to monitor — it is a condition that, if confirmed, invalidates the thesis entirely. Position sizing should reflect this binary risk.`,
       directional_impact: "negative",
+      update_frequency: "event_driven",
     });
   }
 
@@ -230,6 +279,7 @@ export function identifyKeyVariables(ctx: DeepResearchContextMap): KeyVariablesO
 
 export interface PayoutSide {
   mechanism: string;
+  trigger: string;        // [NEW 10.3-B] The specific observable event that confirms this side
   drivers?: string[];
   risks?: string[];
 }
@@ -262,15 +312,17 @@ export function buildPayoutMap(ctx: DeepResearchContextMap): PayoutMapOutput {
 
   if (eligibility === "avoid_for_now") {
     if_right = {
-      mechanism: "Speculative re-rating if business quality proves better than assessed",
+      mechanism: "Speculative re-rating if business quality proves substantially better than assessed",
+      trigger: "Competence boundary is crossed: sector understanding improves and the business model becomes legible",
       drivers: ["Sector re-rating", "Unexpected earnings beat", "Management change"],
     };
     if_wrong = {
-      mechanism: "Continued deterioration with no structural floor",
+      mechanism: "Continued deterioration with no structural floor to arrest the decline",
+      trigger: "Any of the fragility drivers materialize: " + (fragileReasons[0] ?? "competitive erosion or margin compression"),
       risks: fragileReasons.length > 0 ? fragileReasons : ["Weak moat", "Poor management", "Outside competence circle"],
-    } as PayoutSide;
-    asymmetry_ratio = 0.5; // unfavorable asymmetry
-  } else  if (moat === "wide" && bq.business_quality_score >= 0.75) {
+    };
+    asymmetry_ratio = 0.5;
+  } else if (moat === "wide" && bq.business_quality_score >= 0.75) {
     const upsideDrivers: string[] = [];
     if (goodReasons.length > 0) upsideDrivers.push(...goodReasons.slice(0, 2));
     if (mgmt === "disciplined") upsideDrivers.push("Disciplined reinvestment compounds returns over time");
@@ -280,36 +332,52 @@ export function buildPayoutMap(ctx: DeepResearchContextMap): PayoutMapOutput {
     if (fragileReasons.length > 0) downsideRisks.push(...fragileReasons.slice(0, 1));
     if (regimeTag === "macro_stress") downsideRisks.push("Macro stress compresses valuation multiples");
 
+    const valuationRisk = falsification.key_risk_flags.includes("valuation_stretch");
     if_right = {
-      mechanism: "Market re-rates the franchise at a premium as earnings quality and durability become apparent",
+      mechanism: valuationRisk
+        ? "Multiple sustains or expands as earnings growth validates current pricing"
+        : "Market re-rates the franchise at a premium as earnings quality and reinvestment capacity become apparent",
+      trigger: valuationRisk
+        ? "Next earnings report shows revenue growth and margin expansion both meeting or exceeding guidance"
+        : `${goodReasons[0] ?? "Earnings compounding"} becomes visible in reported financials over 2-3 quarters`,
       drivers: upsideDrivers.length > 0 ? upsideDrivers : ["Earnings compounding", "Multiple expansion", "Capital return"],
     };
     if_wrong = {
-      mechanism: "Valuation de-rating if growth decelerates or competitive position weakens",
+      mechanism: valuationRisk
+        ? "Multiple compression triggered by any guidance cut while valuation remains elevated"
+        : "Valuation de-rating if growth decelerates or competitive position weakens",
+      trigger: valuationRisk
+        ? "Earnings miss or guidance reduction while P/E remains above 25x — triggers disproportionate sell-off"
+        : `${fragileReasons[0] ?? "Competitive disruption"} materializes or management pivots to value-destructive capital allocation`,
       risks: downsideRisks.length > 0 ? downsideRisks : ["Valuation stretch", "Competitive disruption", "Macro headwinds"],
-    } as PayoutSide;
-    asymmetry_ratio = 1.8; // favorable asymmetry for quality compounders
+    };
+    asymmetry_ratio = 1.8;
   } else if (moat === "narrow") {
     if_right = {
       mechanism: "Steady earnings delivery with gradual multiple re-rating as execution proves consistent",
+      trigger: `Two consecutive quarters of on-target earnings delivery without margin deterioration`,
       drivers: goodReasons.length > 0 ? goodReasons.slice(0, 2) : ["Consistent execution", "Market share stability"],
     };
     if_wrong = {
       mechanism: "Competitive erosion or execution miss triggers disproportionate de-rating",
+      trigger: `${fragileReasons[0] ?? "Margin compression or market share loss"} — narrow moats have no buffer once the narrative breaks`,
       risks: fragileReasons.length > 0 ? fragileReasons.slice(0, 2) : ["Competitive pressure", "Margin compression"],
-    } as PayoutSide;
-    asymmetry_ratio = 1.1; // roughly symmetric
+    };
+    asymmetry_ratio = 1.1;
   } else {
     // Weak moat or event-driven
+    const eventSummary = investorThinking.event_adjustment.event_summary ?? "the pending event catalyst";
     if_right = {
       mechanism: "Event catalyst resolves favorably, triggering short-term re-rating",
+      trigger: `${eventSummary} resolves in the expected direction within the next 30 days`,
       drivers: ["Event resolution", "Sentiment shift", "Short-term momentum"],
     };
     if_wrong = {
       mechanism: "Event disappoints or structural weakness reasserts, amplified by weak moat",
+      trigger: `${eventSummary} resolves unfavorably, or market attention shifts back to structural weakness before event clears`,
       risks: ["Event risk", "Structural deterioration", "Liquidity pressure"],
-    } as PayoutSide;
-    asymmetry_ratio = 0.8; // slightly unfavorable
+    };
+    asymmetry_ratio = 0.8;
   }
 
   // Adjust asymmetry for signal quality
@@ -328,12 +396,13 @@ export function buildPayoutMap(ctx: DeepResearchContextMap): PayoutMapOutput {
 // MODULE 4 — IMPLICIT FACTOR ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
 
+// [LEVEL10.3-B] 5 real market behavior types (renamed for capital-reality alignment)
 export type ImplicitFactorType =
-  | "management_style"
-  | "market_narrative"
-  | "industry_game"
-  | "policy_bias"
-  | "capital_behavior";
+  | "narrative_excess"       // market is pricing a story, not fundamentals
+  | "capital_flow_bias"      // institutional rotation creating non-fundamental price pressure
+  | "management_style"       // management behavior pattern that affects capital allocation
+  | "market_positioning"     // crowded trade, short squeeze, or positioning extreme
+  | "policy_execution_gap";  // gap between policy intent and actual business impact
 
 export interface ImplicitFactor {
   factor: string;
@@ -363,74 +432,76 @@ export function inferImplicitFactors(ctx: DeepResearchContextMap): ImplicitFacto
   const regimeTag = regime.regime_tag;
   const interaction = factorInteraction;
 
-  // 1. Management overpromising: high event severity + poor execution consistency
+  // 1. [narrative_excess] Market pricing perfection: high BQ + high fusion score + risk_on
+  if (bq.business_quality_score >= 0.80 && regimeTag === "risk_on" && interaction.adjusted_alpha_score > 0.65) {
+    factors.push({
+      factor: `Narrative excess: the quality story for ${ctx.ticker} is widely known and likely priced in`,
+      type: "narrative_excess",
+      impact: "The market is not wrong about the business — it is wrong about the margin of safety. Any earnings miss, however small, will be treated as a thesis break because the stock is priced for perfection. The risk is not the business; it is the narrative premium.",
+      confidence: 0.72,
+    });
+  }
+
+  // 2. [management_style] Management credibility risk: high event severity + poor execution
   if (event.adjusted_risk_weight >= 1.3 && mgmt.management_proxy_score < 0.5 && mgmt.capital_allocation_quality !== "disciplined") {
     factors.push({
-      factor: "Management credibility risk — pattern of high event sensitivity with weak execution",
+      factor: `Management credibility gap: high event sensitivity combined with weak execution track record`,
       type: "management_style",
-      impact: "Elevated risk of guidance misses or strategic pivots that erode investor trust",
+      impact: "Management is likely to overpromise during the event and underdeliver afterward. This is not a one-time risk — it is a behavioral pattern. The market will eventually price in the credibility discount, which compounds the fundamental risk.",
+      confidence: 0.68,
+    });
+  }
+
+  // 3. [capital_flow_bias] Defensive rotation: risk_off + quality business
+  if (regimeTag === "risk_off" && bq.business_quality_score >= 0.70) {
+    factors.push({
+      factor: `Capital flow bias: institutional defensive rotation is creating non-fundamental demand`,
+      type: "capital_flow_bias",
+      impact: "Quality businesses in risk-off environments attract institutional flows that are not driven by fundamental analysis. This creates a temporary price support that will reverse when risk appetite returns. The business is fine; the inflow is not permanent.",
       confidence: 0.65,
     });
   }
 
-  // 2. Market pricing perfection: high BQ + high fusion score + risk_on regime
-  if (bq.business_quality_score >= 0.80 && regimeTag === "risk_on" && interaction.adjusted_alpha_score > 0.65) {
-    factors.push({
-      factor: "Market may be pricing near-perfection — high-quality narrative is widely known",
-      type: "market_narrative",
-      impact: "Limited margin of safety; any earnings miss or guidance cut could trigger outsized de-rating",
-      confidence: 0.70,
-    });
-  }
-
-  // 3. Policy tailwind for sector leaders: risk_on + inside competence + wide moat
+  // 4. [policy_execution_gap] Sector policy tailwind vs. actual business impact
   if (regimeTag === "risk_on" && businessContext.competenceFit.competence_fit === "inside" && moat === "wide") {
     factors.push({
-      factor: "Policy and capital flows favor sector leaders in current risk-on environment",
-      type: "policy_bias",
-      impact: "Institutional capital rotation into quality names amplifies multiple expansion beyond fundamentals",
+      factor: `Policy execution gap: sector tailwind is real but the business benefit is not yet visible in financials`,
+      type: "policy_execution_gap",
+      impact: "The policy narrative is driving multiple expansion before the earnings impact materializes. The gap between policy intent and reported financials creates a window where the stock can de-rate even if the thesis is correct — timing matters more than direction.",
       confidence: 0.55,
     });
   }
 
-  // 4. Industry consolidation pressure: weak moat + event_shock
+  // 5. [market_positioning] Industry consolidation: weak moat + event_shock
   if ((moat === "weak" || moat === "unknown") && regimeTag === "event_shock") {
     factors.push({
-      factor: "Industry consolidation pressure — weaker players face accelerated competitive displacement",
-      type: "industry_game",
-      impact: "Event shock may accelerate structural shifts that disadvantage businesses without durable moats",
-      confidence: 0.60,
+      factor: `Market positioning extreme: event shock is accelerating competitive displacement for weaker players`,
+      type: "market_positioning",
+      impact: "The event is not just a catalyst — it is a structural accelerant. Businesses without durable moats face disproportionate displacement because the shock forces customers and capital to consolidate around stronger players. The positioning risk is asymmetric.",
+      confidence: 0.62,
     });
   }
 
-  // 5. Capital behavior: high fusion score + risk_off (smart money defensive rotation)
-  if (regimeTag === "risk_off" && bq.business_quality_score >= 0.70) {
-    factors.push({
-      factor: "Defensive capital rotation — quality businesses attract institutional flows in risk-off environments",
-      type: "capital_behavior",
-      impact: "Relative outperformance likely even if absolute returns are muted; acts as portfolio anchor",
-      confidence: 0.65,
-    });
-  }
-
-  // 6. Low data confidence: uncertainty itself is an implicit factor
+  // 6. [narrative_excess] Low data confidence: information asymmetry
   if (dataQualityScore < 0.45) {
     factors.push({
-      factor: "Information asymmetry — low data quality creates both risk and opportunity",
-      type: "market_narrative",
-      impact: "Market may be mispricing due to incomplete information; requires independent verification before acting",
+      factor: `Information asymmetry: low data quality (${dataQualityScore.toFixed(2)}) means the market may be pricing on incomplete information`,
+      type: "narrative_excess",
+      impact: "When data quality is low, the market fills the gap with narrative. This creates both risk (narrative is wrong) and opportunity (narrative is overly pessimistic). The key is to determine which direction the information gap is biased.",
       confidence: 0.50,
     });
   }
 
-  // 7. Price momentum divergence from fundamentals
+  // 7. [capital_flow_bias] Price momentum divergence from fundamentals
   if (priceChangePercent !== undefined && Math.abs(priceChangePercent) > 0.15 && bq.business_quality_score < 0.5) {
     const dir = priceChangePercent > 0 ? "upward" : "downward";
     factors.push({
-      factor: `Price momentum (${(priceChangePercent * 100).toFixed(1)}%) diverging from weak fundamentals`,
-      type: "capital_behavior",
-      impact: `${dir === "upward" ? "Momentum-driven buyers may be ignoring fundamental deterioration" : "Forced selling may be creating temporary dislocation"}`,
-      confidence: 0.55,
+      factor: `Capital flow divergence: ${(priceChangePercent * 100).toFixed(1)}% price move is not supported by fundamentals`,
+      type: "capital_flow_bias",
+      impact: dir === "upward"
+        ? "Momentum buyers are driving the price without fundamental justification. This is a positioning risk, not a fundamental one — when momentum reverses, the exit will be crowded."
+        : "Forced selling or systematic de-risking is creating a dislocation. The price is not reflecting the business; it is reflecting the positioning of sellers. This may be temporary, but timing the reversal is difficult.",
+      confidence: 0.57,
     });
   }
 
@@ -444,18 +515,107 @@ export function inferImplicitFactors(ctx: DeepResearchContextMap): ImplicitFacto
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MODULE 4B — JUDGMENT TENSION INJECTOR [NEW LEVEL10.3-B]
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface JudgmentTensionOutput {
+  tension_statement: string;   // The core judgment tension in one sentence
+  tension_type: "valuation_vs_quality" | "timing_vs_conviction" | "narrative_vs_fundamentals" | "moat_vs_disruption" | "regime_vs_thesis";
+  resolution_path: string;     // What would resolve this tension
+  advisory_only: true;
+}
+
+/**
+ * [LEVEL10.3-B] Inject a judgment tension statement into every research output.
+ * Every investment involves a real tension that cannot be resolved by data alone.
+ * This function makes that tension explicit.
+ */
+export function injectJudgmentTension(ctx: DeepResearchContextMap): JudgmentTensionOutput {
+  const { investorThinking, businessContext, regime, signalFusionScore } = ctx;
+  const bq = investorThinking.business_quality;
+  const moat = businessContext.businessUnderstanding.moat_strength;
+  const eligibility = businessContext.eligibility.eligibility_status;
+  const regimeTag = regime.regime_tag;
+  const falsification = investorThinking.falsification;
+
+  // Priority 1: Valuation vs. quality tension (most common for quality names)
+  if (moat === "wide" && bq.business_quality_score >= 0.75 && falsification.key_risk_flags.includes("valuation_stretch")) {
+    return {
+      tension_statement: `The business is genuinely excellent, but the price already reflects that excellence — the question is not whether to admire the business, but whether to pay for it at current multiples.`,
+      tension_type: "valuation_vs_quality",
+      resolution_path: `A 15-20% price correction, or two quarters of earnings growth that reduces the forward P/E to a more defensible level, would resolve this tension in favor of entry.`,
+      advisory_only: true,
+    };
+  }
+
+  // Priority 2: Regime vs. thesis tension
+  if ((regimeTag === "risk_off" || regimeTag === "macro_stress") && bq.business_quality_score >= 0.65) {
+    return {
+      tension_statement: `The thesis is structurally sound, but the macro regime is working against it in the near term — being right about the business and wrong about the timing are not mutually exclusive.`,
+      tension_type: "regime_vs_thesis",
+      resolution_path: `Regime shift to neutral or risk-on, or a macro catalyst that separates quality businesses from the broader de-rating, would resolve this tension.`,
+      advisory_only: true,
+    };
+  }
+
+  // Priority 3: Narrative vs. fundamentals tension
+  if (signalFusionScore >= 0.70 && bq.business_quality_score < 0.55) {
+    return {
+      tension_statement: `The signal momentum is strong, but the underlying business quality does not support the narrative — momentum without fundamentals is a timing game, not an investment.`,
+      tension_type: "narrative_vs_fundamentals",
+      resolution_path: `Fundamental improvement (BQ score above 0.65) or a clear catalyst that justifies the current narrative would resolve this tension. Without that, the signal is a warning, not a confirmation.`,
+      advisory_only: true,
+    };
+  }
+
+  // Priority 4: Moat vs. disruption tension
+  if (moat === "narrow" && regimeTag === "event_shock") {
+    return {
+      tension_statement: `The business has a defensible position today, but the event shock is testing whether that defense is structural or situational — narrow moats look wide until they don't.`,
+      tension_type: "moat_vs_disruption",
+      resolution_path: `Post-event financial results showing margin and market share stability would confirm the moat is structural. Deterioration in either metric would confirm the disruption thesis.`,
+      advisory_only: true,
+    };
+  }
+
+  // Priority 5: Timing vs. conviction tension (low data quality or mixed signals)
+  if (eligibility === "research_required" || signalFusionScore < 0.45) {
+    return {
+      tension_statement: `The direction of the thesis is plausible, but conviction is not high enough to size a position — acting on low-conviction signals is how process discipline breaks down.`,
+      tension_type: "timing_vs_conviction",
+      resolution_path: `Signal density improvement (fusion score above 0.65) or a specific catalyst that confirms the thesis direction would justify moving from observation to action.`,
+      advisory_only: true,
+    };
+  }
+
+  // Default: valuation vs. quality (generic but honest)
+  return {
+    tension_statement: `Every investment involves a judgment call that data cannot fully resolve — the question here is whether the current signal profile is sufficient to justify the risk of being wrong.`,
+    tension_type: "valuation_vs_quality",
+    resolution_path: `Improvement in data quality and signal coherence, combined with a clearer fundamental catalyst, would reduce the judgment burden and improve the quality of the decision.`,
+    advisory_only: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MODULE 5 — NARRATIVE COMPOSER
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Internal type used to pass ctx reference through composeResearchNarrative
+interface BusinessUnderstandingContextWithCtx extends BusinessContext {
+  __ctx__?: DeepResearchContextMap;
+}
 
 export interface ResearchNarrativeOutput {
   ticker: string;
   narrative: {
-    business_and_thesis: string;
-    what_actually_matters: string;
-    risk_break_point: string;
-    upside_vs_downside: string;
-    deeper_layer?: string;
-    investment_lens: string;
+    business_and_thesis: string;    // Thesis + mechanism + observable signal
+    what_actually_matters: string;  // Key variables with update frequency
+    risk_break_point: string;       // Specific failure condition + trigger
+    upside_vs_downside: string;     // Payout map with explicit triggers
+    judgment_tension: string;       // [NEW 10.3-B] The core judgment tension
+    deeper_layer?: string;          // Implicit factors (capital-reality language)
+    investment_lens: string;        // Lens type + conviction + why
   };
   word_count: number;
   advisory_only: true;
@@ -479,67 +639,82 @@ export function composeResearchNarrative(
   const mgmt = businessContext.managementProxy.capital_allocation_quality;
   const competence = businessContext.competenceFit.competence_fit;
 
-  // Section 1: Business & Thesis
-  const business_and_thesis = thesis.core_thesis + " " +
-    `The central tension is: ${thesis.main_contradiction} ` +
-    `Thesis confidence: ${(thesis.thesis_confidence * 100).toFixed(0)}%.`;
+  // [LEVEL10.3-B] PM-style narrative rules:
+  // 1. Every section must carry real information, not template language
+  // 2. Thesis must include mechanism + observable signal
+  // 3. Risk break point must include specific trigger, not just category
+  // 4. Judgment tension must be explicit, not implied
 
-  // Section 2: What Actually Matters (Key Variables)
+  // Section 1: Business & Thesis — mechanism + observable signal + contradiction
+  const business_and_thesis = thesis.core_thesis +
+    ` The central tension: ${thesis.main_contradiction}` +
+    ` Critical driver: ${thesis.critical_driver}` +
+    ` Thesis confidence: ${(thesis.thesis_confidence * 100).toFixed(0)}%.`;
+
+  // Section 2: What Actually Matters — variables with update frequency
   let what_actually_matters = "";
   if (variables.variables.length === 0) {
-    what_actually_matters = "Signal density is insufficient to identify specific outcome-driving variables with confidence. The primary unknown is whether current data reflects the true business trajectory.";
+    what_actually_matters = "Signal density is insufficient to identify specific outcome-driving variables. The primary unknown is whether current data reflects the true business trajectory — this is itself a risk, not just a data gap.";
   } else {
     what_actually_matters = variables.variables.map((v, i) => {
       const prefix = i === 0 ? "The primary driver is" : i === 1 ? "Second," : "Additionally,";
       const dirLabel = v.directional_impact === "positive" ? "a tailwind" : v.directional_impact === "negative" ? "a headwind" : "a source of uncertainty";
-      return `${prefix} ${v.variable} — ${dirLabel}. ${v.why_it_matters}`;
+      const freqLabel = v.update_frequency === "real_time" ? "(monitor continuously)" : v.update_frequency === "quarterly" ? "(reassess each quarter)" : v.update_frequency === "event_driven" ? "(event-dependent)" : "(annual review)";
+      return `${prefix} ${v.variable} — ${dirLabel} ${freqLabel}. ${v.why_it_matters}`;
     }).join(" ");
   }
 
-  // Section 3: Risk / Break Point
-  const falsificationTags = businessContext.eligibility.filter_flags;
+  // Section 3: Risk / Break Point — specific failure condition + trigger
   let risk_break_point = "";
   if (eligibility === "avoid_for_now") {
-    risk_break_point = `The thesis breaks immediately if the business remains outside the competence boundary. Without sufficient understanding of the competitive dynamics, any position carries unquantifiable risk. Filter flags: ${falsificationTags.join(", ") || "outside competence"}.`;
-  } else if (payout.if_wrong.risks && payout.if_wrong.risks.length > 0) {
-    const primaryRisk = payout.if_wrong.risks[0];
-    const secondaryRisk = payout.if_wrong.risks[1] ?? null;
-    risk_break_point = `The thesis breaks if ${primaryRisk.toLowerCase()}${secondaryRisk ? `, or if ${secondaryRisk.toLowerCase()}` : ""}. ${payout.if_wrong.mechanism}`;
+    const filterFlags = businessContext.eligibility.filter_flags;
+    risk_break_point = `${thesis.failure_condition} Filter flags active: ${filterFlags.join(", ") || "outside competence boundary"}. The break point is not a future event — it is the current state.`;
   } else {
-    risk_break_point = `The primary break point is ${payout.if_wrong.mechanism.toLowerCase()}.`;
+    risk_break_point = `${thesis.failure_condition} Specific trigger: ${payout.if_wrong.trigger}. ${payout.if_wrong.mechanism}`;
   }
 
-  // Section 4: Upside vs Downside (Payout)
+  // Section 4: Upside vs Downside — explicit triggers, not just mechanisms
   const asymLabel = payout.asymmetry_ratio >= 1.5 ? "favorable" : payout.asymmetry_ratio >= 1.0 ? "roughly symmetric" : "unfavorable";
-    const upside_vs_downside = `If the thesis is correct: ${payout.if_right.mechanism}. Key drivers: ${(payout.if_right.drivers ?? []).slice(0, 2).join(", ")}. ` +
-    `If wrong: ${payout.if_wrong.mechanism}. ` +
-    `The asymmetry ratio is ${payout.asymmetry_ratio.toFixed(1)}x — ${asymLabel}. ` +
-    `${payout.asymmetry_ratio < 1.0 ? "The risk/reward does not justify a position without further evidence." : ""}`;
+  const upside_vs_downside =
+    `If right: ${payout.if_right.mechanism}. Trigger: ${payout.if_right.trigger}. ` +
+    `If wrong: ${payout.if_wrong.mechanism}. Trigger: ${payout.if_wrong.trigger}. ` +
+    `Asymmetry: ${payout.asymmetry_ratio.toFixed(1)}x (${asymLabel}). ` +
+    (payout.asymmetry_ratio < 1.0 ? "The risk/reward does not justify a position without further evidence." : "");
 
-  // Section 5: Deeper Layer (Implicit Factors — optional)
+  // Section 5: Judgment Tension — [NEW 10.3-B] explicit, not implied
+  // Note: __ctx__ is injected by runDeepResearch for narrative composition
+  const ctxForTension = (businessContext as BusinessUnderstandingContextWithCtx).__ctx__;
+  const judgmentTension = ctxForTension ? injectJudgmentTension(ctxForTension) : {
+    tension_statement: "Every investment involves a judgment call that data cannot fully resolve.",
+    resolution_path: "Improve signal density and identify a specific catalyst before acting.",
+    advisory_only: true as const,
+  };
+  const judgment_tension = `${judgmentTension.tension_statement} Resolution path: ${judgmentTension.resolution_path}`;
+
+  // Section 6: Deeper Layer (Implicit Factors — capital-reality language)
   let deeper_layer: string | undefined;
   if (implicitFactors.factors.length > 0) {
     const topFactor = implicitFactors.factors[0];
     const secondFactor = implicitFactors.factors[1];
-    deeper_layer = `Beyond the visible signals: ${topFactor.factor}. ${topFactor.impact}` +
-      (secondFactor ? ` Additionally, ${secondFactor.factor.toLowerCase()}. ${secondFactor.impact}` : "");
+    deeper_layer = `[${topFactor.type}] ${topFactor.factor}. ${topFactor.impact}` +
+      (secondFactor ? ` [${secondFactor.type}] ${secondFactor.factor.toLowerCase()}. ${secondFactor.impact}` : "");
   }
 
-  // Section 6: Investment Lens
+  // Section 7: Investment Lens — honest, not aspirational
   let investment_lens = "";
   if (eligibility === "avoid_for_now" || competence === "outside") {
-    investment_lens = `This name sits outside the defined competence boundary. The appropriate action is to monitor from a distance and revisit only if the business model becomes sufficiently understood. No position is warranted at this stage.`;
-  } else if (moat === "wide" && mgmt === "disciplined" && thesis.thesis_confidence >= 0.65) {
-    investment_lens = `This is a long-term compounder candidate. The business has the structural characteristics to generate above-average returns over a multi-year horizon. The key discipline is patience — the thesis requires time to play out and should not be evaluated on quarterly noise.`;
+    investment_lens = `Outside competence boundary. No position is warranted. The appropriate discipline is to acknowledge the limit of understanding rather than rationalize entry. Revisit only if sector competence is established.`;
+  } else if (moat === "wide" && mgmt === "disciplined" && thesis.thesis_confidence >= 0.65 && payout.asymmetry_ratio >= 1.5) {
+    investment_lens = `Long-term compounder candidate with favorable asymmetry (${payout.asymmetry_ratio.toFixed(1)}x). The discipline required is patience and resistance to quarterly noise. The thesis is not about the next quarter — it is about whether the moat compounds over years.`;
   } else if (thesis.thesis_confidence >= 0.55 && payout.asymmetry_ratio >= 1.0) {
-    investment_lens = `This name warrants a watchlist position pending further evidence. The thesis is directionally sound but conviction is not yet high enough to justify a full position. Monitor for confirmation of the key variables identified above.`;
+    investment_lens = `Watchlist with directional conviction but insufficient density for full sizing. Monitor the critical driver (${thesis.critical_driver.split(" — ")[0]}) for confirmation before upgrading to active position.`;
   } else if (thesis.thesis_confidence < 0.4) {
-    investment_lens = `Signal density is too low to form a reliable investment lens. The appropriate posture is observation, not action. Revisit when data quality improves or a clearer catalyst emerges.`;
+    investment_lens = `Observation only. Signal density is below the threshold for actionable conviction. The risk of acting on incomplete information here is higher than the risk of missing the opportunity.`;
   } else {
-    investment_lens = `The risk/reward is mixed. A small, monitored position may be appropriate for those with specific insight into the key variables, but this is not a high-conviction setup. Size accordingly.`;
+    investment_lens = `Mixed risk/reward (${payout.asymmetry_ratio.toFixed(1)}x asymmetry). A small, monitored position may be appropriate for those with specific insight into the critical driver, but this is not a high-conviction setup. Size to reflect the uncertainty.`;
   }
 
-  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, deeper_layer ?? "", investment_lens].join(" ");
+  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", investment_lens].join(" ");
   const word_count = fullText.split(/\s+/).filter(Boolean).length;
 
   return {
@@ -549,6 +724,7 @@ export function composeResearchNarrative(
       what_actually_matters,
       risk_break_point,
       upside_vs_downside,
+      judgment_tension,
       ...(deeper_layer ? { deeper_layer } : {}),
       investment_lens,
     },
@@ -628,6 +804,7 @@ export interface SignalDensityResult {
   advisory_only: true;
 }
 
+// [LEVEL10.3-B] Expanded rejection rules
 const GENERIC_PHRASES = [
   "has risks and opportunities",
   "balanced approach",
@@ -635,50 +812,75 @@ const GENERIC_PHRASES = [
   "uncertain outlook",
   "mixed signals",
   "needs more research",
+  "it depends",
+  "both sides",
+  "monitor closely",
 ];
 
 /**
- * Validate that the narrative is high-signal, not generic.
- * Reject if: generic phrases, no thesis, no payout, purely descriptive.
+ * [LEVEL10.3-B] Validate narrative signal density — 4 rejection rules:
+ * 1. Generic phrase detection (expanded list)
+ * 2. Missing thesis mechanism or observable signal
+ * 3. Missing explicit payout trigger (not just mechanism)
+ * 4. Missing judgment tension statement
  */
 export function validateSignalDensity(narrative: ResearchNarrativeOutput): SignalDensityResult {
   const issues: string[] = [];
   let density_score = 1.0;
 
-  const fullText = Object.values(narrative.narrative).join(" ").toLowerCase();
+  const fullText = Object.values(narrative.narrative).filter(Boolean).join(" ").toLowerCase();
 
-  // Check for generic phrases
+  // Rule 1: Generic phrase detection
   for (const phrase of GENERIC_PHRASES) {
     if (fullText.includes(phrase.toLowerCase())) {
-      issues.push(`Generic phrase detected: "${phrase}"`);
-      density_score -= 0.15;
+      issues.push(`Generic phrase detected: "${phrase}" — replace with specific mechanism`);
+      density_score -= 0.12;
     }
   }
 
-  // Check for clear thesis
-  if (!narrative.narrative.business_and_thesis || narrative.narrative.business_and_thesis.length < 50) {
-    issues.push("Missing or too-short thesis statement");
+  // Rule 2: Thesis must include mechanism + observable signal
+  const thesisText = narrative.narrative.business_and_thesis ?? "";
+  if (thesisText.length < 80) {
+    issues.push("Thesis too short — must include specific mechanism and observable signal");
     density_score -= 0.25;
   }
-
-  // Check for payout explanation
-  if (!narrative.narrative.upside_vs_downside || narrative.narrative.upside_vs_downside.length < 50) {
-    issues.push("Missing payout / asymmetry explanation");
-    density_score -= 0.25;
-  }
-
-  // Check for purely descriptive (no directional content)
-  const directionalKeywords = ["if right", "if wrong", "break", "driver", "mechanism", "asymmetry", "upside", "downside", "risk", "thesis"];
-  const directionalCount = directionalKeywords.filter(kw => fullText.includes(kw)).length;
-  if (directionalCount < 3) {
-    issues.push("Narrative is too descriptive — lacks directional investment content");
+  const hasMechanism = ["driven by", "anchored by", "mechanism", "observable signal", "the market is"].some(kw => thesisText.toLowerCase().includes(kw));
+  if (!hasMechanism) {
+    issues.push("Thesis lacks specific mechanism or observable signal — 'the business is good' is not a thesis");
     density_score -= 0.20;
   }
 
-  // Check word count (too short = low density)
-  if (narrative.word_count < 80) {
-    issues.push(`Narrative too short (${narrative.word_count} words) — insufficient signal density`);
+  // Rule 3: Payout must include explicit trigger (not just mechanism)
+  const payoutText = narrative.narrative.upside_vs_downside ?? "";
+  if (payoutText.length < 80) {
+    issues.push("Payout section too short — must include explicit triggers for both if-right and if-wrong");
+    density_score -= 0.20;
+  }
+  const hasTrigger = ["trigger:", "if right:", "if wrong:", "resolves", "materializes", "confirms"].some(kw => payoutText.toLowerCase().includes(kw));
+  if (!hasTrigger) {
+    issues.push("Payout section lacks explicit triggers — must specify the observable event that confirms each side");
     density_score -= 0.15;
+  }
+
+  // Rule 4: Judgment tension must be present
+  const hasTension = narrative.narrative.judgment_tension && narrative.narrative.judgment_tension.length > 50;
+  if (!hasTension) {
+    issues.push("Missing judgment tension statement — every investment involves a real tension that data cannot resolve");
+    density_score -= 0.15;
+  }
+
+  // Bonus: directional keyword density
+  const directionalKeywords = ["if right", "if wrong", "break", "driver", "trigger", "mechanism", "asymmetry", "upside", "downside", "thesis breaks"];
+  const directionalCount = directionalKeywords.filter(kw => fullText.includes(kw)).length;
+  if (directionalCount < 4) {
+    issues.push(`Low directional keyword density (${directionalCount}/10) — narrative may be too descriptive`);
+    density_score -= 0.10;
+  }
+
+  // Word count check
+  if (narrative.word_count < 100) {
+    issues.push(`Narrative too short (${narrative.word_count} words) — minimum 100 words for adequate signal density`);
+    density_score -= 0.10;
   }
 
   density_score = Math.max(0, Math.round(density_score * 100) / 100);
@@ -702,6 +904,7 @@ export interface DeepResearchOutput {
   key_variables: KeyVariablesOutput;
   payout_map: PayoutMapOutput;
   implicit_factors: ImplicitFactorsOutput;
+  judgment_tension: JudgmentTensionOutput;  // [NEW 10.3-B]
   narrative: ResearchNarrativeOutput;
   lens: LensOutput;
   signal_density: SignalDensityResult;
@@ -709,20 +912,25 @@ export interface DeepResearchOutput {
 }
 
 /**
- * Run the full LEVEL10.3 deep research pipeline for a single ticker.
- * Returns a complete DeepResearchOutput.
+ * [LEVEL10.3-B] Run the full deep research pipeline for a single ticker.
+ * Upgraded: judgment tension injected, narrative hardened, density rules expanded.
  */
 export function runDeepResearch(ctx: DeepResearchContextMap): DeepResearchOutput {
   const thesis = buildInvestmentThesis(ctx);
   const keyVariables = identifyKeyVariables(ctx);
   const payoutMap = buildPayoutMap(ctx);
   const implicitFactors = inferImplicitFactors(ctx);
+  const judgmentTension = injectJudgmentTension(ctx);
+
+  // Attach ctx reference for composeResearchNarrative to access injectJudgmentTension
+  const businessContextWithCtx = { ...ctx.businessContext, __ctx__: ctx };
+
   const narrative = composeResearchNarrative(
     thesis,
     keyVariables,
     payoutMap,
     implicitFactors,
-    ctx.businessContext,
+    businessContextWithCtx,
     ctx.ticker
   );
   const lens = generateLens(thesis, payoutMap, ctx.businessContext);
@@ -734,6 +942,7 @@ export function runDeepResearch(ctx: DeepResearchContextMap): DeepResearchOutput
     key_variables: keyVariables,
     payout_map: payoutMap,
     implicit_factors: implicitFactors,
+    judgment_tension: judgmentTension,
     narrative,
     lens,
     signal_density: signalDensity,

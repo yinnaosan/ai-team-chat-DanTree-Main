@@ -32,6 +32,9 @@ import {
   buildExperienceHistorySummary,
   type ExperienceHistorySummary,
 } from "./experienceLearningEngine";
+import type {
+  Level11AnalysisOutput,
+} from "./level11MultiAssetEngine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Context Map — aggregates all upstream layer outputs
@@ -619,6 +622,7 @@ interface BusinessUnderstandingContextWithCtx extends BusinessContext {
 export interface ResearchNarrativeOutput {
   ticker: string;
   narrative: {
+    // ── LEVEL10 sections (equity-focused) ──────────────────────────────────
     business_and_thesis: string;    // Thesis + mechanism + observable signal
     what_actually_matters: string;  // Key variables with update frequency
     risk_break_point: string;       // Specific failure condition + trigger
@@ -629,6 +633,14 @@ export interface ResearchNarrativeOutput {
     experience_learning_insight?: string; // [NEW 10.4] Learning from judgment history
     positioning_lens?: string;      // [NEW 10.5] Asymmetry + sizing + PM-style rationale
     investment_lens: string;        // Lens type + conviction + why
+    // ── LEVEL11 sections (multi-asset reality layer) ────────────────────────
+    core_reality?: string;          // [NEW 11] What is truly driving this asset
+    real_vs_perceived?: string;     // [NEW 11] Real vs narrative driver separation
+    incentives_human_layer?: string; // [NEW 11] Who benefits, who pushes, what breaks
+    policy_reality_lens?: string;   // [NEW 11] Policy execution vs intention (if relevant)
+    sentiment_positioning?: string; // [NEW 11] Sentiment phase + crowdedness
+    cross_asset_implications?: string; // [NEW 11] Propagation chain summary
+    scenario_map_summary?: string;  // [NEW 11] Base/bull/bear + key triggers
   };
   word_count: number;
   advisory_only: true;
@@ -648,7 +660,8 @@ export function composeResearchNarrative(
   ticker: string,
   experienceInsightText?: string,  // [NEW 10.3-C] Optional experience layer insight
   experienceLearningInsightText?: string,  // [NEW 10.4] Optional learning history insight
-  positioningLensText?: string  // [NEW 10.5] Optional positioning lens text
+  positioningLensText?: string,  // [NEW 10.5] Optional positioning lens text
+  level11Analysis?: Level11AnalysisOutput  // [NEW 11] Multi-asset reality layer
 ): ResearchNarrativeOutput {
   const moat = businessContext.businessUnderstanding.moat_strength;
   const eligibility = businessContext.eligibility.eligibility_status;
@@ -734,7 +747,93 @@ export function composeResearchNarrative(
   // This section surfaces meta-learning from historical decision patterns
   // It is injected from buildExperienceHistorySummary() (async, non-blocking)
 
-  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", experienceLearningInsightText ?? "", positioningLensText ?? "", investment_lens].join(" ");
+  // ── LEVEL11 sections: Multi-Asset Reality Layer ────────────────────────────
+  let core_reality: string | undefined;
+  let real_vs_perceived: string | undefined;
+  let incentives_human_layer: string | undefined;
+  let policy_reality_lens: string | undefined;
+  let sentiment_positioning: string | undefined;
+  let cross_asset_implications: string | undefined;
+  let scenario_map_summary: string | undefined;
+
+  if (level11Analysis) {
+    const l11 = level11Analysis;
+    // Core Reality: what is truly driving this asset
+    const topDriver = l11.real_drivers.drivers[0];
+    core_reality = topDriver
+      ? `[${l11.classification.asset_type.toUpperCase()}] Real driver: ${topDriver.driver} (${topDriver.type}). ` +
+        `Strength: ${(topDriver.strength * 100).toFixed(0)}%. ${topDriver.why}. ` +
+        `Primary real driver: ${l11.real_drivers.primary_real_driver}. ` +
+        `Signal vs noise: ${l11.real_drivers.signal_vs_noise_summary}.`
+      : `Asset classified as ${l11.classification.asset_type}. No dominant real driver identified — signal density insufficient.`;
+
+    // Real vs Perceived: narrative vs reality separation
+    const narrativeDrivers = l11.real_drivers.drivers.filter(d => d.type === "narrative");
+    const realDrivers = l11.real_drivers.drivers.filter(d => d.type === "real");
+    if (narrativeDrivers.length > 0 && realDrivers.length > 0) {
+      real_vs_perceived = `Narrative driver: ${narrativeDrivers[0].driver}. ` +
+        `Real driver: ${realDrivers[0].driver}. ` +
+        `The market may be pricing the narrative while the real driver determines the actual outcome.`;
+    } else if (narrativeDrivers.length > 0) {
+      real_vs_perceived = `Primary driver appears narrative-based: ${narrativeDrivers[0].driver}. ` +
+        `Primary narrative driver: ${l11.real_drivers.primary_narrative_driver}. ` +
+        `No offsetting real driver identified — narrative-driven moves can reverse sharply.`;
+    }
+
+    // Incentives & Human Layer
+    const topPlayer = l11.incentives.key_players[0];
+    const topIncentive = l11.incentives.incentives[0];
+    if (topPlayer || topIncentive) {
+      incentives_human_layer = `Key player: ${topPlayer ?? "unknown"}. ` +
+        `Primary incentive: ${topIncentive ?? "not identified"}. ` +
+        `Narrative support: ${l11.incentives.narrative_support}. ` +
+        `Narrative fragility: ${l11.incentives.narrative_fragility}.`;
+    }
+
+    // Policy Reality Lens
+    if (l11.policy_reality) {
+      const pr = l11.policy_reality;
+      policy_reality_lens = `Policy intent: ${pr.policy_intent}. ` +
+        `Execution strength: ${pr.execution_strength}. ` +
+        `Consistency: ${pr.execution_consistency}. ` +
+        `Effective impact: ${pr.effective_impact}. ` +
+        `Market pricing: ${pr.market_pricing}.`;
+    }
+
+    // Sentiment & Positioning
+    const sp = l11.sentiment_state;
+    const crowdednessLabel = sp.crowdedness >= 0.8 ? "highly crowded" : sp.crowdedness >= 0.5 ? "moderately crowded" : "not crowded";
+    const reversalLabel = sp.risk_of_reversal >= 0.7 ? "high" : sp.risk_of_reversal >= 0.4 ? "moderate" : "low";
+    sentiment_positioning = `Sentiment phase: ${sp.sentiment_phase} (${crowdednessLabel}, crowdedness: ${(sp.crowdedness * 100).toFixed(0)}%). ` +
+      `${sp.phase_description}. ` +
+      `Reversal risk: ${reversalLabel} (${(sp.risk_of_reversal * 100).toFixed(0)}%). ` +
+      `Positioning: ${sp.positioning}.`;
+
+    // Cross-Asset Implications
+    if (l11.propagation_chain && l11.propagation_chain.chain.length > 0) {
+      const topLink = l11.propagation_chain.chain[0];
+      const secondLink = l11.propagation_chain.chain[1];
+      cross_asset_implications = `Propagation event: ${l11.propagation_chain.event}. ` +
+        `${topLink.from} → ${topLink.to} (lag: ${topLink.lag}). ${topLink.mechanism}. ` +
+        (secondLink ? `Secondary: ${secondLink.from} → ${secondLink.to}. ` : "") +
+        `Terminal impact: ${l11.propagation_chain.terminal_impact}.`;
+    }
+
+    // Scenario Map Summary
+    const sm = l11.scenario_map;
+    // base_case/bull_case/bear_case are full narrative strings in Level11
+    const baseSnippet = sm.base_case.split(".")[0] ?? sm.base_case;
+    const bullSnippet = sm.bull_case.split(".")[0] ?? sm.bull_case;
+    const bearSnippet = sm.bear_case.split(".")[0] ?? sm.bear_case;
+    const topTrigger = sm.key_triggers[0] ?? "no explicit trigger identified";
+    scenario_map_summary = `Base: ${baseSnippet}. Bull: ${bullSnippet}. Bear: ${bearSnippet}. ` +
+      `Key trigger: ${topTrigger}.`;
+  }
+
+  const level11Texts = [core_reality ?? "", real_vs_perceived ?? "", incentives_human_layer ?? "",
+    policy_reality_lens ?? "", sentiment_positioning ?? "", cross_asset_implications ?? "",
+    scenario_map_summary ?? ""].join(" ");
+  const fullText = [business_and_thesis, what_actually_matters, risk_break_point, upside_vs_downside, judgment_tension, deeper_layer ?? "", experienceInsightText ?? "", experienceLearningInsightText ?? "", positioningLensText ?? "", level11Texts, investment_lens].join(" ");
   const word_count = fullText.split(/\s+/).filter(Boolean).length;
 
   return {
@@ -750,6 +849,14 @@ export function composeResearchNarrative(
       ...(experienceLearningInsightText ? { experience_learning_insight: experienceLearningInsightText } : {}),
       ...(positioningLensText ? { positioning_lens: positioningLensText } : {}),
       investment_lens,
+      // LEVEL11 sections
+      ...(core_reality ? { core_reality } : {}),
+      ...(real_vs_perceived ? { real_vs_perceived } : {}),
+      ...(incentives_human_layer ? { incentives_human_layer } : {}),
+      ...(policy_reality_lens ? { policy_reality_lens } : {}),
+      ...(sentiment_positioning ? { sentiment_positioning } : {}),
+      ...(cross_asset_implications ? { cross_asset_implications } : {}),
+      ...(scenario_map_summary ? { scenario_map_summary } : {}),
     },
     word_count,
     advisory_only: true,

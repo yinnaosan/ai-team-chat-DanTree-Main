@@ -2803,3 +2803,11 @@
 - [x] 编写 server/level105.test.ts（6个 describe，11个 it 用例，全部通过）
 - [x] 生成 MANUS_TO_GPT_LEVEL105_HANDOFF.md 交接报告
 - [x] TSC 0 errors，1337/1343 回归测试通过（6个预存失败与本次无关）
+
+## LEVEL11: Multi-Asset Reality & Propagation Engine
+- [x] 创建 server/level11MultiAssetEngine.ts（8个核心模块：classifyAsset / routeDriverEngine / identifyRealDrivers / analyzeIncentives / analyzePolicyReality / detectSentimentState / buildPropagationChain / buildScenarioMap + runLevel11Analysis 复合入口，~1500行）
+- [x] 升级 deepResearchEngine.ts：ResearchNarrativeOutput 添加 7 个 LEVEL11 叙事字段（core_reality / real_vs_perceived / incentives_human_layer / policy_reality_lens / sentiment_positioning / cross_asset_implications / scenario_map_summary），runDeepResearch() 集成 runLevel11Analysis（非阻塞）
+- [x] 升级 level105PositionLayer.ts：AsymmetryScoreContext 添加 level11Analysis 可选字段，computeAsymmetryScore() 集成情绪/政策/传播链因子（±0.04~±0.12 调整）
+- [x] 编写 server/level11.test.ts（5个 describe，8个 it 用例，全部通过）
+- [x] 生成 MANUS_TO_GPT_LEVEL11_HANDOFF.md 交接报告
+- [x] TSC 0 errors，1345/1351 回归测试通过（6个预存失败与本次无关）

@@ -57,6 +57,7 @@ export interface AsymmetryScoreContext {
   businessContext: BusinessContext;
   experienceHistory?: ExperienceHistorySummary;
   regimeTag?: string;
+  level11Analysis?: import("./level11MultiAssetEngine").Level11AnalysisOutput;  // [NEW 11] Multi-asset reality
 }
 
 /**
@@ -110,6 +111,36 @@ export function computeAsymmetryScore(
   if (regimeTag === "risk_off") score = Math.max(0, score - 0.08);
   else if (regimeTag === "macro_stress") score = Math.max(0, score - 0.12);
   else if (regimeTag === "event_shock") score = Math.max(0, score - 0.10);
+
+  // [NEW 11] Level11 multi-asset reality adjustments
+  if (ctx.level11Analysis) {
+    const l11 = ctx.level11Analysis;
+    // Sentiment phase adjustments
+    const sp = l11.sentiment_state;
+    if (sp.sentiment_phase === "overheat") score = Math.max(0, score - 0.12);
+    else if (sp.sentiment_phase === "fragile") score = Math.max(0, score - 0.08);
+    else if (sp.sentiment_phase === "capitulation") score = Math.min(1.0, score + 0.06);
+    else if (sp.sentiment_phase === "skepticism") score = Math.min(1.0, score + 0.04);
+    // Crowdedness: high crowding reduces asymmetry
+    if (sp.crowdedness >= 0.8) score = Math.max(0, score - 0.08);
+    else if (sp.crowdedness >= 0.6) score = Math.max(0, score - 0.04);
+    // Policy reality: strong execution increases confidence
+    if (l11.policy_reality) {
+      const pr = l11.policy_reality;
+      if (pr.execution_strength === "strong") score = Math.min(1.0, score + 0.04);
+      else if (pr.execution_strength === "weak") {
+        score = Math.max(0, score - 0.06);
+      }
+    }
+    // Propagation chain: if this asset is a downstream target, risk is elevated
+    if (l11.propagation_chain && l11.propagation_chain.chain.length > 0) {
+      const ticker = ctx.thesis.core_thesis.substring(0, 6);
+      const isDownstreamTarget = l11.propagation_chain.chain.some(
+        link => link.to.toLowerCase().includes(ticker.toLowerCase())
+      );
+      if (isDownstreamTarget) score = Math.max(0, score - 0.05);
+    }
+  }
 
   score = Math.round(score * 100) / 100;
 

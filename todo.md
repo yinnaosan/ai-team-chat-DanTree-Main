@@ -2766,3 +2766,10 @@
 - [ ] Phase 6: 前端最小 UI（Positions Table + Guard Badge + Decision Timeline）
 - [ ] Phase 7: API 契约修复（一致 JSON 格式，分页，DB-only 响应）
 - [ ] 验证测试 + 全套回归 + 6 项 PROOF 报告
+
+## DANTREE LEVEL8.2 — Live Data Integration
+- [ ] Phase 1+3: liveSignalEngine.ts — buildSignalsFromLiveData() + event detection (Finnhub keyword NLP)
+- [ ] Phase 2: buildPortfolioFromDB() — query portfolioPosition table for real holdings
+- [ ] Phase 4+5+6: wire runDanTreeSystem() to real data + failure safety + [SignalEngine] logging
+- [ ] Phase 7: validation tests + 6 OUTPUT PROOF items
+- [ ] GPT handoff report: MANUS_TO_GPT_LEVEL82_HANDOFF.md

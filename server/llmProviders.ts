@@ -264,8 +264,10 @@ export interface LLMResponse {
  * invokeWithModel — 统一 LLM 调用接口
  *
  * 根据 model ID 自动路由到对应的 API 提供商。
- * 当前 DanTree 核心调用仍使用 invokeLLM()（Manus 内置），
- * 此函数供未来切换或特定场景使用。
+ * 内部委托给 model_router.ts，通过 claude_provider / gpt_provider 执行。
+ *
+ * 推荐使用 routeToModel()（model_router.ts）以获得 task_type 路由和路由决策信息。
+ * 此函数保留用于向后兼容和直接指定模型的场景。
  *
  * @example
  *   const res = await invokeWithModel({
@@ -275,19 +277,16 @@ export interface LLMResponse {
  *   console.log(res.content);
  */
 export async function invokeWithModel(opts: InvokeWithModelOptions): Promise<LLMResponse> {
-  const provider = detectProvider(opts.model);
-  const meta = MODEL_METADATA[opts.model];
-
-  if (provider === "anthropic") {
-    return _invokeAnthropic(opts, meta);
-  } else if (provider === "openai") {
-    return _invokeOpenAI(opts, meta);
-  } else {
-    throw new Error(
-      `[llmProviders] Unknown provider for model "${opts.model}". ` +
-      `Use MODELS.ANTHROPIC.* or MODELS.OPENAI.* constants.`
-    );
-  }
+  const { routeToModel } = await import("./model_router");
+  return routeToModel({
+    task_type: "default",
+    messages: opts.messages,
+    maxTokens: opts.maxTokens,
+    temperature: opts.temperature,
+    override_model: opts.model,
+    extendedThinking: opts.extendedThinking,
+    responseFormat: opts.responseFormat,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

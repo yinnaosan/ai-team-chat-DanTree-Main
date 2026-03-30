@@ -2821,3 +2821,11 @@
 - [x] 扩展 level11.test.ts 至 15 个测试用例（新增 CASE 6/7/8）
 - [x] 生成 MANUS_TO_GPT_LEVEL11_FINAL_HANDOFF.md Phase 13 完整审计报告
 - [x] TSC 0 errors，1352/1358 回归测试通过（6个预存失败与本次无关）
+
+## Model Abstraction Layer (GPT Protocol v1.0)
+- [x] 创建 server/claude_provider.ts（Claude API 调用层）
+- [x] 创建 server/gpt_provider.ts（GPT stub，生产阶段用）
+- [x] 创建 server/model_router.ts（统一路由，开发阶段 Claude-only）
+- [x] 重构 server/llmProviders.ts 使用 model_router
+- [x] 验证所有模型调用通过 router，无直接 hardcode
+- [x] 编写 model_router.test.ts 验证路由逻辑（9/9 通过）

@@ -46,6 +46,8 @@ export interface AssetClassification {
   asset_type: AssetType;
   underlying_structure: string;
   primary_driver_type: PrimaryDriverType;
+  /** Analysis mode: describes the dominant reasoning framework for this asset */
+  analysis_mode: string;
   advisory_only: true;
 }
 
@@ -125,6 +127,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
         asset_type: "etf_macro",
         underlying_structure: "Basket of macro instruments (bonds, currencies, or commodity futures). Price driven by macro regime, rate expectations, and institutional flows.",
         primary_driver_type: "macro",
+        analysis_mode: "macro_regime_flow: analyze rate cycle, credit conditions, and institutional positioning — not underlying business fundamentals",
         advisory_only: true,
       };
     }
@@ -133,6 +136,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
         asset_type: "etf_sector",
         underlying_structure: "Basket of sector equities. Price driven by sector rotation, earnings cycle, and relative performance vs benchmark.",
         primary_driver_type: "flow",
+        analysis_mode: "sector_rotation_flow: analyze relative earnings cycle, sector momentum, and fund flow positioning vs benchmark",
         advisory_only: true,
       };
     }
@@ -140,6 +144,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
       asset_type: "etf_equity",
       underlying_structure: "Basket of equities (broad market or thematic). Price driven by underlying holdings, narrative momentum, and fund flows.",
       primary_driver_type: "flow",
+      analysis_mode: "narrative_flow_wrapper: analyze the underlying theme's real vs narrative driver split, fund flows, and crowding — not individual stock fundamentals",
       advisory_only: true,
     };
   }
@@ -150,6 +155,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
       asset_type: "commodity",
       underlying_structure: "Physical commodity or futures contract. Price driven by real yield, supply-demand balance, geopolitical risk premium, and USD strength.",
       primary_driver_type: "macro",
+      analysis_mode: "macro_real_yield_supply_demand: analyze real yields, USD direction, physical supply-demand balance, and geopolitical risk premium — no business moat logic",
       advisory_only: true,
     };
   }
@@ -160,6 +166,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
       asset_type: "index",
       underlying_structure: "Market-cap weighted basket of equities. Price driven by liquidity conditions, earnings expectations, and index weight concentration.",
       primary_driver_type: "liquidity",
+      analysis_mode: "liquidity_weight_regime: analyze rate cycle, earnings concentration in top holdings, style regime, and passive flow dynamics — not individual company fundamentals",
       advisory_only: true,
     };
   }
@@ -169,6 +176,7 @@ export function classifyAsset(input: AssetClassificationInput): AssetClassificat
     asset_type: "equity",
     underlying_structure: "Individual equity. Price driven by business fundamentals, competitive moat, management quality, and earnings trajectory.",
     primary_driver_type: "business",
+    analysis_mode: "business_moat_management: analyze competitive advantage durability, capital allocation quality, earnings trajectory, and valuation vs intrinsic value",
     advisory_only: true,
   };
 }
@@ -268,6 +276,10 @@ export interface DriverSignal {
   type: DriverType;
   strength: number;   // 0–1
   why: string;
+  /** Observable signal that confirms or denies this driver is active */
+  monitoring_signal: string;
+  /** What would falsify this driver — specific observable condition */
+  risk_if_wrong: string;
 }
 
 export interface RealDriversOutput {
@@ -321,6 +333,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.85,
         why: "Accelerating earnings growth is the primary real driver of equity value creation — this is observable in quarterly reports and forward guidance.",
+        monitoring_signal: "Quarterly EPS vs consensus — direction of revision and guidance tone",
+        risk_if_wrong: "Earnings acceleration reverses to deceleration on guidance cut — invalidates the real driver immediately",
       });
     } else if (fundamental_signals?.earnings_trend === "decelerating") {
       drivers.push({
@@ -328,6 +342,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.80,
         why: "Decelerating earnings growth signals business model stress — the market may not have fully priced this if narrative remains positive.",
+        monitoring_signal: "Sequential EPS growth rate — is the deceleration accelerating or stabilizing?",
+        risk_if_wrong: "Deceleration stabilizes and management raises guidance — bull case re-emerges",
       });
     }
 
@@ -337,6 +353,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.75,
         why: "Margin expansion indicates pricing power or operating leverage — a structural real driver, not a narrative.",
+        monitoring_signal: "Gross margin and operating margin trend across 4+ quarters",
+        risk_if_wrong: "Margin expansion reverses on input cost spike or competitive pricing pressure",
       });
     } else if (fundamental_signals?.margin_trend === "contracting") {
       drivers.push({
@@ -344,6 +362,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.72,
         why: "Margin compression is a real driver that erodes intrinsic value — often masked by revenue growth narratives.",
+        monitoring_signal: "Gross margin trend — is compression accelerating or bottoming?",
+        risk_if_wrong: "Management successfully passes through costs — margin stabilizes and the bear case weakens",
       });
     }
 
@@ -355,6 +375,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
           type: "real",
           strength: 0.70,
           why: "FCF yield above 5% provides real downside containment and optionality for capital return — a genuine value anchor.",
+          monitoring_signal: "Quarterly FCF generation vs capex — is the yield sustainable or one-time?",
+          risk_if_wrong: "FCF deteriorates on capex surge or working capital build — yield anchor disappears",
         });
       } else if (fcf < 0) {
         drivers.push({
@@ -362,6 +384,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
           type: "real",
           strength: 0.65,
           why: "Negative FCF means the business consumes capital — sustainability depends entirely on external financing conditions.",
+          monitoring_signal: "Cash burn rate and runway — how many quarters until financing is required?",
+          risk_if_wrong: "FCF turns positive on cost discipline or revenue acceleration — bear case weakens",
         });
       }
     }
@@ -373,6 +397,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "narrative",
         strength: 0.60,
         why: "Strong price momentum in absence of earnings acceleration suggests narrative-driven buying — fragile if sentiment shifts.",
+        monitoring_signal: "Price action vs earnings revision ratio — divergence signals narrative fragility",
+        risk_if_wrong: "Earnings acceleration materializes — momentum becomes fundamentally justified",
       });
     }
 
@@ -382,6 +408,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "narrative",
         strength: 0.65,
         why: "AI-related narrative drives multiple expansion beyond fundamental justification — real only if revenue from AI is material and growing.",
+        monitoring_signal: "AI-related revenue as % of total revenue — is the narrative monetizing?",
+        risk_if_wrong: "AI revenue contribution disappoints — narrative premium deflates, multiple compresses",
       });
     }
   }
@@ -396,6 +424,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
           type: "real",
           strength: 0.88,
           why: "Negative real yields destroy the opportunity cost of holding non-yielding commodities like gold — this is a structural real driver, not narrative.",
+          monitoring_signal: "TIPS yield (10Y) and breakeven inflation rate — direction and rate of change",
+          risk_if_wrong: "Real yields rise above 1.5% — destroys the opportunity cost argument and invalidates the bull case",
         });
       } else if (ry > 1.5) {
         drivers.push({
@@ -403,6 +433,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
           type: "real",
           strength: 0.82,
           why: "Rising real yields increase the opportunity cost of holding commodities — historically the strongest headwind for gold and silver.",
+          monitoring_signal: "10Y TIPS yield trajectory — is the rise accelerating or plateauing?",
+          risk_if_wrong: "Fed pivots dovish — real yields roll over and the headwind reverses",
         });
       }
     }
@@ -413,6 +445,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.75,
         why: "USD strength creates a real headwind for dollar-denominated commodities by increasing cost for non-USD buyers.",
+        monitoring_signal: "DXY index direction and rate of change — is USD strength accelerating?",
+        risk_if_wrong: "USD reverses on Fed pivot or fiscal deterioration — headwind becomes tailwind",
       });
     } else if (macro_signals?.usd_strength === "falling") {
       drivers.push({
@@ -420,6 +454,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.72,
         why: "USD weakness is a structural tailwind for commodities — reduces cost for non-USD buyers and signals inflationary pressure.",
+        monitoring_signal: "DXY index — sustained break below key support levels",
+        risk_if_wrong: "USD strengthens on risk-off or Fed hawkishness — tailwind reverses",
       });
     }
 
@@ -429,6 +465,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "mixed",
         strength: 0.70,
         why: "Geopolitical events embed a real risk premium but the magnitude is narrative-dependent — premium fades if conflict de-escalates.",
+        monitoring_signal: "Geopolitical news flow intensity and supply disruption evidence",
+        risk_if_wrong: "Conflict de-escalates or supply routes normalize — risk premium collapses",
       });
     }
 
@@ -438,6 +476,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
       type: "real",
       strength: 0.80,
       why: "Physical supply-demand is the foundational real driver for commodities — inventory levels, production cuts, and demand from industrial users.",
+      monitoring_signal: "Inventory levels (EIA, LME, CFTC), production data, and demand from key industrial consumers",
+      risk_if_wrong: "Supply increases materially (OPEC+ hike, new production) or demand destruction — balance shifts bearish",
     });
   }
 
@@ -449,6 +489,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.82,
         why: "Rate cuts reduce the discount rate applied to future earnings — a real driver of multiple expansion, especially for long-duration assets.",
+        monitoring_signal: "Fed funds futures pricing — pace and depth of expected cuts",
+        risk_if_wrong: "Inflation re-accelerates — Fed pauses or reverses, cutting cycle ends",
       });
     } else if (macro_signals?.rate_direction === "hiking") {
       drivers.push({
@@ -456,6 +498,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.80,
         why: "Rate hikes compress multiples by increasing the discount rate — historically the primary driver of index de-rating.",
+        monitoring_signal: "Fed communication tone and CPI trajectory — when does hiking cycle peak?",
+        risk_if_wrong: "Inflation collapses — Fed pivots to cuts, hiking cycle ends and multiple re-rates",
       });
     }
 
@@ -465,6 +509,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "real",
         strength: 0.78,
         why: "Widening credit spreads signal deteriorating financial conditions — a leading real indicator of equity stress.",
+        monitoring_signal: "IG and HY credit spreads (CDX, iTraxx) — rate of widening and whether it's systemic or idiosyncratic",
+        risk_if_wrong: "Credit spreads stabilize or tighten — financial stress signal was temporary",
       });
     }
 
@@ -475,6 +521,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "narrative",
         strength: 0.65,
         why: "Crowded positioning amplifies narrative-driven moves — when the narrative breaks, forced selling accelerates the decline.",
+        monitoring_signal: "CFTC commitment of traders, fund positioning surveys, short interest data",
+        risk_if_wrong: "Positioning unwinds gradually without a catalyst — crowding resolves without a crash",
       });
     }
   }
@@ -486,6 +534,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
       type: "mixed",
       strength: 0.72,
       why: "ETF flows are both cause and effect — inflows drive price, which attracts more inflows. Real only if underlying fundamentals support the narrative.",
+      monitoring_signal: "Weekly ETF flow data — is the inflow trend accelerating, decelerating, or reversing?",
+      risk_if_wrong: "Flows reverse — redemption wave forces selling of underlying holdings, amplifying the decline",
     });
 
     if (sentiment_signals?.positioning === "crowded_long") {
@@ -494,6 +544,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
         type: "narrative",
         strength: 0.75,
         why: "Thematic ETFs attract narrative-driven flows that concentrate in a small number of holdings — creates fragility when narrative reverses.",
+        monitoring_signal: "Top 10 holdings concentration and their individual performance vs the ETF narrative",
+        risk_if_wrong: "Underlying holdings deliver earnings that validate the narrative — crowding becomes justified",
       });
     }
   }
@@ -505,6 +557,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
       type: "real",
       strength: 0.85,
       why: "Macro stress regimes override asset-specific fundamentals — correlation across assets rises and liquidity becomes the dominant real driver.",
+      monitoring_signal: "VIX level, credit spreads, and cross-asset correlation — are they all rising simultaneously?",
+      risk_if_wrong: "Macro stress resolves — regime normalizes and asset-specific fundamentals reassert dominance",
     });
   }
 
@@ -515,6 +569,8 @@ export function identifyRealDrivers(context: RealDriverContext): RealDriversOutp
       type: "mixed",
       strength: 0.30,
       why: "Available data does not support confident driver identification — this uncertainty is itself a risk factor.",
+      monitoring_signal: "Await next earnings release, macro data point, or policy announcement for signal clarity",
+      risk_if_wrong: "Signal density increases and a clear driver emerges — uncertainty resolves in either direction",
     });
   }
 
@@ -554,6 +610,10 @@ export interface IncentiveAnalysisOutput {
   fear_drivers: string[];
   narrative_support: string;
   narrative_fragility: string;
+  /** Hidden structural pressures that could break the narrative without warning */
+  hidden_pressure_points: string[];
+  /** One-paragraph synthesis of the behavioral and incentive landscape */
+  behavioral_summary: string;
   advisory_only: true;
 }
 
@@ -690,12 +750,45 @@ export function analyzeIncentives(context: IncentiveContext): IncentiveAnalysisO
     fear_drivers.push("Insider selling — management reducing exposure at current prices signals reduced internal confidence");
   }
 
+  // ── Hidden pressure points ───────────────────────────────────────────────
+  const hidden_pressure_points: string[] = [];
+  if (asset_type === "equity") {
+    hidden_pressure_points.push(
+      "Insider selling cluster — multiple executives reducing exposure simultaneously",
+      "Customer concentration risk — top 3 customers represent >30% of revenue",
+      "Debt maturity wall — refinancing at higher rates compresses future FCF",
+    );
+  } else if (asset_type === "commodity") {
+    hidden_pressure_points.push(
+      "Central bank gold selling — sovereign reserve rebalancing can overwhelm retail demand",
+      "Producer hedging program activation — signals price ceiling from informed sellers",
+      "Demand substitution — industrial users switching to alternatives on sustained high prices",
+    );
+  } else if (asset_type === "index") {
+    hidden_pressure_points.push(
+      "Passive flow reversal — if 401k contributions slow, the structural bid weakens",
+      "Index rebalancing concentration — top 10 holdings represent >35% of index weight",
+      "Pension fund de-risking — systematic equity reduction as funded status improves",
+    );
+  } else {
+    hidden_pressure_points.push(
+      "ETF premium collapse — if premium to NAV closes, price falls to NAV without fundamental change",
+      "Seed capital withdrawal — if institutional seed investors redeem, AUM falls below viable threshold",
+      "Competing narrative launch — new thematic ETF captures the same story with lower fees",
+    );
+  }
+
+  // ── Behavioral summary ────────────────────────────────────────────────────
+  const behavioral_summary = `The ${ticker} incentive landscape is dominated by ${key_players[0] ?? "institutional actors"} whose primary incentive is ${incentives[0] ?? "maintaining the current narrative"}. The narrative is currently in ${sentiment_phase ?? "uncertain"} phase — ${narrative_support.split(".")[0]}. The most dangerous hidden pressure is: ${hidden_pressure_points[0] ?? "unclear"}. The narrative will remain intact as long as ${fear_drivers[0] ? `the primary fear driver (${fear_drivers[0].split(" — ")[0]}) does not materialize` : "no major catalyst disrupts the consensus"}.`;
+
   return {
     key_players,
     incentives,
     fear_drivers,
     narrative_support,
     narrative_fragility,
+    hidden_pressure_points,
+    behavioral_summary,
     advisory_only: true,
   };
 }
@@ -712,7 +805,11 @@ export interface PolicyRealityOutput {
   execution_consistency: string;
   effective_impact: string;
   reversibility: string;
+  /** Structural frictions that reduce policy transmission to real economy */
+  implementation_friction: string;
   market_pricing: string;
+  /** One-paragraph synthesis of policy reality vs market pricing */
+  policy_reality_summary: string;
   advisory_only: true;
 }
 
@@ -804,13 +901,42 @@ export function analyzePolicyReality(policyContext: PolicyContext): PolicyRealit
     market_pricing_text += ` Recent signals: ${recent_signals.join("; ")}.`;
   }
 
+  // ── Implementation friction ───────────────────────────────────────────────
+  const implementation_friction_parts: string[] = [];
+  if (policy_type === "trade") {
+    implementation_friction_parts.push("WTO dispute resolution timelines (12-24 months) delay enforcement");
+    implementation_friction_parts.push("Domestic industry lobbying creates carve-outs that dilute stated impact");
+    implementation_friction_parts.push("Retaliation risk forces negotiated exemptions");
+  } else if (policy_type === "monetary") {
+    implementation_friction_parts.push("Transmission lag of 12-18 months between rate change and real economy impact");
+    implementation_friction_parts.push("Credit channel may be impaired if bank lending standards are already tight");
+  } else if (policy_type === "fiscal") {
+    implementation_friction_parts.push("Legislative approval process creates multi-quarter delay");
+    implementation_friction_parts.push("Spending multiplier varies significantly by program type and economic cycle");
+  } else if (policy_type === "industrial") {
+    implementation_friction_parts.push("Supply chain restructuring takes 3-7 years — policy impact is slow");
+    implementation_friction_parts.push("Skilled labor availability constrains reshoring speed");
+  } else {
+    implementation_friction_parts.push("Regulatory implementation requires agency rulemaking (6-18 months)");
+    implementation_friction_parts.push("Legal challenges can delay or modify implementation");
+  }
+  if (political_constraints) {
+    implementation_friction_parts.push(`Political constraint: ${political_constraints}`);
+  }
+  const implementation_friction = implementation_friction_parts.join(". ");
+
+  // ── Policy reality summary ────────────────────────────────────────────────
+  const policy_reality_summary = `${policy_name} states the intent to ${stated_goal ?? "achieve policy objectives"}, but execution strength is ${execution_strength}. The real-world impact (${effective_impact.split(".")[0]}) differs from the headline announcement due to: ${implementation_friction_parts[0] ?? "structural frictions"}. Market is currently ${market_pricing_text.split(".")[0].toLowerCase()}. Reversibility is ${reversibility.split(".")[0].toLowerCase()}, meaning ${execution_strength === "weak" ? "the policy may not land as advertised" : "the policy is likely to have durable market impact"}.`;
+
   return {
     policy_intent: stated_goal ?? `${policy_name} — stated goal not specified`,
     execution_strength,
     execution_consistency,
     effective_impact,
     reversibility,
+    implementation_friction,
     market_pricing: market_pricing_text,
+    policy_reality_summary,
     advisory_only: true,
   };
 }
@@ -1523,6 +1649,324 @@ export function runLevel11Analysis(params: {
     scenario_map,
     policy_reality,
     propagation_chain,
+    advisory_only: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 11 — EXTERNAL DATA DISCOVERY PROTOCOL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DataSourceCategory =
+  | "macro_yield"
+  | "supply_demand"
+  | "positioning"
+  | "sentiment"
+  | "policy_tracking"
+  | "earnings"
+  | "flow"
+  | "cross_asset";
+
+export interface ExternalDataCandidate {
+  /** Human-readable name of the data source */
+  source_name: string;
+  /** Category of data this source provides */
+  category: DataSourceCategory;
+  /** What specific signal this source provides for the asset */
+  signal_description: string;
+  /** How frequently this data is updated */
+  update_frequency: "real_time" | "daily" | "weekly" | "monthly" | "quarterly";
+  /** Priority: 1 = critical, 2 = important, 3 = supplementary */
+  priority: 1 | 2 | 3;
+  /** Specific field or metric to monitor */
+  key_metric: string;
+  advisory_only: true;
+}
+
+export interface ExternalDataDiscoveryOutput {
+  asset_type: AssetType;
+  ticker: string;
+  candidates: ExternalDataCandidate[];
+  /** The single highest-priority data source for this asset */
+  primary_source: string;
+  /** Summary of what data gaps exist for confident analysis */
+  data_gap_summary: string;
+  advisory_only: true;
+}
+
+/**
+ * [LEVEL11 Phase 11] Discover external data candidates for a given asset.
+ * PROTOCOL: For each asset type, identify the most important external data sources
+ * that would improve signal quality and reduce analytical uncertainty.
+ * This is a DISCOVERY function — it tells you what to look for, not what the data says.
+ */
+export function discoverExternalDataCandidates(params: {
+  asset_type: AssetType;
+  ticker: string;
+  current_drivers?: DriverSignal[];
+  current_gaps?: string[];
+}): ExternalDataDiscoveryOutput {
+  const { asset_type, ticker, current_drivers, current_gaps } = params;
+  const candidates: ExternalDataCandidate[] = [];
+
+  // ── Asset-type specific data sources ─────────────────────────────────────
+  if (asset_type === "equity") {
+    candidates.push(
+      {
+        source_name: "SEC EDGAR — Quarterly Filings (10-Q/10-K)",
+        category: "earnings",
+        signal_description: "Primary source for revenue, margin, FCF, and management commentary — the ground truth for equity analysis",
+        update_frequency: "quarterly",
+        priority: 1,
+        key_metric: "Operating margin trend, FCF yield, guidance language tone",
+        advisory_only: true,
+      },
+      {
+        source_name: "Earnings Call Transcripts",
+        category: "earnings",
+        signal_description: "Management tone, forward guidance specificity, and analyst question focus reveal real vs narrative driver alignment",
+        update_frequency: "quarterly",
+        priority: 1,
+        key_metric: "Guidance revision direction, management confidence language, analyst pushback topics",
+        advisory_only: true,
+      },
+      {
+        source_name: "Insider Transaction Data (SEC Form 4)",
+        category: "sentiment",
+        signal_description: "Insider buying/selling clusters are the most reliable sentiment signal — insiders know the business better than any analyst",
+        update_frequency: "daily",
+        priority: 2,
+        key_metric: "Net insider transaction direction over rolling 90 days",
+        advisory_only: true,
+      },
+      {
+        source_name: "Short Interest Data (FINRA)",
+        category: "positioning",
+        signal_description: "Short interest as % of float reveals institutional conviction on the bear case — rising short interest confirms thesis deterioration",
+        update_frequency: "weekly",
+        priority: 2,
+        key_metric: "Short interest % of float, days-to-cover ratio",
+        advisory_only: true,
+      },
+      {
+        source_name: "Analyst Estimate Revisions (Bloomberg/FactSet)",
+        category: "earnings",
+        signal_description: "Earnings estimate revision direction is a leading indicator of fundamental momentum — revisions lead price",
+        update_frequency: "daily",
+        priority: 2,
+        key_metric: "EPS revision breadth (% of analysts revising up vs down)",
+        advisory_only: true,
+      },
+    );
+  }
+
+  if (asset_type === "commodity") {
+    candidates.push(
+      {
+        source_name: "TIPS Yield (Federal Reserve H.15)",
+        category: "macro_yield",
+        signal_description: "10-year TIPS yield is the single most important real driver for gold and silver — the opportunity cost of holding non-yielding assets",
+        update_frequency: "daily",
+        priority: 1,
+        key_metric: "10Y TIPS yield level and 30-day rate of change",
+        advisory_only: true,
+      },
+      {
+        source_name: "CFTC Commitment of Traders (COT)",
+        category: "positioning",
+        signal_description: "Speculative positioning in commodity futures reveals crowding — extreme long/short positioning signals reversal risk",
+        update_frequency: "weekly",
+        priority: 1,
+        key_metric: "Net speculative position as % of open interest, vs historical percentile",
+        advisory_only: true,
+      },
+      {
+        source_name: "EIA Weekly Inventory Report",
+        category: "supply_demand",
+        signal_description: "For energy commodities — weekly inventory changes are the most timely supply-demand signal",
+        update_frequency: "weekly",
+        priority: 1,
+        key_metric: "Crude/product inventory change vs consensus expectation",
+        advisory_only: true,
+      },
+      {
+        source_name: "DXY Index (USD)",
+        category: "macro_yield",
+        signal_description: "USD strength/weakness is a structural driver for all dollar-denominated commodities — inverse correlation is well-established",
+        update_frequency: "real_time",
+        priority: 1,
+        key_metric: "DXY level, 20-day momentum, and correlation with commodity price",
+        advisory_only: true,
+      },
+      {
+        source_name: "Central Bank Gold Reserve Data (IMF/WGC)",
+        category: "flow",
+        signal_description: "Central bank gold buying/selling is a structural flow driver that can overwhelm retail demand — monthly data",
+        update_frequency: "monthly",
+        priority: 2,
+        key_metric: "Net central bank gold purchases/sales (tonnes per quarter)",
+        advisory_only: true,
+      },
+    );
+  }
+
+  if (asset_type === "index") {
+    candidates.push(
+      {
+        source_name: "Fed Funds Futures (CME FedWatch)",
+        category: "macro_yield",
+        signal_description: "Market-implied rate path is the primary multiple driver for equity indices — the most important forward-looking macro signal",
+        update_frequency: "real_time",
+        priority: 1,
+        key_metric: "Probability of rate cut/hike at next 3 FOMC meetings",
+        advisory_only: true,
+      },
+      {
+        source_name: "Credit Spreads (CDX IG/HY)",
+        category: "cross_asset",
+        signal_description: "Credit spreads are a leading indicator of equity stress — widening precedes equity selloffs by 2-4 weeks historically",
+        update_frequency: "daily",
+        priority: 1,
+        key_metric: "CDX IG and HY spread level vs 6-month average, rate of change",
+        advisory_only: true,
+      },
+      {
+        source_name: "AAII Investor Sentiment Survey",
+        category: "sentiment",
+        signal_description: "Retail investor sentiment is a contrarian indicator at extremes — extreme bullishness signals crowding, extreme bearishness signals capitulation",
+        update_frequency: "weekly",
+        priority: 2,
+        key_metric: "Bull-bear spread vs historical percentile",
+        advisory_only: true,
+      },
+      {
+        source_name: "S&P 500 Earnings Revision Breadth",
+        category: "earnings",
+        signal_description: "Aggregate earnings revision direction for the index is a leading indicator of fundamental momentum",
+        update_frequency: "weekly",
+        priority: 2,
+        key_metric: "% of S&P 500 companies with upward EPS revisions in rolling 4 weeks",
+        advisory_only: true,
+      },
+      {
+        source_name: "Index Concentration Metrics",
+        category: "flow",
+        signal_description: "Top 10 holdings weight in the index — high concentration means index performance is driven by a few stocks, creating hidden single-stock risk",
+        update_frequency: "monthly",
+        priority: 2,
+        key_metric: "Top 10 holdings % of total index weight",
+        advisory_only: true,
+      },
+    );
+  }
+
+  if (asset_type === "etf_equity" || asset_type === "etf_sector" || asset_type === "etf_macro") {
+    candidates.push(
+      {
+        source_name: "ETF Flow Data (Bloomberg/ETF.com)",
+        category: "flow",
+        signal_description: "Weekly ETF inflow/outflow data is the primary driver signal for thematic ETFs — flows are both cause and effect",
+        update_frequency: "daily",
+        priority: 1,
+        key_metric: "Weekly net flows as % of AUM, 4-week rolling trend",
+        advisory_only: true,
+      },
+      {
+        source_name: "Premium/Discount to NAV",
+        category: "sentiment",
+        signal_description: "ETF trading at significant premium to NAV signals narrative overextension — premium collapses when sentiment reverses",
+        update_frequency: "daily",
+        priority: 1,
+        key_metric: "Premium/discount % vs historical average, and trend direction",
+        advisory_only: true,
+      },
+      {
+        source_name: "Top Holdings Earnings Performance",
+        category: "earnings",
+        signal_description: "Do the top 10 holdings deliver earnings that validate the ETF's narrative? Fundamental validation is the bridge from narrative to real driver",
+        update_frequency: "quarterly",
+        priority: 2,
+        key_metric: "Top 10 holdings earnings beat/miss rate and guidance direction",
+        advisory_only: true,
+      },
+      {
+        source_name: "Competing ETF Launch Tracker",
+        category: "flow",
+        signal_description: "New competing ETFs in the same theme signal narrative saturation — capital splits and the original ETF loses flow momentum",
+        update_frequency: "monthly",
+        priority: 3,
+        key_metric: "Number of competing ETFs launched in the same theme in the past 12 months",
+        advisory_only: true,
+      },
+    );
+  }
+
+  // ── Cross-asset universal sources ─────────────────────────────────────────
+  candidates.push(
+    {
+      source_name: "VIX (CBOE Volatility Index)",
+      category: "sentiment",
+      signal_description: "VIX is the universal fear gauge — spikes above 30 signal regime shift, sustained low VIX signals complacency",
+      update_frequency: "real_time",
+      priority: 2,
+      key_metric: "VIX level, 20-day average, and term structure (VIX vs VIX3M)",
+      advisory_only: true,
+    },
+    {
+      source_name: "Google Trends — Ticker Search Volume",
+      category: "sentiment",
+      signal_description: "Retail search interest is a contrarian sentiment indicator — extreme spikes signal narrative peak and crowding",
+      update_frequency: "weekly",
+      priority: 3,
+      key_metric: "Search volume trend vs 12-month baseline, spike detection",
+      advisory_only: true,
+    },
+  );
+
+  // ── Add driver-specific sources ───────────────────────────────────────────
+  if (current_drivers) {
+    for (const driver of current_drivers.slice(0, 3)) {
+      if (driver.type === "narrative") {
+        candidates.push({
+          source_name: `Narrative Validation: ${driver.driver}`,
+          category: "sentiment",
+          signal_description: `Monitor whether the "${driver.driver}" narrative is gaining or losing fundamental support. Key signal: ${driver.monitoring_signal}`,
+          update_frequency: "weekly",
+          priority: 2,
+          key_metric: driver.monitoring_signal,
+          advisory_only: true,
+        });
+      }
+    }
+  }
+
+  // Sort by priority
+  candidates.sort((a, b) => a.priority - b.priority);
+
+  const primary_source = candidates[0]?.source_name ?? "No primary source identified";
+
+  // ── Data gap summary ──────────────────────────────────────────────────────
+  const gapParts: string[] = [];
+  if (asset_type === "equity") {
+    gapParts.push("Most critical gap: real-time earnings revision data and insider transaction clustering");
+  } else if (asset_type === "commodity") {
+    gapParts.push("Most critical gap: real-time TIPS yield and CFTC positioning data");
+  } else if (asset_type === "index") {
+    gapParts.push("Most critical gap: real-time Fed funds futures and credit spread data");
+  } else {
+    gapParts.push("Most critical gap: daily ETF flow data and premium/discount to NAV");
+  }
+  if (current_gaps && current_gaps.length > 0) {
+    gapParts.push(`User-identified gaps: ${current_gaps.join("; ")}`);
+  }
+  const data_gap_summary = gapParts.join(". ");
+
+  return {
+    asset_type,
+    ticker,
+    candidates,
+    primary_source,
+    data_gap_summary,
     advisory_only: true,
   };
 }

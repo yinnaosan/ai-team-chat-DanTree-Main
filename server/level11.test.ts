@@ -58,7 +58,7 @@ function makeMockGradientRisk(state: "stable" | "building" | "elevated" | "criti
   };
 }
 
-function makeMockBusinessContext() {
+function makeMockBusinessContext(moat: "wide" | "narrow" | "weak" = "narrow") {
   return {
     eligibility: {
       eligibility_status: "eligible" as const,
@@ -71,9 +71,14 @@ function makeMockBusinessContext() {
       advisory_only: true as const,
     },
     businessUnderstanding: {
-      moat_strength: "narrow" as const,
+      moat_strength: moat,
       moat_type: "brand" as const,
       moat_durability: "stable" as const,
+      advisory_only: true as const,
+    },
+    managementProxy: {
+      management_quality: "strong" as const,
+      proxy_reason: "Consistent execution track record",
       advisory_only: true as const,
     },
     advisory_only: true as const,
@@ -356,5 +361,203 @@ describe("TC-L11-05: Tariff shock propagation chain", () => {
     expect(result.chain.length).toBeGreaterThan(0);
     expect(result.terminal_impact).toBeTruthy();
     expect(result.advisory_only).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-L11-06: Sentiment Overheat Position Control
+// Scenario: NVDA in overheat sentiment phase — asymmetry penalty should reduce score
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-L11-06: NVDA overheat sentiment → asymmetry penalty + position control", () => {
+  it("should detect overheat sentiment and apply asymmetry penalty", () => {
+    const sentimentCtx: SentimentContext = {
+      asset_type: "equity",
+      ticker: "NVDA",
+      positioning: "crowded_long",
+      momentum: "strong_up",
+      news_sentiment: "positive",
+      analyst_consensus: "strong_buy",
+      recent_price_change_pct: 45,
+      valuation_vs_history: "expensive",
+      short_interest_trend: "falling",
+    };
+    const sentiment = detectSentimentState(sentimentCtx);
+    expect(sentiment.sentiment_phase).toBe("overheat");
+    expect(sentiment.crowdedness).toBeGreaterThan(0.7);
+    expect(sentiment.risk_of_reversal).toBeGreaterThan(0.6);
+    expect(sentiment.advisory_only).toBe(true);
+  });
+
+  it("should apply asymmetry penalty when overheat + crowded_long detected via Level11", () => {
+    const level11 = runLevel11Analysis({
+      assetInput: {
+        ticker: "NVDA",
+        name: "NVIDIA Corporation",
+        asset_class_hint: "equity",
+      },
+      driverContext: {
+        ticker: "NVDA",
+        macro_signals: { rate_direction: "stable" },
+        fundamental_signals: { earnings_trend: "accelerating", margin_trend: "expanding" },
+        sentiment_signals: { momentum: "strong_up", positioning: "crowded_long" },
+        recent_events: ["AI data center demand surge", "artificial intelligence GPU monopoly narrative"],
+      },
+      incentiveContext: {
+        ticker: "NVDA",
+        key_stakeholders: ["institutional funds", "retail momentum traders"],
+        recent_events: ["AI narrative peak"],
+      },
+      sentimentContext: {
+        ticker: "NVDA",
+        positioning: "crowded_long",
+        momentum: "strong_up",
+        news_sentiment: "positive",
+        analyst_consensus: "strong_buy",
+        recent_price_change_pct: 45,
+        valuation_vs_history: "expensive",
+        short_interest_trend: "falling",
+      },
+    });
+
+    expect(level11.sentiment_state.sentiment_phase).toBe("overheat");
+    expect(level11.classification.asset_type).toBe("equity");
+    expect(level11.advisory_only).toBe(true);
+
+    // Compute asymmetry score with Level11 context — should be penalized
+    const asymCtx: AsymmetryScoreContext = {
+      thesis: makeMockThesis(),
+      payoutMap: makeMockPayoutMap(1.5), // Normally decent ratio
+      gradientRisk: makeMockGradientRisk("building"),
+      businessContext: makeMockBusinessContext("wide"),
+      level11Analysis: level11,
+    };
+    const asymScore = computeAsymmetryScore(asymCtx);
+
+    // Overheat + crowded_long should penalize the score
+    expect(asymScore.asymmetry_score).toBeLessThan(0.75);
+    expect(asymScore.advisory_only).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-L11-07: Second-Order Cross-Asset Effects
+// Scenario: Fed rate cut → bonds rally → equity multiple expansion → commodity reflation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-L11-07: Fed pivot → second-order cross-asset propagation chain", () => {
+  it("should build multi-step propagation chain for Fed pivot event", () => {
+    const ctx: PropagationContext = {
+      event: "Fed announces 50bps emergency rate cut — pivot confirmed",
+      event_type: "rate_change",
+      magnitude: "large",
+      affected_assets: ["TLT", "QQQ", "GLD", "DXY", "HYG"],
+      macro_context: {
+        current_regime: "risk_on",
+        credit_conditions: "easing",
+        dollar_trend: "falling",
+      },
+    };
+    const result = buildPropagationChain(ctx);
+
+    // Should have multiple links (second-order effects)
+    expect(result.chain.length).toBeGreaterThanOrEqual(2);
+    expect(result.terminal_impact).toBeTruthy();
+    expect(result.advisory_only).toBe(true);
+
+    // All links should have required structure
+    for (const link of result.chain) {
+      expect(link.from).toBeTruthy();
+      expect(link.to).toBeTruthy();
+      expect(link.mechanism).toBeTruthy();
+      expect(link.confidence).toBeGreaterThanOrEqual(0);
+      expect(link.confidence).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("should identify rate-cut as real driver for index and commodity simultaneously", () => {
+    // Index: rate cut = real driver (multiple expansion)
+    const indexDrivers = identifyRealDrivers({
+      asset_type: "index",
+      ticker: "QQQ",
+      macro_signals: { rate_direction: "cutting", credit_spreads: "tightening" },
+      fundamental_signals: {},
+      sentiment_signals: {},
+    });
+    const rateCutDriver = indexDrivers.drivers.find(d => d.driver.toLowerCase().includes("rate cut"));
+    expect(rateCutDriver).toBeDefined();
+    expect(rateCutDriver?.type).toBe("real");
+    expect(rateCutDriver?.monitoring_signal).toBeTruthy();
+    expect(rateCutDriver?.risk_if_wrong).toBeTruthy();
+
+    // Commodity: USD weakening = real driver (tailwind)
+    const commodityDrivers = identifyRealDrivers({
+      asset_type: "commodity",
+      ticker: "GLD",
+      macro_signals: { usd_strength: "falling", real_yield: -0.8 },
+      fundamental_signals: {},
+      sentiment_signals: {},
+    });
+    const usdDriver = commodityDrivers.drivers.find(d => d.driver.toLowerCase().includes("usd"));
+    expect(usdDriver).toBeDefined();
+    expect(usdDriver?.type).toBe("real");
+    expect(usdDriver?.monitoring_signal).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-L11-08: Phase 11 — discoverExternalDataCandidates Protocol
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { discoverExternalDataCandidates } from "./level11MultiAssetEngine";
+
+describe("TC-L11-08: discoverExternalDataCandidates — Phase 11 data discovery protocol", () => {
+  it("should return priority-1 TIPS yield source for commodity (GLD)", () => {
+    const result = discoverExternalDataCandidates({
+      asset_type: "commodity",
+      ticker: "GLD",
+    });
+    expect(result.asset_type).toBe("commodity");
+    expect(result.ticker).toBe("GLD");
+    expect(result.candidates.length).toBeGreaterThan(3);
+    expect(result.advisory_only).toBe(true);
+
+    const p1Sources = result.candidates.filter(c => c.priority === 1);
+    expect(p1Sources.length).toBeGreaterThanOrEqual(2);
+
+    const tipsSource = result.candidates.find(c => c.source_name.toLowerCase().includes("tips"));
+    expect(tipsSource).toBeDefined();
+    expect(tipsSource?.category).toBe("macro_yield");
+    expect(tipsSource?.key_metric).toBeTruthy();
+  });
+
+  it("should return ETF flow data as priority-1 source for ETF (ARKK)", () => {
+    const result = discoverExternalDataCandidates({
+      asset_type: "etf_equity",
+      ticker: "ARKK",
+    });
+    const flowSource = result.candidates.find(c => c.category === "flow" && c.priority === 1);
+    expect(flowSource).toBeDefined();
+    expect(flowSource?.update_frequency).toBeTruthy();
+    expect(result.data_gap_summary).toBeTruthy();
+  });
+
+  it("should include narrative-specific sources when narrative drivers are provided", () => {
+    const narrativeDrivers = [{
+      driver: "AI narrative premium",
+      type: "narrative" as const,
+      strength: 0.65,
+      why: "AI-related narrative drives multiple expansion",
+      monitoring_signal: "AI revenue as % of total revenue",
+      risk_if_wrong: "AI revenue disappoints",
+    }];
+    const result = discoverExternalDataCandidates({
+      asset_type: "equity",
+      ticker: "MSFT",
+      current_drivers: narrativeDrivers,
+    });
+    const narrativeSource = result.candidates.find(c => c.source_name.includes("Narrative Validation"));
+    expect(narrativeSource).toBeDefined();
+    expect(narrativeSource?.category).toBe("sentiment");
   });
 });

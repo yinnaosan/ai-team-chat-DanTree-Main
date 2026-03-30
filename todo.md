@@ -2811,3 +2811,13 @@
 - [x] 编写 server/level11.test.ts（5个 describe，8个 it 用例，全部通过）
 - [x] 生成 MANUS_TO_GPT_LEVEL11_HANDOFF.md 交接报告
 - [x] TSC 0 errors，1345/1351 回归测试通过（6个预存失败与本次无关）
+
+## LEVEL11 Phase 13: Return Protocol Audit
+- [x] 补充 AssetClassification.analysis_mode 字段（6种资产类型各有专属描述）
+- [x] 补充 DriverSignal.monitoring_signal + risk_if_wrong 字段（21个 drivers.push 全部更新）
+- [x] 补充 IncentiveAnalysisOutput.hidden_pressure_points + behavioral_summary 字段
+- [x] 补充 PolicyRealityOutput.implementation_friction + policy_reality_summary 字段
+- [x] 新增 Phase 11 discoverExternalDataCandidates() 函数（资源发现协议）
+- [x] 扩展 level11.test.ts 至 15 个测试用例（新增 CASE 6/7/8）
+- [x] 生成 MANUS_TO_GPT_LEVEL11_FINAL_HANDOFF.md Phase 13 完整审计报告
+- [x] TSC 0 errors，1352/1358 回归测试通过（6个预存失败与本次无关）

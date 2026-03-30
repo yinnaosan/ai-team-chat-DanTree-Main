@@ -263,13 +263,16 @@ export interface LLMResponse {
 /**
  * invokeWithModel — 统一 LLM 调用接口
  *
- * 根据 model ID 自动路由到对应的 API 提供商。
- * 内部委托给 model_router.ts，通过 claude_provider / gpt_provider 执行。
- *
- * 推荐使用 routeToModel()（model_router.ts）以获得 task_type 路由和路由决策信息。
- * 此函数保留用于向后兼容和直接指定模型的场景。
+ * @deprecated 请使用 `modelRouter.generate(input, task_type)` 替代。
+ * 此函数仅保留向后兼容性，内部委托给 model_router.ts 的 modelRouter.generate()。
+ * 不再包含任何直接 provider 分支逻辑。
  *
  * @example
+ *   // 推荐（新代码）：
+ *   import { modelRouter } from "./model_router";
+ *   const res = await modelRouter.generate({ messages: [...] }, "research");
+ *
+ *   // 向后兼容（旧代码）：
  *   const res = await invokeWithModel({
  *     model: MODELS.ANTHROPIC.OPUS_4_6,
  *     messages: [{ role: "user", content: "Analyze AAPL" }],
@@ -277,16 +280,29 @@ export interface LLMResponse {
  *   console.log(res.content);
  */
 export async function invokeWithModel(opts: InvokeWithModelOptions): Promise<LLMResponse> {
-  const { routeToModel } = await import("./model_router");
-  return routeToModel({
-    task_type: "default",
-    messages: opts.messages,
-    maxTokens: opts.maxTokens,
-    temperature: opts.temperature,
-    override_model: opts.model,
-    extendedThinking: opts.extendedThinking,
-    responseFormat: opts.responseFormat,
-  });
+  const { modelRouter } = await import("./model_router");
+  const result = await modelRouter.generate(
+    {
+      messages: opts.messages,
+      maxTokens: opts.maxTokens,
+      temperature: opts.temperature,
+      forceModel: opts.model,
+      extendedThinking: opts.extendedThinking,
+      responseFormat: opts.responseFormat,
+    },
+    "default"
+  );
+  // 将 RouterResponse 映射回 LLMResponse（向后兼容）
+  return {
+    content: result.content,
+    model: result.model,
+    provider: (result.provider === "gpt_stub" ? "openai" : result.provider) as import("./llmProviders").ModelProvider,
+    usage: {
+      input_tokens: result.usage.input_tokens ?? 0,
+      output_tokens: result.usage.output_tokens ?? 0,
+      estimated_cost_usd: result.usage.estimated_cost_usd ?? 0,
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,170 +1,156 @@
-# DANTREE WORKFLOW V2.1 PACKAGING GUIDE
-**Version:** 2.1 | **Effective from:** Task Level12.4+
-**Purpose:** Mandatory structure for all future Claude and Manus task packages.
+# WORKFLOW V2.1 PACKAGING GUIDE
+**Version:** 2.1 (post-Level12.6, OI-L12-007)  
+**Maintained by:** GPT Architecture  
+**Purpose:** Standard for assembling Claude and Manus task packages
 
 ---
 
-## CLAUDE ZIP — MANDATORY BLOCKS
-
-Every ZIP sent to Claude MUST contain a file with these blocks in order:
+## MANDATORY BLOCK ORDER (Claude ZIP)
 
 ```
 [TASK]
-Clear mission statement. One paragraph max.
-What to build, what NOT to build, what protocol version to target.
-
 [CODEBASE_CONTEXT]
-Paste relevant sections from gpt_feedback/CODEBASE_CONTEXT.md
-Include:
-- Files relevant to this task and their roles
-- Import path examples (correct patterns)
-- Pipeline status relevant to this task
-
 [INTERFACE_SNAPSHOT]
-Paste EXACT TypeScript interface definitions from TYPE_REGISTRY.md
-Include ALL fields of every interface Claude will reference.
-DO NOT paraphrase. DO NOT omit fields.
-Example:
-  export interface PropagationLink {
-    from: string;        // NOT from_asset
-    to: string;          // NOT to_asset
-    mechanism: string;
-    lag: string;
-    confidence: number;  // NOT correlation_strength
-  }
-
 [TYPE_REGISTRY_EXCERPT]
-Paste EXACT enum/union type definitions from TYPE_REGISTRY.md
-Include every enum Claude will use in assertions or switch statements.
-Example:
-  export type SemanticTaskType = ... (14 values)
-  // NOTE: use >= 14 in count assertions, NOT === 14
-
 [OI_RESOLUTION]
-Resolve ALL pending OIs before new work begins.
-Format: OI-{ID} = {STATUS} | {OPTION} | {IMPACT}
-See OI_RESOLUTION_TEMPLATE.md for full format.
-
 [TEST_POLICY]
-- enum/count assertions: >= N (never === N unless explicitly frozen)
-- impl and tests: same generation pass with same context
-- TSC target: 0 new errors
-- mock data: must use exact field names from INTERFACE_SNAPSHOT
-
 [PERMITTED_MODIFICATIONS]
-List every file Claude is allowed to create or modify.
-Be explicit. No wildcards unless necessary.
-
 [READ_ONLY]
-List every file Claude must not modify.
-Standard READ-ONLY list:
-  server/level11MultiAssetEngine.ts
-  server/experienceLayer.ts
-  server/level105PositionLayer.ts
-  server/deepResearchEngine.ts
-  server/synthesisController.ts
-  server/routers.ts (append-only exception)
-  drizzle/schema.ts
-
 [CHANGELOG_SINCE_LAST_TASK]
-List all files added/modified since the previous task.
-See CHANGELOG_SINCE_LAST_TASK_TEMPLATE.md for format.
-
 [DELIVERABLES]
-Numbered list of files to create/modify with descriptions.
-
 [OUTPUT_REQUIRED]
-What Claude must return as proof of completion.
-
 [FAIL_CONDITIONS]
-What would cause Manus to reject the output.
 ```
 
 ---
 
-## MANUS ZIP — MANDATORY BLOCKS
-
-Every ZIP sent to Manus MUST contain a file with these blocks:
+## MANDATORY BLOCK ORDER (Manus ZIP)
 
 ```
 [TASK]
-What Manus must integrate. Reference Claude output files explicitly.
-
 [INTEGRATION_SCOPE]
-Which files to copy from Claude ZIP.
-Which files to modify in the codebase.
-Explicit list — no ambiguity.
-
 [READ_ONLY]
-Files Manus must not modify (same standard list as above).
-
 [CHANGELOG_SINCE_LAST_TASK]
-Same content as Claude ZIP — keeps Manus aware of what changed.
-
 [OI_RESOLUTION]
-Same content as Claude ZIP — Manus uses this to understand architectural decisions.
-
 [TEST_POLICY]
-- Run Claude's tests: pnpm test server/<new_file>.test.ts
-- Run full regression: pnpm test
-- TSC: npx tsc --noEmit
-- Acceptable failures: list any known pre-existing failures
-
 [PERMITTED_MODIFICATIONS]
-Explicit list of files Manus can modify during integration.
-
 [OUTPUT_REQUIRED]
-What Manus must return (checkpoint version, test results, TSC status).
-
 [FAIL_CONDITIONS]
-What would cause the task to be rejected.
 ```
 
 ---
 
-## CHECKLIST — BEFORE SENDING ANY TASK PACKAGE
+## SHORT TYPE PACK RULE (OI-L12-007)
 
-### GPT checklist (before sending to Claude):
-```
-□ CODEBASE_CONTEXT included (from latest gpt_feedback/CODEBASE_CONTEXT.md)
-□ INTERFACE_SNAPSHOT includes ALL interfaces Claude will reference
-□ TYPE_REGISTRY_EXCERPT includes ALL enums Claude will use
-□ OI_RESOLUTION resolves ALL pending OIs
-□ CHANGELOG_SINCE_LAST_TASK is accurate
-□ TEST_POLICY specifies >= N for count assertions
-□ PERMITTED_MODIFICATIONS is explicit
-□ READ_ONLY list is complete
-```
+**Include `TEST_MOCK_TYPE_PACK.md` (or paste its contents as `[TYPE_MOCK_PACK]`) in lightweight Claude packages when ANY of the following is true:**
 
-### GPT checklist (before sending to Manus):
+1. The task writes or modifies tests that mock `Level11AnalysisOutput`
+2. The task writes or modifies tests that mock `SemanticTransportPacket` or `UnifiedSemanticState`
+3. The task touches `PropagationLink`, `IncentiveAnalysisOutput`, `AssetType`, or `SentimentPhase`
+
+**Rationale:** These types have historically caused repeated mock-field guessing failures, TSC repair rounds, and Manus integration rework. Including the pack eliminates the root cause.
+
+**Pack location:** `gpt_feedback/TEST_MOCK_TYPE_PACK.md`
+
+**Example block for lightweight packages:**
+
 ```
-□ Claude output files are included in ZIP
-□ INTEGRATION_SCOPE lists exact files to copy
-□ OI_RESOLUTION is consistent with Claude package
-□ CHANGELOG_SINCE_LAST_TASK is included
-□ Known pre-existing test failures are listed in TEST_POLICY
+[TYPE_MOCK_PACK]
+(paste contents of TEST_MOCK_TYPE_PACK.md here — only the sections needed)
+[/TYPE_MOCK_PACK]
 ```
 
 ---
 
-## EFFICIENCY IMPACT ESTIMATE
+## ANTI-SUBDIRECTORY RULE
 
-| Protocol Version | Avg repair work per task | Credit waste |
-|---|---|---|
-| V1.0 (no context) | ~35% of task | HIGH |
-| V2.1 (full context) | ~5-10% of task | LOW |
+All task packages must enforce:
 
-**Primary saving:** Claude generates correct field names on first pass → no scan/diagnose/fix/retest cycle.
+```
+server/ is FLAT for import purposes.
+NO subdirectories in import paths.
+CORRECT:   import { X } from "./semantic_aggregator"
+FORBIDDEN: import { X } from "./protocol/semantic_aggregator"
+FORBIDDEN: import { X } from "../semantic_aggregator"
+```
+
+This rule applies even though `server/protocol/` physically exists. The tsconfig handles resolution; task packages must not expose subdirectory paths to Claude or Manus.
 
 ---
 
-## TYPE_REGISTRY REFRESH TRIGGERS
+## FULL INTERFACE SNAPSHOTS FOR TEST MOCKS
 
-Refresh `gpt_feedback/TYPE_REGISTRY.md` after any task that:
-1. Adds or modifies fields in a READ-ONLY interface
-2. Adds new enum values to any registered type
-3. Deprecates or renames a wrapper function
-4. Adds a new protocol version (e.g., 12.3 → 12.4)
-5. Changes `DeepResearchContextMap` structure
+When a task package includes tests that construct mock objects, the `[INTERFACE_SNAPSHOT]` block must include **complete interface definitions** — not just the fields that seem relevant.
 
-**Manus will update TYPE_REGISTRY as part of each task's deliverables when interfaces change.**
+**Why:** Claude and Manus cannot detect omitted required fields unless the full interface is visible.
+
+**Rule:** If a mock touches `Level11AnalysisOutput`, include:
+- `Level11AnalysisOutput` (full)
+- `IncentiveAnalysisOutput` (full, from `TEST_MOCK_TYPE_PACK.md`)
+- `AssetType` (full enum)
+- `SentimentPhase` (full enum)
+- `PrimaryDriverType` (full enum)
+- `DriverFramework` (full enum)
+
+---
+
+## ENUM ASSERTION POLICY
+
+```
+Use >= N  (NOT === N) for enum count assertions unless explicitly frozen.
+```
+
+Example:
+```ts
+// CORRECT
+expect(Object.keys(TASK_TYPES).length).toBeGreaterThanOrEqual(14);
+
+// WRONG — breaks when new task type is added
+expect(Object.keys(TASK_TYPES).length).toBe(14);
+```
+
+Exception: Only use `===` when `[CHANGELOG]` explicitly marks a count as frozen.
+
+---
+
+## IMPL + TEST SAME PASS RULE
+
+Implementation and tests must be generated in a single pass using the same interface context.
+
+**Why:** Generating implementation first, then tests separately, is the primary cause of test/impl drift and field-name mismatches.
+
+---
+
+## CHANGELOG REQUIREMENTS
+
+Every task package must include `[CHANGELOG_SINCE_LAST_TASK]` with:
+
+- `ADDED_FILES`: new files
+- `MODIFIED_FILES`: changed files and what changed
+- `INTERFACE_CHANGES`: any interface additions/modifications
+- `ENUM_ADDITIONS`: any new enum values
+- `DEPRECATED`: deprecated functions/patterns
+- `PIPELINE_STATUS_CHANGES`: path/step activation changes
+
+If nothing changed in a category, write `NONE`.
+
+---
+
+## TYPE_CONTEXT_REQUEST FORMAT
+
+When Claude lacks required interface context, it must emit:
+
+```
+[TYPE_CONTEXT_REQUEST]
+REQUIRED_INTERFACES:
+- <InterfaceName> from <server/path/to/file.ts>
+REQUIRED_ENUMS:
+- <EnumName> from <server/path/to/file.ts>
+REQUIRED_FUNCTION_SIGNATURES:
+- <functionName>() from <server/path/to/file.ts>
+REASON:
+- <specific field/method needed and why>
+[/TYPE_CONTEXT_REQUEST]
+```
+
+Claude must halt code generation until the request is fulfilled. It may write scaffolding (file structure, comments, non-typed helpers) while waiting.

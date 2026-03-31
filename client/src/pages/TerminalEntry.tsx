@@ -413,6 +413,22 @@ export default function TerminalEntry() {
                 <span className="te-status-name">Confidence Avg</span>
                 <span className="te-status-val text-emerald-400">72%</span>
               </div>
+              {/* Protocol Layer — Level 12.8 semantic engine stats */}
+              <div className="te-status-row" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: "5px", paddingTop: "5px" }}>
+                <span className="te-status-name" style={{ color: "#4b5563", fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>Protocol Layer</span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Direction</span>
+                <span className="te-status-val text-cyan-400">—</span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Confidence</span>
+                <span className="te-status-val text-cyan-400">—</span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Conflicts</span>
+                <span className="te-status-val text-cyan-400">0</span>
+              </div>
             </div>
           </div>
         </div>

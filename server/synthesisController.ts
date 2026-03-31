@@ -305,3 +305,74 @@ export function formatStructuredSynthesisForPrompt(synthesis: StructuredSynthesi
 
   return lines.join("\n");
 }
+
+// ── [LEVEL 12.2] Semantic Envelope Injection ───────────────────────────────────
+// Consumes SynthesisSemanticEnvelope from semantic_aggregator and appends
+// machine-native semantic context to the synthesis prompt block.
+// Non-breaking: if envelope is absent, prompt is unchanged.
+
+import type { SynthesisSemanticEnvelope } from "./semantic_aggregator";
+
+/**
+ * formatSemanticEnvelopeForPrompt
+ *
+ * Converts a SynthesisSemanticEnvelope into a structured prompt block.
+ * Injected after STRUCTURED_SYNTHESIS_CONTROLLER block.
+ * advisory_only: all outputs are advisory.
+ */
+export function formatSemanticEnvelopeForPrompt(
+  envelope: SynthesisSemanticEnvelope
+): string {
+  const lines: string[] = [
+    "[SEMANTIC_AGGREGATION_LAYER | LEVEL12.2]",
+    `PROTOCOL: ${envelope.protocol_version}`,
+    `ENTITY: ${envelope.entity}`,
+    `DOMINANT_DIRECTION: ${envelope.dominant_direction}`,
+    `CONFIDENCE: score=${envelope.confidence_score.toFixed(2)} fragility=${envelope.confidence_fragility.toFixed(2)}${envelope.confidence_downgraded ? " [DOWNGRADED]" : ""}`,
+    "",
+  ];
+
+  if (envelope.top_signals.length > 0) {
+    lines.push("TOP_SIGNALS:");
+    for (const s of envelope.top_signals) {
+      lines.push(`  - [${s.driver_type}] ${s.name}: direction=${s.direction} intensity=${s.intensity.toFixed(2)} urgency=${s.urgency}`);
+    }
+    lines.push("");
+  }
+
+  if (envelope.top_risks.length > 0) {
+    lines.push("TOP_RISKS:");
+    for (const r of envelope.top_risks) {
+      lines.push(`  - ${r.name}: severity=${r.severity.toFixed(2)} timing=${r.timing} trigger=${r.trigger}`);
+    }
+    lines.push("");
+  }
+
+  if (envelope.has_conflicts) {
+    lines.push(`CONFLICTS: ${envelope.conflict_count} detected (${envelope.unresolved_conflicts.length} unresolved)`);
+    for (const c of envelope.unresolved_conflicts) {
+      lines.push(`  - [UNRESOLVED] ${c.field}: ${c.summary}`);
+    }
+    lines.push("");
+  }
+
+  if (envelope.key_invalidations.length > 0) {
+    lines.push("KEY_INVALIDATIONS:");
+    for (const inv of envelope.key_invalidations) {
+      lines.push(`  - ${inv}`);
+    }
+    lines.push("");
+  }
+
+  if (envelope.state_regime) {
+    lines.push(`STATE_REGIME: ${envelope.state_regime}`);
+  }
+  if (envelope.state_fragility !== undefined) {
+    lines.push(`STATE_FRAGILITY: ${envelope.state_fragility.toFixed(2)}`);
+  }
+
+  lines.push("[/SEMANTIC_AGGREGATION_LAYER]");
+  lines.push("SEMANTIC_RENDER_RULE: If CONFLICTS exist, explicitly acknowledge uncertainty in output.");
+  lines.push("SEMANTIC_RENDER_RULE: DOMINANT_DIRECTION overrides any directional claim not supported by signals.");
+  return lines.join("\n");
+}

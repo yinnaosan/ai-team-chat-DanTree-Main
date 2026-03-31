@@ -250,8 +250,9 @@ describe("TC-MR-04: Production routing map completeness", () => {
     expect(PRODUCTION_ROUTING_MAP.reasoning).toBe("openai");
   });
 
-  it("should route narrative to openai in production", () => {
-    expect(PRODUCTION_ROUTING_MAP.narrative).toBe("openai");
+  it("should route narrative to anthropic in production", () => {
+    // OI-001 resolved: narrative 归 Anthropic (Claude) — 叙事生成由 Claude 处理
+    expect(PRODUCTION_ROUTING_MAP.narrative).toBe("anthropic");
   });
 
   it("should route execution to anthropic in production", () => {

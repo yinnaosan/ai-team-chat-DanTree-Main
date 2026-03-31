@@ -125,9 +125,7 @@ import { buildSynthesisEnrichment, formatSynthesisEnrichmentForPrompt } from "./
 import { buildDiscussionHookSet, formatDiscussionHookSetForReport } from "./discussionHooks";
 // ── LEVEL1A2 Imports ────────────────────────────────────────────────────────
 import { normalizeAgentTaxonomy } from "./agentTaxonomyNormalizer";
-import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt, formatSemanticEnvelopeForPrompt } from "./synthesisController";
-import { buildSynthesisSemanticEnvelope } from "./semantic_aggregator";
-import { buildSemanticActivationResult, attachUnifiedSemanticState } from "./level12_4_semantic_activation";
+import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt } from "./synthesisController";
 import { buildStructuredDiscussion, shouldUseStructuredDiscussion, formatStructuredDiscussionForReport } from "./discussionController";
 import { evaluateRuntimeGate, formatGatingDecisionForPrompt } from "./runtimeGating";
 // ── LEVEL1A3 Imports ────────────────────────────────────────────────────────
@@ -1945,29 +1943,6 @@ ${"```"}`;
       }
     }
 
-    // ── [LEVEL 12.4] Semantic Activation: attach __unifiedSemanticState to multiAgentResult ──
-    // Non-blocking: failure does not affect Step3 pipeline
-    if (multiAgentResult && primaryTicker) {
-      try {
-        const semanticActivation = buildSemanticActivationResult({
-          entity: primaryTicker,
-          timeframe: "mid",
-          // PATH-A: level11Analysis not available at this scope (see OI-L12-003-A)
-          // PATH-B/C: experienceLayer and positionLayer are inside danTreeSystem pipeline
-          // Activation with available context only; full 3-path activation in future task
-        });
-        if (semanticActivation.unifiedState) {
-          const enriched = attachUnifiedSemanticState(
-            multiAgentResult as unknown as Record<string, unknown>,
-            semanticActivation.unifiedState
-          );
-          multiAgentResult = enriched as unknown as typeof multiAgentResult;
-        }
-      } catch {
-        // Non-blocking: semantic activation failure does not break pipeline
-      }
-    }
-    // ── [LEVEL 12.4] End Semantic Activation ─────────────────────────────────
 
     // ── Phase A: 生成结构化 answer object ──────────────────────────────────────
     let answerObject: {
@@ -2167,21 +2142,30 @@ ${multiAgentBlock}`
       primaryTicker,
     );
     const structuredSynthesisBlock = formatStructuredSynthesisForPrompt(structuredSynthesis);
-    // ── [LEVEL 12.3] Semantic Envelope Injection ─────────────────────────────
-    // Build semantic envelope from multiAgentResult if UnifiedSemanticState is available
-    // This is a non-blocking enrichment; falls back to empty string if unavailable
+    // [Level12.5] Semantic Envelope Block for Step3 (OI-L12-004-B)
     let semanticEnvelopeBlock = "";
     try {
-      const unifiedState = (multiAgentResult as any)?.__unifiedSemanticState;
-      if (unifiedState) {
-        const envelope = buildSynthesisSemanticEnvelope(unifiedState);
-        semanticEnvelopeBlock = formatSemanticEnvelopeForPrompt(envelope);
+      if (primaryTicker) {
+        const { buildSemanticActivationResult } = await import("./level12_4_semantic_activation");
+        const { buildSynthesisSemanticEnvelope } = await import("./semantic_aggregator");
+        const semanticResult = buildSemanticActivationResult({ entity: primaryTicker, timeframe: "mid" });
+        if (semanticResult.unifiedState) {
+          const env = buildSynthesisSemanticEnvelope(semanticResult.unifiedState);
+          semanticEnvelopeBlock = [
+            "[SEMANTIC_STATE]",
+            "entity=" + env.entity,
+            "direction=" + env.dominant_direction,
+            "confidence=" + env.confidence_score.toFixed(2),
+            "fragility=" + env.confidence_fragility.toFixed(2),
+            "signals=" + env.top_signals.map((s: {name:string;intensity:number}) => s.name + "(" + s.intensity.toFixed(2) + ")").join(","),
+            "risks=" + env.top_risks.map((r: {name:string;severity:number}) => r.name + "(" + r.severity.toFixed(2) + ")").join(","),
+            env.has_conflicts ? "conflicts=" + env.conflict_count : "",
+            "notes=" + env.semantic_notes.slice(0, 3).join(" | "),
+            "[/SEMANTIC_STATE]",
+          ].filter(Boolean).join("\n");
+        }
       }
-    } catch {
-      // Non-blocking: semantic envelope injection failure does not break Step3
-      semanticEnvelopeBlock = "";
-    }
-    // ── [LEVEL 12.3] End Semantic Envelope Injection ─────────────────────────
+    } catch { semanticEnvelopeBlock = ""; }
     const runtimeGate = evaluateRuntimeGate(
       intentCtx,
       evidencePacket.evidenceScore ?? 50,
@@ -2208,7 +2192,7 @@ ${intentContextBlock}
 ${researchPlanBlock}
 ${synthesisEnrichmentBlock}
 ${structuredSynthesisBlock}
-${semanticEnvelopeBlock}
+${semanticEnvelopeBlock ? '\n' + semanticEnvelopeBlock : ''}
 ${runtimeGateBlock}
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━

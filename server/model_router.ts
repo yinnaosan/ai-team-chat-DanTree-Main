@@ -150,7 +150,7 @@ export const PRODUCTION_ROUTING_MAP: Record<TaskType, ProviderTarget> = {
   // 通用类型
   research:      "anthropic",  // Claude — 深度研究最佳
   reasoning:     "openai",     // GPT o 系列 — 推理链最佳
-  narrative:     "openai",     // GPT — 叙事生成
+  narrative:     "anthropic",  // Claude — 叙事生成（OI-001 resolved: narrative 归 Anthropic）
   execution:     "anthropic",  // Claude — 结构化执行最佳
   summarization: "anthropic",  // Claude — 长文压缩最佳
   // DanTree 专用类型

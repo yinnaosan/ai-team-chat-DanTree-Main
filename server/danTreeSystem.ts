@@ -381,6 +381,19 @@ export async function runDanTreeSystem(
               interaction_dominant_effect: "none",
               advisory_only: true as const,
             };
+            // [Level12.5] Run Level11 analysis before DeepResearch (non-blocking, PATH-A)
+            let level11Analysis: import("./level11MultiAssetEngine").Level11AnalysisOutput | undefined;
+            try {
+              const { runLevel11Analysis } = await import("./level11MultiAssetEngine");
+              level11Analysis = runLevel11Analysis({
+                assetInput: { ticker: signal.ticker, sector: (signal as any).sector ?? "technology" },
+                driverContext: { ticker: signal.ticker, sector: (signal as any).sector ?? "technology", regime_tag: regimeForDR.regime_tag },
+                incentiveContext: { ticker: signal.ticker },
+                sentimentContext: { ticker: signal.ticker },
+              });
+            } catch {
+              level11Analysis = undefined;
+            }
             const ctx: DeepResearchContextMap = {
               ticker: signal.ticker,
               sector: (signal as any).sector ?? "technology",
@@ -391,6 +404,7 @@ export async function runDanTreeSystem(
               signalFusionScore: (signal as any).alpha_score ?? 0.5,
               dataQualityScore: 0.7,
               priceChangePercent: undefined,
+              level11Analysis,
             };
             deepResearchMap.set(signal.ticker, await runDeepResearch(ctx));
           }
@@ -414,6 +428,13 @@ export async function runDanTreeSystem(
     // Step 3: Run Level7 pipeline with automatic persistence
     console.log(`[DanTreeSystem] Running Level7 pipeline for userId=${userId}, tickers=${input.portfolio.holdings.map(h => h.ticker).join(",")}, liveData=${liveDataUsed}`);
     const output = await runLevel7PipelineWithPersist({ ...input, userId, attributionMap, strategyVersionId: activeVersionId, businessContextMap } as any);
+    // [Level12.5] Extract unifiedSemanticState from deepResearchMap and attach to output
+    const firstSemanticState = deepResearchMap
+      ? Array.from(deepResearchMap.values()).find(r => r.unifiedSemanticState)?.unifiedSemanticState
+      : undefined;
+    const enrichedOutput = firstSemanticState
+      ? { ...output, __unifiedSemanticState: firstSemanticState }
+      : output;
 
     // Step 4: Build summary
     const safetyReport = output.guard_output?.safety_report;
@@ -437,7 +458,7 @@ export async function runDanTreeSystem(
       guardStatus,
       topGuardReason,
       durationMs: Date.now() - startMs,
-      pipelineOutput: output,
+      pipelineOutput: enrichedOutput as typeof output,
       advisory_only: true,
       liveDataUsed,
       fallbackSignalCount,

@@ -35,17 +35,7 @@ import {
 import type {
   Level11AnalysisOutput,
 } from "./level11MultiAssetEngine";
-import {
-  aggregateSemanticPackets,
-  type UnifiedSemanticState,
-} from "./semantic_aggregator";
-import {
-  buildExperienceLayerSemanticPacket,
-} from "./semantic_protocol_integration";
-import {
-  buildLevel11SemanticPacket,
-  buildPositionSemanticPacket,
-} from "./semantic_packet_builders";
+// [Level12.5] Semantic imports consolidated — dynamic imports used inside pipeline
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Context Map — aggregates all upstream layer outputs
@@ -62,6 +52,8 @@ export interface DeepResearchContextMap {
   signalFusionScore: number;   // 0–1
   dataQualityScore: number;    // 0–1
   priceChangePercent?: number; // recent price momentum
+  // [Level12.5] Multi-asset reality layer -- threaded explicitly (OI-L12-003-A)
+  level11Analysis?: Level11AnalysisOutput;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1062,6 +1054,7 @@ export interface DeepResearchOutput {
   lens: LensOutput;
   signal_density: SignalDensityResult;
   advisory_only: true;
+  unifiedSemanticState?: import("./semantic_aggregator").UnifiedSemanticState; // [Level12.5] 3-path aggregated semantic state
 }
 
 /**
@@ -1173,59 +1166,24 @@ export async function runDeepResearch(
     positioningLensText = undefined;
   }
 
-  // ── [LEVEL 12.3] Semantic Aggregation Boundary (PATH-A + PATH-B + PATH-C) ──
-  // Non-blocking: aggregation failure does not break the pipeline
-  let unifiedSemanticState: UnifiedSemanticState | undefined;
+  // [Level12.5] Semantic Aggregation — PATH-A + PATH-B + PATH-C (non-blocking)
+  let unifiedSemanticState: import("./semantic_aggregator").UnifiedSemanticState | undefined;
   try {
-    const semanticPackets = [];
-    // PATH-A: Level11 → packet (Level 12.3 full field mapping)
-    // Note: level11Analysis is passed as a parameter to composeResearchNarrative,
-    // not stored in ctx. PATH-A packet is built inside composeResearchNarrative
-    // via the level11Analysis parameter. Aggregation here uses PATH-B + PATH-C only.
-    // Full PATH-A integration at aggregation layer requires ctx extension (future task).
-    // PATH-B: ExperienceLayer → synthesis
-    if (experienceLayer) {
-      const expPacket = buildExperienceLayerSemanticPacket(experienceLayer.experience_insight, ctx.ticker);
-      semanticPackets.push(expPacket);
-    }
-    // PATH-C: PositionLayer → packet (Level 12.3 full field mapping)
-    if (thesis && payoutMap) {
-      try {
-        const { runPositionLayer } = await import("./level105PositionLayer");
-        const gradientRiskForC = experienceLayer?.gradient_risk ?? {
-          risk_state: "low" as const,
-          risk_trend: "stable" as const,
-          early_warning_signs: [],
-          advisory_only: true as const,
-        };
-        const posLayerForC = runPositionLayer({
-          thesis,
-          payoutMap,
-          gradientRisk: gradientRiskForC,
-          businessContext: ctx.businessContext,
-          experienceHistory: experienceHistorySummary,
-          regimeTag: ctx.regime?.regime_tag,
-        });
-        const posPacket = buildPositionSemanticPacket(posLayerForC, {
-          entity: ctx.ticker,
-          timeframe: "mid",
-          agent: "level105_position_layer",
-        });
-        semanticPackets.push(posPacket);
-      } catch {
-        // PATH-C failure is non-blocking
-      }
-    }
-    if (semanticPackets.length > 0) {
-      unifiedSemanticState = aggregateSemanticPackets({
-        packets: semanticPackets,
-      });
+    const { buildSemanticActivationResult } = await import("./level12_4_semantic_activation");
+    const semanticResult = buildSemanticActivationResult({
+      entity: ctx.ticker,
+      timeframe: "mid",
+      level11Analysis: ctx.level11Analysis,
+      experienceLayer,
+    });
+    unifiedSemanticState = semanticResult.unifiedState;
+    if (unifiedSemanticState) {
+      console.log(`[Level12.5] Semantic state built: ${unifiedSemanticState.packet_count} packets, direction=${unifiedSemanticState.dominant_direction}`);
     }
   } catch {
     // Non-blocking: semantic aggregation failure does not break the pipeline
     unifiedSemanticState = undefined;
   }
-  // ── [LEVEL 12.3] End Semantic Aggregation Boundary ──────────────────────
 
   // Attach ctx reference for composeResearchNarrative to access injectJudgmentTension
   const businessContextWithCtx = { ...ctx.businessContext, __ctx__: ctx };
@@ -1256,5 +1214,6 @@ export async function runDeepResearch(
     lens,
     signal_density: signalDensity,
     advisory_only: true,
+    ...(unifiedSemanticState ? { unifiedSemanticState } : {}),
   };
 }

@@ -125,7 +125,8 @@ import { buildSynthesisEnrichment, formatSynthesisEnrichmentForPrompt } from "./
 import { buildDiscussionHookSet, formatDiscussionHookSetForReport } from "./discussionHooks";
 // ── LEVEL1A2 Imports ────────────────────────────────────────────────────────
 import { normalizeAgentTaxonomy } from "./agentTaxonomyNormalizer";
-import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt } from "./synthesisController";
+import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt, formatSemanticEnvelopeForPrompt } from "./synthesisController";
+import { buildSynthesisSemanticEnvelope } from "./semantic_aggregator";
 import { buildStructuredDiscussion, shouldUseStructuredDiscussion, formatStructuredDiscussionForReport } from "./discussionController";
 import { evaluateRuntimeGate, formatGatingDecisionForPrompt } from "./runtimeGating";
 // ── LEVEL1A3 Imports ────────────────────────────────────────────────────────
@@ -2141,6 +2142,21 @@ ${multiAgentBlock}`
       primaryTicker,
     );
     const structuredSynthesisBlock = formatStructuredSynthesisForPrompt(structuredSynthesis);
+    // ── [LEVEL 12.3] Semantic Envelope Injection ─────────────────────────────
+    // Build semantic envelope from multiAgentResult if UnifiedSemanticState is available
+    // This is a non-blocking enrichment; falls back to empty string if unavailable
+    let semanticEnvelopeBlock = "";
+    try {
+      const unifiedState = (multiAgentResult as any)?.__unifiedSemanticState;
+      if (unifiedState) {
+        const envelope = buildSynthesisSemanticEnvelope(unifiedState);
+        semanticEnvelopeBlock = formatSemanticEnvelopeForPrompt(envelope);
+      }
+    } catch {
+      // Non-blocking: semantic envelope injection failure does not break Step3
+      semanticEnvelopeBlock = "";
+    }
+    // ── [LEVEL 12.3] End Semantic Envelope Injection ─────────────────────────
     const runtimeGate = evaluateRuntimeGate(
       intentCtx,
       evidencePacket.evidenceScore ?? 50,
@@ -2167,6 +2183,7 @@ ${intentContextBlock}
 ${researchPlanBlock}
 ${synthesisEnrichmentBlock}
 ${structuredSynthesisBlock}
+${semanticEnvelopeBlock}
 ${runtimeGateBlock}
 [MODE:${modeConfig.label}]${modeConfig.step3Hint ? '\n' + modeConfig.step3Hint : ''}
 ━━━ FINALIZE: OUTPUT IN HUMAN LANGUAGE ━━━

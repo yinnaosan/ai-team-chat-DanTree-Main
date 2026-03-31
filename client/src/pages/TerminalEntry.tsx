@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
@@ -301,6 +302,11 @@ function CommandStrip() {
 export default function TerminalEntry() {
   const [, navigate] = useLocation();
   const { user, loading } = useAuth();
+  // [Level12.10] Protocol Layer live data — OI-L12-010
+  const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
+    { entity: "AAPL", timeframe: "mid" },
+    { refetchInterval: 60_000, staleTime: 30_000 }
+  );
   const [bootDone, setBootDone] = useState(false);
 
   // Boot sequence — 1.2s then show full page
@@ -419,15 +425,15 @@ export default function TerminalEntry() {
               </div>
               <div className="te-status-row">
                 <span className="te-status-name">Direction</span>
-                <span className="te-status-val text-cyan-400">—</span>
+                <span className="te-status-val text-cyan-400">{semanticStats?.dominant_direction ?? "—"}</span>
               </div>
               <div className="te-status-row">
                 <span className="te-status-name">Confidence</span>
-                <span className="te-status-val text-cyan-400">—</span>
+                <span className="te-status-val text-cyan-400">{semanticStats?.confidence_score != null ? (semanticStats.confidence_score * 100).toFixed(0) + "%" : "—"}</span>
               </div>
               <div className="te-status-row">
                 <span className="te-status-name">Conflicts</span>
-                <span className="te-status-val text-cyan-400">0</span>
+                <span className="te-status-val text-cyan-400">{semanticStats?.conflict_count ?? 0}</span>
               </div>
             </div>
           </div>

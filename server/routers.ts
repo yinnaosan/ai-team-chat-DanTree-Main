@@ -5809,9 +5809,41 @@ except Exception as e:
 
         return filtered;
       }),
+    // [Level12.10] Protocol Layer Live Wiring — OI-L12-010
+    getSemanticStats: publicProcedure
+      .input(z.object({
+        entity: z.string().default("AAPL"),
+        timeframe: z.enum(["intraday", "short", "mid", "long", "structural"]).default("mid"),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const { buildSemanticActivationResult } = await import("./level12_4_semantic_activation");
+          const { buildSynthesisSemanticEnvelope } = await import("./semantic_aggregator");
+          const { buildSemanticEngineStatsDisplay } = await import("./semantic_engine_stats");
+          const result = buildSemanticActivationResult({ entity: input.entity, timeframe: input.timeframe });
+          const envelope = result.unifiedState
+            ? buildSynthesisSemanticEnvelope(result.unifiedState)
+            : undefined;
+          const display = buildSemanticEngineStatsDisplay(result.unifiedState ?? undefined, envelope);
+          return {
+            semantic_available: true as const,
+            dominant_direction: display.dominant_direction,
+            confidence_score: display.confidence_score as number | null,
+            conflict_count: display.conflict_count,
+            state_regime: display.state_regime as string | undefined,
+          };
+        } catch {
+          return {
+            semantic_available: false as const,
+            dominant_direction: "—",
+            confidence_score: null as number | null,
+            conflict_count: 0,
+            state_regime: undefined as string | undefined,
+          };
+        }
+      }),
   }),
-
-  // ── Opportunity Radar Router ─────────────────────────────────────────────────
+  // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({
     scan: protectedProcedure
       .input(z.object({ forceRefresh: z.boolean().optional() }))

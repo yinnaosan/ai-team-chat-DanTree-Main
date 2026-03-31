@@ -289,17 +289,18 @@ describe("TC-PB-05: Level11 propagation chain maps to risks", () => {
   it("should produce risks from propagation chain links", () => {
     const level11 = makeLevel11Output({
       propagation_chain: {
-        links: [
+        event: "USD_strengthening",
+        chain: [
           {
-            from_asset: "USD",
-            to_asset: "AAPL",
+            from: "USD",
+            to: "AAPL",
             mechanism: "currency headwind on international revenue",
-            correlation_strength: 0.65,
-            lag_estimate: "short_term",
-            advisory_only: true,
+            confidence: 0.65,
+            lag: "short_term",
           },
         ],
-        chain_summary: "USD strength creates revenue headwind",
+        terminal_impact: "USD strength creates revenue headwind for AAPL international sales",
+        uncertainty_note: "Magnitude depends on hedging strategy",
         advisory_only: true,
       },
     });

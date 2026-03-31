@@ -411,3 +411,55 @@ export const PROTOCOL_EXAMPLES = {
   policy_reality: EXAMPLE_POLICY_REALITY,
   market_structure: EXAMPLE_MARKET_STRUCTURE,
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEVEL 12.4 USAGE EXAMPLE — Explicit level11Analysis threading (OI-L12-003-A)
+//
+// This example shows the correct pattern for activating PATH-A:
+//   - level11Analysis is passed as an EXPLICIT PARAMETER
+//   - NOT added to DeepResearchContextMap
+//   - DeepResearchContextMap interface remains unchanged
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * EXAMPLE: buildSemanticActivationResult — explicit threading (Level 12.4 pattern)
+ *
+ * Correct usage in danTreeSystem.ts:
+ *
+ *   import { buildSemanticActivationResult, attachUnifiedSemanticState }
+ *     from "./level12_4_semantic_activation";
+ *
+ *   // After running all layers:
+ *   const semanticResult = buildSemanticActivationResult({
+ *     entity: ticker,
+ *     level11Analysis,   // PATH-A — explicit param, NOT via DeepResearchContextMap
+ *     experienceLayer,   // PATH-B
+ *     positionLayer,     // PATH-C
+ *   });
+ *
+ *   // Attach to multiAgentResult so Step3 can read __unifiedSemanticState:
+ *   const enrichedResult = attachUnifiedSemanticState(
+ *     multiAgentResult,
+ *     semanticResult.unifiedState
+ *   );
+ *
+ * WRONG patterns (do NOT do these):
+ *
+ *   // ❌ DO NOT add level11Analysis to DeepResearchContextMap
+ *   const ctx: DeepResearchContextMap = { ...existing, level11Analysis };
+ *
+ *   // ❌ DO NOT mutate multiAgentResult directly
+ *   multiAgentResult.__unifiedSemanticState = semanticResult.unifiedState;
+ *
+ * The enrichedResult.__unifiedSemanticState is then read by Step3 in routers.ts
+ * via formatSemanticEnvelopeForPrompt() from synthesisController.ts.
+ * This activates semantic injection into the final GPT synthesis prompt
+ * without altering any READ-ONLY interfaces.
+ */
+export const LEVEL12_4_THREADING_EXAMPLE_COMMENT = `
+  // Correct Level 12.4 pattern (OI-L12-003-A + OI-L12-003-B):
+  const semanticResult = buildSemanticActivationResult({ entity, level11Analysis, experienceLayer, positionLayer });
+  const enriched = attachUnifiedSemanticState(multiAgentResult, semanticResult.unifiedState);
+  // Step3 reads: enriched.__unifiedSemanticState → formatSemanticEnvelopeForPrompt()
+` as const;
+

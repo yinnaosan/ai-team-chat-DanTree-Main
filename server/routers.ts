@@ -127,6 +127,7 @@ import { buildDiscussionHookSet, formatDiscussionHookSetForReport } from "./disc
 import { normalizeAgentTaxonomy } from "./agentTaxonomyNormalizer";
 import { buildStructuredSynthesis, formatStructuredSynthesisForPrompt, formatSemanticEnvelopeForPrompt } from "./synthesisController";
 import { buildSynthesisSemanticEnvelope } from "./semantic_aggregator";
+import { buildSemanticActivationResult, attachUnifiedSemanticState } from "./level12_4_semantic_activation";
 import { buildStructuredDiscussion, shouldUseStructuredDiscussion, formatStructuredDiscussionForReport } from "./discussionController";
 import { evaluateRuntimeGate, formatGatingDecisionForPrompt } from "./runtimeGating";
 // ── LEVEL1A3 Imports ────────────────────────────────────────────────────────
@@ -1943,6 +1944,30 @@ ${"```"}`;
         multiAgentBlock = "";
       }
     }
+
+    // ── [LEVEL 12.4] Semantic Activation: attach __unifiedSemanticState to multiAgentResult ──
+    // Non-blocking: failure does not affect Step3 pipeline
+    if (multiAgentResult && primaryTicker) {
+      try {
+        const semanticActivation = buildSemanticActivationResult({
+          entity: primaryTicker,
+          timeframe: "mid",
+          // PATH-A: level11Analysis not available at this scope (see OI-L12-003-A)
+          // PATH-B/C: experienceLayer and positionLayer are inside danTreeSystem pipeline
+          // Activation with available context only; full 3-path activation in future task
+        });
+        if (semanticActivation.unifiedState) {
+          const enriched = attachUnifiedSemanticState(
+            multiAgentResult as unknown as Record<string, unknown>,
+            semanticActivation.unifiedState
+          );
+          multiAgentResult = enriched as unknown as typeof multiAgentResult;
+        }
+      } catch {
+        // Non-blocking: semantic activation failure does not break pipeline
+      }
+    }
+    // ── [LEVEL 12.4] End Semantic Activation ─────────────────────────────────
 
     // ── Phase A: 生成结构化 answer object ──────────────────────────────────────
     let answerObject: {

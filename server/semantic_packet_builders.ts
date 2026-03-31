@@ -218,20 +218,16 @@ export function buildLevel11SemanticPacket(
   // ── risks: propagation chain → SemanticRiskObject[] ──────────────────────
   const risks: SemanticRiskObject[] = [];
 
-  // Support both .chain (actual type) and .links (test mock compatibility)
-  const propLinks = propagation_chain?.chain ?? (propagation_chain as any)?.links;
-  if (propLinks?.length) {
-    propLinks.slice(0, 4).forEach((link: any) => {
-      const fromAsset = link.from ?? link.from_asset ?? "unknown";
-      const toAsset = link.to ?? link.to_asset ?? "unknown";
-      const confidence = link.confidence ?? link.correlation_strength ?? 0.5;
+  if (propagation_chain?.chain) {
+    propagation_chain.chain.slice(0, 4).forEach((link) => {
       risks.push({
-        name: `propagation_${fromAsset.toLowerCase()}_to_${toAsset.toLowerCase()}`,
-        severity: Math.min(1, Math.max(0, confidence)),
-        timing: "mid",
-        containment: confidence > 0.7 ? "low" : "medium",
-        trigger: `${fromAsset}_moves_significantly`,
-        mitigation_path: `diversify_away_from_${fromAsset.toLowerCase()}_correlation`,
+        name: `propagation_${link.from.toLowerCase()}_to_${link.to.toLowerCase()}`,
+        severity: Math.min(1, Math.max(0, link.confidence)),
+        timing: link.lag === "immediate" ? "near"
+          : link.lag === "short_term" ? "near" : "mid",
+        containment: link.confidence > 0.7 ? "low" : "medium",
+        trigger: `${link.from}_moves_significantly`,
+        mitigation_path: `diversify_away_from_${link.from.toLowerCase()}_correlation`,
       });
     });
   }

@@ -1,5 +1,5 @@
 # TYPE REGISTRY — DanTree
-**Version:** 2.1 (post-Level12.6)  
+**Version:** 2.2 (OI-L12-009)  
 **Maintained by:** GPT Architecture  
 **Read by:** Claude (Core Engineer), Manus (Integration)
 
@@ -162,6 +162,7 @@ export interface UnifiedSemanticState {
   semantic_notes: SemanticInsightNote[];
   source_agents: string[];
   packet_count: number;
+  generated_at: string;  // ISO timestamp — REQUIRED, do not omit
   advisory_only: true;
 }
 ```
@@ -243,6 +244,7 @@ These types are the most frequently misused in test mocks. Always copy exact def
 | `IncentiveAnalysisOutput` | Missing `narrative_support`, `narrative_fragility` | Include all 7 fields |
 | `SentimentPhase` | Guessed values | Use only the 6 values listed above |
 | `AssetType` | `etf` (invalid) | `etf_equity` / `etf_sector` / `etf_macro` |
+| `UnifiedSemanticState` | Missing `generated_at` | `generated_at: new Date().toISOString()` |
 
 **See `gpt_feedback/TEST_MOCK_TYPE_PACK.md` for the full reusable copy-paste pack.**
 

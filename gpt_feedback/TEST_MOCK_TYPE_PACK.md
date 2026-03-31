@@ -1,5 +1,5 @@
 # TEST MOCK TYPE PACK — OI-L12-007
-**Version:** 1.0  
+**Version:** 1.1 (OI-L12-009)  
 **Scope:** Include in every Claude/Manus task package that touches Level11AnalysisOutput or semantic surface tests.  
 **Rule:** Copy-paste the relevant sections verbatim. Do not infer missing fields.
 
@@ -116,6 +116,7 @@ export interface UnifiedSemanticState {
   semantic_notes: SemanticInsightNote[];
   source_agents: string[];
   packet_count: number;
+  generated_at: string;  // ISO timestamp — REQUIRED, do not omit
   advisory_only: true;
 }
 ```
@@ -125,7 +126,7 @@ export interface UnifiedSemanticState {
 ## HARD RULES
 
 1. **Never infer** enum values — only use values listed above.
-2. **Never omit** required fields from mock objects (`advisory_only: true` is mandatory on all DanTree output types).
+2. **Never omit** required fields from mock objects (`advisory_only: true` is mandatory on all DanTree output types). `UnifiedSemanticState` also requires `generated_at: string` — use `new Date().toISOString()` in mocks.
 3. **Prefer surgical diffs** — include only the sections actually referenced by the task.
 4. `PropagationLink` fields are: `from`, `to`, `mechanism`, `lag`, `confidence` — NOT `from_asset`, `to_asset`, `lag_estimate`, `correlation_strength`.
 5. `IncentiveAnalysisOutput` does NOT have a `ticker` field at the top level (it is embedded inside `Level11AnalysisOutput.incentives`).

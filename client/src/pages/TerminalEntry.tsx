@@ -306,9 +306,15 @@ function CommandStrip() {
 export default function TerminalEntry() {
   const [, navigate] = useLocation();
   const { user, loading } = useAuth();
+  // [Level13.4B] Active entity from persisted user config — OI-L13-004
+  const { data: rpaConfig } = trpc.rpa.getConfig.useQuery(undefined, {
+    staleTime: 30_000,
+    enabled: !!user,
+  });
+  const activeEntity: string = (rpaConfig as any)?.lastTicker ?? "AAPL";
   // [Level13.1B] Source Router live data — OI-L13-001
   const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
-    { entity: "AAPL" },
+    { entity: activeEntity },
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
   const sourceRouterStatus = sourceStats?.selection_available
@@ -321,7 +327,7 @@ export default function TerminalEntry() {
   );
   // [Level12.10] Protocol Layer live data — OI-L12-010
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
-    { entity: "AAPL", timeframe: "mid" },
+    { entity: activeEntity, timeframe: "mid" },
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
   const [bootDone, setBootDone] = useState(false);

@@ -5928,6 +5928,35 @@ except Exception as e:
           };
         }
       }),
+
+    // ── Level 17.0-B: Alert Engine Phase 1 ───────────────────────────────────
+    evaluateEntityAlerts: publicProcedure
+      .input(z.object({
+        entity: z.string().min(1).max(20),
+        gateResult: z.object({
+          entity: z.string(),
+          gate_passed: z.boolean(),
+          is_synthetic_fallback: z.boolean().optional(),
+          evidence_score: z.number().nullable().optional(),
+          semantic_fragility: z.number().nullable().optional(),
+        }).nullable(),
+        sourceResult: z.any().nullable(),
+      }))
+      .query(async ({ input }) => {
+        const { buildEntityAlerts, buildAlertSummary } = await import("./alertEngine");
+        const alerts = buildEntityAlerts(input.gateResult, input.sourceResult, input.entity);
+        return buildAlertSummary(alerts);
+      }),
+
+    evaluateBasketAlerts: publicProcedure
+      .input(z.object({
+        portfolioResult: z.any().nullable(),
+      }))
+      .query(async ({ input }) => {
+        const { buildBasketAlerts, buildAlertSummary } = await import("./alertEngine");
+        const alerts = buildBasketAlerts(input.portfolioResult);
+        return buildAlertSummary(alerts);
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

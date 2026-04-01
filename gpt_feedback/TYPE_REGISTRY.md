@@ -371,3 +371,20 @@ export interface PortfolioAnalysisResult {
 4. `basket_investable`: true only if pass_count > basket_size / 2 (strict majority)
 5. `DirectionBucket` has 6 values — `"unavailable"` is the fallback, NOT `"neutral"`
 6. `hhi_score` is normalized [0–1] (not percentage)
+
+---
+
+## Level 17.0-B — Alert Engine Phase 1 Types
+**File:** `server/alertEngine.ts`  
+**Version:** v2.4 (2026-04-01)
+
+| Type | Kind | Values / Shape |
+|---|---|---|
+| `AlertType` | union | `"gate_downgrade" \| "evidence_weakening" \| "fragility_spike" \| "source_deterioration" \| "basket_concentration_warning"` |
+| `AlertSeverity` | union | `"low" \| "medium" \| "high" \| "critical"` |
+| `AlertScope` | union | `"entity" \| "basket"` |
+| `AlertResult` | interface | `{ alert_type, severity, scope, entity?, basket_entities?, message, reason, triggered_at, advisory_only: true }` |
+| `AlertSummary` | interface | `{ alerts, alert_count, highest_severity: AlertSeverity \| null, summary_text, advisory_only: true }` |
+| `EntityGateResult` | interface | `{ entity, gate_passed, is_synthetic_fallback?, evidence_score?, semantic_fragility? }` |
+
+**Exported functions:** `buildEntityAlerts`, `buildBasketAlerts`, `buildAlertSummary`

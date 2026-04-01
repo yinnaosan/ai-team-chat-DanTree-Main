@@ -115,3 +115,32 @@ TSC: 0 errors
 ROUTE: market.analyzeBasket (publicProcedure, input: entities[2..8], taskType?, region?)
 NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket per L16.0C spec
 ```
+
+---
+
+## Level 17.0B-C — Alert Engine Phase 1 Integration
+**Date:** 2026-04-01  
+**Task Refs:** LEVEL17.0B (CLAUDE_NARROW) → LEVEL17.0C (MANUS_INTEGRATION)
+
+### Added Files
+- `server/alertEngine.ts` — Alert Engine Phase 1 (pure functions, 5 alert types)
+- `server/alertEngine.test.ts` — 53 tests, all passing
+
+### Modified Files
+- `server/routers.ts` — Added `market.evaluateEntityAlerts` and `market.evaluateBasketAlerts`
+
+### Interface Changes
+- `AlertType`, `AlertSeverity`, `AlertScope`, `AlertResult`, `AlertSummary`, `EntityGateResult` added to TYPE_REGISTRY v2.4
+
+### Route Additions
+- `market.evaluateEntityAlerts` — entity-scoped alert evaluation (gate_downgrade, evidence_weakening, fragility_spike, source_deterioration)
+- `market.evaluateBasketAlerts` — basket-scoped alert evaluation (basket_concentration_warning)
+
+### Test Results
+- alertEngine: **53/53** ✅
+- TSC: **0 errors** ✅
+- Regression: **1825/1831** (6 pre-existing financeDatabaseApi env failures)
+
+### OI Resolution
+- OI-L17-001: RESOLVED — Alert Engine Phase 1 backend complete
+- OI-L15-003: DEFERRED — Direction-flip alerts remain Phase 2

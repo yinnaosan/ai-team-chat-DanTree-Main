@@ -5872,6 +5872,25 @@ except Exception as e:
           };
         }
       }),
+    // ── [LEVEL13.2-B] Output Gating Stats ──────────────────────────────────────
+    getOutputGateStats: publicProcedure
+      .query(async () => {
+        try {
+          const { buildOutputGateResult } = await import("./outputGatingEngine");
+          const { buildEvidencePacket } = await import("./evidenceValidator");
+          const packet = buildEvidencePacket(
+            "stats_query",
+            "",
+            { missingBlocking: [], missingImportant: [], missingOptional: [] },
+            { hitCount: 0, totalCount: 0, hitSourceIds: [], hasWhitelistedHit: false }
+          );
+          const result = buildOutputGateResult(packet, 0.65, 0.5);
+          return { gate_available: true as const, ...result };
+        } catch {
+          const { buildFallbackOutputGateResult } = await import("./outputGatingEngine");
+          return { gate_available: false as const, ...buildFallbackOutputGateResult() };
+        }
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

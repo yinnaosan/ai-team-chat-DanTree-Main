@@ -5891,6 +5891,24 @@ except Exception as e:
           return { gate_available: false as const, ...buildFallbackOutputGateResult() };
         }
       }),
+    compareEntities: publicProcedure
+      .input(z.object({
+        entityA: z.string().min(1).max(20),
+        entityB: z.string().min(1).max(20),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const { buildMultiEntityComparison } = await import("./multiEntityComparisonEngine");
+          return { available: true as const, ...buildMultiEntityComparison(input.entityA, input.entityB) };
+        } catch {
+          return {
+            available: false as const,
+            left_entity: input.entityA,
+            right_entity: input.entityB,
+            error: "comparison_unavailable",
+          };
+        }
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

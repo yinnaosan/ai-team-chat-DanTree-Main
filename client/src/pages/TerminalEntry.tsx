@@ -416,6 +416,12 @@ export default function TerminalEntry() {
           <div className="te-panel">
             <div className="te-panel-header">
               <span className="te-panel-label">ENGINE STATS</span>
+              {/* [Level13.5A] Active entity label — OI-L13-005 */}
+              {activeEntity && activeEntity !== "AAPL" ? (
+                <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.7, marginLeft: "6px" }}>· {activeEntity}</span>
+              ) : (
+                <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.45, marginLeft: "6px" }}>· AAPL</span>
+              )}
             </div>
             <div className="te-status-list">
               <div className="te-status-row">

@@ -326,10 +326,22 @@ export default function TerminalEntry() {
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
   // [Level15.1A] Comparison Panel state — OI-L15-002
+  // [Level15.2] entityA prefilled from activeEntity — OI-L15-004
   const [compA, setCompA] = useState<string>("AAPL");
   const [compB, setCompB] = useState<string>("MSFT");
   const [compInputA, setCompInputA] = useState<string>("AAPL");
   const [compInputB, setCompInputB] = useState<string>("MSFT");
+  // Sync entityA to activeEntity on first load (do not override user edits)
+  const compInitialized = React.useRef(false);
+  useEffect(() => {
+    if (!compInitialized.current && activeEntity && activeEntity !== "AAPL") {
+      setCompA(activeEntity);
+      setCompInputA(activeEntity);
+      compInitialized.current = true;
+    } else if (!compInitialized.current && activeEntity) {
+      compInitialized.current = true;
+    }
+  }, [activeEntity]);
   const { data: compData, isFetching: compFetching } = trpc.market.compareEntities.useQuery(
     { entityA: compA, entityB: compB },
     { staleTime: 30_000, enabled: compA.length > 0 && compB.length > 0 }

@@ -314,6 +314,11 @@ export default function TerminalEntry() {
   const sourceRouterStatus = sourceStats?.selection_available
     ? (sourceStats?.top_source ?? "ONLINE")
     : "ONLINE";
+  // [Level13.2B] Output Gate live data — OI-L13-002
+  const { data: gateStats } = trpc.market.getOutputGateStats.useQuery(
+    undefined,
+    { refetchInterval: 60_000, staleTime: 30_000 }
+  );
   // [Level12.10] Protocol Layer live data — OI-L12-010
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
     { entity: "AAPL", timeframe: "mid" },
@@ -446,6 +451,28 @@ export default function TerminalEntry() {
               <div className="te-status-row">
                 <span className="te-status-name">Conflicts</span>
                 <span className="te-status-val text-cyan-400">{semanticStats?.conflict_count ?? 0}</span>
+              </div>
+              {/* Output Gate — Level 13.3A output gating stats */}
+              <div className="te-status-row" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: "5px", paddingTop: "5px" }}>
+                <span className="te-status-name" style={{ color: "#4b5563", fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>Output Gate</span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Gate Status</span>
+                <span className="te-status-val" style={{ color: gateStats?.gate_passed ? "#34d399" : "#f87171" }}>
+                  {gateStats == null ? "—" : gateStats.gate_passed ? "PASS" : "BLOCK"}
+                </span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Evidence</span>
+                <span className="te-status-val text-cyan-400">
+                  {gateStats?.evidence_score != null ? gateStats.evidence_score + "/100" : "—"}
+                </span>
+              </div>
+              <div className="te-status-row">
+                <span className="te-status-name">Mode</span>
+                <span className="te-status-val text-cyan-400">
+                  {gateStats?.output_mode ?? "—"}
+                </span>
               </div>
             </div>
           </div>

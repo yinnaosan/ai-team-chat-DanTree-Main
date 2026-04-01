@@ -682,6 +682,33 @@ export function evaluateGradientRisk(
 // (Adds "experience_layer_insight" section to existing narrative)
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [Level14.0-A] OI-L12-001 — Typed stabilization codes for ExperienceLayerInsight
+// Compatibility-first: existing natural-language fields are preserved unchanged.
+// These codes are ADDED alongside the string fields — not replacing them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Structured code for drift direction dimension */
+export type DriftCode =
+  | "weakening"
+  | "strengthening"
+  | "stable"
+  | "unclear";
+
+/** Structured code for confidence evolution dimension */
+export type ConfidenceEvolutionCode =
+  | "rising"
+  | "falling"
+  | "stable";
+
+/** Structured code for risk gradient dimension */
+export type RiskGradientCode =
+  | "low"
+  | "building"
+  | "elevated"
+  | "critical";
+
 export interface ExperienceLayerInsight {
   drift_interpretation: string;
   confidence_evolution: string;
@@ -689,6 +716,11 @@ export interface ExperienceLayerInsight {
   risk_gradient: string;
   full_insight: string;         // composed paragraph
   advisory_only: true;
+  // [Level14.0-A] Typed codes — added for downstream typed consumption
+  // These do NOT replace the natural-language fields above.
+  drift_code?: DriftCode;
+  confidence_evolution_code?: ConfidenceEvolutionCode;
+  risk_gradient_code?: RiskGradientCode;
 }
 
 /**
@@ -733,6 +765,24 @@ export function composeExperienceInsight(
   // ── Compose full insight paragraph ───────────────────────────────────────
   const fullInsight = `${driftLine} ${confidenceLine} ${behaviorLine} ${riskLine}`;
 
+  // [Level14.0-A] Derive typed codes from the same source values used for natural-language lines
+  const driftCode: DriftCode =
+    drift.drift_direction === "weakening" ? "weakening"
+    : drift.drift_direction === "strengthening" ? "strengthening"
+    : drift.drift_direction === "unclear" ? "unclear"
+    : "stable";
+
+  const confidenceEvolutionCode: ConfidenceEvolutionCode =
+    confidenceUpdate.confidence_trend === "falling" ? "falling"
+    : confidenceUpdate.confidence_trend === "rising" ? "rising"
+    : "stable";
+
+  const riskGradientCode: RiskGradientCode =
+    gradientRisk.risk_state === "low" ? "low"
+    : gradientRisk.risk_state === "building" ? "building"
+    : gradientRisk.risk_state === "elevated" ? "elevated"
+    : "critical";
+
   return {
     drift_interpretation: driftLine,
     confidence_evolution: confidenceLine,
@@ -740,6 +790,10 @@ export function composeExperienceInsight(
     risk_gradient: riskLine,
     full_insight: fullInsight,
     advisory_only: true,
+    // [Level14.0-A] Typed codes — parallel to natural-language fields
+    drift_code: driftCode,
+    confidence_evolution_code: confidenceEvolutionCode,
+    risk_gradient_code: riskGradientCode,
   };
 }
 

@@ -260,3 +260,46 @@ These types are the most frequently misused in test mocks. Always copy exact def
 | Step3 semantic injection | ✅ ACTIVE |
 | `unifiedSemanticState` in `DeepResearchOutput` | ✅ ACTIVE |
 | `level11Analysis` in `DeepResearchContextMap` | ✅ ACTIVE |
+
+
+---
+
+## ExperienceLayerInsight Typed Codes (Level14.0-A / OI-L12-001)
+
+**File:** `server/experienceLayer.ts`
+**Status:** RESOLVED — Compatibility-first typed stabilization
+
+### New Types Added (additive, backward-compatible)
+
+```ts
+export type DriftCode = "weakening" | "strengthening" | "stable" | "unclear";
+export type ConfidenceEvolutionCode = "rising" | "falling" | "stable";
+export type RiskGradientCode = "low" | "building" | "elevated" | "critical";
+```
+
+### Updated Interface
+
+```ts
+export interface ExperienceLayerInsight {
+  // Existing natural-language fields (UNCHANGED — do NOT remove)
+  drift_interpretation: string;
+  confidence_evolution: string;
+  behavior_insights: string;
+  risk_gradient: string;
+  full_insight: string;
+  advisory_only: true;
+  // [Level14.0-A] Typed codes — added for downstream typed consumption
+  drift_code?: DriftCode;
+  confidence_evolution_code?: ConfidenceEvolutionCode;
+  risk_gradient_code?: RiskGradientCode;
+}
+```
+
+### HARD RULES for Mock Generation
+
+1. All 6 original string fields MUST be present — they are NOT optional
+2. `advisory_only` MUST be exactly `true` (literal boolean, not string)
+3. `drift_code` values: `"weakening" | "strengthening" | "stable" | "unclear"` only
+4. `confidence_evolution_code` values: `"rising" | "falling" | "stable"` only
+5. `risk_gradient_code` values: `"low" | "building" | "elevated" | "critical"` only
+6. All three code fields are optional (`?`) — safe to omit in minimal mocks

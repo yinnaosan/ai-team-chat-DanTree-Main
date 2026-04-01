@@ -303,3 +303,71 @@ export interface ExperienceLayerInsight {
 4. `confidence_evolution_code` values: `"rising" | "falling" | "stable"` only
 5. `risk_gradient_code` values: `"low" | "building" | "elevated" | "critical"` only
 6. All three code fields are optional (`?`) — safe to omit in minimal mocks
+
+---
+
+## LEVEL 16.0-B — PORTFOLIO ANALYSIS ENGINE TYPES
+**Added:** Level16.0-C integration | OI-L16-001 RESOLVED
+
+### DirectionBucket
+```ts
+export type DirectionBucket =
+  | "positive"
+  | "negative"
+  | "mixed"
+  | "neutral"
+  | "unclear"
+  | "unavailable";
+```
+
+### EntityGateDecision
+```ts
+export type EntityGateDecision = "PASS" | "BLOCK" | "UNAVAILABLE";
+```
+
+### BasketEntitySnapshot
+```ts
+export interface BasketEntitySnapshot {
+  entity: string;
+  direction: DirectionBucket;
+  confidence_score: number | null;
+  fragility: number | null;
+  evidence_score: number | null;
+  gate_decision: EntityGateDecision;
+  semantic_available: boolean;
+}
+```
+
+### PortfolioAnalysisDimension<T>
+```ts
+export interface PortfolioAnalysisDimension<T> {
+  value: T;
+  label: string;
+  advisory_only: true;
+}
+```
+
+### PortfolioAnalysisResult (top-level)
+```ts
+export interface PortfolioAnalysisResult {
+  entities: string[];
+  basket_size: number;
+  generated_at: string;
+  advisory_only: true;
+  entity_snapshots: BasketEntitySnapshot[];
+  thesis_overlap: PortfolioAnalysisDimension<ThesisOverlapResult>;
+  concentration_risk: PortfolioAnalysisDimension<ConcentrationRiskResult>;
+  shared_fragility: PortfolioAnalysisDimension<SharedFragilityResult>;
+  evidence_dispersion: PortfolioAnalysisDimension<EvidenceDispersionResult>;
+  gate_distribution: PortfolioAnalysisDimension<GateDistributionResult>;
+  basket_summary: string;
+}
+```
+
+### HARD RULES for Mock Generation
+1. `advisory_only` MUST be exactly `true` on both result and each dimension
+2. `entities` length must be 2–8 (validated by `validateBasket`)
+3. `gate_decision`: PASS if evidence_score >= 50, BLOCK if < 50, UNAVAILABLE if null
+4. `basket_investable`: true only if pass_count > basket_size / 2 (strict majority)
+5. `DirectionBucket` has 6 values — `"unavailable"` is the fallback, NOT `"neutral"`
+6. `hhi_score` is normalized [0–1] (not percentage)

@@ -90,3 +90,28 @@ ADDED: gpt_feedback/CHANGELOG_SINCE_LAST_TASK_TEMPLATE.md
 ADDED: gpt_feedback/WORKFLOW_V2_1_PACKAGING_GUIDE.md
 NO CODE CHANGES
 ```
+
+### Task Level16.0B — Portfolio Analysis Engine (Claude)
+```
+ADDED: server/portfolioAnalysisEngine.ts
+ADDED: server/portfolioAnalysisEngine.test.ts (45 tests)
+INTERFACE: BasketAnalysisInput, BasketEntitySnapshot, PortfolioAnalysisResult
+INTERFACE: ThesisOverlapResult, ConcentrationRiskResult, SharedFragilityResult
+INTERFACE: EvidenceDispersionResult, GateDistributionResult
+INTERFACE: PortfolioAnalysisDimension<T>, DirectionBucket, EntityGateDecision
+EXPORT: analyzePortfolioBasket(), validateBasket(), BasketValidationError
+PIPELINE: Phase 1 basket analysis (2–8 entities, 5 dimensions, in-memory only)
+```
+
+### Task Level16.0C — Portfolio Analysis Integration (Manus)
+```
+MODIFIED: server/routers.ts → market.analyzeBasket added (append-only)
+MODIFIED: gpt_feedback/TYPE_REGISTRY.md → Level16.0-B portfolio types appended (v2.3)
+MODIFIED: gpt_feedback/FEEDBACK_LEVEL16_0B.md → copied from Claude output
+MODIFIED: gpt_feedback/CHANGELOG_SINCE_LAST_TASK_TEMPLATE.md → this entry
+OI: OI-L16-001 RESOLVED
+TESTS: 45/45 new tests pass | 1772/1778 total (6 pre-existing financeDatabaseApi failures)
+TSC: 0 errors
+ROUTE: market.analyzeBasket (publicProcedure, input: entities[2..8], taskType?, region?)
+NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket per L16.0C spec
+```

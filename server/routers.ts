@@ -5909,6 +5909,25 @@ except Exception as e:
           };
         }
       }),
+    // [Level16.0-C] Portfolio Basket Analysis — OI-L16-001
+    analyzeBasket: publicProcedure
+      .input(z.object({
+        entities: z.array(z.string().min(1).max(20)).min(2).max(8),
+        taskType: z.literal("portfolio_review").optional(),
+        region: z.literal("US").optional(),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const { analyzePortfolioBasket } = await import("./portfolioAnalysisEngine");
+          return { available: true as const, ...analyzePortfolioBasket(input) };
+        } catch (e) {
+          return {
+            available: false as const,
+            entities: input.entities,
+            error: e instanceof Error ? e.message : "basket_analysis_unavailable",
+          };
+        }
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

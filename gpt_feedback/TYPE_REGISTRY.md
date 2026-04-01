@@ -388,3 +388,39 @@ export interface PortfolioAnalysisResult {
 | `EntityGateResult` | interface | `{ entity, gate_passed, is_synthetic_fallback?, evidence_score?, semantic_fragility? }` |
 
 **Exported functions:** `buildEntityAlerts`, `buildBasketAlerts`, `buildAlertSummary`
+
+---
+
+## Level 18.0-B — Thesis / State Tracking Phase 1
+
+**File:** `server/thesisStateEngine.ts`  
+**Date:** 2026-04-01
+
+### New Types
+
+| Type | Kind | Description |
+|------|------|-------------|
+| `ThesisStance` | union | "bullish" \| "bearish" \| "neutral" \| "mixed" \| "unavailable" |
+| `EvidenceState` | union | "strong" \| "moderate" \| "weak" \| "insufficient" |
+| `GateState` | union | "pass" \| "block" \| "fallback" |
+| `FragilityState` | union | "low" \| "medium" \| "high" \| "critical" |
+| `SourceState` | union | "healthy" \| "degraded" \| "unavailable" |
+| `ThesisChangeMarker` | union | "stable" \| "strengthening" \| "weakening" \| "reversal" \| "unknown" |
+| `DominantBasketThesis` | union | "aligned_bullish" \| "aligned_bearish" \| "mixed" \| "divergent" \| "unavailable" |
+| `OverlapIntensity` | union | "high" \| "medium" \| "low" \| "none" |
+| `ConcentrationState` | union | "safe" \| "elevated" \| "high" \| "critical" |
+| `BasketFragilityState` | union | "low" \| "medium" \| "high" |
+| `BasketChangeMarker` | union | "stable" \| "concentrating" \| "diverging" \| "unknown" |
+| `SemanticStatsInput` | interface | Optional semantic stats for entity state derivation |
+| `GateResultInput` | interface | Gate + evidence data for entity state derivation |
+| `EntityThesisStateInput` | interface | All optional inputs for entity state derivation |
+| `BasketThesisStateInput` | interface | Basket state derived from PortfolioAnalysisResult |
+| `EntityThesisState` | interface | 12-field entity thesis state (advisory_only: true) |
+| `BasketThesisState` | interface | 7-field basket thesis state (advisory_only: true) |
+
+### New Routes
+
+| Route | Type | Input | Output |
+|-------|------|-------|--------|
+| `market.getEntityThesisState` | query | `{ input: EntityThesisStateInput }` | `{ available: true } & EntityThesisState` |
+| `market.getBasketThesisState` | query | `{ input: BasketThesisStateInput }` | `{ available: true } & BasketThesisState` |

@@ -5957,6 +5957,37 @@ except Exception as e:
         const alerts = buildBasketAlerts(input.portfolioResult);
         return buildAlertSummary(alerts);
       }),
+    // ── [LEVEL18.0-C] Thesis / State Tracking Phase 1 ───────────────────────
+    getEntityThesisState: publicProcedure
+      .input(z.object({
+        input: z.object({
+          entity: z.string().min(1).max(20),
+          semantic_stats: z.any().nullable().optional(),
+          gate_result: z.any().nullable().optional(),
+          source_result: z.any().nullable().optional(),
+          alert_summary: z.any().nullable().optional(),
+        })
+      }))
+      .query(async ({ input }) => {
+        const { buildEntityThesisState } = await import("./thesisStateEngine");
+        return {
+          available: true as const,
+          ...buildEntityThesisState(input.input)
+        };
+      }),
+    getBasketThesisState: publicProcedure
+      .input(z.object({
+        input: z.object({
+          portfolioResult: z.any().nullable(),
+        })
+      }))
+      .query(async ({ input }) => {
+        const { buildBasketThesisState } = await import("./thesisStateEngine");
+        return {
+          available: true as const,
+          ...buildBasketThesisState(input.input)
+        };
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

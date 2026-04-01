@@ -144,3 +144,20 @@ NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket p
 ### OI Resolution
 - OI-L17-001: RESOLVED — Alert Engine Phase 1 backend complete
 - OI-L15-003: DEFERRED — Direction-flip alerts remain Phase 2
+
+
+---
+
+## Level 18.0B-C — Thesis / State Tracking Phase 1 (2026-04-01)
+
+**Files Added:**
+- server/thesisStateEngine.ts (523 lines, pure functions)
+- server/thesisStateEngine.test.ts (70 tests, all pass)
+
+**Routes Added:**
+- market.getEntityThesisState — derives EntityThesisState from semantic/gate/source/alert inputs
+- market.getBasketThesisState — derives BasketThesisState from PortfolioAnalysisResult
+
+**Test Results:** 70/70 new tests pass | TSC 0 errors | Regression 1895/1901
+
+**OI Closed:** OI-L18-001

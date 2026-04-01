@@ -4,7 +4,7 @@
  * Purpose: System entry point. User feels terminal is ALREADY RUNNING.
  * NOT a landing page. NOT a marketing page. A terminal door.
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -326,6 +326,33 @@ export default function TerminalEntry() {
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
   // [Level15.1A] Comparison Panel state — OI-L15-002
+  // [Level16.1A] Basket Analysis state — OI-L16-002
+  const BASKET_SLOTS = 5;
+  const [basketInputs, setBasketInputs] = useState<string[]>(["AAPL", "MSFT", "NVDA", "", ""]);
+  const [basketEntities, setBasketEntities] = useState<string[]>(["AAPL", "MSFT", "NVDA"]);
+  const basketInitialized = React.useRef(false);
+  useEffect(() => {
+    if (!basketInitialized.current && activeEntity && activeEntity !== "AAPL") {
+      setBasketInputs(prev => { const next = [...prev]; next[0] = activeEntity; return next; });
+      setBasketEntities(prev => { const next = [...prev]; next[0] = activeEntity; return next; });
+      basketInitialized.current = true;
+    } else if (!basketInitialized.current && activeEntity) {
+      basketInitialized.current = true;
+    }
+  }, [activeEntity]);
+  const cleanedBasket = useMemo(
+    () => basketEntities.map(e => e.trim().toUpperCase()).filter(e => e.length > 0).slice(0, 8),
+    [basketEntities]
+  );
+  const { data: basketData, isFetching: basketFetching } = trpc.market.analyzeBasket.useQuery(
+    { entities: cleanedBasket, taskType: "portfolio_review", region: "US" },
+    { enabled: cleanedBasket.length >= 2, staleTime: 30_000 }
+  );
+  const handleBasketRun = () => {
+    const cleaned = basketInputs.map(e => e.trim().toUpperCase()).filter(e => e.length > 0);
+    if (cleaned.length >= 2) setBasketEntities(cleaned);
+  };
+
   // [Level15.2] entityA prefilled from activeEntity — OI-L15-004
   const [compA, setCompA] = useState<string>("AAPL");
   const [compB, setCompB] = useState<string>("MSFT");
@@ -587,6 +614,111 @@ export default function TerminalEntry() {
             )}
           </div>
         </div>
+        {/* H: Basket Analysis Panel — Level 16.1A — OI-L16-002 */}
+        <div className="te-panel" style={{ marginTop: "12px" }}>
+          <div className="te-panel-header">
+            <span className="te-panel-label">BASKET ANALYSIS</span>
+            <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.5, marginLeft: "6px" }}>advisory only · phase 1</span>
+          </div>
+          <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+            {/* Ticker slot inputs */}
+            <div style={{ display: "flex", gap: "6px", marginBottom: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              {Array.from({ length: BASKET_SLOTS }).map((_, i) => (
+                <input
+                  key={i}
+                  value={basketInputs[i] ?? ""}
+                  onChange={e => setBasketInputs(prev => { const next = [...prev]; next[i] = e.target.value.toUpperCase(); return next; })}
+                  onKeyDown={e => e.key === "Enter" && handleBasketRun()}
+                  maxLength={10}
+                  placeholder={i === 0 ? "Slot 1" : i === 1 ? "Slot 2" : i === 2 ? "Slot 3" : `Slot ${i + 1}`}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "4px", color: "#e2e8f0", fontSize: "11px", padding: "4px 7px", width: "64px", fontFamily: "monospace", textTransform: "uppercase" }}
+                />
+              ))}
+              <button
+                onClick={handleBasketRun}
+                disabled={basketFetching}
+                style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)", borderRadius: "4px", color: "#22d3ee", fontSize: "10px", padding: "4px 10px", cursor: "pointer", fontFamily: "monospace", letterSpacing: "0.05em" }}
+              >
+                {basketFetching ? "..." : "ANALYZE"}
+              </button>
+            </div>
+
+            {/* Results */}
+            {basketData?.available ? (
+              <>
+                {/* Per-entity gate badges */}
+                <div style={{ display: "flex", gap: "5px", marginBottom: "8px", flexWrap: "wrap" }}>
+                  {(basketData as any).entity_snapshots?.map((snap: any) => (
+                    <span key={snap.entity} style={{
+                      fontSize: "9px", fontFamily: "monospace", padding: "2px 6px", borderRadius: "3px",
+                      background: snap.gate_decision === "PASS" ? "rgba(52,211,153,0.12)" : snap.gate_decision === "BLOCK" ? "rgba(248,113,113,0.12)" : "rgba(100,116,139,0.12)",
+                      border: `1px solid ${snap.gate_decision === "PASS" ? "rgba(52,211,153,0.3)" : snap.gate_decision === "BLOCK" ? "rgba(248,113,113,0.3)" : "rgba(100,116,139,0.2)"}`,
+                      color: snap.gate_decision === "PASS" ? "#34d399" : snap.gate_decision === "BLOCK" ? "#f87171" : "#64748b",
+                    }}>
+                      {snap.entity} · {snap.gate_decision}
+                    </span>
+                  ))}
+                </div>
+
+                {/* 5-dimension table */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px", gap: "2px", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "9px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dimension</span>
+                  <span style={{ fontSize: "9px", color: "#475569" }}>Value</span>
+                  <span style={{ fontSize: "9px", color: "#475569" }}>Detail</span>
+                </div>
+                {[
+                  {
+                    label: "Thesis Overlap",
+                    val: (basketData as any).thesis_overlap?.value?.overlap_ratio != null
+                      ? ((basketData as any).thesis_overlap.value.overlap_ratio * 100).toFixed(0) + "%"
+                      : "—",
+                    detail: (basketData as any).thesis_overlap?.value?.dominant_direction ?? "—",
+                  },
+                  {
+                    label: "Concentration",
+                    val: (basketData as any).concentration_risk?.value?.level ?? "—",
+                    detail: `HHI ${(basketData as any).concentration_risk?.value?.hhi_score ?? "—"}`,
+                  },
+                  {
+                    label: "Shared Fragility",
+                    val: (basketData as any).shared_fragility?.value?.fragility_flag ? "ELEVATED" : "OK",
+                    detail: `avg ${(basketData as any).shared_fragility?.value?.avg_fragility ?? "—"}`,
+                  },
+                  {
+                    label: "Evidence Disp.",
+                    val: (basketData as any).evidence_dispersion?.value?.std_dev != null
+                      ? `σ ${(basketData as any).evidence_dispersion.value.std_dev}`
+                      : "—",
+                    detail: `mean ${(basketData as any).evidence_dispersion?.value?.mean_score ?? "—"}`,
+                  },
+                  {
+                    label: "Gate Dist.",
+                    val: (basketData as any).gate_distribution?.value?.basket_investable ? "INVESTABLE" : "BLOCKED",
+                    detail: `${(basketData as any).gate_distribution?.value?.pass_count ?? 0}P / ${(basketData as any).gate_distribution?.value?.block_count ?? 0}B / ${(basketData as any).gate_distribution?.value?.unavailable_count ?? 0}U`,
+                  },
+                ].map(row => (
+                  <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px", gap: "2px", padding: "3px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize: "10px", color: "#94a3b8", fontFamily: "monospace" }}>{row.label}</span>
+                    <span style={{ fontSize: "10px", color: "#e2e8f0", fontFamily: "monospace" }}>{row.val}</span>
+                    <span style={{ fontSize: "10px", color: "#64748b", fontFamily: "monospace" }}>{row.detail}</span>
+                  </div>
+                ))}
+
+                {/* Basket summary */}
+                <div style={{ marginTop: "8px", padding: "6px 8px", background: "rgba(255,255,255,0.03)", borderRadius: "4px", borderLeft: "2px solid rgba(6,182,212,0.3)" }}>
+                  <span style={{ fontSize: "10px", color: "#64748b", fontFamily: "monospace", lineHeight: 1.5 }}>
+                    {(basketData as any).basket_summary ?? "—"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: "10px", color: "#475569", fontFamily: "monospace", padding: "4px 0" }}>
+                {basketFetching ? "Analyzing basket..." : cleanedBasket.length < 2 ? "Enter at least 2 tickers and press ANALYZE" : "Basket analysis unavailable"}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* F: Command Strip */}
         <CommandStrip />
       </div>

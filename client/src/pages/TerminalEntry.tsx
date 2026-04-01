@@ -383,6 +383,23 @@ export default function TerminalEntry() {
     { entity: activeEntity, timeframe: "mid" },
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
+  // [Level17.1A] Alert Engine Phase 1 queries — OI-L17-002
+  const alertGateInput = gateStats ? {
+    entity: activeEntity,
+    gate_passed: gateStats.gate_passed ?? true,
+    is_synthetic_fallback: false,
+    evidence_score: gateStats.evidence_score ?? null,
+    semantic_fragility: (semanticStats as any)?.fragility_score ?? null,
+  } : null;
+  const { data: entityAlerts } = trpc.market.evaluateEntityAlerts.useQuery(
+    { entity: activeEntity, gateResult: alertGateInput, sourceResult: null },
+    { staleTime: 60_000 }
+  );
+  const { data: basketAlerts } = trpc.market.evaluateBasketAlerts.useQuery(
+    { portfolioResult: basketData?.available ? basketData : null },
+    { enabled: !!basketData?.available, staleTime: 60_000 }
+  );
+
   const [bootDone, setBootDone] = useState(false);
 
   // Boot sequence — 1.2s then show full page
@@ -718,6 +735,86 @@ export default function TerminalEntry() {
             )}
           </div>
         </div>
+
+        {/* I: Alerts Panel — Level 17.1A — OI-L17-002 */}
+        {((entityAlerts && entityAlerts.alert_count > 0) || (basketAlerts && basketAlerts.alert_count > 0)) && (
+          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(251,146,60,0.3)" }}>
+            <div className="te-panel-header">
+              <span className="te-panel-label">ALERTS</span>
+              <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.5, marginLeft: "6px" }}>advisory only · phase 1</span>
+              {/* Total count badge */}
+              {(() => {
+                const total = (entityAlerts?.alert_count ?? 0) + (basketAlerts?.alert_count ?? 0);
+                const sevList = [entityAlerts?.highest_severity, basketAlerts?.highest_severity]
+                  .filter((s): s is "low" | "medium" | "high" | "critical" => s != null);
+                const order = ["low", "medium", "high", "critical"] as const;
+                const topSev: string | undefined = sevList.length > 0
+                  ? sevList.reduce((a, b) => order.indexOf(a) >= order.indexOf(b) ? a : b)
+                  : undefined;
+                const sevColor = topSev === "critical" ? "#fca5a5" : topSev === "high" ? "#fb923c" : topSev === "medium" ? "#fbbf24" : "#94a3b8";
+                const sevBg = topSev === "critical" ? "#7f1d1d" : topSev === "high" ? "#431407" : topSev === "medium" ? "#451a03" : "#1e293b";
+                const sevBorder = topSev === "critical" ? "#ef4444" : topSev === "high" ? "#ea580c" : topSev === "medium" ? "#d97706" : "#334155";
+                return total > 0 ? (
+                  <span style={{ marginLeft: "auto", fontSize: "8px", fontFamily: "monospace", padding: "1px 6px", borderRadius: "2px", background: sevBg, color: sevColor, border: `1px solid ${sevBorder}` }}>
+                    {total} ▲ {(topSev ?? "low").toUpperCase()}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+              {/* Entity Alerts */}
+              {entityAlerts && entityAlerts.alert_count > 0 && (
+                <div style={{ marginBottom: basketAlerts && basketAlerts.alert_count > 0 ? "10px" : 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
+                    <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace", letterSpacing: "0.06em" }}>{activeEntity}</span>
+                    <span style={{
+                      fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                      background: entityAlerts.highest_severity === "critical" ? "#7f1d1d" : entityAlerts.highest_severity === "high" ? "#431407" : entityAlerts.highest_severity === "medium" ? "#451a03" : "#1e293b",
+                      color: entityAlerts.highest_severity === "critical" ? "#fca5a5" : entityAlerts.highest_severity === "high" ? "#fb923c" : entityAlerts.highest_severity === "medium" ? "#fbbf24" : "#94a3b8",
+                      border: `1px solid ${entityAlerts.highest_severity === "critical" ? "#ef4444" : entityAlerts.highest_severity === "high" ? "#ea580c" : entityAlerts.highest_severity === "medium" ? "#d97706" : "#334155"}`,
+                    }}>{(entityAlerts.highest_severity ?? "low").toUpperCase()}</span>
+                    <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace" }}>{entityAlerts.alert_count} alert{entityAlerts.alert_count > 1 ? "s" : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "5px" }}>
+                    {entityAlerts.alerts.map((a: any, i: number) => (
+                      <span key={i} style={{
+                        fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                        background: "#0f172a", border: "1px solid #1e293b",
+                        color: a.severity === "critical" ? "#fca5a5" : a.severity === "high" ? "#fb923c" : a.severity === "medium" ? "#fbbf24" : "#64748b",
+                      }}>{a.alert_type.replace(/_/g, " ")}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{entityAlerts.summary_text}</div>
+                </div>
+              )}
+              {/* Basket Alerts */}
+              {basketAlerts && basketAlerts.alert_count > 0 && (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
+                    <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace", letterSpacing: "0.06em" }}>BASKET</span>
+                    <span style={{
+                      fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                      background: basketAlerts.highest_severity === "critical" ? "#7f1d1d" : basketAlerts.highest_severity === "high" ? "#431407" : basketAlerts.highest_severity === "medium" ? "#451a03" : "#1e293b",
+                      color: basketAlerts.highest_severity === "critical" ? "#fca5a5" : basketAlerts.highest_severity === "high" ? "#fb923c" : basketAlerts.highest_severity === "medium" ? "#fbbf24" : "#94a3b8",
+                      border: `1px solid ${basketAlerts.highest_severity === "critical" ? "#ef4444" : basketAlerts.highest_severity === "high" ? "#ea580c" : basketAlerts.highest_severity === "medium" ? "#d97706" : "#334155"}`,
+                    }}>{(basketAlerts.highest_severity ?? "low").toUpperCase()}</span>
+                    <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace" }}>{basketAlerts.alert_count} alert{basketAlerts.alert_count > 1 ? "s" : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "5px" }}>
+                    {basketAlerts.alerts.map((a: any, i: number) => (
+                      <span key={i} style={{
+                        fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                        background: "#0f172a", border: "1px solid #1e293b",
+                        color: a.severity === "critical" ? "#fca5a5" : a.severity === "high" ? "#fb923c" : a.severity === "medium" ? "#fbbf24" : "#64748b",
+                      }}>{a.alert_type.replace(/_/g, " ")}</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{basketAlerts.summary_text}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* F: Command Strip */}
         <CommandStrip />

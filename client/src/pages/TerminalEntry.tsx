@@ -59,7 +59,6 @@ const SYSTEM_STATUS = [
   { label: "Memory System", status: "ACTIVE", color: "text-emerald-400" },
   { label: "News Feed", status: "STREAMING", color: "text-emerald-400" },
   { label: "Risk Model", status: "UPDATED", color: "text-emerald-400" },
-  { label: "Source Router", status: "ONLINE", color: "text-emerald-400" },
 ];
 
 const COMMANDS = [
@@ -249,7 +248,7 @@ function GlobalMarketStatusPanel() {
 }
 
 /** E: System Status Panel */
-function SystemStatusPanel() {
+function SystemStatusPanel({ sourceRouterStatus }: { sourceRouterStatus: string }) {
   return (
     <div className="te-panel">
       <div className="te-panel-header">
@@ -263,6 +262,11 @@ function SystemStatusPanel() {
             <span className={`te-status-val ${s.color}`}>{s.status}</span>
           </div>
         ))}
+        {/* Source Router — Level 13.1B live wiring — OI-L13-001 */}
+        <div className="te-status-row">
+          <span className="te-status-name">Source Router</span>
+          <span className="te-status-val text-emerald-400">{sourceRouterStatus}</span>
+        </div>
         <div className="te-status-all-ok">All Systems Operational</div>
       </div>
     </div>
@@ -302,6 +306,14 @@ function CommandStrip() {
 export default function TerminalEntry() {
   const [, navigate] = useLocation();
   const { user, loading } = useAuth();
+  // [Level13.1B] Source Router live data — OI-L13-001
+  const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
+    { entity: "AAPL" },
+    { refetchInterval: 60_000, staleTime: 30_000 }
+  );
+  const sourceRouterStatus = sourceStats?.selection_available
+    ? (sourceStats?.top_source ?? "ONLINE")
+    : "ONLINE";
   // [Level12.10] Protocol Layer live data — OI-L12-010
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
     { entity: "AAPL", timeframe: "mid" },
@@ -387,7 +399,7 @@ export default function TerminalEntry() {
         {/* D + E: Right panels row */}
         <div className="te-panels-row">
           <GlobalMarketStatusPanel />
-          <SystemStatusPanel />
+          <SystemStatusPanel sourceRouterStatus={sourceRouterStatus} />
 
           {/* Mini stats panel */}
           <div className="te-panel">

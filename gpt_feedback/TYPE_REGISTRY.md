@@ -424,3 +424,29 @@ export interface PortfolioAnalysisResult {
 |-------|------|-------|--------|
 | `market.getEntityThesisState` | query | `{ input: EntityThesisStateInput }` | `{ available: true } & EntityThesisState` |
 | `market.getBasketThesisState` | query | `{ input: BasketThesisStateInput }` | `{ available: true } & BasketThesisState` |
+
+---
+
+## Level 19.0-B — Execution/Timing Assistant Phase 1 (v2.4)
+
+**File:** `server/executionTimingEngine.ts`
+**Added:** 2026-04-01
+
+### New Types
+
+| Type | Kind | Values |
+|------|------|--------|
+| `ReadinessState` | union | `"ready" \| "conditional" \| "not_ready" \| "blocked"` |
+| `EntryQuality` | union | `"high" \| "moderate" \| "low" \| "unavailable"` |
+| `TimingRisk` | union | `"low" \| "medium" \| "high" \| "critical"` |
+| `ConfirmationState` | union | `"confirmed" \| "partial" \| "unconfirmed" \| "conflicted"` |
+| `ActionBias` | union | `"BUY" \| "HOLD" \| "WAIT" \| "AVOID" \| "NONE"` |
+| `EntityTimingInput` | interface | `entity, thesisState?, alertSummary?, semanticDirection?, semanticFragility?` |
+| `BasketTimingInput` | interface | `entities, entityResults, concentrationResult?` |
+| `ExecutionTimingResult` | interface | `entity, readiness_state, entry_quality, timing_risk, confirmation_state, action_bias, no_action_reason, timing_summary` |
+| `BasketTimingResult` | interface | `entities, entity_results, basket_readiness, basket_action_bias, concentration_constraint, basket_timing_summary` |
+| `BasketTimingValidationError` | class | Thrown when `entities.length < 2` |
+
+### New Routes
+- `market.getExecutionTiming` — publicProcedure → `ExecutionTimingResult`
+- `market.getBasketTiming` — publicProcedure → `BasketTimingResult`

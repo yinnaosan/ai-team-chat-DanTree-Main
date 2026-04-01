@@ -5988,6 +5988,42 @@ except Exception as e:
           ...buildBasketThesisState(input.input)
         };
       }),
+
+    // ── Level 19.0C: Execution / Timing Assistant Phase 1 ────────────────────
+    getExecutionTiming: publicProcedure
+      .input(z.object({
+        input: z.object({
+          entity: z.string().min(1).max(20),
+          thesisState: z.any().nullable().optional(),
+          alertSummary: z.any().nullable().optional(),
+          gateResult: z.any().nullable().optional(),
+          semanticStats: z.any().nullable().optional(),
+          experienceOutput: z.any().nullable().optional(),
+        })
+      }))
+      .query(async ({ input }) => {
+        const { buildExecutionTimingResult } = await import("./executionTimingEngine");
+        return {
+          available: true as const,
+          ...buildExecutionTimingResult(input.input)
+        };
+      }),
+
+    getBasketTiming: publicProcedure
+      .input(z.object({
+        input: z.object({
+          entities: z.array(z.string().min(1).max(20)).min(2),
+          entityResults: z.array(z.any()),
+          portfolioResult: z.any().nullable().optional(),
+        })
+      }))
+      .query(async ({ input }) => {
+        const { buildBasketTimingResult } = await import("./executionTimingEngine");
+        return {
+          available: true as const,
+          ...buildBasketTimingResult(input.input as any)
+        };
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

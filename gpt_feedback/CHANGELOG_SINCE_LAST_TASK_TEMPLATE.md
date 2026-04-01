@@ -161,3 +161,26 @@ NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket p
 **Test Results:** 70/70 new tests pass | TSC 0 errors | Regression 1895/1901
 
 **OI Closed:** OI-L18-001
+
+---
+
+## [L19.0B-C] — 2026-04-01
+
+### Added
+- `server/executionTimingEngine.ts` (447 lines) — Execution/Timing Assistant Phase 1 pure function layer
+- `server/executionTimingEngine.test.ts` (615 lines) — 62 tests
+- `market.getExecutionTiming` tRPC route (publicProcedure)
+- `market.getBasketTiming` tRPC route (publicProcedure)
+
+### Fixed (Manus)
+- OI-L19-BUG-001: `deriveActionBias` branch order — `stance="unavailable"` now checked before `readiness="not_ready"`
+- OI-L19-BUG-002: TSC error — `confirmation !== "conflicted"` replaced with explicit positive union
+- OI-L19-BUG-003: TSC error — `entityResults` schema changed to `z.array(z.any())` in router
+
+### Closed OIs
+- OI-L19-001: `market.getExecutionTiming` + `market.getBasketTiming` routes live ✅
+
+### Test Results
+- executionTimingEngine: 62/62 ✅
+- Full regression: 1957/1963 (6 pre-existing financeDatabaseApi env failures)
+- TSC: 0 errors

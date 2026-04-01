@@ -325,6 +325,20 @@ export default function TerminalEntry() {
     undefined,
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
+  // [Level15.1A] Comparison Panel state — OI-L15-002
+  const [compA, setCompA] = useState<string>("AAPL");
+  const [compB, setCompB] = useState<string>("MSFT");
+  const [compInputA, setCompInputA] = useState<string>("AAPL");
+  const [compInputB, setCompInputB] = useState<string>("MSFT");
+  const { data: compData, isFetching: compFetching } = trpc.market.compareEntities.useQuery(
+    { entityA: compA, entityB: compB },
+    { staleTime: 30_000, enabled: compA.length > 0 && compB.length > 0 }
+  );
+  const handleCompare = () => {
+    const a = compInputA.trim().toUpperCase();
+    const b = compInputB.trim().toUpperCase();
+    if (a && b) { setCompA(a); setCompB(b); }
+  };
   // [Level12.10] Protocol Layer live data — OI-L12-010
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
     { entity: activeEntity, timeframe: "mid" },
@@ -490,6 +504,77 @@ export default function TerminalEntry() {
           </div>
         </div>
 
+        {/* G: Comparison Panel — Level 15.1A — OI-L15-002 */}
+        <div className="te-panel" style={{ marginTop: "12px" }}>
+          <div className="te-panel-header">
+            <span className="te-panel-label">ENTITY COMPARISON</span>
+            <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.5, marginLeft: "6px" }}>advisory only</span>
+          </div>
+          <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+            {/* Ticker inputs */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "10px", alignItems: "center" }}>
+              <input
+                value={compInputA}
+                onChange={e => setCompInputA(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && handleCompare()}
+                maxLength={10}
+                placeholder="Entity A"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "4px", color: "#e2e8f0", fontSize: "11px", padding: "4px 8px", width: "80px", fontFamily: "monospace", textTransform: "uppercase" }}
+              />
+              <span style={{ color: "#64748b", fontSize: "11px" }}>vs</span>
+              <input
+                value={compInputB}
+                onChange={e => setCompInputB(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === "Enter" && handleCompare()}
+                maxLength={10}
+                placeholder="Entity B"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "4px", color: "#e2e8f0", fontSize: "11px", padding: "4px 8px", width: "80px", fontFamily: "monospace", textTransform: "uppercase" }}
+              />
+              <button
+                onClick={handleCompare}
+                disabled={compFetching}
+                style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)", borderRadius: "4px", color: "#22d3ee", fontSize: "10px", padding: "4px 10px", cursor: "pointer", fontFamily: "monospace", letterSpacing: "0.05em" }}
+              >
+                {compFetching ? "..." : "RUN"}
+              </button>
+            </div>
+            {/* 5-dimension table */}
+            {compData?.available ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px", gap: "2px", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "9px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dimension</span>
+                  <span style={{ fontSize: "9px", color: "#475569", textAlign: "center" }}>{compData.left_entity}</span>
+                  <span style={{ fontSize: "9px", color: "#475569", textAlign: "center" }}>{compData.right_entity}</span>
+                  <span style={{ fontSize: "9px", color: "#475569", textAlign: "center" }}>Winner</span>
+                </div>
+                {[
+                  { label: "Semantic Dir", lv: (compData as any).semantic_comparison?.left_direction ?? "—", rv: (compData as any).semantic_comparison?.right_direction ?? "—", w: (compData as any).semantic_comparison?.winner },
+                  { label: "Evidence", lv: (compData as any).evidence_comparison?.left_score != null ? String((compData as any).evidence_comparison.left_score) : "—", rv: (compData as any).evidence_comparison?.right_score != null ? String((compData as any).evidence_comparison.right_score) : "—", w: (compData as any).evidence_comparison?.winner },
+                  { label: "Gate", lv: (compData as any).gate_comparison?.left_gate ?? "—", rv: (compData as any).gate_comparison?.right_gate ?? "—", w: (compData as any).gate_comparison?.winner },
+                  { label: "Sources", lv: (compData as any).source_comparison?.left_count != null ? String((compData as any).source_comparison.left_count) : "—", rv: (compData as any).source_comparison?.right_count != null ? String((compData as any).source_comparison.right_count) : "—", w: (compData as any).source_comparison?.winner },
+                  { label: "Fragility", lv: (compData as any).fragility_comparison?.left_fragility ?? "—", rv: (compData as any).fragility_comparison?.right_fragility ?? "—", w: (compData as any).fragility_comparison?.winner },
+                ].map(row => (
+                  <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px", gap: "2px", padding: "3px 0", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize: "10px", color: "#94a3b8", fontFamily: "monospace" }}>{row.label}</span>
+                    <span style={{ fontSize: "10px", color: "#e2e8f0", textAlign: "center", fontFamily: "monospace" }}>{row.lv}</span>
+                    <span style={{ fontSize: "10px", color: "#e2e8f0", textAlign: "center", fontFamily: "monospace" }}>{row.rv}</span>
+                    <span style={{ fontSize: "10px", textAlign: "center", fontFamily: "monospace", color: row.w === "left" ? "#34d399" : row.w === "right" ? "#f87171" : "#64748b" }}>
+                      {row.w === "left" ? compData.left_entity : row.w === "right" ? compData.right_entity : row.w === "tie" ? "TIE" : "—"}
+                    </span>
+                  </div>
+                ))}
+                {/* Summary */}
+                <div style={{ marginTop: "8px", padding: "6px 8px", background: "rgba(255,255,255,0.03)", borderRadius: "4px", borderLeft: "2px solid rgba(6,182,212,0.3)" }}>
+                  <span style={{ fontSize: "10px", color: "#64748b", fontFamily: "monospace", lineHeight: 1.5 }}>{compData.comparison_summary}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: "10px", color: "#475569", fontFamily: "monospace", padding: "4px 0" }}>
+                {compFetching ? "Comparing..." : "Enter two tickers and press RUN"}
+              </div>
+            )}
+          </div>
+        </div>
         {/* F: Command Strip */}
         <CommandStrip />
       </div>

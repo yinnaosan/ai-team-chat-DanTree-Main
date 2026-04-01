@@ -450,3 +450,26 @@ export interface PortfolioAnalysisResult {
 ### New Routes
 - `market.getExecutionTiming` — publicProcedure → `ExecutionTimingResult`
 - `market.getBasketTiming` — publicProcedure → `BasketTimingResult`
+
+---
+
+## Level 20.0-B — Session History Engine (v2.4)
+
+**File:** `server/sessionHistoryEngine.ts`
+**Added:** 2026-04-01
+
+### New Types
+
+| Type | Fields | Notes |
+|------|--------|-------|
+| `SnapshotChangeMarker` | 8 values | first_observation \| stable \| strengthening \| weakening \| reversal \| alert_escalation \| timing_shift \| deteriorating |
+| `EntitySnapshotInput` | entity, thesisState, timingResult, alertSeverity | Input to buildThesisTimelineSnapshot |
+| `BasketSnapshotInput` | entities, basketThesisState, basketTimingResult, basketAlertSeverity | Input to buildBasketTimelineSnapshot |
+| `ThesisTimelineSnapshot` | entity, snapshot_time, advisory_only, thesis_stance, thesis_change_marker, alert_severity, timing_bias, source_health, state_summary_text | 9 fields |
+| `BasketTimelineSnapshot` | entities, snapshot_time, advisory_only, basket_thesis, basket_change_marker, basket_alert_severity, basket_timing_bias, concentration_state, basket_summary_text | 9 fields |
+| `SessionHistoryResult` | entity, generated_at, advisory_only, current_snapshot, previous_snapshot, change_marker, delta_summary | 7 fields |
+| `BasketHistoryResult` | entities, generated_at, advisory_only, current_snapshot, previous_snapshot, change_marker, delta_summary | 7 fields |
+
+### New tRPC Routes
+- `market.getSessionHistory` — entity timeline snapshot comparison
+- `market.getBasketHistory` — basket timeline snapshot comparison

@@ -6024,6 +6024,52 @@ except Exception as e:
           ...buildBasketTimingResult(input.input as any)
         };
       }),
+
+    getSessionHistory: publicProcedure
+      .input(z.object({
+        current: z.object({
+          thesisState: z.any().nullable().optional(),
+          alertSummary: z.any().nullable().optional(),
+          timingResult: z.any().nullable().optional(),
+        }),
+        previous: z.any().nullable().optional(),
+      }))
+      .query(async ({ input }) => {
+        const { buildThesisTimelineSnapshot, buildSessionHistoryResult } = await import("./sessionHistoryEngine");
+        const currentSnapshot = buildThesisTimelineSnapshot({
+          entity: (input.current.thesisState as any)?.entity ?? "UNKNOWN",
+          thesisState: (input.current.thesisState as any) ?? null,
+          alertSeverity: (input.current.alertSummary as any)?.highest_severity ?? null,
+          timingResult: (input.current.timingResult as any) ?? null,
+        });
+        return {
+          available: true as const,
+          ...buildSessionHistoryResult(currentSnapshot, (input.previous as any) ?? null)
+        };
+      }),
+
+    getBasketHistory: publicProcedure
+      .input(z.object({
+        current: z.object({
+          basketThesisState: z.any().nullable().optional(),
+          basketTimingResult: z.any().nullable().optional(),
+          portfolioResult: z.any().nullable().optional(),
+        }),
+        previous: z.any().nullable().optional(),
+      }))
+      .query(async ({ input }) => {
+        const { buildBasketTimelineSnapshot, buildBasketHistoryResult } = await import("./sessionHistoryEngine");
+        const currentSnapshot = buildBasketTimelineSnapshot({
+          entities: (input.current.basketThesisState as any)?.entities ?? [],
+          basketThesisState: (input.current.basketThesisState as any) ?? null,
+          basketTimingResult: (input.current.basketTimingResult as any) ?? null,
+          basketAlertSeverity: null,
+        });
+        return {
+          available: true as const,
+          ...buildBasketHistoryResult(currentSnapshot, (input.previous as any) ?? null)
+        };
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

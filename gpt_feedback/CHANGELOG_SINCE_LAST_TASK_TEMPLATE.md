@@ -184,3 +184,40 @@ NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket p
 - executionTimingEngine: 62/62 ✅
 - Full regression: 1957/1963 (6 pre-existing financeDatabaseApi env failures)
 - TSC: 0 errors
+
+---
+
+## [L20.0B-C] Session History Engine — 2026-04-01
+
+### Added
+- `server/sessionHistoryEngine.ts` (468 lines) — pure function layer for thesis timeline snapshots
+- `server/sessionHistoryEngine.test.ts` (532 lines, 46/46 tests)
+- `market.getSessionHistory` tRPC route
+- `market.getBasketHistory` tRPC route
+
+### Fixed (Manus)
+- Test assertion mismatch: `delta_summary.toContain("first_observation")` → `.toLowerCase().toContain("first")`
+- Function signature mismatch ×2: positional args → single input object
+
+### Metrics
+- TSC: 0 errors | Regression: 2003/2009 | New tests: 46/46
+- OI-L20-001: CLOSED
+
+
+---
+
+## [L20.0B-C] Session History Engine — 2026-04-01
+
+### Added
+- server/sessionHistoryEngine.ts (468 lines) — pure function layer for thesis timeline snapshots
+- server/sessionHistoryEngine.test.ts (532 lines, 46/46 tests)
+- market.getSessionHistory tRPC route
+- market.getBasketHistory tRPC route
+
+### Fixed (Manus)
+- Test assertion mismatch: delta_summary.toContain first_observation -> toLowerCase first
+- Function signature mismatch x2: positional args -> single input object
+
+### Metrics
+- TSC: 0 errors | Regression: 2003/2009 | New tests: 46/46
+- OI-L20-001: CLOSED

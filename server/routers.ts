@@ -5809,6 +5809,36 @@ except Exception as e:
 
         return filtered;
       }),
+    // [Level13.0-B] Source Selection Stats — OI-L13-000-B
+    getSourceSelectionStats: publicProcedure
+      .input(z.object({
+        entity: z.string().default("AAPL"),
+      }))
+      .query(async () => {
+        try {
+          const { runSourceSelection } = await import("./sourceSelectionEngine");
+          const fields = ["price.current", "market_cap", "volume"];
+          const result = runSourceSelection(fields, "stock_analysis", "US", 3);
+          const topSources = result.selected_sources.map(s => s.source_name);
+          return {
+            selection_available: true as const,
+            top_sources: topSources,
+            source_count: topSources.length,
+            top_source: topSources[0] ?? null as string | null,
+            summary: result.validation.note,
+            fallback_reason: null as string | null,
+          };
+        } catch (e) {
+          return {
+            selection_available: false as const,
+            top_sources: [] as string[],
+            source_count: 0,
+            top_source: null as string | null,
+            summary: "source selection unavailable",
+            fallback_reason: e instanceof Error ? e.message : "unknown error",
+          };
+        }
+      }),
     // [Level12.10] Protocol Layer Live Wiring — OI-L12-010
     getSemanticStats: publicProcedure
       .input(z.object({

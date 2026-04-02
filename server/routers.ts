@@ -6070,6 +6070,48 @@ except Exception as e:
           ...buildBasketHistoryResult(currentSnapshot, (input.previous as any) ?? null)
         };
       }),
+    // LEVEL21: Snapshot Persistence — save and retrieve entity snapshots
+    saveEntitySnapshot: protectedProcedure
+      .input(z.object({
+        entityKey: z.string().min(1).max(50),
+        thesisStance: z.string().nullable().optional(),
+        thesisChangeMarker: z.string().nullable().optional(),
+        alertSeverity: z.string().nullable().optional(),
+        timingBias: z.string().nullable().optional(),
+        sourceHealth: z.string().nullable().optional(),
+        changeMarker: z.string(),
+        stateSummaryText: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const { insertEntitySnapshot } = await import("./db");
+        const { randomUUID } = await import("crypto");
+        const now = Date.now();
+        await insertEntitySnapshot({
+          snapshotId: randomUUID(),
+          entityKey: input.entityKey,
+          snapshotTime: now,
+          thesisStance: input.thesisStance ?? null,
+          thesisChangeMarker: input.thesisChangeMarker ?? null,
+          alertSeverity: input.alertSeverity ?? null,
+          timingBias: input.timingBias ?? null,
+          sourceHealth: input.sourceHealth ?? null,
+          changeMarker: input.changeMarker,
+          stateSummaryText: input.stateSummaryText,
+          advisoryOnly: true,
+          createdAt: now,
+        });
+        return { saved: true, snapshotTime: now };
+      }),
+    getEntitySnapshots: publicProcedure
+      .input(z.object({
+        entityKey: z.string().min(1).max(50),
+        limit: z.number().int().min(1).max(50).optional().default(10),
+      }))
+      .query(async ({ input }) => {
+        const { getEntitySnapshotsByKey } = await import("./db");
+        const rows = await getEntitySnapshotsByKey(input.entityKey, input.limit);
+        return { snapshots: rows, count: rows.length };
+      }),
   }),
   // ── Opportunity Radar Routerr ─────────────────────────────────────────────────
   radar: router({

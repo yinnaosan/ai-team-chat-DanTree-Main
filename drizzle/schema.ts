@@ -806,3 +806,23 @@ export const strategyEvolutionLog = mysqlTable("strategy_evolution_log", {
 });
 export type StrategyEvolutionLog = typeof strategyEvolutionLog.$inferSelect;
 export type InsertStrategyEvolutionLog = typeof strategyEvolutionLog.$inferInsert;
+
+// entitySnapshots: LEVEL21 — Snapshot Persistence / Memory Bridge Phase 1
+// Stores entity-level analytical state snapshots for cross-session memory.
+// advisory_only is always true; no trading recommendations are stored.
+export const entitySnapshots = mysqlTable("entity_snapshots", {
+  snapshotId:          varchar("snapshot_id", { length: 36 }).primaryKey(),
+  entityKey:           varchar("entity_key", { length: 50 }).notNull(),
+  snapshotTime:        bigintCol("snapshot_time", { mode: "number" }).notNull(),
+  thesisStance:        varchar("thesis_stance", { length: 30 }),
+  thesisChangeMarker:  varchar("thesis_change_marker", { length: 50 }),
+  alertSeverity:       varchar("alert_severity", { length: 20 }),
+  timingBias:          varchar("timing_bias", { length: 20 }),
+  sourceHealth:        varchar("source_health", { length: 30 }),
+  changeMarker:        varchar("change_marker", { length: 50 }).notNull(),
+  stateSummaryText:    text("state_summary_text").notNull(),
+  advisoryOnly:        boolean("advisory_only").notNull().default(true),
+  createdAt:           bigintCol("created_at", { mode: "number" }).notNull(),
+});
+export type EntitySnapshot = typeof entitySnapshots.$inferSelect;
+export type InsertEntitySnapshot = typeof entitySnapshots.$inferInsert;

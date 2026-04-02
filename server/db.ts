@@ -4,7 +4,7 @@ import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
   accessCodes, userAccess, memoryContext, conversations, attachments, conversationGroups,
   InsertMessage, InsertTask, InsertDbConnection, InsertConversation, InsertAttachment,
-  InsertConversationGroup,
+  InsertConversationGroup, entitySnapshots, InsertEntitySnapshot,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1012,4 +1012,36 @@ export async function updateMemoryContext(
   await db.update(memoryContext)
     .set(updates)
     .where(and(eq(memoryContext.id, id), eq(memoryContext.userId, userId)));
+}
+
+// ─── Entity Snapshot helpers (LEVEL21) ───────────────────────────────────────
+/** 插入一条实体快照记录 */
+export async function insertEntitySnapshot(data: InsertEntitySnapshot): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(entitySnapshots).values(data);
+}
+
+/** 获取指定实体的最新 N 条快照（按时间倒序） */
+export async function getEntitySnapshotsByKey(
+  entityKey: string,
+  limit = 10
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(entitySnapshots)
+    .where(eq(entitySnapshots.entityKey, entityKey))
+    .orderBy(desc(entitySnapshots.snapshotTime))
+    .limit(limit);
+}
+
+/** 获取指定实体的最新一条快照 */
+export async function getLatestEntitySnapshot(entityKey: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(entitySnapshots)
+    .where(eq(entitySnapshots.entityKey, entityKey))
+    .orderBy(desc(entitySnapshots.snapshotTime))
+    .limit(1);
+  return rows[0] ?? undefined;
 }

@@ -221,3 +221,23 @@ NAMING: normalized from market.analyzePortfolioBasket → market.analyzeBasket p
 ### Metrics
 - TSC: 0 errors | Regression: 2003/2009 | New tests: 46/46
 - OI-L20-001: CLOSED
+
+
+---
+
+## [L21.0B-C] Snapshot Persistence Engine — 2026-04-02
+
+### Added
+- `server/snapshotPersistenceEngine.ts` (282 lines, pure functions)
+- `server/snapshotPersistenceEngine.test.ts` (47/47 tests pass)
+- `drizzle/schema.ts`: `entity_snapshots` table (12 fields, 2 indexes)
+- `server/db.ts`: `insertEntitySnapshot`, `getEntitySnapshotsByKey`, `getLatestEntitySnapshot`
+- `server/routers.ts`: `market.saveEntitySnapshot` (mutation) + `market.getEntitySnapshots` (query)
+
+### Fixed
+- No Claude bugs in L21.0B (clean delivery)
+
+### Metrics
+- TSC: 0 errors
+- Regression: 2050/2056 (6 pre-existing financeDatabaseApi env failures)
+- OI-L21-001: CLOSED

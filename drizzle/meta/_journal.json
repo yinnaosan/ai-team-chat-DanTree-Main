@@ -260,6 +260,13 @@
       "when": 1774779645101,
       "tag": "0036_purple_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1775101272556,
+      "tag": "0037_glorious_talos",
+      "breakpoints": true
     }
   ]
 }

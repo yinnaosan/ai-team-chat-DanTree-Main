@@ -473,3 +473,51 @@ export interface PortfolioAnalysisResult {
 ### New tRPC Routes
 - `market.getSessionHistory` — entity timeline snapshot comparison
 - `market.getBasketHistory` — basket timeline snapshot comparison
+
+
+---
+
+## [L21.0B] Snapshot Persistence Engine
+
+**File:** `server/snapshotPersistenceEngine.ts`
+**Added:** 2026-04-02
+
+### EntitySnapshotRecord
+```ts
+interface EntitySnapshotRecord {
+  snapshotId: string;
+  entityKey: string;
+  snapshotTime: number;          // UTC ms
+  thesisStance: string | null;
+  thesisChangeMarker: string | null;
+  alertSeverity: string | null;
+  timingBias: string | null;
+  sourceHealth: string | null;
+  changeMarker: string;
+  stateSummaryText: string;
+  advisoryOnly: true;
+  createdAt: number;
+}
+```
+
+### SnapshotDelta
+```ts
+interface SnapshotDelta {
+  field: string;
+  previous: string | null;
+  current: string | null;
+  changed: boolean;
+}
+```
+
+### SnapshotComparisonResult
+```ts
+interface SnapshotComparisonResult {
+  entityKey: string;
+  hasHistory: boolean;
+  deltaCount: number;
+  deltas: SnapshotDelta[];
+  summaryText: string;
+  advisoryOnly: true;
+}
+```

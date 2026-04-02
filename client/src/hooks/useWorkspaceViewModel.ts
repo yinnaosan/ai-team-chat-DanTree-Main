@@ -1,5 +1,5 @@
 /**
- * useWorkspaceViewModel — DanTree Workspace v2.1-A1
+ * useWorkspaceViewModel — DanTree Workspace v2.1-B1a
  *
  * Workspace Adapter: aggregates all analytical layer queries for the active
  * focusKey and produces a unified view model consumed by the workspace canvas.
@@ -10,6 +10,15 @@
  *   Layer 3: thesisData (depends on semanticStats + gateStats + entityAlerts)
  *   Layer 4: timingData (depends on thesisData + entityAlerts + gateStats + semanticStats)
  *   Layer 5: sessionHistory (depends on thesisData + entityAlerts + timingData) — mutation
+ *   Layer 6: entitySnapshots (for lastSnapshotAt in Header)
+ *
+ * B1a changes:
+ *   - HeaderViewModel: +sessionType, +stance, +readinessState, +actionBias,
+ *                      +highestSeverity, +changeMarker, +lastSnapshotAt
+ *   - ThesisViewModel: +evidenceState, +gateState, +sourceState, +stateSummaryText
+ *   - TimingViewModel: +confirmationState, +timingSummary
+ *   - AlertViewModel:  +keyAlerts (top 2 alerts for quick display)
+ *   - HistoryViewModel: +previousSummary, +lastSnapshotAt
  */
 import { useState, useEffect, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
@@ -17,19 +26,43 @@ import { useActiveFocusKey, useWorkspace } from "@/contexts/WorkspaceContext";
 
 // ─── View Model Types ─────────────────────────────────────────────────────────
 
+/** Minimal alert entry for quick display in Header / Alert block */
+export interface KeyAlert {
+  type: string;
+  severity: string;
+  message: string;
+}
+
 export interface HeaderViewModel {
+  // Identity
   entity: string;
+  sessionType: string | null;
+  // Decision signals (for Decision Header bar)
+  stance: string | null;
+  readinessState: string | null;
+  actionBias: string | null;
+  highestSeverity: string | null;
+  changeMarker: string | null;
+  lastSnapshotAt: number | null;
+  // Protocol layer (legacy — kept for Engine Stats panel)
   sourceRouterStatus: string;
   evidenceScore: number | null;
   confidenceAvg: number | null;
   protocolDirection: string;
+  advisoryOnly: boolean;
 }
 
 export interface ThesisViewModel {
   available: boolean;
   stance: string | null;
   fragility: string | null;
+  fragilityScore: number | null;
   changeMarker: string | null;
+  // B1a additions
+  evidenceState: string | null;
+  gateState: string | null;
+  sourceState: string | null;
+  stateSummaryText: string | null;
   advisoryOnly: boolean;
 }
 
@@ -38,6 +71,9 @@ export interface TimingViewModel {
   readinessState: string | null;
   actionBias: string | null;
   timingRisk: string | null;
+  // B1a additions
+  confirmationState: string | null;
+  timingSummary: string | null;
   advisoryOnly: boolean;
 }
 
@@ -46,6 +82,8 @@ export interface AlertViewModel {
   alertCount: number;
   highestSeverity: string | null;
   summaryText: string | null;
+  // B1a addition: top 2 alerts for quick display (avoids lifting full alerts[])
+  keyAlerts: KeyAlert[];
   advisoryOnly: boolean;
 }
 
@@ -54,6 +92,9 @@ export interface HistoryViewModel {
   changeMarker: string | null;
   deltaSummary: string | null;
   stateSummaryText: string | null;
+  // B1a additions
+  previousSummary: string | null;
+  lastSnapshotAt: number | null;
 }
 
 export interface WorkspaceViewModel {
@@ -73,16 +114,49 @@ export interface WorkspaceViewModel {
     timingData: unknown;
     sessionData: unknown;
     sourceStats: unknown;
+    entitySnapshots: unknown;
   };
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 // ─── Auto-snapshot helpers ───────────────────────────────────────────────────
 
 /** Derive a lightweight state hash for dedup (avoids writing identical snapshots) */
-function deriveStateHash(stance: string | null, changeMarker: string | null, alertSeverity: string | null, timingBias: string | null): string {
+function deriveStateHash(
+  stance: string | null,
+  changeMarker: string | null,
+  alertSeverity: string | null,
+  timingBias: string | null
+): string {
   return `${stance ?? ""}|${changeMarker ?? ""}|${alertSeverity ?? ""}|${timingBias ?? ""}`;
+}
+
+/** Build timingSummary string from timing data fields */
+function buildTimingSummaryText(timingData: unknown): string | null {
+  const d = timingData as any;
+  if (!d?.available) return null;
+  const parts: string[] = [];
+  if (d.entity) parts.push(`[${d.entity}]`);
+  if (d.readiness_state) parts.push(`Readiness: ${d.readiness_state}.`);
+  if (d.action_bias) parts.push(`Action: ${d.action_bias}.`);
+  if (d.timing_risk) parts.push(`Risk: ${d.timing_risk}.`);
+  if (d.confirmation_state) parts.push(`Confirmation: ${d.confirmation_state}.`);
+  if (d.no_action_reason) parts.push(`Note: ${d.no_action_reason}`);
+  return parts.length > 0 ? parts.join(" ") : null;
+}
+
+/** Extract top 2 key alerts for quick display */
+function extractKeyAlerts(entityAlerts: unknown): KeyAlert[] {
+  const d = entityAlerts as any;
+  if (!d?.alerts || !Array.isArray(d.alerts)) return [];
+  const SEVERITY_ORDER: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+  return [...d.alerts]
+    .sort((a: any, b: any) => (SEVERITY_ORDER[b.severity] ?? 0) - (SEVERITY_ORDER[a.severity] ?? 0))
+    .slice(0, 2)
+    .map((a: any) => ({
+      type: a.type ?? "unknown",
+      severity: a.severity ?? "low",
+      message: a.message ?? "",
+    }));
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -105,6 +179,12 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
     { entity, timeframe: "mid" },
     { refetchInterval: 60_000, staleTime: 30_000 }
+  );
+
+  // ── Layer 1b: Entity snapshots (for lastSnapshotAt) ───────────────────────
+  const { data: entitySnapshots } = trpc.market.getEntitySnapshots.useQuery(
+    { entityKey: entity, limit: 1 },
+    { staleTime: 60_000 }
   );
 
   // ── Layer 2: Alert (depends on gate + semantic) ───────────────────────────
@@ -174,16 +254,12 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   }, [sessionKey]);
 
   // ── Auto-snapshot trigger (L21.2A) ───────────────────────────────────────
-  // Only fires when: session is entity type, focusKey is set, thesis data is available
-  // Dedup strategy: focusKey + state hash — skips write if identical to last written hash
   const saveSnapshotMutation = trpc.market.saveEntitySnapshot.useMutation();
   const lastSnapshotHashRef = useRef<string>("");
   const lastSnapshotEntityRef = useRef<string>("");
 
   useEffect(() => {
-    // Guard: only entity sessions with a real focusKey
     if (!currentSession || currentSession.sessionType !== "entity" || !entity) return;
-    // Guard: need at least thesis data to write a meaningful snapshot
     const stance = (thesisData as any)?.stance ?? null;
     const changeMarker = (thesisData as any)?.change_marker ?? null;
     if (!stance && !changeMarker) return;
@@ -192,7 +268,6 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     const timingBias = (timingData as any)?.action_bias ?? null;
     const stateHash = deriveStateHash(stance, changeMarker, alertSeverity, timingBias);
 
-    // Dedup: skip if same entity + same hash as last written
     if (entity === lastSnapshotEntityRef.current && stateHash === lastSnapshotHashRef.current) return;
 
     lastSnapshotEntityRef.current = entity;
@@ -226,21 +301,46 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   // ── View Model Assembly ───────────────────────────────────────────────────
   const isLoading = !gateStats && !semanticStats;
 
+  // Derived values used across multiple view models
+  const stance = (thesisData as any)?.stance ?? null;
+  const changeMarker = (thesisData as any)?.change_marker ?? null;
+  const readinessState = (timingData as any)?.readiness_state ?? null;
+  const actionBias = (timingData as any)?.action_bias ?? null;
+  const highestSeverity = (entityAlerts as any)?.highest_severity ?? null;
+  const lastSnapshotAt = (entitySnapshots as any)?.snapshots?.[0]?.snapshotTime ?? null;
+
   const headerViewModel = useMemo<HeaderViewModel>(() => ({
+    // Identity
     entity,
+    sessionType: currentSession?.sessionType ?? null,
+    // Decision signals
+    stance,
+    readinessState,
+    actionBias,
+    highestSeverity,
+    changeMarker,
+    lastSnapshotAt,
+    // Protocol layer (legacy)
     sourceRouterStatus: (sourceStats as any)?.selection_available
       ? ((sourceStats as any)?.top_source ?? "ONLINE")
       : "ONLINE",
     evidenceScore: (gateStats as any)?.evidence_score ?? null,
     confidenceAvg: (semanticStats as any)?.confidence_score ?? null,
     protocolDirection: (semanticStats as any)?.dominant_direction ?? "unavailable",
-  }), [entity, sourceStats, gateStats, semanticStats]);
+    advisoryOnly: true,
+  }), [entity, currentSession?.sessionType, stance, readinessState, actionBias, highestSeverity, changeMarker, lastSnapshotAt, sourceStats, gateStats, semanticStats]);
 
   const thesisViewModel = useMemo<ThesisViewModel>(() => ({
     available: !!(thesisData as any)?.available,
     stance: (thesisData as any)?.stance ?? null,
     fragility: (thesisData as any)?.fragility ?? null,
+    fragilityScore: (thesisData as any)?.fragility_score ?? null,
     changeMarker: (thesisData as any)?.change_marker ?? null,
+    // B1a additions
+    evidenceState: (thesisData as any)?.evidence_state ?? null,
+    gateState: (thesisData as any)?.gate_state ?? null,
+    sourceState: (thesisData as any)?.source_state ?? null,
+    stateSummaryText: (thesisData as any)?.state_summary_text ?? null,
     advisoryOnly: (thesisData as any)?.advisory_only ?? true,
   }), [thesisData]);
 
@@ -249,14 +349,19 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     readinessState: (timingData as any)?.readiness_state ?? null,
     actionBias: (timingData as any)?.action_bias ?? null,
     timingRisk: (timingData as any)?.timing_risk ?? null,
+    // B1a additions
+    confirmationState: (timingData as any)?.confirmation_state ?? null,
+    timingSummary: buildTimingSummaryText(timingData),
     advisoryOnly: (timingData as any)?.advisory_only ?? true,
   }), [timingData]);
 
   const alertViewModel = useMemo<AlertViewModel>(() => ({
-    available: !!(entityAlerts as any)?.alert_count !== undefined,
+    available: (entityAlerts as any)?.alert_count !== undefined,
     alertCount: (entityAlerts as any)?.alert_count ?? 0,
     highestSeverity: (entityAlerts as any)?.highest_severity ?? null,
     summaryText: (entityAlerts as any)?.summary_text ?? null,
+    // B1a addition: top 2 key alerts for quick display
+    keyAlerts: extractKeyAlerts(entityAlerts),
     advisoryOnly: (entityAlerts as any)?.advisory_only ?? true,
   }), [entityAlerts]);
 
@@ -265,7 +370,10 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     changeMarker: (sessionData as any)?.change_marker ?? null,
     deltaSummary: (sessionData as any)?.delta_summary ?? null,
     stateSummaryText: (sessionData as any)?.current_snapshot?.state_summary_text ?? null,
-  }), [sessionData]);
+    // B1a additions
+    previousSummary: (sessionData as any)?.previous_snapshot?.state_summary_text ?? null,
+    lastSnapshotAt,
+  }), [sessionData, lastSnapshotAt]);
 
   return {
     entity,
@@ -283,6 +391,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
       timingData,
       sessionData,
       sourceStats,
+      entitySnapshots,
     },
   };
 }

@@ -2849,3 +2849,14 @@
 - [x] 实现防重复去重策略（基于 focusKey + state hash）
 - [x] SessionRail StanceBadge 改为优先从 entity_snapshots 读取，fallback 到 thesisViewModel.stance
 - [x] 回归测试验证自动快照触发和防重复逻辑（18 个测试全部通过）
+
+## Workspace v2.1-B1a 主脊柱前置包（Manus Direct）
+
+- [x] 扩展 HeaderViewModel（+5 字段：sessionType / stance / readinessState / actionBias / highestSeverity / changeMarker / lastSnapshotAt）
+- [x] 扩展 ThesisViewModel（+4 字段：evidenceState / gateState / sourceState / stateSummaryText）
+- [x] 扩展 TimingViewModel（+2 字段：confirmationState / timingSummary）
+- [x] 扩展 AlertViewModel（+1 字段：keyAlerts 精简列表）
+- [x] 扩展 HistoryViewModel（+2 字段：previousSummary / lastSnapshotAt）
+- [x] 移除 TerminalEntry 中 7 个重复 market 查询（getSourceSelectionStats / getOutputGateStats / getSemanticStats / evaluateEntityAlerts / getEntityThesisState / getExecutionTiming + getSessionHistory mutation）
+- [x] 保留 TerminalEntry 中必要的独立 query（basketData / compData / basketAlerts），说明保留原因
+- [x] TSC 验证（0 errors） + 回归测试（19 个全部通过）

@@ -11,6 +11,7 @@ import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { useActiveFocusKey } from "@/contexts/WorkspaceContext";
 import { SessionRail } from "@/components/SessionRail";
+import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 
@@ -318,19 +319,21 @@ export default function TerminalEntry() {
   const workspaceFocusKey = useActiveFocusKey();
   const rpcLastTicker: string = (rpaConfig as any)?.lastTicker ?? "AAPL";
   const activeEntity: string = workspaceFocusKey !== "AAPL" ? workspaceFocusKey : rpcLastTicker;
-  // [Level13.1B] Source Router live data — OI-L13-001
-  const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
-    { entity: activeEntity },
-    { refetchInterval: 60_000, staleTime: 30_000 }
-  );
-  const sourceRouterStatus = sourceStats?.selection_available
-    ? (sourceStats?.top_source ?? "ONLINE")
-    : "ONLINE";
-  // [Level13.2B] Output Gate live data — OI-L13-002
-  const { data: gateStats } = trpc.market.getOutputGateStats.useQuery(
-    undefined,
-    { refetchInterval: 60_000, staleTime: 30_000 }
-  );
+  // [B1a] All entity-level analytical data now comes from useWorkspaceViewModel (single adapter).
+  // Removed 7 duplicate market queries: getSourceSelectionStats / getOutputGateStats /
+  // getSemanticStats / evaluateEntityAlerts / getEntityThesisState / getExecutionTiming /
+  // getSessionHistory — all consumed via vm.raw.* or vm.*ViewModel below.
+  // Retained: analyzeBasket / compareEntities / evaluateBasketAlerts (basket-specific, not in adapter).
+  const vm = useWorkspaceViewModel();
+  const { raw } = vm;
+  const sourceStats = raw.sourceStats as any;
+  const gateStats = raw.gateStats as any;
+  const semanticStats = raw.semanticStats as any;
+  const entityAlerts = raw.entityAlerts as any;
+  const timingData = raw.timingData as any;
+  const thesisData = raw.thesisData as any;
+  const sessionData = raw.sessionData as any;
+  const sourceRouterStatus = vm.headerViewModel.sourceRouterStatus;
   // [Level15.1A] Comparison Panel state — OI-L15-002
   // [Level16.1A] Basket Analysis state — OI-L16-002
   const BASKET_SLOTS = 5;
@@ -384,78 +387,13 @@ export default function TerminalEntry() {
     const b = compInputB.trim().toUpperCase();
     if (a && b) { setCompA(a); setCompB(b); }
   };
-  // [Level12.10] Protocol Layer live data — OI-L12-010
-  const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
-    { entity: activeEntity, timeframe: "mid" },
-    { refetchInterval: 60_000, staleTime: 30_000 }
-  );
-  // [Level17.1A] Alert Engine Phase 1 queries — OI-L17-002
-  const alertGateInput = gateStats ? {
-    entity: activeEntity,
-    gate_passed: gateStats.gate_passed ?? true,
-    is_synthetic_fallback: false,
-    evidence_score: gateStats.evidence_score ?? null,
-    semantic_fragility: (semanticStats as any)?.fragility_score ?? null,
-  } : null;
-  const { data: entityAlerts } = trpc.market.evaluateEntityAlerts.useQuery(
-    { entity: activeEntity, gateResult: alertGateInput, sourceResult: null },
-    { staleTime: 60_000 }
-  );
+  // [B1a] Protocol Layer + Alert Engine data now from vm.raw (no duplicate queries).
   const { data: basketAlerts } = trpc.market.evaluateBasketAlerts.useQuery(
     { portfolioResult: basketData?.available ? basketData : null },
     { enabled: !!basketData?.available, staleTime: 60_000 }
   );
 
-  // [L21.1A] Panel J — Execution Timing (Level 19.0C)
-  const { data: timingData } = trpc.market.getExecutionTiming.useQuery(
-    {
-      input: {
-        entity: activeEntity,
-        thesisState: null,
-        alertSummary: entityAlerts ?? null,
-        gateResult: alertGateInput,
-        semanticStats: semanticStats ?? null,
-        experienceOutput: null,
-      }
-    },
-    { staleTime: 60_000 }
-  );
-  // [L21.1A] Panel K — Thesis State (Level 18.0C)
-  const { data: thesisData } = trpc.market.getEntityThesisState.useQuery(
-    {
-      input: {
-        entity: activeEntity,
-        semantic_stats: semanticStats ?? null,
-        gate_result: alertGateInput,
-        source_result: null, // sourceStats is a summary object (no selected_sources), not a full SourceSelectionResult
-        alert_summary: entityAlerts ?? null,
-      }
-    },
-    { staleTime: 60_000 }
-  );
-  // [L21.1A] Panel L — Session History (Level 20.0C)
-  const sessionHistoryMutation = trpc.market.getSessionHistory.useMutation();
-  const [sessionData, setSessionData] = React.useState<typeof sessionHistoryMutation.data>(undefined);
-  // Trigger session history mutation when thesis/alert/timing data are ready
-  const sessionHistoryKey = `${activeEntity}|${thesisData?.entity ?? ""}|${entityAlerts?.alert_count ?? 0}|${timingData?.readiness_state ?? ""}`;
-  const lastSessionKeyRef = React.useRef("");
-  useEffect(() => {
-    if (sessionHistoryKey !== lastSessionKeyRef.current) {
-      lastSessionKeyRef.current = sessionHistoryKey;
-      sessionHistoryMutation.mutate(
-        {
-          current: {
-            thesisState: thesisData ?? null,
-            alertSummary: entityAlerts ?? null,
-            timingResult: timingData ?? null,
-          },
-          previous: null,
-        },
-        { onSuccess: (data) => setSessionData(data) }
-      );
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionHistoryKey]);
+  // [B1a] Timing / Thesis / Session History data now from vm.raw (no duplicate queries).
 
   const [bootDone, setBootDone] = useState(false);
 

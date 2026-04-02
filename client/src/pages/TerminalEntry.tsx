@@ -400,6 +400,46 @@ export default function TerminalEntry() {
     { enabled: !!basketData?.available, staleTime: 60_000 }
   );
 
+  // [L21.1A] Panel J — Execution Timing (Level 19.0C)
+  const { data: timingData } = trpc.market.getExecutionTiming.useQuery(
+    {
+      input: {
+        entity: activeEntity,
+        thesisState: null,
+        alertSummary: entityAlerts ?? null,
+        gateResult: alertGateInput,
+        semanticStats: semanticStats ?? null,
+        experienceOutput: null,
+      }
+    },
+    { staleTime: 60_000 }
+  );
+  // [L21.1A] Panel K — Thesis State (Level 18.0C)
+  const { data: thesisData } = trpc.market.getEntityThesisState.useQuery(
+    {
+      input: {
+        entity: activeEntity,
+        semantic_stats: semanticStats ?? null,
+        gate_result: alertGateInput,
+        source_result: sourceStats ?? null,
+        alert_summary: entityAlerts ?? null,
+      }
+    },
+    { staleTime: 60_000 }
+  );
+  // [L21.1A] Panel L — Session History (Level 20.0C)
+  const { data: sessionData } = trpc.market.getSessionHistory.useQuery(
+    {
+      current: {
+        thesisState: thesisData ?? null,
+        alertSummary: entityAlerts ?? null,
+        timingResult: timingData ?? null,
+      },
+      previous: null,
+    },
+    { staleTime: 60_000 }
+  );
+
   const [bootDone, setBootDone] = useState(false);
 
   // Boot sequence — 1.2s then show full page
@@ -816,6 +856,99 @@ export default function TerminalEntry() {
           </div>
         )}
 
+        {/* J: Timing Panel — L21.1A / Level 19.0C */}
+        {timingData?.available && (
+          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(99,102,241,0.3)" }}>
+            <div className="te-panel-header">
+              <span className="te-panel-label">TIMING</span>
+              <span style={{
+                fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                background: timingData.readiness_state === "ready" ? "#14532d" : timingData.readiness_state === "conditional" ? "#451a03" : "#1e293b",
+                color: timingData.readiness_state === "ready" ? "#86efac" : timingData.readiness_state === "conditional" ? "#fbbf24" : "#94a3b8",
+                border: `1px solid ${timingData.readiness_state === "ready" ? "#16a34a" : timingData.readiness_state === "conditional" ? "#d97706" : "#334155"}`,
+
+              }}>{(timingData.readiness_state ?? "unknown").toUpperCase()}</span>
+            </div>
+            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace" }}>ACTION BIAS</span>
+                <span style={{
+                  fontSize: "9px", fontFamily: "monospace", padding: "1px 6px", borderRadius: "2px",
+                  background: timingData.action_bias === "BUY" ? "#14532d" : timingData.action_bias === "AVOID" ? "#7f1d1d" : timingData.action_bias === "HOLD" ? "#1e3a5f" : "#1e293b",
+                  color: timingData.action_bias === "BUY" ? "#86efac" : timingData.action_bias === "AVOID" ? "#fca5a5" : timingData.action_bias === "HOLD" ? "#93c5fd" : "#94a3b8",
+                  border: `1px solid ${timingData.action_bias === "BUY" ? "#16a34a" : timingData.action_bias === "AVOID" ? "#ef4444" : timingData.action_bias === "HOLD" ? "#3b82f6" : "#334155"}`,
+                  fontWeight: 600,
+                }}>{timingData.action_bias ?? "NONE"}</span>
+                {timingData.timing_risk != null && (
+                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>RISK {timingData.timing_risk.toUpperCase()}</span>
+                )}
+              </div>
+              {timingData.timing_summary && (
+                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{timingData.timing_summary}</div>
+              )}
+            </div>
+          </div>
+        )}
+        {/* K: Thesis State Panel — L21.1A / Level 18.0C */}
+        {thesisData?.available && (
+          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(168,85,247,0.3)" }}>
+            <div className="te-panel-header">
+              <span className="te-panel-label">THESIS STATE</span>
+              <span style={{
+                fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                background: thesisData.current_stance === "bullish" ? "#14532d" : thesisData.current_stance === "bearish" ? "#7f1d1d" : thesisData.current_stance === "neutral" ? "#1e3a5f" : "#1e293b",
+                color: thesisData.current_stance === "bullish" ? "#86efac" : thesisData.current_stance === "bearish" ? "#fca5a5" : thesisData.current_stance === "neutral" ? "#93c5fd" : "#94a3b8",
+                border: `1px solid ${thesisData.current_stance === "bullish" ? "#16a34a" : thesisData.current_stance === "bearish" ? "#ef4444" : thesisData.current_stance === "neutral" ? "#3b82f6" : "#334155"}`,
+              }}>{(thesisData.current_stance ?? "unavailable").toUpperCase()}</span>
+            </div>
+            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+              <div style={{ display: "flex", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
+                {thesisData.evidence_state && (
+                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>EVD <span style={{ color: "#94a3b8" }}>{thesisData.evidence_state}</span></span>
+                )}
+                {thesisData.gate_state && (
+                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>GATE <span style={{ color: "#94a3b8" }}>{thesisData.gate_state}</span></span>
+                )}
+                {thesisData.source_state && (
+                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>SRC <span style={{ color: "#94a3b8" }}>{thesisData.source_state}</span></span>
+                )}
+              </div>
+              {thesisData.thesis_change_marker && thesisData.thesis_change_marker !== "stable" && thesisData.thesis_change_marker !== "unknown" && (
+                <div style={{ marginBottom: "5px" }}>
+                  <span style={{
+                    fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                    background: "#1e293b", border: "1px solid #334155", color: "#fbbf24",
+                  }}>{thesisData.thesis_change_marker.replace(/_/g, " ").toUpperCase()}</span>
+                </div>
+              )}
+              {thesisData.state_summary_text && (
+                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{thesisData.state_summary_text}</div>
+              )}
+            </div>
+          </div>
+        )}
+        {/* L: Session History Panel — L21.1A / Level 20.0C */}
+        {sessionData?.available && (
+          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(20,184,166,0.3)" }}>
+            <div className="te-panel-header">
+              <span className="te-panel-label">SESSION HISTORY</span>
+              {sessionData.change_marker && sessionData.change_marker !== "stable" && sessionData.change_marker !== "first_observation" && (
+                <span style={{
+                  fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
+                  background: "#1e293b", border: "1px solid #334155", color: "#2dd4bf",
+                }}>{sessionData.change_marker.replace(/_/g, " ").toUpperCase()}</span>
+              )}
+            </div>
+            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
+              {sessionData.delta_summary && (
+                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6, marginBottom: "5px" }}>{sessionData.delta_summary}</div>
+              )}
+              {sessionData.current_snapshot?.state_summary_text && (
+                <div style={{ fontSize: "9px", color: "#334155", fontFamily: "monospace", lineHeight: 1.6 }}>{sessionData.current_snapshot.state_summary_text}</div>
+              )}
+            </div>
+          </div>
+        )}
         {/* F: Command Strip */}
         <CommandStrip />
       </div>

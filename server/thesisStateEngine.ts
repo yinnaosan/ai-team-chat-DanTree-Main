@@ -203,19 +203,19 @@ function deriveSourceState(
   if (!sourceResult) return { state: "unavailable", topSource: null };
 
   const selected = sourceResult.selected_sources;
-  if (selected.length === 0) return { state: "unavailable", topSource: null };
+  if (!selected || selected.length === 0) return { state: "unavailable", topSource: null };
 
   const topSource = selected[0].source_name;
 
   // Check for any degraded/error routes
   const badHealth: SourceHealth[] = ["degraded", "error"];
-  const hasIssue = sourceResult.route_results.some((r) =>
+  const routeResults = sourceResult.route_results ?? [];
+  const hasIssue = routeResults.some((r) =>
     badHealth.includes(r.health)
   );
-  const allBad = sourceResult.route_results.every((r) =>
+  const allBad = routeResults.length > 0 && routeResults.every((r) =>
     badHealth.includes(r.health)
   );
-
   const state: SourceState = allBad ? "degraded" : hasIssue ? "degraded" : "healthy";
   return { state, topSource };
 }

@@ -6034,7 +6034,9 @@ except Exception as e:
         }),
         previous: z.any().nullable().optional(),
       }))
-      .query(async ({ input }) => {
+      // NOTE: Using mutation (POST) instead of query (GET) to avoid 414 URI Too Large
+      // when large alertSummary/timingResult objects are passed as URL parameters.
+      .mutation(async ({ input }) => {
         const { buildThesisTimelineSnapshot, buildSessionHistoryResult } = await import("./sessionHistoryEngine");
         const currentSnapshot = buildThesisTimelineSnapshot({
           entity: (input.current.thesisState as any)?.entity ?? "UNKNOWN",
@@ -6057,7 +6059,8 @@ except Exception as e:
         }),
         previous: z.any().nullable().optional(),
       }))
-      .query(async ({ input }) => {
+      // NOTE: Using mutation (POST) to avoid 414 URI Too Large with large input objects.
+      .mutation(async ({ input }) => {
         const { buildBasketTimelineSnapshot, buildBasketHistoryResult } = await import("./sessionHistoryEngine");
         const currentSnapshot = buildBasketTimelineSnapshot({
           entities: (input.current.basketThesisState as any)?.entities ?? [],

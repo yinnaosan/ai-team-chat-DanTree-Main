@@ -421,24 +421,35 @@ export default function TerminalEntry() {
         entity: activeEntity,
         semantic_stats: semanticStats ?? null,
         gate_result: alertGateInput,
-        source_result: sourceStats ?? null,
+        source_result: null, // sourceStats is a summary object (no selected_sources), not a full SourceSelectionResult
         alert_summary: entityAlerts ?? null,
       }
     },
     { staleTime: 60_000 }
   );
   // [L21.1A] Panel L — Session History (Level 20.0C)
-  const { data: sessionData } = trpc.market.getSessionHistory.useQuery(
-    {
-      current: {
-        thesisState: thesisData ?? null,
-        alertSummary: entityAlerts ?? null,
-        timingResult: timingData ?? null,
-      },
-      previous: null,
-    },
-    { staleTime: 60_000 }
-  );
+  const sessionHistoryMutation = trpc.market.getSessionHistory.useMutation();
+  const [sessionData, setSessionData] = React.useState<typeof sessionHistoryMutation.data>(undefined);
+  // Trigger session history mutation when thesis/alert/timing data are ready
+  const sessionHistoryKey = `${activeEntity}|${thesisData?.entity ?? ""}|${entityAlerts?.alert_count ?? 0}|${timingData?.readiness_state ?? ""}`;
+  const lastSessionKeyRef = React.useRef("");
+  useEffect(() => {
+    if (sessionHistoryKey !== lastSessionKeyRef.current) {
+      lastSessionKeyRef.current = sessionHistoryKey;
+      sessionHistoryMutation.mutate(
+        {
+          current: {
+            thesisState: thesisData ?? null,
+            alertSummary: entityAlerts ?? null,
+            timingResult: timingData ?? null,
+          },
+          previous: null,
+        },
+        { onSuccess: (data) => setSessionData(data) }
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionHistoryKey]);
 
   const [bootDone, setBootDone] = useState(false);
 

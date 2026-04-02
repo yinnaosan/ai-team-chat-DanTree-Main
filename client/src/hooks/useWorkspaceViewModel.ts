@@ -13,7 +13,7 @@
  */
 import { useState, useEffect, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { useActiveFocusKey } from "@/contexts/WorkspaceContext";
+import { useActiveFocusKey, useWorkspace } from "@/contexts/WorkspaceContext";
 
 // ─── View Model Types ─────────────────────────────────────────────────────────
 
@@ -78,8 +78,18 @@ export interface WorkspaceViewModel {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+// ─── Auto-snapshot helpers ───────────────────────────────────────────────────
+
+/** Derive a lightweight state hash for dedup (avoids writing identical snapshots) */
+function deriveStateHash(stance: string | null, changeMarker: string | null, alertSeverity: string | null, timingBias: string | null): string {
+  return `${stance ?? ""}|${changeMarker ?? ""}|${alertSeverity ?? ""}|${timingBias ?? ""}`;
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
 export function useWorkspaceViewModel(): WorkspaceViewModel {
   const entity = useActiveFocusKey();
+  const { currentSession } = useWorkspace();
 
   // ── Layer 1: Independent queries ──────────────────────────────────────────
   const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
@@ -162,6 +172,56 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionKey]);
+
+  // ── Auto-snapshot trigger (L21.2A) ───────────────────────────────────────
+  // Only fires when: session is entity type, focusKey is set, thesis data is available
+  // Dedup strategy: focusKey + state hash — skips write if identical to last written hash
+  const saveSnapshotMutation = trpc.market.saveEntitySnapshot.useMutation();
+  const lastSnapshotHashRef = useRef<string>("");
+  const lastSnapshotEntityRef = useRef<string>("");
+
+  useEffect(() => {
+    // Guard: only entity sessions with a real focusKey
+    if (!currentSession || currentSession.sessionType !== "entity" || !entity) return;
+    // Guard: need at least thesis data to write a meaningful snapshot
+    const stance = (thesisData as any)?.stance ?? null;
+    const changeMarker = (thesisData as any)?.change_marker ?? null;
+    if (!stance && !changeMarker) return;
+
+    const alertSeverity = (entityAlerts as any)?.highest_severity ?? null;
+    const timingBias = (timingData as any)?.action_bias ?? null;
+    const stateHash = deriveStateHash(stance, changeMarker, alertSeverity, timingBias);
+
+    // Dedup: skip if same entity + same hash as last written
+    if (entity === lastSnapshotEntityRef.current && stateHash === lastSnapshotHashRef.current) return;
+
+    lastSnapshotEntityRef.current = entity;
+    lastSnapshotHashRef.current = stateHash;
+
+    saveSnapshotMutation.mutate({
+      entityKey: entity,
+      thesisStance: stance,
+      thesisChangeMarker: changeMarker,
+      alertSeverity,
+      timingBias,
+      sourceHealth: (sourceStats as any)?.selection_available ? "available" : "unavailable",
+      changeMarker: changeMarker ?? "no_change",
+      stateSummaryText: [
+        stance ? `Stance: ${stance}` : null,
+        changeMarker ? `Change: ${changeMarker}` : null,
+        alertSeverity ? `Alert: ${alertSeverity}` : null,
+        timingBias ? `Timing: ${timingBias}` : null,
+      ].filter(Boolean).join(" | ") || "No significant state",
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    entity,
+    currentSession?.sessionType,
+    (thesisData as any)?.stance,
+    (thesisData as any)?.change_marker,
+    (entityAlerts as any)?.highest_severity,
+    (timingData as any)?.action_bias,
+  ]);
 
   // ── View Model Assembly ───────────────────────────────────────────────────
   const isLoading = !gateStats && !semanticStats;

@@ -184,12 +184,14 @@ interface SessionItemProps {
 function SessionItem({ session, isActive, onSelect, onPin }: SessionItemProps) {
   const [hovered, setHovered] = useState(false);
 
-  // Try to get thesisStance from entity snapshots
+  // Try to get thesisStance from entity snapshots (L21.2A: auto-snapshot writes here)
+  // Fallback chain: entity_snapshots.thesisStance → null (renders as "unavailable")
   const { data: snapshots } = trpc.market.getEntitySnapshots.useQuery(
     { entityKey: session.focusKey, limit: 1 },
-    { staleTime: 120_000, enabled: session.sessionType === "entity" }
+    { staleTime: 60_000, enabled: session.sessionType === "entity" }
   );
-  const latestStance = (snapshots as any)?.[0]?.thesisStance ?? null;
+  // snapshots is { snapshots: [...], count: N } per the route shape
+  const latestStance = (snapshots as any)?.snapshots?.[0]?.thesisStance ?? null;
 
   return (
     <div

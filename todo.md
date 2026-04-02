@@ -2843,3 +2843,9 @@
 - [x] 回归测试：workspace.test.ts（19 个测试全部通过）
 - [x] Bug Fix：deriveSourceState undefined.length（thesisStateEngine.ts null 防御）
 - [x] Bug Fix：getSessionHistory/getBasketHistory 414 URI Too Large（改为 mutation POST）
+
+## L21.2A 自动快照小包（Manus Direct）
+- [x] 在 useWorkspaceViewModel 中添加自动快照触发逻辑（仅 entity session + 有效 focusKey）
+- [x] 实现防重复去重策略（基于 focusKey + state hash）
+- [x] SessionRail StanceBadge 改为优先从 entity_snapshots 读取，fallback 到 thesisViewModel.stance
+- [x] 回归测试验证自动快照触发和防重复逻辑（18 个测试全部通过）

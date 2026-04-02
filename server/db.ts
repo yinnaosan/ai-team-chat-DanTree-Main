@@ -5,6 +5,7 @@ import {
   accessCodes, userAccess, memoryContext, conversations, attachments, conversationGroups,
   InsertMessage, InsertTask, InsertDbConnection, InsertConversation, InsertAttachment,
   InsertConversationGroup, entitySnapshots, InsertEntitySnapshot,
+  workspaceSessions, InsertWorkspaceSession, WorkspaceSession,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1044,4 +1045,80 @@ export async function getLatestEntitySnapshot(entityKey: string) {
     .orderBy(desc(entitySnapshots.snapshotTime))
     .limit(1);
   return rows[0] ?? undefined;
+}
+
+// ─── Workspace Session Helpers (WORKSPACE_V2.1_A1) ───────────────────────────
+
+export type { WorkspaceSession };
+
+export async function createWorkspaceSession(
+  data: Omit<InsertWorkspaceSession, "id" | "createdAt" | "updatedAt" | "lastActiveAt">
+): Promise<WorkspaceSession> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  const row: InsertWorkspaceSession = {
+    ...data,
+    id,
+    createdAt: now,
+    updatedAt: now,
+    lastActiveAt: now,
+  };
+  await db.insert(workspaceSessions).values(row);
+  return row as WorkspaceSession;
+}
+
+export async function listWorkspaceSessions(userId: number): Promise<WorkspaceSession[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(workspaceSessions)
+    .where(eq(workspaceSessions.userId, userId))
+    .orderBy(
+      // pinned first, then by lastActiveAt desc
+      desc(workspaceSessions.pinned),
+      desc(workspaceSessions.lastActiveAt)
+    );
+}
+
+export async function setActiveWorkspaceSession(id: string, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const now = Date.now();
+  await db
+    .update(workspaceSessions)
+    .set({ lastActiveAt: now, updatedAt: now })
+    .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
+}
+
+export async function updateWorkspaceSessionTitle(id: string, userId: number, title: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const now = Date.now();
+  await db
+    .update(workspaceSessions)
+    .set({ title, updatedAt: now })
+    .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
+}
+
+export async function togglePinWorkspaceSession(id: string, userId: number, pinned: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const now = Date.now();
+  await db
+    .update(workspaceSessions)
+    .set({ pinned, updatedAt: now })
+    .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
+}
+
+export async function toggleFavoriteWorkspaceSession(id: string, userId: number, favorite: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const now = Date.now();
+  await db
+    .update(workspaceSessions)
+    .set({ favorite, updatedAt: now })
+    .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
 }

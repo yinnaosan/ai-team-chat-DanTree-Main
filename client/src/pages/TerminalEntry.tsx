@@ -9,6 +9,8 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
+import { useActiveFocusKey } from "@/contexts/WorkspaceContext";
+import { SessionRail } from "@/components/SessionRail";
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 
@@ -311,7 +313,11 @@ export default function TerminalEntry() {
     staleTime: 30_000,
     enabled: !!user,
   });
-  const activeEntity: string = (rpaConfig as any)?.lastTicker ?? "AAPL";
+  // [WORKSPACE_V2.1_A1] Active entity driven by WorkspaceContext.currentSession.focusKey
+  // Falls back to rpaConfig.lastTicker → "AAPL" when no session is active.
+  const workspaceFocusKey = useActiveFocusKey();
+  const rpcLastTicker: string = (rpaConfig as any)?.lastTicker ?? "AAPL";
+  const activeEntity: string = workspaceFocusKey !== "AAPL" ? workspaceFocusKey : rpcLastTicker;
   // [Level13.1B] Source Router live data — OI-L13-001
   const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
     { entity: activeEntity },
@@ -489,8 +495,13 @@ export default function TerminalEntry() {
         </div>
       )}
 
-      {/* Main body */}
-      <div className={`te-body ${bootDone ? "visible" : ""}`}>
+      {/* Main body — with SessionRail on the left (WORKSPACE_V2.1_A1) */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
+        {/* Session Rail — left column, 200px */}
+        <SessionRail width={200} />
+
+        {/* Main content */}
+        <div className={`te-body ${bootDone ? "visible" : ""}`} style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
         {/* B: Hero Zone — left */}
         <div className="te-hero-zone">
           <div className="te-hero-left">
@@ -962,7 +973,8 @@ export default function TerminalEntry() {
         )}
         {/* F: Command Strip */}
         <CommandStrip />
-      </div>
+        </div>{/* end te-body */}
+      </div>{/* end flex wrapper */}
     </div>
   );
 }

@@ -6753,6 +6753,75 @@ except Exception as e:
   }),
 
   // ─── LEVEL8: Portfolio Persistence API ───────────────────────────────────────
+  // ─── Workspace Session Router (WORKSPACE_V2.1_A1) ─────────────────────────
+  workspace: router({
+    // Create a new workspace session for the authenticated user
+    createSession: protectedProcedure
+      .input(z.object({
+        title: z.string().min(1).max(100),
+        sessionType: z.enum(["entity", "basket", "theme", "compare", "explore"]).default("entity"),
+        focusKey: z.string().min(1).max(100),
+        focusType: z.enum(["ticker", "basket", "theme", "pair", "free"]).default("ticker"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { createWorkspaceSession } = await import("./db");
+        const session = await createWorkspaceSession({
+          userId: ctx.user.id,
+          title: input.title,
+          sessionType: input.sessionType,
+          focusKey: input.focusKey.toUpperCase(),
+          focusType: input.focusType,
+          pinned: false,
+          favorite: false,
+        });
+        return { success: true as const, session };
+      }),
+
+    // List all sessions for the authenticated user (pinned first, then by lastActiveAt desc)
+    listSessions: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { listWorkspaceSessions } = await import("./db");
+        const sessions = await listWorkspaceSessions(ctx.user.id);
+        return { sessions };
+      }),
+
+    // Mark a session as active (updates lastActiveAt)
+    setActive: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const { setActiveWorkspaceSession } = await import("./db");
+        await setActiveWorkspaceSession(input.sessionId, ctx.user.id);
+        return { success: true as const };
+      }),
+
+    // Update the title of a session
+    updateTitle: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(100) }))
+      .mutation(async ({ ctx, input }) => {
+        const { updateWorkspaceSessionTitle } = await import("./db");
+        await updateWorkspaceSessionTitle(input.sessionId, ctx.user.id, input.title);
+        return { success: true as const };
+      }),
+
+    // Toggle pin state
+    togglePin: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid(), pinned: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const { togglePinWorkspaceSession } = await import("./db");
+        await togglePinWorkspaceSession(input.sessionId, ctx.user.id, input.pinned);
+        return { success: true as const };
+      }),
+
+    // Toggle favorite state
+    toggleFavorite: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid(), favorite: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const { toggleFavoriteWorkspaceSession } = await import("./db");
+        await toggleFavoriteWorkspaceSession(input.sessionId, ctx.user.id, input.favorite);
+        return { success: true as const };
+      }),
+  }),
+
   portfolioDB: router({
     /** Get current portfolio (positions + latest snapshot) for the logged-in user */
     getMyPortfolio: protectedProcedure

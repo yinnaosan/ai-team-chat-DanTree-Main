@@ -826,3 +826,22 @@ export const entitySnapshots = mysqlTable("entity_snapshots", {
 });
 export type EntitySnapshot = typeof entitySnapshots.$inferSelect;
 export type InsertEntitySnapshot = typeof entitySnapshots.$inferInsert;
+
+// workspaceSessions: WORKSPACE_V2.1_A1 — Session Workspace System 骨架层
+// Stores user workspace sessions for cross-session context management.
+// Each session tracks a focus entity/basket and its analytical context.
+export const workspaceSessions = mysqlTable("workspace_sessions", {
+  id:             varchar("id", { length: 36 }).primaryKey(),
+  userId:         int("user_id").notNull(),
+  title:          varchar("title", { length: 100 }).notNull(),
+  sessionType:    varchar("session_type", { length: 20 }).notNull().default("entity"),
+  focusKey:       varchar("focus_key", { length: 100 }).notNull(),
+  focusType:      varchar("focus_type", { length: 20 }).notNull().default("ticker"),
+  pinned:         boolean("pinned").notNull().default(false),
+  favorite:       boolean("favorite").notNull().default(false),
+  createdAt:      bigintCol("created_at", { mode: "number" }).notNull(),
+  updatedAt:      bigintCol("updated_at", { mode: "number" }).notNull(),
+  lastActiveAt:   bigintCol("last_active_at", { mode: "number" }).notNull(),
+});
+export type WorkspaceSession = typeof workspaceSessions.$inferSelect;
+export type InsertWorkspaceSession = typeof workspaceSessions.$inferInsert;

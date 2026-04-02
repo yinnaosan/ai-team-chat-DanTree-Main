@@ -18,6 +18,7 @@ import LoopTelemetryDashboard from "./pages/LoopTelemetryDashboard";
 import PortfolioDashboard from "./pages/PortfolioDashboard";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
+import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 
 function Router() {
   return (
@@ -62,12 +63,14 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-          <PWAInstallBanner />
-          <GlobalCommandPalette />
-        </TooltipProvider>
+        <WorkspaceProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+            <PWAInstallBanner />
+            <GlobalCommandPalette />
+          </TooltipProvider>
+        </WorkspaceProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

@@ -2829,3 +2829,17 @@
 - [x] 重构 server/llmProviders.ts 使用 model_router
 - [x] 验证所有模型调用通过 router，无直接 hardcode
 - [x] 编写 model_router.test.ts 验证路由逻辑（9/9 通过）
+
+## Workspace v2.1-A1 骨架层（Session Workspace System）
+- [x] A-1a 后端骨架：workspace_sessions 表 schema 迁移（10 字段：id/userId/title/sessionType/focusKey/focusType/pinned/favorite/lastActiveAt/createdAt）
+- [x] A-1a 后端骨架：db helpers（createWorkspaceSession / listWorkspaceSessions / setActiveWorkspaceSession / updateWorkspaceSessionMeta）
+- [x] A-1a 后端骨架：workspace tRPC 路由（createSession / listSessions / setActive / updateTitle / togglePin / toggleFavorite）
+- [x] A-1b 前端骨架：WorkspaceContext.tsx（currentSession / sessions / setCurrentSession / createSession / pinSession / favoriteSession）
+- [x] A-1b 前端骨架：useWorkspaceViewModel.ts（Workspace Adapter hook，layered query chain，view-model slices）
+- [x] A-1b 前端骨架：App.tsx 注入 WorkspaceProvider
+- [x] A-1c 前端集成：SessionRail.tsx 组件（左侧 200px Session 导航栏，支持搜索/创建/选择/置顶/收藏/StanceBadge）
+- [x] A-1c 前端集成：TerminalEntry.tsx 导入 SessionRail + useActiveFocusKey，activeEntity 绑定到 currentSession.focusKey
+- [x] A-1c 前端集成：TerminalEntry 主布局改为 flex row（SessionRail 左列 + te-body 右列）
+- [x] 回归测试：workspace.test.ts（19 个测试全部通过）
+- [x] Bug Fix：deriveSourceState undefined.length（thesisStateEngine.ts null 防御）
+- [x] Bug Fix：getSessionHistory/getBasketHistory 414 URI Too Large（改为 mutation POST）

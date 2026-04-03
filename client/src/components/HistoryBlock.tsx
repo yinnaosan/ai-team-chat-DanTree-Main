@@ -1,13 +1,15 @@
 /**
- * HistoryBlock — DanTree Workspace v2.1-B1e v3
- * 统一设计系统：DS tokens + chipStyle factory
+ * HistoryBlock — DanTree Workspace v2.1-B2a
+ * 轻交互：前次摘要“查看更多/收起”
+ * ui-ux-pro-max: Financial Dashboard + hover/transition
  */
-import React from "react";
+import React, { useState } from "react";
 import type { HistoryViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
 
 interface HistoryBlockProps {
   vm: HistoryViewModel;
+  blockRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 function formatTs(ts: number | null | undefined): string {
@@ -30,15 +32,21 @@ function changeColor(marker: string | null | undefined): string {
   return DS.accent;
 }
 
-export function HistoryBlock({ vm }: HistoryBlockProps) {
+export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
+  const [showPrevious, setShowPrevious] = useState(false);
+  const [moreHovered, setMoreHovered] = useState(false);
+
   if (!vm.available) return null;
 
   const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "first_observation";
   const accentColor = DS.accent; // 青色系
+  const hasPrevious = !!vm.previousSummary;
 
   return (
     <div
+      id="block-history"
       data-block="history"
+      ref={blockRef as React.RefObject<HTMLDivElement>}
       style={{
         ...cardStyle,
         borderLeft: `2px solid ${accentColor}`,
@@ -55,7 +63,7 @@ export function HistoryBlock({ vm }: HistoryBlockProps) {
         borderBottom: `1px solid ${DS.border0}`,
         background: DS.surface2,
       }}>
-        <span style={sectionTitleStyle}>历史变化</span>
+        <span style={sectionTitleStyle}>History 历史变化</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: DS.sp2 }}>
           {showChange && vm.changeMarker && (
             <span style={{
@@ -82,7 +90,7 @@ export function HistoryBlock({ vm }: HistoryBlockProps) {
           color: DS.text2,
           lineHeight: 1.65,
           letterSpacing: "0.01em",
-          borderBottom: vm.stateSummaryText || vm.previousSummary ? `1px solid ${DS.border0}` : "none",
+          borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.deltaSummary}
         </div>
@@ -97,25 +105,64 @@ export function HistoryBlock({ vm }: HistoryBlockProps) {
           color: DS.text2,
           lineHeight: 1.65,
           letterSpacing: "0.01em",
-          borderBottom: vm.previousSummary ? `1px solid ${DS.border0}` : "none",
+          borderBottom: (hasPrevious) ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.stateSummaryText}
         </div>
       )}
 
-      {/* Previous snapshot */}
-      {vm.previousSummary && (
-        <div style={{ padding: `${DS.sp2} ${DS.sp4}` }}>
-          <div style={{ ...sectionTitleStyle, fontSize: "8px", marginBottom: DS.sp1 }}>上一快照</div>
-          <div style={{
-            fontFamily: DS.fontSans,
-            fontSize: "10px",
-            color: DS.text3,
-            lineHeight: 1.65,
-            letterSpacing: "0.01em",
-          }}>
-            {vm.previousSummary}
+      {/* Previous snapshot — 轻量“查看更多/收起” */}
+      {hasPrevious && (
+        <div>
+          {/* Toggle button */}
+          <div
+            role="button"
+            aria-expanded={showPrevious}
+            aria-label={showPrevious ? "收起前次快照" : "查看前次快照"}
+            onClick={() => setShowPrevious(p => !p)}
+            onMouseEnter={() => setMoreHovered(true)}
+            onMouseLeave={() => setMoreHovered(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: DS.sp1,
+              padding: `${DS.sp1} ${DS.sp4}`,
+              cursor: "pointer",
+              background: moreHovered ? DS.surface2 : "transparent",
+              transition: DS.transition,
+              borderTop: showPrevious ? `1px solid ${DS.border0}` : "none",
+            }}
+          >
+            <span style={{
+              fontFamily: DS.fontMono,
+              fontSize: "9px",
+              color: moreHovered ? DS.accent : DS.text3,
+              letterSpacing: "0.04em",
+              transition: DS.transition,
+            }}>
+              {showPrevious ? "▴ 收起前次快照" : "▾ 查看前次快照"}
+            </span>
           </div>
+
+          {/* Previous snapshot content */}
+          {showPrevious && (
+            <div style={{
+              padding: `${DS.sp2} ${DS.sp4} ${DS.sp3}`,
+              background: DS.surface3,
+              borderTop: `1px solid ${DS.border0}`,
+            }}>
+              <div style={{ ...sectionTitleStyle, fontSize: "8px", marginBottom: DS.sp1 }}>上一快照</div>
+              <div style={{
+                fontFamily: DS.fontSans,
+                fontSize: "10px",
+                color: DS.text3,
+                lineHeight: 1.65,
+                letterSpacing: "0.01em",
+              }}>
+                {vm.previousSummary}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

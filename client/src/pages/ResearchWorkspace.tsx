@@ -47,7 +47,9 @@ import { CycleEngineCard } from "@/components/CycleEngineCard";
 import { DecisionHistoryPanel } from "@/components/DecisionHistoryPanel";
 import { DecisionAnalyticsPanel } from "@/components/DecisionAnalyticsPanel";
 import { DecisionHeader } from "@/components/DecisionHeader";
+import type { ScrollToSection } from "@/components/DecisionHeader";
 import { DecisionSpine } from "@/components/DecisionSpine";
+import type { SpineBlockRefs } from "@/components/DecisionSpine";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
@@ -1611,9 +1613,34 @@ export default function ResearchWorkspacePage() {
   const sseRef = useRef<EventSource | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const column2Ref = useRef<HTMLDivElement>(null);
-  // ── Workspace ViewModel (B1d: 主脊柱数据层) ──
+  // ── Workspace ViewModel (B1d: 主脂柱数据层) ──
   const { currentSession } = useWorkspace();
   const vm = useWorkspaceViewModel();
+  // ── B2a: Spine block refs + scroll container ref ──
+  const spineScrollRef = useRef<HTMLDivElement>(null);
+  const thesisBlockRef = useRef<HTMLDivElement | null>(null);
+  const alertBlockRef = useRef<HTMLDivElement | null>(null);
+  const historyBlockRef = useRef<HTMLDivElement | null>(null);
+  const spineBlockRefs: SpineBlockRefs = {
+    thesis: thesisBlockRef,
+    alert: alertBlockRef,
+    history: historyBlockRef,
+  };
+  const handleScrollTo = useCallback((section: ScrollToSection) => {
+    const container = spineScrollRef.current;
+    if (!container) return;
+    const refMap: Record<ScrollToSection, React.RefObject<HTMLDivElement | null>> = {
+      thesis: thesisBlockRef,
+      alert: alertBlockRef,
+      history: historyBlockRef,
+    };
+    const target = refMap[section]?.current;
+    if (!target) return;
+    const containerTop = container.getBoundingClientRect().top;
+    const targetTop = target.getBoundingClientRect().top;
+    const offset = targetTop - containerTop + container.scrollTop - 8;
+    container.scrollTo({ top: offset, behavior: "smooth" });
+  }, []);
   // ── Data ───
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
@@ -2460,8 +2487,8 @@ export default function ResearchWorkspacePage() {
             </div>
           </div>
 
-          {/* B1e: DecisionHeader — 主脊柱决策栏（视觉顶层，sticky top） */}
-          <DecisionHeader vm={vm.headerViewModel} />
+          {/* B1e: DecisionHeader — 主脂柱决策栏（视觉顶层，sticky top） */}
+          <DecisionHeader vm={vm.headerViewModel} onScrollTo={handleScrollTo} />
           {/* DECISION STRIP — primary decision surface, above all analysis */}
           {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
             <DecisionStrip
@@ -2471,10 +2498,10 @@ export default function ResearchWorkspacePage() {
             />
           )}
           {/* Analysis panels — scrollable (support layer) */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* B1d: DecisionSpine — 主脊柱决策区（Thesis → Timing → Alert → History） */}
+          <div ref={spineScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* B1d: DecisionSpine — 主脂柱决策区（Thesis → Timing → Alert → History） */}
             {currentSession && (
-              <DecisionSpine vm={vm} />
+              <DecisionSpine vm={vm} blockRefs={spineBlockRefs} />
             )}
             {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
             <AIVerdictCard

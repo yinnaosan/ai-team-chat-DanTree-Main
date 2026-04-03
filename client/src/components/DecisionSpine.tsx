@@ -1,8 +1,9 @@
 /**
- * DecisionSpine — DanTree Workspace v2.1-B1e v3
+ * DecisionSpine — DanTree Workspace v2.1-B2a
  * 统一设计系统：DS tokens，纵向节奏容器
+ * 交互层：接收并转发 blockRefs，支持 DecisionHeader scroll-to-section 联动
  */
-import React from "react";
+import React, { useRef } from "react";
 import type { WorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS } from "@/lib/designSystem";
 import { ThesisBlock } from "./ThesisBlock";
@@ -10,12 +11,28 @@ import { TimingBlock } from "./TimingBlock";
 import { AlertBlock } from "./AlertBlock";
 import { HistoryBlock } from "./HistoryBlock";
 
-interface DecisionSpineProps {
-  vm: WorkspaceViewModel;
+export interface SpineBlockRefs {
+  thesis: React.RefObject<HTMLDivElement | null>;
+  alert: React.RefObject<HTMLDivElement | null>;
+  history: React.RefObject<HTMLDivElement | null>;
 }
 
-export function DecisionSpine({ vm }: DecisionSpineProps) {
+interface DecisionSpineProps {
+  vm: WorkspaceViewModel;
+  blockRefs?: SpineBlockRefs;
+}
+
+export function DecisionSpine({ vm, blockRefs }: DecisionSpineProps) {
   const { thesisViewModel, timingViewModel, alertViewModel, historyViewModel } = vm;
+
+  // Internal refs if not provided externally
+  const internalThesisRef = useRef<HTMLDivElement | null>(null);
+  const internalAlertRef = useRef<HTMLDivElement | null>(null);
+  const internalHistoryRef = useRef<HTMLDivElement | null>(null);
+
+  const thesisRef = blockRefs?.thesis ?? internalThesisRef;
+  const alertRef = blockRefs?.alert ?? internalAlertRef;
+  const historyRef = blockRefs?.history ?? internalHistoryRef;
 
   const hasAny =
     thesisViewModel.available ||
@@ -41,10 +58,10 @@ export function DecisionSpine({ vm }: DecisionSpineProps) {
       }}
     >
       {/* 固定顺序：Thesis → Timing → Alert → History */}
-      <ThesisBlock vm={thesisViewModel} />
+      <ThesisBlock vm={thesisViewModel} blockRef={thesisRef} />
       <TimingBlock vm={timingViewModel} />
-      <AlertBlock vm={alertViewModel} />
-      <HistoryBlock vm={historyViewModel} />
+      <AlertBlock vm={alertViewModel} blockRef={alertRef} />
+      <HistoryBlock vm={historyViewModel} blockRef={historyRef} />
     </div>
   );
 }

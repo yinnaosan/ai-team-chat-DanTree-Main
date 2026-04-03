@@ -1,14 +1,17 @@
 /**
- * DecisionHeader — DanTree B1c 视觉层
- * Apple/Tesla/NVIDIA 风格：克制、精密、高级感
+ * DecisionHeader — DanTree Workspace v2.1-B2a
+ * 交互层：点击 stance/readiness/bias chip 滚动到对应区块（方案 A）
  * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code 字体
- * sticky top + backdrop blur + 主次分明的状态栏
+ * sticky top + backdrop blur + hover/active 交互质感
  */
-import React from "react";
+import React, { useState } from "react";
 import type { HeaderViewModel } from "@/hooks/useWorkspaceViewModel";
+
+export type ScrollToSection = "thesis" | "alert" | "history";
 
 interface DecisionHeaderProps {
   vm: HeaderViewModel;
+  onScrollTo?: (section: ScrollToSection) => void;
 }
 
 // ─── 颜色系统（ui-ux-pro-max Financial Dashboard）───────────────────────────
@@ -39,40 +42,62 @@ const C = {
   // Session type
   sessionType: { bg: "rgba(30, 41, 59, 0.4)", text: "#475569", border: "rgba(51, 65, 85, 0.35)" },
 };
-
-// ─── Chip 组件 ─────────────────────────────────────────────────────────────
+// ─── Chip 组件（支持可点击交互）───────────────────────────────────────────────
 const Chip = ({
   label,
   s,
   size = "sm",
+  onClick,
+  title,
 }: {
   label: string;
   s: { bg: string; text: string; border: string };
   size?: "xs" | "sm";
-}) => (
-  <span
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      fontSize: size === "xs" ? "9px" : "10px",
-      fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-      fontWeight: 500,
-      padding: size === "xs" ? "1px 5px" : "2px 7px",
-      borderRadius: "3px",
-      background: s.bg,
-      color: s.text,
-      border: `1px solid ${s.border}`,
-      letterSpacing: "0.06em",
-      lineHeight: 1.4,
-      whiteSpace: "nowrap",
-      transition: "opacity 0.15s ease",
-    }}
-  >
-    {label}
-  </span>
-);
+  onClick?: () => void;
+  title?: string;
+}) => {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const isClickable = !!onClick;
 
-// ─── 格式化时间 ─────────────────────────────────────────────────────────────
+  return (
+    <span
+      role={isClickable ? "button" : undefined}
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => isClickable && setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setPressed(false); }}
+      onMouseDown={() => isClickable && setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        fontSize: size === "xs" ? "9px" : "10px",
+        fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+        fontWeight: 500,
+        padding: size === "xs" ? "1px 5px" : "2px 7px",
+        borderRadius: "3px",
+        background: s.bg,
+        color: s.text,
+        border: `1px solid ${s.border}`,
+        letterSpacing: "0.06em",
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+        transition: "opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease",
+        cursor: isClickable ? "pointer" : "default",
+        opacity: pressed ? 0.75 : 1,
+        transform: pressed ? "scale(0.96)" : hovered ? "scale(1.03)" : "scale(1)",
+        boxShadow: hovered && isClickable ? `0 0 6px ${s.border}` : "none",
+        userSelect: "none",
+      }}
+    >
+      {label}
+      {isClickable && (
+        <span style={{ marginLeft: "3px", opacity: 0.5, fontSize: "8px" }}>↓</span>
+      )}
+    </span>
+  );
+};// ─── 格式化时间 ─────────────────────────────────────────────────────────────
 const formatTs = (ts: number | null) => {
   if (!ts) return null;
   const d = new Date(ts);
@@ -85,9 +110,8 @@ const formatTs = (ts: number | null) => {
   if (diffH < 24) return `${diffH} 小时前`;
   return d.toLocaleDateString();
 };
-
-// ─── 主组件 ────────────────────────────────────────────────────────────────
-export function DecisionHeader({ vm }: DecisionHeaderProps) {
+// ─── 主组件 ──────────────────────────────────────────────────────────────────
+export function DecisionHeader({ vm, onScrollTo }: DecisionHeaderProps) {
   const stanceS =
     vm.stance === "bullish" ? C.bullish :
     vm.stance === "bearish" ? C.bearish :
@@ -166,7 +190,7 @@ export function DecisionHeader({ vm }: DecisionHeaderProps) {
         }}
       />
 
-      {/* Thesis Stance */}
+      {/* Thesis Stance — 点击滚动到 Thesis 区块 */}
       {stanceS && vm.stance && (
         <Chip
           label={
@@ -175,10 +199,12 @@ export function DecisionHeader({ vm }: DecisionHeaderProps) {
             "中性"
           }
           s={stanceS}
+          onClick={onScrollTo ? () => onScrollTo("thesis") : undefined}
+          title="点击跳转到 Thesis 论题分析"
         />
       )}
 
-      {/* Readiness */}
+      {/* Readiness — 点击滚动到 Thesis 区块 */}
       {readinessS && vm.readinessState && (
         <Chip
           label={
@@ -187,6 +213,8 @@ export function DecisionHeader({ vm }: DecisionHeaderProps) {
             "时机未到"
           }
           s={readinessS}
+          onClick={onScrollTo ? () => onScrollTo("thesis") : undefined}
+          title="点击跳转到 Thesis 论题分析"
         />
       )}
 
@@ -195,7 +223,7 @@ export function DecisionHeader({ vm }: DecisionHeaderProps) {
         <Chip label={vm.actionBias} s={biasS} />
       )}
 
-      {/* Alert Severity — 仅 medium+ 显示 */}
+      {/* Alert Severity — 点击滚动到 Alert 区块 */}
       {sevS && vm.highestSeverity && (
         <Chip
           label={
@@ -204,15 +232,19 @@ export function DecisionHeader({ vm }: DecisionHeaderProps) {
             "中风险"
           }
           s={sevS}
+          onClick={onScrollTo ? () => onScrollTo("alert") : undefined}
+          title="点击跳转到 Alert 风险预警"
         />
       )}
 
-      {/* Change Marker — 仅非 stable/unknown 显示 */}
+      {/* Change Marker — 点击滚动到 History 区块 */}
       {showChange && vm.changeMarker && (
         <Chip
           label={vm.changeMarker.replace(/_/g, " ").toUpperCase()}
           s={C.change}
           size="xs"
+          onClick={onScrollTo ? () => onScrollTo("history") : undefined}
+          title="点击跳转到 History 历史变化"
         />
       )}
 

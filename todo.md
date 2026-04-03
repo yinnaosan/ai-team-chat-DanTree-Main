@@ -2871,3 +2871,12 @@
 - [ ] 新建 HistoryBlock.tsx（消费 historyViewModel）
 - [ ] TerminalEntry 瘦身：移除内联主脊柱 JSX，挂载 DecisionHeader + DecisionSpine
 - [ ] TSC 验证 + 回归测试
+
+## Workspace v2.1-B2a 交互层包（Manus Direct）
+- [ ] ThesisBlock 折叠/展开（默认展开，折叠后保留 stance + 1 行 summary）
+- [ ] AlertBlock 整体折叠/展开（默认展开）
+- [ ] AlertBlock 单条 key alert 点击展开详情（severity + impact/why it matters）
+- [ ] HistoryBlock 轻交互（查看更多/收起 或 前次摘要强调）
+- [ ] DecisionHeader 点击 chip 滚动到对应区块（锚点联动）
+- [ ] 使用 ui-ux-pro-max 强化交互质感（hover/过渡/active state）
+- [ ] TSC 0 errors + 回归测试全部通过

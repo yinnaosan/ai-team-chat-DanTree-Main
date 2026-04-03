@@ -46,6 +46,10 @@ import { OpportunityRadarCard, CandidatePoolCard, type CandidateSelectPayload } 
 import { CycleEngineCard } from "@/components/CycleEngineCard";
 import { DecisionHistoryPanel } from "@/components/DecisionHistoryPanel";
 import { DecisionAnalyticsPanel } from "@/components/DecisionAnalyticsPanel";
+import { DecisionHeader } from "@/components/DecisionHeader";
+import { DecisionSpine } from "@/components/DecisionSpine";
+import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -1607,8 +1611,10 @@ export default function ResearchWorkspacePage() {
   const sseRef = useRef<EventSource | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const column2Ref = useRef<HTMLDivElement>(null);
-
-  // ── Data ──
+  // ── Workspace ViewModel (B1d: 主脊柱数据层) ──
+  const { currentSession } = useWorkspace();
+  const vm = useWorkspaceViewModel();
+  // ── Data ───
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
     enabled: isAuthenticated && !!accessData?.hasAccess,
@@ -2454,6 +2460,10 @@ export default function ResearchWorkspacePage() {
             </div>
           </div>
 
+          {/* B1d: DecisionHeader — 主脊柱决策栏（sticky top） */}
+          {currentSession && (
+            <DecisionHeader vm={vm.headerViewModel} />
+          )}
           {/* DECISION STRIP — primary decision surface, above all analysis */}
           {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
             <DecisionStrip
@@ -2462,9 +2472,12 @@ export default function ResearchWorkspacePage() {
               initialResult={level4Result as any}
             />
           )}
-
           {/* Analysis panels — scrollable (support layer) */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* B1d: DecisionSpine — 主脊柱决策区（Thesis → Timing → Alert → History） */}
+            {currentSession && (
+              <DecisionSpine vm={vm} />
+            )}
             {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
             <AIVerdictCard
               answerObject={answerObject}

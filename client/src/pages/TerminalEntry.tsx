@@ -442,8 +442,6 @@ export default function TerminalEntry() {
 
         {/* Main content */}
         <div className={`te-body ${bootDone ? "visible" : ""}`} style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
-        {/* [B1b] Decision Header — 顶部决策栏 */}
-        <DecisionHeader vm={vm.headerViewModel} />
         {/* B: Hero Zone — left */}
         <div className="te-hero-zone">
           <div className="te-hero-left">
@@ -740,8 +738,6 @@ export default function TerminalEntry() {
           </div>
         </div>
 
-        {/* [B1b] Decision Spine — 中间主脊柱：Thesis → Timing → Alert → History */}
-        <DecisionSpine vm={vm} />
         {/* [B1b] Basket Alerts — 保留：basket 专用，不在 entity adapter 范围内 */}
         {(basketAlerts && basketAlerts.alert_count > 0) && (
           <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(251,146,60,0.3)" }}>

@@ -1,6 +1,7 @@
 /**
  * ResearchWorkspace — DanTree Terminal V2
- * Layout: [Left Sidebar] [Center Analysis] [Center Discussion] [Right Insight]
+ * Layout: [Left Session Rail 240px] [Center Decision Canvas flex-1] [Right Secondary Panel 380px] [Right Insights 240px]
+ * B4: Center = DecisionHeader + DecisionSpine ONLY. Old Analysis/Chart/Risk moved to Secondary Panel.
  * Matches reference image exactly.
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -2484,7 +2485,8 @@ export default function ResearchWorkspacePage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 2: Center Analysis — AI Verdict + Chart
+            COLUMN 2: Decision Canvas — B4 主决策区（唯一主区）
+            ui-ux-pro-max: flex-1 主区，视觉权重最高，左右次级栏不得抗衡
         ════════════════════════════════════════════════════════════ */}
         <div ref={column2Ref} className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{
@@ -2492,6 +2494,7 @@ export default function ResearchWorkspacePage() {
             borderRight: `1px solid ${T.border}`,
             transition: "box-shadow 0.3s ease",
             boxShadow: analysisRefreshed ? `inset 0 0 0 1px ${T.gold}` : "none",
+            minWidth: "360px",
           }}>
           {/* Research Header */}
           <div className="flex items-center justify-between px-4 py-2.5 shrink-0"
@@ -2556,11 +2559,10 @@ export default function ResearchWorkspacePage() {
               initialResult={level4Result as any}
             />
           )}
-          {/* Analysis panels — scrollable (support layer) */}
-          <div ref={spineScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* B1d: DecisionSpine — 主脂柱决策区（Thesis → Timing → Alert → History） */}
-            {/* B3a: 容器增加 opacity 过渡 + 最小高度，避免 session 切换时布局跳动 */}
-            {/* ui-ux-pro-max: "Reserve space for async content" (Severity: High) */}
+          {/* B4: Decision Canvas — 中间主区仅包含 DecisionSpine，旧 Analysis/Chart/Risk 已移入右侧次级栏 */}
+          {/* ui-ux-pro-max: 主区不得混入次级信息，第一眼焦点必须落在决策区 */}
+          <div ref={spineScrollRef} className="flex-1 overflow-y-auto" style={{ padding: "20px 24px", background: T.bg0 }}>
+            {/* DecisionSpine — Thesis → Timing → Alert → History */}
             <div
               style={{
                 transition: "opacity 0.25s ease-out",
@@ -2572,107 +2574,133 @@ export default function ResearchWorkspacePage() {
                 <DecisionSpine vm={vm} blockRefs={spineBlockRefs} sessionId={currentSession?.id} />
               )}
             </div>
-            {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
-            <AIVerdictCard
-              answerObject={answerObject}
-              outputMode={outputMode}
-              evidenceScore={evidenceScore}
-              isLoading={isTyping && !answerObject}
-              ticker={currentTicker}
-              quoteData={quoteData}
-              resetKey={`${currentTicker}-${activeConvId ?? ""}-${convMessages.length}`}
-            />
-
-            {/* Main Chart */}
-            <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} alertSoundMuted={alertSoundMuted} onToggleAlertMute={toggleAlertMute} />
-
-            {/* Risk Panel */}
-            {risks && risks.length > 0 && (
-              <RiskPanel risks={risks} isLoading={isTyping && !answerObject} />
-            )}
-
-            {/* Deep Sections toggle */}
-            {answerObject && (
-              <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-                <button
-                  onClick={() => setShowDeepSections(v => !v)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-white/3"
-                  style={{ borderBottom: showDeepSections ? `1px solid ${T.border}` : "none" }}>
-                  <div className="flex items-center gap-2">
-                    <FlaskConical className="w-3.5 h-3.5" style={{ color: T.blue }} />
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DEEP SECTIONS</span>
-                  </div>
-                  {showDeepSections ? <ChevronUp className="w-3.5 h-3.5" style={{ color: T.text3 }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: T.text3 }} />}
-                </button>
-                {showDeepSections && (
-                  <div className="p-3 space-y-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {(["backtest", "health", "sentiment", "alpha", "portfolio", "radar"] as const).map(t => (
-                        <button key={t} onClick={() => setDeepSectionsTab(t)}
-                          className="px-2.5 py-1 rounded text-xs font-medium transition-all"
-                          style={{
-                            background: deepSectionsTab === t ? T.bg3 : "transparent",
-                            color: deepSectionsTab === t ? T.gold : T.text4,
-                            border: `1px solid ${deepSectionsTab === t ? T.borderBright : T.border}`,
-                          }}>
-                          {t === "backtest" ? "因子回测" : t === "health" ? "健康评分" : t === "sentiment" ? "情绪分析" : t === "alpha" ? "Alpha因子" : t === "portfolio" ? "模拟交易" : "趋势雷达"}
-                        </button>
-                      ))}
-                    </div>
-                    <div>
-                      {deepSectionsTab === "backtest" && <BacktestCard ticker={tickerForCards || currentTicker || ""} spot={quoteData?.price ?? 100} sigma={0.25} />}
-                      {deepSectionsTab === "health" && healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
-                      {deepSectionsTab === "health" && !healthScoreData && (
-                        <div className="p-3 rounded-lg text-xs text-center" style={{ background: T.bg1, color: T.text4 }}>
-                          健康评分模块：请先分析一个标的以生成评分数据
-                        </div>
-                      )}
-                      {deepSectionsTab === "sentiment" && <SentimentNLPCard ticker={tickerForCards || currentTicker || ""} newsItems={newsItemsForCards} />}
-                      {deepSectionsTab === "alpha" && alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
-                      {deepSectionsTab === "alpha" && !alphaFactorsData && (
-                        <div className="p-3 rounded-lg text-xs text-center" style={{ background: T.bg1, color: T.text4 }}>
-                          Alpha 因子模块：请先分析一个标的以生成因子数据
-                        </div>
-                      )}
-                      {deepSectionsTab === "portfolio" && <AlpacaPortfolioCard />}
-                      {deepSectionsTab === "radar" && (
-                        <TrendRadarCard
-                          ticker={tickerForCards || currentTicker || ""}
-                          newsItems={newsItemsForCards}
-                          userWatchlist={currentTicker ? [currentTicker] : []}
-                          onWatchlistChange={() => {}}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Idle State — Terminal AI Stream (replaces empty state) */}
-            {!answerObject && !isTyping && (
+            {/* Idle State */}
+            {!currentSession && (
               <WorkspaceIdleStream onSelectTicker={() => setShowInstrumentModal(true)} />
             )}
-            {isTyping && !answerObject && (
-              <div className="space-y-3">
-                <AIVerdictCard isLoading />
-              </div>
-            )}
+
           </div>
         </div>
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 3: Discussion Column (CORE)
+            COLUMN 3: 次级分析栏 — B4 降级（Analysis + Discussion）
+            ui-ux-pro-max: 宽度固定 380px，背景稍暗，不得抗衡中间主区
         ════════════════════════════════════════════════════════════ */}
         <div className="flex flex-col overflow-hidden transition-all duration-200"
           style={{
-            width: insightCollapsed ? "calc(360px + 240px)" : "360px",
-            background: T.bg0,
+            width: insightCollapsed ? "calc(380px + 240px)" : "380px",
+            background: T.bg1,
             borderRight: `1px solid ${T.border}`,
+            opacity: 0.95,
           }}>
-          {/* Discussion Header */}
+
+          {/* ─── B4 次级分析区：AI Verdict + Chart + Risk Panel ————————————————————————————————— */}
+          <div className="shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
+            {/* 分析小标题 */}
+            <div className="flex items-center gap-2 px-3 py-2"
+              style={{ background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
+              <div className="w-1 h-3 rounded-full" style={{ background: T.blue }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: T.text4 }}>深度分析</span>
+              {currentTicker && (
+                <span className="text-[10px] font-mono px-1 rounded" style={{ background: T.bg3, color: T.text3 }}>{currentTicker}</span>
+              )}
+              {/* 分析模式切换 */}
+              <div className="ml-auto flex items-center gap-0.5 p-0.5 rounded" style={{ background: T.bg0, border: `1px solid ${T.border}` }}>
+                {(["quick", "standard", "deep"] as const).map((m) => (
+                  <button key={m} onClick={() => setAnalysisMode(m)}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-all"
+                    style={{
+                      background: analysisMode === m ? T.bg3 : "transparent",
+                      color: analysisMode === m ? T.gold : T.text4,
+                    }}>
+                    {m === "quick" ? "快速" : m === "standard" ? "标准" : "深度"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* AI Verdict */}
+            <div className="p-2 space-y-2" style={{ maxHeight: "360px", overflowY: "auto" }}>
+              <AIVerdictCard
+                answerObject={answerObject}
+                outputMode={outputMode}
+                evidenceScore={evidenceScore}
+                isLoading={isTyping && !answerObject}
+                ticker={currentTicker}
+                quoteData={quoteData}
+                resetKey={`${currentTicker}-${activeConvId ?? ""}-${convMessages.length}`}
+              />
+              {/* Main Chart */}
+              <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} alertSoundMuted={alertSoundMuted} onToggleAlertMute={toggleAlertMute} />
+              {/* Risk Panel */}
+              {risks && risks.length > 0 && (
+                <RiskPanel risks={risks} isLoading={isTyping && !answerObject} />
+              )}
+              {/* Deep Sections */}
+              {answerObject && (
+                <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
+                  <button
+                    onClick={() => setShowDeepSections(v => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2 transition-colors hover:bg-white/3"
+                    style={{ borderBottom: showDeepSections ? `1px solid ${T.border}` : "none" }}>
+                    <div className="flex items-center gap-2">
+                      <FlaskConical className="w-3 h-3" style={{ color: T.blue }} />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DEEP SECTIONS</span>
+                    </div>
+                    {showDeepSections ? <ChevronUp className="w-3 h-3" style={{ color: T.text3 }} /> : <ChevronDown className="w-3 h-3" style={{ color: T.text3 }} />}
+                  </button>
+                  {showDeepSections && (
+                    <div className="p-2 space-y-2">
+                      <div className="flex gap-1 flex-wrap">
+                        {(["backtest", "health", "sentiment", "alpha", "portfolio", "radar"] as const).map(t => (
+                          <button key={t} onClick={() => setDeepSectionsTab(t)}
+                            className="px-2 py-0.5 rounded text-[10px] font-medium transition-all"
+                            style={{
+                              background: deepSectionsTab === t ? T.bg3 : "transparent",
+                              color: deepSectionsTab === t ? T.gold : T.text4,
+                              border: `1px solid ${deepSectionsTab === t ? T.borderBright : T.border}`,
+                            }}>
+                            {t === "backtest" ? "因子回测" : t === "health" ? "健康" : t === "sentiment" ? "情绪" : t === "alpha" ? "Alpha" : t === "portfolio" ? "模拟" : "雷达"}
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        {deepSectionsTab === "backtest" && <BacktestCard ticker={tickerForCards || currentTicker || ""} spot={quoteData?.price ?? 100} sigma={0.25} />}
+                        {deepSectionsTab === "health" && healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
+                        {deepSectionsTab === "health" && !healthScoreData && (
+                          <div className="p-2 rounded text-[10px] text-center" style={{ background: T.bg1, color: T.text4 }}>请先分析标的</div>
+                        )}
+                        {deepSectionsTab === "sentiment" && <SentimentNLPCard ticker={tickerForCards || currentTicker || ""} newsItems={newsItemsForCards} />}
+                        {deepSectionsTab === "alpha" && alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
+                        {deepSectionsTab === "alpha" && !alphaFactorsData && (
+                          <div className="p-2 rounded text-[10px] text-center" style={{ background: T.bg1, color: T.text4 }}>请先分析标的</div>
+                        )}
+                        {deepSectionsTab === "portfolio" && <AlpacaPortfolioCard />}
+                        {deepSectionsTab === "radar" && (
+                          <TrendRadarCard
+                            ticker={tickerForCards || currentTicker || ""}
+                            newsItems={newsItemsForCards}
+                            userWatchlist={currentTicker ? [currentTicker] : []}
+                            onWatchlistChange={() => {}}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Idle */}
+              {!answerObject && !isTyping && (
+                <WorkspaceIdleStream onSelectTicker={() => setShowInstrumentModal(true)} />
+              )}
+              {isTyping && !answerObject && (
+                <div className="space-y-2"><AIVerdictCard isLoading /></div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── Discussion 小标题 */}
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
-            style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
+            style={{ background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-2 min-w-0">
               <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: T.blue }} />
               <span className="text-xs font-semibold uppercase tracking-wider shrink-0" style={{ color: T.text3 }}>DISCUSSION</span>

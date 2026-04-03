@@ -1,7 +1,7 @@
 /**
- * TimingBlock — DanTree B1b 主脊柱子块
- * 消费 TimingViewModel，显示执行时机状态
- * B-1c 视觉 polish 留到 ui ux pro max 阶段
+ * TimingBlock — DanTree B1c 视觉层
+ * 时机感 + 操作偏向矩阵：克制的黄色系 + 精密感
+ * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code
  */
 import React from "react";
 import type { TimingViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -10,78 +10,146 @@ interface TimingBlockProps {
   vm: TimingViewModel;
 }
 
-const readinessStyle = (state: string | null) => {
-  if (state === "ready") return { bg: "#14532d", text: "#86efac", border: "#16a34a" };
-  if (state === "conditional") return { bg: "#451a03", text: "#fbbf24", border: "#d97706" };
-  return { bg: "#1e293b", text: "#94a3b8", border: "#334155" };
+const readinessMap = {
+  ready: { bg: "rgba(20, 83, 45, 0.5)", text: "#86efac", border: "rgba(22, 163, 74, 0.45)", accent: "#16a34a" },
+  conditional: { bg: "rgba(69, 26, 3, 0.55)", text: "#fbbf24", border: "rgba(217, 119, 6, 0.5)", accent: "#d97706" },
+  not_ready: { bg: "rgba(30, 41, 59, 0.4)", text: "#64748b", border: "rgba(51, 65, 85, 0.4)", accent: "#334155" },
 };
 
-const biasStyle = (bias: string | null) => {
-  if (bias === "BUY") return { bg: "#14532d", text: "#86efac", border: "#16a34a" };
-  if (bias === "AVOID") return { bg: "#7f1d1d", text: "#fca5a5", border: "#ef4444" };
-  if (bias === "HOLD") return { bg: "#1e3a5f", text: "#93c5fd", border: "#3b82f6" };
-  return { bg: "#1e293b", text: "#94a3b8", border: "#334155" };
+const biasMap = {
+  BUY: { bg: "rgba(20, 83, 45, 0.45)", text: "#4ade80", border: "rgba(22, 163, 74, 0.4)" },
+  HOLD: { bg: "rgba(30, 58, 95, 0.45)", text: "#7dd3fc", border: "rgba(59, 130, 246, 0.4)" },
+  AVOID: { bg: "rgba(127, 29, 29, 0.45)", text: "#f87171", border: "rgba(239, 68, 68, 0.4)" },
+};
+
+const riskColor = (risk: string | null) => {
+  if (!risk) return "#475569";
+  const r = risk.toLowerCase();
+  if (r === "high") return "#f87171";
+  if (r === "medium") return "#fbbf24";
+  if (r === "low") return "#4ade80";
+  return "#94a3b8";
 };
 
 export function TimingBlock({ vm }: TimingBlockProps) {
   if (!vm.available) return null;
 
-  const rs = readinessStyle(vm.readinessState);
-  const bs = biasStyle(vm.actionBias);
+  const rs = vm.readinessState ? readinessMap[vm.readinessState as keyof typeof readinessMap] : null;
+  const bs = vm.actionBias ? biasMap[vm.actionBias as keyof typeof biasMap] : null;
+  const accentColor = rs?.accent ?? "#d97706";
 
   return (
     <div
-      className="te-panel"
-      style={{ marginTop: "12px", borderLeft: "2px solid rgba(234,179,8,0.3)" }}
       data-block="timing"
+      style={{
+        background: "rgba(12, 15, 20, 0.85)",
+        borderLeft: `2px solid ${accentColor}`,
+        padding: "10px 14px",
+        transition: "background 0.15s ease",
+      }}
     >
-      {/* 标题行 */}
-      <div className="te-panel-header">
-        <span className="te-panel-label">Timing</span>
-        {vm.readinessState && (
+      {/* ── 标题行 ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        marginBottom: "8px",
+      }}>
+        <span style={{
+          fontSize: "9px",
+          fontFamily: "'Fira Code', monospace",
+          fontWeight: 700,
+          color: "#3b5070",
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          flex: 1,
+        }}>
+          Timing
+        </span>
+
+        {/* Readiness chip */}
+        {rs && vm.readinessState && (
           <span style={{
-            fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-            background: rs.bg, color: rs.text, border: `1px solid ${rs.border}`,
+            fontSize: "9px",
+            fontFamily: "'Fira Code', monospace",
+            fontWeight: 600,
+            padding: "2px 8px",
+            borderRadius: "3px",
+            background: rs.bg,
+            color: rs.text,
+            border: `1px solid ${rs.border}`,
+            letterSpacing: "0.05em",
           }}>
-            {vm.readinessState.toUpperCase()}
+            {vm.readinessState === "ready" ? "时机就绪" :
+             vm.readinessState === "conditional" ? "条件就绪" : "时机未到"}
           </span>
-        )}
-        {vm.advisoryOnly && (
-          <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", marginLeft: "auto" }}>advisory</span>
         )}
       </div>
 
-      {/* 内容区 */}
-      <div className="te-panel-body" style={{ padding: "10px 14px" }}>
-        {/* 操作偏向 + 风险 + 确认状态 */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "6px", flexWrap: "wrap", alignItems: "center" }}>
-          {vm.actionBias && (
-            <span style={{
-              fontSize: "9px", fontFamily: "monospace", padding: "2px 7px", borderRadius: "2px",
-              background: bs.bg, color: bs.text, border: `1px solid ${bs.border}`,
-            }}>
-              {vm.actionBias}
-            </span>
-          )}
-          {vm.timingRisk != null && (
-            <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>
-              风险 <span style={{ color: "#94a3b8" }}>{vm.timingRisk.toUpperCase()}</span>
-            </span>
-          )}
-          {vm.confirmationState && (
-            <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>
-              确认 <span style={{ color: "#94a3b8" }}>{vm.confirmationState}</span>
-            </span>
-          )}
-        </div>
+      {/* ── 操作矩阵 ── */}
+      <div style={{
+        display: "flex",
+        gap: "12px",
+        alignItems: "center",
+        flexWrap: "wrap",
+        marginBottom: vm.timingSummary ? "8px" : "0",
+        paddingBottom: vm.timingSummary ? "8px" : "0",
+        borderBottom: vm.timingSummary ? "1px solid rgba(51, 65, 85, 0.2)" : "none",
+      }}>
+        {/* Action Bias */}
+        {bs && vm.actionBias && (
+          <span style={{
+            fontSize: "11px",
+            fontFamily: "'Fira Code', monospace",
+            fontWeight: 700,
+            padding: "3px 10px",
+            borderRadius: "3px",
+            background: bs.bg,
+            color: bs.text,
+            border: `1px solid ${bs.border}`,
+            letterSpacing: "0.08em",
+          }}>
+            {vm.actionBias}
+          </span>
+        )}
 
-        {/* 摘要文本 */}
-        {vm.timingSummary && (
-          <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>
-            {vm.timingSummary}
+        {/* Timing Risk */}
+        {vm.timingRisk && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ fontSize: "8px", fontFamily: "'Fira Code', monospace", color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              时机风险
+            </span>
+            <span style={{ fontSize: "10px", fontFamily: "'Fira Code', monospace", color: riskColor(vm.timingRisk), fontWeight: 500 }}>
+              {vm.timingRisk.toUpperCase()}
+            </span>
+          </div>
+        )}
+
+        {/* Confirmation State */}
+        {vm.confirmationState && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ fontSize: "8px", fontFamily: "'Fira Code', monospace", color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              确认状态
+            </span>
+            <span style={{ fontSize: "10px", fontFamily: "'Fira Code', monospace", color: "#94a3b8", fontWeight: 500 }}>
+              {vm.confirmationState}
+            </span>
           </div>
         )}
       </div>
+
+      {/* ── 摘要文本 ── */}
+      {vm.timingSummary && (
+        <div style={{
+          fontSize: "10px",
+          fontFamily: "'Fira Code', monospace",
+          color: "#64748b",
+          lineHeight: 1.65,
+          letterSpacing: "0.01em",
+        }}>
+          {vm.timingSummary}
+        </div>
+      )}
     </div>
   );
 }

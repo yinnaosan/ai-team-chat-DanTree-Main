@@ -1,164 +1,110 @@
 /**
- * ThesisBlock — DanTree B1c 视觉层
- * Apple/Tesla/NVIDIA 风格：逻辑感 + 状态感 + 高密度但不乱
- * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code
+ * ThesisBlock — DanTree Workspace v2.1-B1e v3
+ * 统一设计系统：DS tokens + chipStyle factory
+ * 风格：克制精密，高密度，长期可读
  */
 import React from "react";
 import type { ThesisViewModel } from "@/hooks/useWorkspaceViewModel";
+import { DS, chipStyle, cardStyle, sectionTitleStyle, rowStyle, rowLabelStyle, rowValueStyle } from "@/lib/designSystem";
 
 interface ThesisBlockProps {
   vm: ThesisViewModel;
 }
 
-// ─── 共享颜色系统 ────────────────────────────────────────────────────────────
-const stanceMap = {
-  bullish: { bg: "rgba(20, 83, 45, 0.5)", text: "#86efac", border: "rgba(22, 163, 74, 0.45)", accent: "#16a34a" },
-  bearish: { bg: "rgba(127, 29, 29, 0.5)", text: "#fca5a5", border: "rgba(239, 68, 68, 0.45)", accent: "#ef4444" },
-  neutral: { bg: "rgba(30, 58, 95, 0.5)", text: "#93c5fd", border: "rgba(59, 130, 246, 0.45)", accent: "#3b82f6" },
-};
-
-const stateColor = (state: string | null) => {
-  if (!state) return "#334155";
+// ─── State color resolver ─────────────────────────────────────────────────────
+function stateColor(state: string | null | undefined): string {
+  if (!state) return DS.text3;
   const s = state.toLowerCase();
-  if (s.includes("strong") || s.includes("high") || s.includes("pass") || s.includes("confirmed")) return "#4ade80";
-  if (s.includes("weak") || s.includes("low") || s.includes("fail") || s.includes("conflict")) return "#f87171";
-  if (s.includes("moderate") || s.includes("partial") || s.includes("mixed")) return "#fbbf24";
-  return "#94a3b8";
-};
+  if (s.includes("strong") || s.includes("high") || s.includes("pass") || s.includes("confirmed")) return DS.bull;
+  if (s.includes("weak") || s.includes("low") || s.includes("fail") || s.includes("conflict")) return DS.bear;
+  if (s.includes("moderate") || s.includes("partial") || s.includes("mixed")) return DS.medium;
+  return DS.text2;
+}
 
-// ─── 状态单元 ────────────────────────────────────────────────────────────────
-const StateUnit = ({ label, value }: { label: string; value: string | null }) => {
+// ─── Accent color from stance ─────────────────────────────────────────────────
+function stanceAccent(stance: string | null | undefined): string {
+  if (!stance) return DS.border1;
+  const s = stance.toLowerCase();
+  if (s.includes("bull") || s === "多") return DS.bull;
+  if (s.includes("bear") || s === "空") return DS.bear;
+  return DS.accent;
+}
+
+// ─── State unit ───────────────────────────────────────────────────────────────
+function StateUnit({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
-  const color = stateColor(value);
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: "2px",
-      minWidth: "60px",
-    }}>
-      <span style={{
-        fontSize: "8px",
-        fontFamily: "'Fira Code', monospace",
-        color: "#475569",
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-      }}>
-        {label}
-      </span>
-      <span style={{
-        fontSize: "10px",
-        fontFamily: "'Fira Code', monospace",
-        color,
-        fontWeight: 500,
-        lineHeight: 1.2,
-      }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
+      <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>{label}</span>
+      <span style={{ fontFamily: DS.fontMono, fontSize: "10px", color: stateColor(value), fontWeight: 500, lineHeight: 1.3 }}>
         {value}
       </span>
     </div>
   );
-};
+}
 
-// ─── 主组件 ────────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 export function ThesisBlock({ vm }: ThesisBlockProps) {
   if (!vm.available) return null;
 
-  const sc = vm.stance ? stanceMap[vm.stance as keyof typeof stanceMap] : null;
-  const accentColor = sc?.accent ?? "#334155";
+  const accent = stanceAccent(vm.stance);
   const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "unknown";
+
+  const stanceLabel = () => {
+    if (!vm.stance) return null;
+    const s = vm.stance.toLowerCase();
+    if (s.includes("bull") || s === "多") return <span style={chipStyle("bull")}>多</span>;
+    if (s.includes("bear") || s === "空") return <span style={chipStyle("bear")}>空</span>;
+    return <span style={chipStyle("neutral")}>中性</span>;
+  };
 
   return (
     <div
       data-block="thesis"
       style={{
-        background: "rgba(12, 15, 20, 0.85)",
-        borderLeft: `2px solid ${accentColor}`,
-        padding: "10px 14px",
-        transition: "background 0.15s ease",
+        ...cardStyle,
+        borderLeft: `2px solid ${accent}`,
+        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
+        overflow: "hidden",
       }}
     >
-      {/* ── 标题行 ── */}
+      {/* Header row */}
       <div style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
-        marginBottom: "8px",
+        gap: DS.sp2,
+        padding: `${DS.sp2} ${DS.sp4}`,
+        borderBottom: `1px solid ${DS.border0}`,
+        background: DS.surface2,
       }}>
-        {/* 区块标签 */}
-        <span style={{
-          fontSize: "9px",
-          fontFamily: "'Fira Code', monospace",
-          fontWeight: 700,
-          color: "#3b5070",
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          flex: 1,
-        }}>
-          论题分析
-        </span>
-
-        {/* Stance chip */}
-        {sc && vm.stance && (
-          <span style={{
-            fontSize: "9px",
-            fontFamily: "'Fira Code', monospace",
-            fontWeight: 600,
-            padding: "2px 8px",
-            borderRadius: "3px",
-            background: sc.bg,
-            color: sc.text,
-            border: `1px solid ${sc.border}`,
-            letterSpacing: "0.05em",
-          }}>
-            {vm.stance === "bullish" ? "多" : vm.stance === "bearish" ? "空" : "中性"}
-          </span>
-        )}
-
-        {/* Change marker */}
-        {showChange && vm.changeMarker && (
-          <span style={{
-            fontSize: "8px",
-            fontFamily: "'Fira Code', monospace",
-            padding: "1px 5px",
-            borderRadius: "2px",
-            background: "rgba(30, 41, 59, 0.5)",
-            color: "#fbbf24",
-            border: "1px solid rgba(51, 65, 85, 0.4)",
-            letterSpacing: "0.04em",
-          }}>
-            {vm.changeMarker.replace(/_/g, " ").toUpperCase()}
-          </span>
-        )}
+        <span style={sectionTitleStyle}>论题分析</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: DS.sp2 }}>
+          {stanceLabel()}
+          {showChange && vm.changeMarker && (
+            <span style={chipStyle("muted")}>{vm.changeMarker.replace(/_/g, " ").toUpperCase()}</span>
+          )}
+        </div>
       </div>
 
-      {/* ── 状态矩阵 ── */}
+      {/* State matrix */}
       <div style={{
         display: "flex",
-        gap: "16px",
+        gap: DS.sp5,
         flexWrap: "wrap",
-        marginBottom: vm.stateSummaryText ? "8px" : "0",
-        paddingBottom: vm.stateSummaryText ? "8px" : "0",
-        borderBottom: vm.stateSummaryText ? "1px solid rgba(51, 65, 85, 0.2)" : "none",
+        padding: `${DS.sp3} ${DS.sp4}`,
+        borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
       }}>
         <StateUnit label="证据" value={vm.evidenceState} />
-        <StateUnit label="Gate门禁" value={vm.gateState} />
+        <StateUnit label="Gate 门禁" value={vm.gateState} />
         <StateUnit label="来源" value={vm.sourceState} />
         {vm.fragilityScore != null && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "60px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
+            <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>脆弱性</span>
             <span style={{
-              fontSize: "8px",
-              fontFamily: "'Fira Code', monospace",
-              color: "#475569",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}>
-              脆弱性
-            </span>
-            <span style={{
+              fontFamily: DS.fontMono,
               fontSize: "10px",
-              fontFamily: "'Fira Code', monospace",
-              color: vm.fragilityScore > 0.6 ? "#f87171" : vm.fragilityScore > 0.3 ? "#fbbf24" : "#4ade80",
               fontWeight: 500,
+              color: vm.fragilityScore > 0.6 ? DS.bear : vm.fragilityScore > 0.3 ? DS.medium : DS.bull,
             }}>
               {(vm.fragilityScore * 100).toFixed(0)}%
             </span>
@@ -166,12 +112,13 @@ export function ThesisBlock({ vm }: ThesisBlockProps) {
         )}
       </div>
 
-      {/* ── 摘要文本 ── */}
+      {/* Summary text */}
       {vm.stateSummaryText && (
         <div style={{
-          fontSize: "10px",
-          fontFamily: "'Fira Code', monospace",
-          color: "#64748b",
+          padding: `${DS.sp2} ${DS.sp4}`,
+          fontFamily: DS.fontSans,
+          fontSize: "11px",
+          color: DS.text2,
           lineHeight: 1.65,
           letterSpacing: "0.01em",
         }}>

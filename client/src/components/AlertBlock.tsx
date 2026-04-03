@@ -1,135 +1,114 @@
 /**
- * AlertBlock — DanTree B1c 视觉层
- * 风险感知 + 分级视觉系统：红色系 + 紧迫感但不刺眼
- * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code
+ * AlertBlock — DanTree Workspace v2.1-B1e v3
+ * 统一设计系统：DS tokens + chipStyle factory
  */
 import React from "react";
 import type { AlertViewModel } from "@/hooks/useWorkspaceViewModel";
+import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
 
 interface AlertBlockProps {
   vm: AlertViewModel;
 }
 
-const severityMap = {
-  critical: { bg: "rgba(127, 29, 29, 0.55)", text: "#fca5a5", border: "rgba(239, 68, 68, 0.55)", accent: "#ef4444", dot: "#ef4444" },
-  high:     { bg: "rgba(67, 20, 7, 0.55)",   text: "#fb923c", border: "rgba(234, 88, 12, 0.5)",  accent: "#ea580c", dot: "#ea580c" },
-  medium:   { bg: "rgba(69, 26, 3, 0.5)",    text: "#fbbf24", border: "rgba(217, 119, 6, 0.45)", accent: "#d97706", dot: "#d97706" },
-  low:      { bg: "rgba(30, 41, 59, 0.4)",   text: "#94a3b8", border: "rgba(51, 65, 85, 0.4)",   accent: "#334155", dot: "#475569" },
-};
+function severityAccent(sev: string | null | undefined): string {
+  if (!sev) return DS.border1;
+  const s = sev.toLowerCase();
+  if (s === "critical") return DS.bear;
+  if (s === "high") return "#ea580c";
+  if (s === "medium") return DS.medium;
+  return DS.border1;
+}
 
-const getSeverityStyle = (sev: string | null) => {
-  if (!sev) return severityMap.low;
-  return severityMap[sev as keyof typeof severityMap] ?? severityMap.low;
-};
+function severityDot(sev: string | null | undefined): string {
+  if (!sev) return DS.text3;
+  const s = sev.toLowerCase();
+  if (s === "critical") return DS.bear;
+  if (s === "high") return "#ea580c";
+  if (s === "medium") return DS.medium;
+  return DS.text3;
+}
+
+function severityChip(sev: string | null | undefined) {
+  if (!sev) return null;
+  const s = sev.toLowerCase();
+  if (s === "critical") return <span style={chipStyle("critical")}>严重</span>;
+  if (s === "high") return <span style={chipStyle("high")}>高风险</span>;
+  if (s === "medium") return <span style={chipStyle("medium")}>中风险</span>;
+  return <span style={chipStyle("low")}>低风险</span>;
+}
 
 export function AlertBlock({ vm }: AlertBlockProps) {
   if (!vm.available || vm.alertCount === 0) return null;
 
-  const ss = getSeverityStyle(vm.highestSeverity);
+  const accent = severityAccent(vm.highestSeverity);
 
   return (
     <div
       data-block="alert"
       style={{
-        background: "rgba(12, 15, 20, 0.85)",
-        borderLeft: `2px solid ${ss.accent}`,
-        padding: "10px 14px",
-        transition: "background 0.15s ease",
+        ...cardStyle,
+        borderLeft: `2px solid ${accent}`,
+        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
+        overflow: "hidden",
       }}
     >
-      {/* ── 标题行 ── */}
+      {/* Header row */}
       <div style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
-        marginBottom: "8px",
+        gap: DS.sp2,
+        padding: `${DS.sp2} ${DS.sp4}`,
+        borderBottom: `1px solid ${DS.border0}`,
+        background: DS.surface2,
       }}>
-        <span style={{
-          fontSize: "9px",
-          fontFamily: "'Fira Code', monospace",
-          fontWeight: 700,
-          color: "#3b5070",
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          flex: 1,
-        }}>
-          风险预警
-        </span>
-
-        {/* Severity chip */}
-        {vm.highestSeverity && (
-          <span style={{
-            fontSize: "9px",
-            fontFamily: "'Fira Code', monospace",
-            fontWeight: 600,
-            padding: "2px 8px",
-            borderRadius: "3px",
-            background: ss.bg,
-            color: ss.text,
-            border: `1px solid ${ss.border}`,
-            letterSpacing: "0.05em",
-          }}>
-            {vm.highestSeverity === "critical" ? "严重" :
-             vm.highestSeverity === "high" ? "高风险" :
-             vm.highestSeverity === "medium" ? "中风险" : "低风险"}
+        <span style={sectionTitleStyle}>风险预警</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: DS.sp2 }}>
+          {severityChip(vm.highestSeverity)}
+          <span style={{ fontFamily: DS.fontMono, fontSize: "9px", color: DS.text3 }}>
+            {vm.alertCount} 条
           </span>
-        )}
-
-        {/* Alert count */}
-        <span style={{
-          fontSize: "9px",
-          fontFamily: "'Fira Code', monospace",
-          color: "#475569",
-        }}>
-          {vm.alertCount} 条
-        </span>
+        </div>
       </div>
 
-      {/* ── 关键警报列表 ── */}
+      {/* Alert list */}
       {vm.keyAlerts.length > 0 && (
         <div style={{
           display: "flex",
           flexDirection: "column",
-          gap: "5px",
-          marginBottom: vm.summaryText ? "8px" : "0",
-          paddingBottom: vm.summaryText ? "8px" : "0",
-          borderBottom: vm.summaryText ? "1px solid rgba(51, 65, 85, 0.2)" : "none",
+          gap: "4px",
+          padding: `${DS.sp3} ${DS.sp4}`,
+          borderBottom: vm.summaryText ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.keyAlerts.map((alert, i) => {
-            const as = getSeverityStyle(alert.severity);
+            const dot = severityDot(alert.severity);
             return (
-              <div key={i} style={{
-                display: "flex",
-                gap: "8px",
-                alignItems: "flex-start",
-              }}>
-                {/* 严重度指示点 */}
+              <div key={i} style={{ display: "flex", gap: DS.sp2, alignItems: "flex-start" }}>
+                {/* Severity dot */}
                 <span style={{
                   width: "5px",
                   height: "5px",
                   borderRadius: "50%",
-                  background: as.dot,
+                  background: dot,
                   flexShrink: 0,
                   marginTop: "4px",
-                  boxShadow: `0 0 4px ${as.dot}60`,
+                  boxShadow: `0 0 4px ${dot}80`,
                 }} />
-
-                {/* 警报内容 */}
+                {/* Alert content */}
                 <div style={{ flex: 1 }}>
                   <span style={{
+                    fontFamily: DS.fontMono,
                     fontSize: "8px",
-                    fontFamily: "'Fira Code', monospace",
-                    color: as.text,
-                    marginRight: "6px",
+                    color: dot,
                     fontWeight: 600,
                     letterSpacing: "0.06em",
+                    marginRight: DS.sp2,
                   }}>
                     [{alert.severity.toUpperCase()}]
                   </span>
                   <span style={{
+                    fontFamily: DS.fontSans,
                     fontSize: "10px",
-                    fontFamily: "'Fira Code', monospace",
-                    color: "#94a3b8",
+                    color: DS.text2,
                     lineHeight: 1.5,
                   }}>
                     {alert.message}
@@ -141,12 +120,13 @@ export function AlertBlock({ vm }: AlertBlockProps) {
         </div>
       )}
 
-      {/* ── 摘要文本 ── */}
+      {/* Summary text */}
       {vm.summaryText && (
         <div style={{
-          fontSize: "10px",
-          fontFamily: "'Fira Code', monospace",
-          color: "#64748b",
+          padding: `${DS.sp2} ${DS.sp4}`,
+          fontFamily: DS.fontSans,
+          fontSize: "11px",
+          color: DS.text2,
           lineHeight: 1.65,
           letterSpacing: "0.01em",
         }}>

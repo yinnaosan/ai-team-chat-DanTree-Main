@@ -1,10 +1,10 @@
 /**
- * DecisionSpine — DanTree B1c 视觉层
- * 中间主脊柱容器：统一 4 个子块的纵向节奏
- * ui-ux-pro-max: 克制间距 + 统一边框系统 + 深度层级
+ * DecisionSpine — DanTree Workspace v2.1-B1e v3
+ * 统一设计系统：DS tokens，纵向节奏容器
  */
 import React from "react";
 import type { WorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
+import { DS } from "@/lib/designSystem";
 import { ThesisBlock } from "./ThesisBlock";
 import { TimingBlock } from "./TimingBlock";
 import { AlertBlock } from "./AlertBlock";
@@ -31,12 +31,13 @@ export function DecisionSpine({ vm }: DecisionSpineProps) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "1px",                          // 子块之间极细间隙，形成统一体感
-        margin: "12px 0",
-        background: "rgba(26, 37, 53, 0.3)", // 脊柱整体底色
-        border: "1px solid rgba(51, 65, 85, 0.3)",
-        borderRadius: "4px",
-        overflow: "hidden",                  // 子块圆角统一由容器控制
+        gap: "1px",
+        margin: `${DS.sp4} 0`,
+        background: DS.surface1,
+        border: `1px solid ${DS.border1}`,
+        borderRadius: DS.r2,
+        overflow: "hidden",
+        boxShadow: `0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 ${DS.border0}`,
       }}
     >
       {/* 固定顺序：Thesis → Timing → Alert → History */}

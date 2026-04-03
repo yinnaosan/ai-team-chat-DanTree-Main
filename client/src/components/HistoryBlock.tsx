@@ -1,17 +1,17 @@
 /**
- * HistoryBlock — DanTree B1c 视觉层
- * 时间感 + 变化对比：青色系 + 档案质感
- * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code
+ * HistoryBlock — DanTree Workspace v2.1-B1e v3
+ * 统一设计系统：DS tokens + chipStyle factory
  */
 import React from "react";
 import type { HistoryViewModel } from "@/hooks/useWorkspaceViewModel";
+import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
 
 interface HistoryBlockProps {
   vm: HistoryViewModel;
 }
 
-const formatTs = (ts: number | null) => {
-  if (!ts) return null;
+function formatTs(ts: number | null | undefined): string {
+  if (!ts) return "—";
   const d = new Date(ts);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
@@ -21,128 +21,96 @@ const formatTs = (ts: number | null) => {
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH} 小时前`;
   return d.toLocaleDateString();
-};
+}
 
-const changeMarkerColor = (marker: string) => {
-  if (marker.includes("upgrade") || marker.includes("improve") || marker.includes("strengthen")) return "#4ade80";
-  if (marker.includes("downgrade") || marker.includes("weaken") || marker.includes("deteriorat")) return "#f87171";
-  return "#2dd4bf";
-};
+function changeColor(marker: string | null | undefined): string {
+  if (!marker) return DS.accent;
+  if (marker.includes("upgrade") || marker.includes("improve") || marker.includes("strengthen")) return DS.bull;
+  if (marker.includes("downgrade") || marker.includes("weaken") || marker.includes("deteriorat")) return DS.bear;
+  return DS.accent;
+}
 
 export function HistoryBlock({ vm }: HistoryBlockProps) {
   if (!vm.available) return null;
 
   const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "first_observation";
-  const changeColor = showChange && vm.changeMarker ? changeMarkerColor(vm.changeMarker) : "#2dd4bf";
+  const accentColor = DS.accent; // 青色系
 
   return (
     <div
       data-block="history"
       style={{
-        background: "rgba(12, 15, 20, 0.85)",
-        borderLeft: `2px solid rgba(20, 184, 166, 0.5)`,
-        padding: "10px 14px",
-        transition: "background 0.15s ease",
+        ...cardStyle,
+        borderLeft: `2px solid ${accentColor}`,
+        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
+        overflow: "hidden",
       }}
     >
-      {/* ── 标题行 ── */}
+      {/* Header row */}
       <div style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
-        marginBottom: "8px",
+        gap: DS.sp2,
+        padding: `${DS.sp2} ${DS.sp4}`,
+        borderBottom: `1px solid ${DS.border0}`,
+        background: DS.surface2,
       }}>
-        <span style={{
-          fontSize: "9px",
-          fontFamily: "'Fira Code', monospace",
-          fontWeight: 700,
-          color: "#3b5070",
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          flex: 1,
-        }}>
-          历史变化
-        </span>
-
-        {/* Change marker chip */}
-        {showChange && vm.changeMarker && (
-          <span style={{
-            fontSize: "8px",
-            fontFamily: "'Fira Code', monospace",
-            fontWeight: 600,
-            padding: "1px 6px",
-            borderRadius: "3px",
-            background: "rgba(30, 41, 59, 0.5)",
-            color: changeColor,
-            border: `1px solid rgba(51, 65, 85, 0.4)`,
-            letterSpacing: "0.04em",
-          }}>
-            {vm.changeMarker.replace(/_/g, " ").toUpperCase()}
-          </span>
-        )}
-
-        {/* 最近更新时间 */}
-        {vm.lastSnapshotAt && (
-          <span style={{
-            fontSize: "8px",
-            fontFamily: "'Fira Code', monospace",
-            color: "#334155",
-            letterSpacing: "0.02em",
-          }}>
-            {formatTs(vm.lastSnapshotAt)}
-          </span>
-        )}
+        <span style={sectionTitleStyle}>历史变化</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: DS.sp2 }}>
+          {showChange && vm.changeMarker && (
+            <span style={{
+              ...chipStyle("muted"),
+              color: changeColor(vm.changeMarker),
+            }}>
+              {vm.changeMarker.replace(/_/g, " ").toUpperCase()}
+            </span>
+          )}
+          {vm.lastSnapshotAt && (
+            <span style={{ fontFamily: DS.fontMono, fontSize: "9px", color: DS.text3 }}>
+              {formatTs(vm.lastSnapshotAt)}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* ── 变化摘要 ── */}
+      {/* Delta summary */}
       {vm.deltaSummary && (
         <div style={{
-          fontSize: "10px",
-          fontFamily: "'Fira Code', monospace",
-          color: "#64748b",
+          padding: `${DS.sp3} ${DS.sp4} ${DS.sp2}`,
+          fontFamily: DS.fontSans,
+          fontSize: "11px",
+          color: DS.text2,
           lineHeight: 1.65,
-          marginBottom: "6px",
           letterSpacing: "0.01em",
+          borderBottom: vm.stateSummaryText || vm.previousSummary ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.deltaSummary}
         </div>
       )}
 
-      {/* ── 当前快照摘要 ── */}
+      {/* Current snapshot summary */}
       {vm.stateSummaryText && (
         <div style={{
+          padding: `${DS.sp2} ${DS.sp4}`,
+          fontFamily: DS.fontSans,
           fontSize: "10px",
-          fontFamily: "'Fira Code', monospace",
-          color: "#475569",
+          color: DS.text2,
           lineHeight: 1.65,
-          marginBottom: "6px",
           letterSpacing: "0.01em",
+          borderBottom: vm.previousSummary ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.stateSummaryText}
         </div>
       )}
 
-      {/* ── 上一快照 ── */}
+      {/* Previous snapshot */}
       {vm.previousSummary && (
-        <div style={{
-          marginTop: "6px",
-          paddingTop: "6px",
-          borderTop: "1px solid rgba(51, 65, 85, 0.2)",
-        }}>
+        <div style={{ padding: `${DS.sp2} ${DS.sp4}` }}>
+          <div style={{ ...sectionTitleStyle, fontSize: "8px", marginBottom: DS.sp1 }}>上一快照</div>
           <div style={{
-            fontSize: "8px",
-            fontFamily: "'Fira Code', monospace",
-            color: "#334155",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            marginBottom: "3px",
-          }}>
-            上一快照
-          </div>
-          <div style={{
+            fontFamily: DS.fontSans,
             fontSize: "10px",
-            fontFamily: "'Fira Code', monospace",
-            color: "#3b5070",
+            color: DS.text3,
             lineHeight: 1.65,
             letterSpacing: "0.01em",
           }}>

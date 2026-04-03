@@ -9,6 +9,9 @@ import {
   Activity, AlertCircle, CheckCircle2, Clock
 } from "lucide-react";
 
+/** Compat: section identifiers for scroll-to-block */
+export type ScrollToSection = "thesis" | "timing" | "alert" | "history";
+
 export interface DecisionHeaderProps {
   entity?: string;
   stance?: "bullish" | "bearish" | "neutral" | "mixed" | "unavailable";
@@ -19,6 +22,13 @@ export interface DecisionHeaderProps {
   gateState?: "pass" | "block" | "fallback";
   lastUpdated?: string;
   onEntitySearch?: () => void;
+  /** compat: legacy callers pass HeaderViewModel via vm prop; use unknown to accept any shape */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vm?: any;
+  /** compat: legacy scroll-to callback */
+  onScrollTo?: (section: ScrollToSection) => void;
+  /** compat: active section highlight from IntersectionObserver */
+  activeSection?: ScrollToSection | null;
 }
 
 const STANCE_CONFIG = {
@@ -66,16 +76,30 @@ function ConfidenceArc({ value }: { value: number }) {
 }
 
 export function DecisionHeader({
-  entity = "—",
-  stance = "unavailable",
-  confidence = null,
-  changeMarker = "unknown",
-  alertCount = 0,
-  highestAlertSeverity = null,
-  gateState = "fallback",
-  lastUpdated,
+  entity: entityProp = "—",
+  stance: stanceProp = "unavailable",
+  confidence: confidenceProp = null,
+  changeMarker: changeMarkerProp = "unknown",
+  alertCount: alertCountProp = 0,
+  highestAlertSeverity: highestAlertSeverityProp = null,
+  gateState: gateStateProp = "fallback",
+  lastUpdated: lastUpdatedProp,
   onEntitySearch,
+  vm,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onScrollTo: _onScrollTo,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  activeSection: _activeSection,
 }: DecisionHeaderProps) {
+  // compat bridge: if vm is passed, extract values from it
+  const entity = vm?.entity ?? entityProp;
+  const stance = ((vm?.stance as string | undefined) ?? stanceProp) as "bullish" | "bearish" | "neutral" | "mixed" | "unavailable";
+  const confidence = vm?.confidence !== undefined ? vm.confidence : confidenceProp;
+  const changeMarker = (vm?.changeMarker ?? changeMarkerProp) as "stable" | "strengthening" | "weakening" | "reversal" | "unknown";
+  const alertCount = vm?.alertCount ?? alertCountProp;
+  const highestAlertSeverity = (vm?.highestAlertSeverity !== undefined ? vm.highestAlertSeverity : highestAlertSeverityProp) as "low" | "medium" | "high" | "critical" | null;
+  const gateState = (vm?.gateState ?? gateStateProp) as "pass" | "block" | "fallback";
+  const lastUpdated = vm?.lastUpdated ?? lastUpdatedProp;
   const stanceCfg = STANCE_CONFIG[stance] ?? STANCE_CONFIG.unavailable;
   const markerCfg = MARKER_CONFIG[changeMarker] ?? MARKER_CONFIG.unknown;
   const gateCfg = GATE_CONFIG[gateState] ?? GATE_CONFIG.fallback;

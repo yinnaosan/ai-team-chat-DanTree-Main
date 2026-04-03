@@ -20,12 +20,27 @@ type TimingBlockProps = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | 
 type AlertBlockProps  = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
 type HistoryBlockProps = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
 
+/** Compat: block ref map for scroll-to-section */
+export interface SpineBlockRefs {
+  thesis?: React.RefObject<HTMLDivElement | null>;
+  timing?: React.RefObject<HTMLDivElement | null>;
+  alert?: React.RefObject<HTMLDivElement | null>;
+  history?: React.RefObject<HTMLDivElement | null>;
+}
+
 export interface DecisionSpineProps {
   thesis?: ThesisBlockProps;
   timing?: TimingBlockProps;
   alerts?: AlertBlockProps;
   history?: HistoryBlockProps;
   isLoading?: boolean;
+  /** compat: legacy callers pass WorkspaceViewModel via vm prop */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vm?: any;
+  /** compat: legacy block refs map */
+  blockRefs?: SpineBlockRefs;
+  /** compat: legacy session id */
+  sessionId?: string | null;
 }
 
 function SkeletonBlock({ height = 80 }: { height?: number }) {
@@ -36,8 +51,23 @@ function SkeletonBlock({ height = 80 }: { height?: number }) {
   );
 }
 
-export function DecisionSpine({ thesis, timing, alerts, history, isLoading = false }: DecisionSpineProps) {
-  if (isLoading) {
+export function DecisionSpine({
+  thesis: thesisProp,
+  timing: timingProp,
+  alerts: alertsProp,
+  history: historyProp,
+  isLoading = false,
+  vm,
+  blockRefs,
+  sessionId,
+}: DecisionSpineProps) {
+  // compat bridge: if vm is passed, extract block view-models from it
+  const thesis = thesisProp ?? (vm ? { vm: vm.thesisViewModel, blockRef: blockRefs?.thesis, sessionId } : undefined);
+  const timing = timingProp ?? (vm ? { vm: vm.timingViewModel, blockRef: blockRefs?.timing, sessionId } : undefined);
+  const alerts = alertsProp ?? (vm ? { vm: vm.alertViewModel,  blockRef: blockRefs?.alert,   sessionId } : undefined);
+  const history = historyProp ?? (vm ? { vm: vm.historyViewModel, blockRef: blockRefs?.history, sessionId } : undefined);
+  const loading = isLoading || (vm ? vm.isLoading : false);
+  if (loading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <SkeletonBlock height={160} />

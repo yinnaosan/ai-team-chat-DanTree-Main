@@ -25,6 +25,8 @@ interface SessionRailProps {
   onSelectSession?: (id: string) => void;
   onNewSession?: () => void;
   activeEntity?: string;
+  /** compat: legacy callers pass width; ignored internally */
+  width?: number;
 }
 
 // 无默认 demo 会话 — 由父组件传入真实 sessions

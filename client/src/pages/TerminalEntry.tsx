@@ -12,6 +12,8 @@ import { getLoginUrl } from "@/const";
 import { useActiveFocusKey } from "@/contexts/WorkspaceContext";
 import { SessionRail } from "@/components/SessionRail";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
+import { DecisionHeader } from "@/components/DecisionHeader";
+import { DecisionSpine } from "@/components/DecisionSpine";
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 
@@ -440,6 +442,8 @@ export default function TerminalEntry() {
 
         {/* Main content */}
         <div className={`te-body ${bootDone ? "visible" : ""}`} style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
+        {/* [B1b] Decision Header — 顶部决策栏 */}
+        <DecisionHeader vm={vm.headerViewModel} />
         {/* B: Hero Zone — left */}
         <div className="te-hero-zone">
           <div className="te-hero-left">
@@ -736,176 +740,26 @@ export default function TerminalEntry() {
           </div>
         </div>
 
-        {/* I: Alerts Panel — Level 17.1A — OI-L17-002 */}
-        {((entityAlerts && entityAlerts.alert_count > 0) || (basketAlerts && basketAlerts.alert_count > 0)) && (
+        {/* [B1b] Decision Spine — 中间主脊柱：Thesis → Timing → Alert → History */}
+        <DecisionSpine vm={vm} />
+        {/* [B1b] Basket Alerts — 保留：basket 专用，不在 entity adapter 范围内 */}
+        {(basketAlerts && basketAlerts.alert_count > 0) && (
           <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(251,146,60,0.3)" }}>
             <div className="te-panel-header">
-              <span className="te-panel-label">ALERTS</span>
-              <span className="te-status-text" style={{ fontSize: "10px", opacity: 0.5, marginLeft: "6px" }}>advisory only · phase 1</span>
-              {/* Total count badge */}
-              {(() => {
-                const total = (entityAlerts?.alert_count ?? 0) + (basketAlerts?.alert_count ?? 0);
-                const sevList = [entityAlerts?.highest_severity, basketAlerts?.highest_severity]
-                  .filter((s): s is "low" | "medium" | "high" | "critical" => s != null);
-                const order = ["low", "medium", "high", "critical"] as const;
-                const topSev: string | undefined = sevList.length > 0
-                  ? sevList.reduce((a, b) => order.indexOf(a) >= order.indexOf(b) ? a : b)
-                  : undefined;
-                const sevColor = topSev === "critical" ? "#fca5a5" : topSev === "high" ? "#fb923c" : topSev === "medium" ? "#fbbf24" : "#94a3b8";
-                const sevBg = topSev === "critical" ? "#7f1d1d" : topSev === "high" ? "#431407" : topSev === "medium" ? "#451a03" : "#1e293b";
-                const sevBorder = topSev === "critical" ? "#ef4444" : topSev === "high" ? "#ea580c" : topSev === "medium" ? "#d97706" : "#334155";
-                return total > 0 ? (
-                  <span style={{ marginLeft: "auto", fontSize: "8px", fontFamily: "monospace", padding: "1px 6px", borderRadius: "2px", background: sevBg, color: sevColor, border: `1px solid ${sevBorder}` }}>
-                    {total} ▲ {(topSev ?? "low").toUpperCase()}
-                  </span>
-                ) : null;
-              })()}
+              <span className="te-panel-label">BASKET ALERTS</span>
+              <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", marginLeft: "6px" }}>{basketAlerts.alert_count} 条</span>
             </div>
             <div className="te-panel-body" style={{ padding: "10px 14px" }}>
-              {/* Entity Alerts */}
-              {entityAlerts && entityAlerts.alert_count > 0 && (
-                <div style={{ marginBottom: basketAlerts && basketAlerts.alert_count > 0 ? "10px" : 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
-                    <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace", letterSpacing: "0.06em" }}>{activeEntity}</span>
-                    <span style={{
-                      fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                      background: entityAlerts.highest_severity === "critical" ? "#7f1d1d" : entityAlerts.highest_severity === "high" ? "#431407" : entityAlerts.highest_severity === "medium" ? "#451a03" : "#1e293b",
-                      color: entityAlerts.highest_severity === "critical" ? "#fca5a5" : entityAlerts.highest_severity === "high" ? "#fb923c" : entityAlerts.highest_severity === "medium" ? "#fbbf24" : "#94a3b8",
-                      border: `1px solid ${entityAlerts.highest_severity === "critical" ? "#ef4444" : entityAlerts.highest_severity === "high" ? "#ea580c" : entityAlerts.highest_severity === "medium" ? "#d97706" : "#334155"}`,
-                    }}>{(entityAlerts.highest_severity ?? "low").toUpperCase()}</span>
-                    <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace" }}>{entityAlerts.alert_count} alert{entityAlerts.alert_count > 1 ? "s" : ""}</span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "5px" }}>
-                    {entityAlerts.alerts.map((a: any, i: number) => (
-                      <span key={i} style={{
-                        fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                        background: "#0f172a", border: "1px solid #1e293b",
-                        color: a.severity === "critical" ? "#fca5a5" : a.severity === "high" ? "#fb923c" : a.severity === "medium" ? "#fbbf24" : "#64748b",
-                      }}>{a.alert_type.replace(/_/g, " ")}</span>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{entityAlerts.summary_text}</div>
-                </div>
-              )}
-              {/* Basket Alerts */}
-              {basketAlerts && basketAlerts.alert_count > 0 && (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
-                    <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace", letterSpacing: "0.06em" }}>BASKET</span>
-                    <span style={{
-                      fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                      background: basketAlerts.highest_severity === "critical" ? "#7f1d1d" : basketAlerts.highest_severity === "high" ? "#431407" : basketAlerts.highest_severity === "medium" ? "#451a03" : "#1e293b",
-                      color: basketAlerts.highest_severity === "critical" ? "#fca5a5" : basketAlerts.highest_severity === "high" ? "#fb923c" : basketAlerts.highest_severity === "medium" ? "#fbbf24" : "#94a3b8",
-                      border: `1px solid ${basketAlerts.highest_severity === "critical" ? "#ef4444" : basketAlerts.highest_severity === "high" ? "#ea580c" : basketAlerts.highest_severity === "medium" ? "#d97706" : "#334155"}`,
-                    }}>{(basketAlerts.highest_severity ?? "low").toUpperCase()}</span>
-                    <span style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace" }}>{basketAlerts.alert_count} alert{basketAlerts.alert_count > 1 ? "s" : ""}</span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "5px" }}>
-                    {basketAlerts.alerts.map((a: any, i: number) => (
-                      <span key={i} style={{
-                        fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                        background: "#0f172a", border: "1px solid #1e293b",
-                        color: a.severity === "critical" ? "#fca5a5" : a.severity === "high" ? "#fb923c" : a.severity === "medium" ? "#fbbf24" : "#64748b",
-                      }}>{a.alert_type.replace(/_/g, " ")}</span>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{basketAlerts.summary_text}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* J: Timing Panel — L21.1A / Level 19.0C */}
-        {timingData?.available && (
-          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(99,102,241,0.3)" }}>
-            <div className="te-panel-header">
-              <span className="te-panel-label">TIMING</span>
-              <span style={{
-                fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                background: timingData.readiness_state === "ready" ? "#14532d" : timingData.readiness_state === "conditional" ? "#451a03" : "#1e293b",
-                color: timingData.readiness_state === "ready" ? "#86efac" : timingData.readiness_state === "conditional" ? "#fbbf24" : "#94a3b8",
-                border: `1px solid ${timingData.readiness_state === "ready" ? "#16a34a" : timingData.readiness_state === "conditional" ? "#d97706" : "#334155"}`,
-
-              }}>{(timingData.readiness_state ?? "unknown").toUpperCase()}</span>
-            </div>
-            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                <span style={{ fontSize: "9px", color: "#94a3b8", fontFamily: "monospace" }}>ACTION BIAS</span>
-                <span style={{
-                  fontSize: "9px", fontFamily: "monospace", padding: "1px 6px", borderRadius: "2px",
-                  background: timingData.action_bias === "BUY" ? "#14532d" : timingData.action_bias === "AVOID" ? "#7f1d1d" : timingData.action_bias === "HOLD" ? "#1e3a5f" : "#1e293b",
-                  color: timingData.action_bias === "BUY" ? "#86efac" : timingData.action_bias === "AVOID" ? "#fca5a5" : timingData.action_bias === "HOLD" ? "#93c5fd" : "#94a3b8",
-                  border: `1px solid ${timingData.action_bias === "BUY" ? "#16a34a" : timingData.action_bias === "AVOID" ? "#ef4444" : timingData.action_bias === "HOLD" ? "#3b82f6" : "#334155"}`,
-                  fontWeight: 600,
-                }}>{timingData.action_bias ?? "NONE"}</span>
-                {timingData.timing_risk != null && (
-                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>RISK {timingData.timing_risk.toUpperCase()}</span>
-                )}
-              </div>
-              {timingData.timing_summary && (
-                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{timingData.timing_summary}</div>
-              )}
-            </div>
-          </div>
-        )}
-        {/* K: Thesis State Panel — L21.1A / Level 18.0C */}
-        {thesisData?.available && (
-          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(168,85,247,0.3)" }}>
-            <div className="te-panel-header">
-              <span className="te-panel-label">THESIS STATE</span>
-              <span style={{
-                fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                background: thesisData.current_stance === "bullish" ? "#14532d" : thesisData.current_stance === "bearish" ? "#7f1d1d" : thesisData.current_stance === "neutral" ? "#1e3a5f" : "#1e293b",
-                color: thesisData.current_stance === "bullish" ? "#86efac" : thesisData.current_stance === "bearish" ? "#fca5a5" : thesisData.current_stance === "neutral" ? "#93c5fd" : "#94a3b8",
-                border: `1px solid ${thesisData.current_stance === "bullish" ? "#16a34a" : thesisData.current_stance === "bearish" ? "#ef4444" : thesisData.current_stance === "neutral" ? "#3b82f6" : "#334155"}`,
-              }}>{(thesisData.current_stance ?? "unavailable").toUpperCase()}</span>
-            </div>
-            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
-              <div style={{ display: "flex", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
-                {thesisData.evidence_state && (
-                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>EVD <span style={{ color: "#94a3b8" }}>{thesisData.evidence_state}</span></span>
-                )}
-                {thesisData.gate_state && (
-                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>GATE <span style={{ color: "#94a3b8" }}>{thesisData.gate_state}</span></span>
-                )}
-                {thesisData.source_state && (
-                  <span style={{ fontSize: "9px", color: "#64748b", fontFamily: "monospace" }}>SRC <span style={{ color: "#94a3b8" }}>{thesisData.source_state}</span></span>
-                )}
-              </div>
-              {thesisData.thesis_change_marker && thesisData.thesis_change_marker !== "stable" && thesisData.thesis_change_marker !== "unknown" && (
-                <div style={{ marginBottom: "5px" }}>
-                  <span style={{
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "5px" }}>
+                {basketAlerts.alerts?.map((a: any, i: number) => (
+                  <span key={i} style={{
                     fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                    background: "#1e293b", border: "1px solid #334155", color: "#fbbf24",
-                  }}>{thesisData.thesis_change_marker.replace(/_/g, " ").toUpperCase()}</span>
-                </div>
-              )}
-              {thesisData.state_summary_text && (
-                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{thesisData.state_summary_text}</div>
-              )}
-            </div>
-          </div>
-        )}
-        {/* L: Session History Panel — L21.1A / Level 20.0C */}
-        {sessionData?.available && (
-          <div className="te-panel" style={{ marginTop: "12px", borderLeft: "2px solid rgba(20,184,166,0.3)" }}>
-            <div className="te-panel-header">
-              <span className="te-panel-label">SESSION HISTORY</span>
-              {sessionData.change_marker && sessionData.change_marker !== "stable" && sessionData.change_marker !== "first_observation" && (
-                <span style={{
-                  fontSize: "8px", fontFamily: "monospace", padding: "1px 5px", borderRadius: "2px",
-                  background: "#1e293b", border: "1px solid #334155", color: "#2dd4bf",
-                }}>{sessionData.change_marker.replace(/_/g, " ").toUpperCase()}</span>
-              )}
-            </div>
-            <div className="te-panel-body" style={{ padding: "10px 14px" }}>
-              {sessionData.delta_summary && (
-                <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6, marginBottom: "5px" }}>{sessionData.delta_summary}</div>
-              )}
-              {sessionData.current_snapshot?.state_summary_text && (
-                <div style={{ fontSize: "9px", color: "#334155", fontFamily: "monospace", lineHeight: 1.6 }}>{sessionData.current_snapshot.state_summary_text}</div>
-              )}
+                    background: "#0f172a", border: "1px solid #1e293b",
+                    color: a.severity === "critical" ? "#fca5a5" : a.severity === "high" ? "#fb923c" : a.severity === "medium" ? "#fbbf24" : "#64748b",
+                  }}>{a.alert_type?.replace(/_/g, " ")}</span>
+                ))}
+              </div>
+              <div style={{ fontSize: "9px", color: "#475569", fontFamily: "monospace", lineHeight: 1.6 }}>{basketAlerts.summary_text}</div>
             </div>
           </div>
         )}

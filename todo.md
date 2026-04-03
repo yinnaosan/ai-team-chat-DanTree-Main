@@ -2860,3 +2860,14 @@
 - [x] 移除 TerminalEntry 中 7 个重复 market 查询（getSourceSelectionStats / getOutputGateStats / getSemanticStats / evaluateEntityAlerts / getEntityThesisState / getExecutionTiming + getSessionHistory mutation）
 - [x] 保留 TerminalEntry 中必要的独立 query（basketData / compData / basketAlerts），说明保留原因
 - [x] TSC 验证（0 errors） + 回归测试（19 个全部通过）
+
+## Workspace v2.1-B1b 主脊柱组件包（Manus Direct）
+
+- [ ] 新建 DecisionHeader.tsx（消费 headerViewModel，显示 entity/sessionType/stance/readiness/actionBias/severity/changeMarker/lastSnapshotAt）
+- [ ] 新建 DecisionSpine.tsx（容器，按序渲染 ThesisBlock → TimingBlock → AlertBlock → HistoryBlock）
+- [ ] 新建 ThesisBlock.tsx（消费 thesisViewModel）
+- [ ] 新建 TimingBlock.tsx（消费 timingViewModel）
+- [ ] 新建 AlertBlock.tsx（消费 alertViewModel）
+- [ ] 新建 HistoryBlock.tsx（消费 historyViewModel）
+- [ ] TerminalEntry 瘦身：移除内联主脊柱 JSX，挂载 DecisionHeader + DecisionSpine
+- [ ] TSC 验证 + 回归测试

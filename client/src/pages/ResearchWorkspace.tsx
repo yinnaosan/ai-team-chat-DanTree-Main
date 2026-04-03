@@ -1,8 +1,12 @@
 /**
- * ResearchWorkspace — DanTree Terminal V2
- * Layout: [Left Session Rail 240px] [Center Decision Canvas flex-1] [Right Secondary Panel 380px] [Right Insights 240px]
- * B4: Center = DecisionHeader + DecisionSpine ONLY. Old Analysis/Chart/Risk moved to Secondary Panel.
- * Matches reference image exactly.
+ * ResearchWorkspace — DanTree Workspace v2.1
+ * B5: FROM-SCRATCH REBUILD. New 4-column skeleton:
+ *   Col 1 (240px)  → SessionRail  — 会话列表，唯一职责
+ *   Col 2 (flex-1) → Decision Canvas — DecisionHeader + Thesis/Timing/Alert/History，视觉主区
+ *   Col 3 (320px)  → Discussion 独立栏 — 连续对话 + 输入框
+ *   Col 4 (240px)  → Insights 次级栏 — 信号/目标价/评级（降权）
+ * 旧 Analysis/MainChart/RiskPanel 不再作为骨架，仅作为功能来源挂接在 Col 4。
+ * ui-ux-pro-max: Cinematic Dark + Financial Dashboard palette + spacing rhythm.
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
@@ -53,6 +57,7 @@ import { DecisionSpine } from "@/components/DecisionSpine";
 import type { SpineBlockRefs } from "@/components/DecisionSpine";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { SessionRail } from "@/components/SessionRail";
 
 /** 根据市场类型返回货币符号 */
 function getCurrencySymbol(symbol: string): string {
@@ -2089,15 +2094,7 @@ export default function ResearchWorkspacePage() {
   }, [lastAssistantMsg?.metadata]);
   const tickerForCards = alphaFactorsData?.payload?.ticker ?? currentTicker ?? "";
 
-  const { pinnedConvs, favoritedConvs, normalConvs } = useMemo(() => {
-    const convs = allConversations ?? [];
-    const sorted = [...convs].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-    return {
-      pinnedConvs: sorted.filter(c => c.isPinned),
-      favoritedConvs: sorted.filter(c => !c.isPinned && c.isFavorited),
-      normalConvs: sorted.filter(c => !c.isPinned && !c.isFavorited),
-    };
-  }, [allConversations]);
+  // B5E: pinnedConvs/favoritedConvs/normalConvs removed — Column 1 replaced by SessionRail
 
   const quickPrompts = useMemo(() => currentTicker ? [
     `${currentTicker} 的估值是否合理？`,
@@ -2295,7 +2292,7 @@ export default function ResearchWorkspacePage() {
         </div>
       </div>
 
-      {/* ── 4-Column Workspace ── */}
+      {/* ── B5: 4-Column Workspace — FROM-SCRATCH REBUILD ── */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* Modals */}
@@ -2304,7 +2301,7 @@ export default function ResearchWorkspacePage() {
           onClose={() => setShowInstrumentModal(false)}
           onSelect={(ticker) => {
             setCurrentTicker(ticker);
-            setLiveTick(null); // 切换股票时重置实时价格
+            setLiveTick(null);
             handleSubmit(`深度分析 ${ticker}：估値、基本面、风险和投资建议`);
           }}
         />
@@ -2317,176 +2314,14 @@ export default function ResearchWorkspacePage() {
         />
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 1: Left Sidebar — Conversations + Watchlist
+            COLUMN 1: Session Rail — B5 会话列表，唯一职责
+            ui-ux-pro-max: 固定 240px，背景最暗（bg0），不与主区竞争
         ════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col shrink-0 transition-all duration-200"
-          style={{
-            width: sidebarCollapsed ? "48px" : "240px",
-            background: T.bg1,
-            borderRight: `1px solid ${T.border}`,
-          }}>
-          {/* Sidebar Header */}
-          <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
-            style={{ borderBottom: `1px solid ${T.border}` }}>
-            {!sidebarCollapsed && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>SESSIONS</span>
-                {allConversations && allConversations.length > 0 && (
-                  <span className="text-[10px] font-mono px-1 rounded" style={{ background: T.bg3, color: T.text4 }}>{allConversations.length}</span>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-1 ml-auto">
-              {!sidebarCollapsed && (
-                <button onClick={() => setShowNewConvDialog(true)}
-                  className="p-1 rounded transition-colors hover:bg-white/5"
-                  style={{ color: T.text3 }}>
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button onClick={() => setSidebarCollapsed(v => !v)}
-                className="p-1 rounded transition-colors hover:bg-white/5"
-                style={{ color: T.text3 }}>
-                {sidebarCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
-
-          {!sidebarCollapsed && (
-            <>
-              {/* New conv dialog */}
-              {showNewConvDialog && (
-                <div className="p-2 shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-                  <Input
-                    placeholder="对话标题（可选）"
-                    value={newConvTitle}
-                    onChange={(e) => setNewConvTitle(e.target.value)}
-                    className="h-7 text-xs mb-1.5"
-                    style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text1 }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") createConvMutation.mutate({ title: newConvTitle || undefined });
-                      if (e.key === "Escape") { setShowNewConvDialog(false); setNewConvTitle(""); }
-                    }}
-                    autoFocus
-                  />
-                  <div className="flex gap-1">
-                    <button onClick={() => createConvMutation.mutate({ title: newConvTitle || undefined })}
-                      disabled={createConvMutation.isPending}
-                      className="flex-1 h-7 text-xs rounded"
-                      style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
-                      创建
-                    </button>
-                    <button onClick={() => { setShowNewConvDialog(false); setNewConvTitle(""); }}
-                      className="flex-1 h-7 text-xs rounded hover:bg-white/5"
-                      style={{ color: T.text3, border: `1px solid ${T.border}` }}>
-                      取消
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Search */}
-              <div className="px-2 py-2 shrink-0">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: T.text4 }} />
-                  <input
-                    placeholder="搜索对话..."
-                    className="w-full h-8 pl-7 pr-2 rounded-lg text-sm outline-none"
-                    style={{ background: T.bg0, border: `1px solid ${T.border}`, color: T.text2 }}
-                  />
-                </div>
-              </div>
-
-              {/* Conv list */}
-              <div className="flex-1 overflow-y-auto py-1">
-                {pinnedConvs.length > 0 && (
-                  <div className="mb-1">
-                    <div className="px-3 py-1 flex items-center gap-1">
-                      <Pin className="w-2.5 h-2.5" style={{ color: T.text4 }} />
-                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>置顶</span>
-                    </div>
-                    {pinnedConvs.map(c => (
-                      <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
-                        onClick={() => setActiveConvId(c.id)}
-                        onPin={() => pinConvMutation.mutate({ conversationId: c.id, pinned: !c.isPinned })}
-                        onFavorite={() => favoriteConvMutation.mutate({ conversationId: c.id, favorited: !c.isFavorited })}
-                        onDelete={() => deleteConvMutation.mutate({ conversationId: c.id })}
-                      />
-                    ))}
-                  </div>
-                )}
-                {favoritedConvs.length > 0 && (
-                  <div className="mb-1">
-                    <div className="px-3 py-1 flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5" style={{ color: T.text4 }} />
-                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>收藏</span>
-                    </div>
-                    {favoritedConvs.map(c => (
-                      <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
-                        onClick={() => setActiveConvId(c.id)}
-                        onPin={() => pinConvMutation.mutate({ conversationId: c.id, pinned: !c.isPinned })}
-                        onFavorite={() => favoriteConvMutation.mutate({ conversationId: c.id, favorited: !c.isFavorited })}
-                        onDelete={() => deleteConvMutation.mutate({ conversationId: c.id })}
-                      />
-                    ))}
-                  </div>
-                )}
-                {normalConvs.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1">
-                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text4 }}>对话</span>
-                    </div>
-                    {normalConvs.map(c => (
-                      <ConvSidebarItem key={c.id} conv={c} isActive={c.id === activeConvId}
-                        onClick={() => setActiveConvId(c.id)}
-                        onPin={() => pinConvMutation.mutate({ conversationId: c.id, pinned: !c.isPinned })}
-                        onFavorite={() => favoriteConvMutation.mutate({ conversationId: c.id, favorited: !c.isFavorited })}
-                        onDelete={() => deleteConvMutation.mutate({ conversationId: c.id })}
-                      />
-                    ))}
-                  </div>
-                )}
-                {(!allConversations || allConversations.length === 0) && (
-                  <div className="flex flex-col items-center justify-center gap-2 py-8 px-3">
-                    <MessageSquare className="w-6 h-6" style={{ color: T.text4 }} />
-                    <p className="text-sm text-center" style={{ color: T.text4 }}>点击 + 开始新的研究对话</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Utility shortcuts */}
-              <div className="p-2 shrink-0 space-y-0.5" style={{ borderTop: `1px solid ${T.border}` }}>
-                {[
-                  { icon: Wallet, label: "资产负债表", path: "/networth" },
-                  { icon: BookOpen, label: "投资知识库", path: "/library" },
-                  { icon: Settings, label: "设置", path: "/settings" },
-                ].map(({ icon: Icon, label, path }) => (
-                  <button key={path} onClick={() => navigate(path)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-all hover:bg-white/5"
-                    style={{ color: T.text3 }}>
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {sidebarCollapsed && (
-            <div className="flex flex-col items-center gap-2 py-2">
-              <button onClick={() => setShowNewConvDialog(true)} className="p-1.5 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-                <Plus className="w-4 h-4" />
-              </button>
-              <button onClick={() => navigate("/settings")} className="p-1.5 rounded hover:bg-white/5" style={{ color: T.text3 }}>
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
+        <SessionRail width={240} />
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 2: Decision Canvas — B4 主决策区（唯一主区）
-            ui-ux-pro-max: flex-1 主区，视觉权重最高，左右次级栏不得抗衡
+            COLUMN 2: Decision Canvas — B5 主决策区（唯一主区）
+            ui-ux-pro-max: flex-1，视觉权重最高，仅包含 DecisionHeader + DecisionSpine
         ════════════════════════════════════════════════════════════ */}
         <div ref={column2Ref} className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{
@@ -2496,14 +2331,15 @@ export default function ResearchWorkspacePage() {
             boxShadow: analysisRefreshed ? `inset 0 0 0 1px ${T.gold}` : "none",
             minWidth: "360px",
           }}>
-          {/* Research Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 shrink-0"
-            style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>研究分析</span>
+          {/* B5: Decision Canvas Header — 纯净标题栏，移除旧研究分析标签和 analysisMode 切换 */}
+          <div className="flex items-center justify-between px-4 py-2 shrink-0"
+            style={{ background: T.bg0, borderBottom: `1px solid ${T.border}` }}>
+            <div className="flex items-center gap-2">
+              {/* DECISION CANVAS 标识 */}
+              <div className="w-1 h-3.5 rounded-full" style={{ background: T.gold }} />
+              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: T.text4 }}>DECISION CANVAS</span>
               {currentTicker && (
-                <span className="text-[12px] px-1.5 py-0.5 rounded font-mono"
+                <span className="text-[11px] px-1.5 py-0.5 rounded font-mono font-semibold"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
                   {currentTicker}
                 </span>
@@ -2511,7 +2347,7 @@ export default function ResearchWorkspacePage() {
               {isTyping && (
                 <div className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: T.gold }} />
-                  <span className="text-sm font-mono" style={{ color: T.gold }}>
+                  <span className="text-[11px] font-mono" style={{ color: T.gold }}>
                     {taskPhase === "manus_working" ? "理解" : taskPhase === "planning" ? "规划" :
                       taskPhase === "source_selection" ? "选源" : taskPhase === "manus_analyzing" ? "获取" :
                       taskPhase === "evidence_eval" ? "验证" : taskPhase === "multi_agent" ? "协作" :
@@ -2520,31 +2356,18 @@ export default function ResearchWorkspacePage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {/* Analysis mode */}
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
-                style={{ background: T.bg0, border: `1px solid ${T.border}` }}>
-                {(["quick", "standard", "deep"] as const).map((m) => (
-                  <button key={m} onClick={() => setAnalysisMode(m)}
-                    className="px-2 py-0.5 rounded text-xs font-medium transition-all"
-                    style={{
-                      background: analysisMode === m ? T.bg3 : "transparent",
-                      color: analysisMode === m ? T.gold : T.text4,
-                    }}>
-                    {m === "quick" ? "快速" : m === "standard" ? "标准" : "深度"}
-                  </button>
-                ))}
-              </div>
+            {/* 右侧操作按鈕组 */}
+            <div className="flex items-center gap-1">
               <button onClick={() => setShowInstrumentModal(true)}
                 className="p-1.5 rounded transition-colors hover:bg-white/5"
+                title="选择标的"
                 style={{ color: T.text3 }}>
                 <Search className="w-3.5 h-3.5" />
               </button>
-              <button className="p-1.5 rounded transition-colors hover:bg-white/5" style={{ color: T.text3 }}>
+              <button className="p-1.5 rounded transition-colors hover:bg-white/5"
+                title="全屏"
+                style={{ color: T.text3 }}>
                 <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-              <button className="p-1.5 rounded transition-colors hover:bg-white/5" style={{ color: T.text3 }}>
-                <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -2583,122 +2406,18 @@ export default function ResearchWorkspacePage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 3: 次级分析栏 — B4 降级（Analysis + Discussion）
-            ui-ux-pro-max: 宽度固定 380px，背景稍暗，不得抗衡中间主区
+            COLUMN 3: Discussion 独立栏 — B5E 纯净重建
+            ui-ux-pro-max: 宽度 320px，仅包含 Discussion header + 消息列表 + 输入框
+            职责单一：连续对话，不混入分析卡片
         ════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col overflow-hidden transition-all duration-200"
+        <div className="flex flex-col overflow-hidden"
           style={{
-            width: insightCollapsed ? "calc(380px + 240px)" : "380px",
+            width: "320px",
             background: T.bg1,
             borderRight: `1px solid ${T.border}`,
-            opacity: 0.95,
           }}>
 
-          {/* ─── B4 次级分析区：AI Verdict + Chart + Risk Panel ————————————————————————————————— */}
-          <div className="shrink-0" style={{ borderBottom: `1px solid ${T.border}` }}>
-            {/* 分析小标题 */}
-            <div className="flex items-center gap-2 px-3 py-2"
-              style={{ background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
-              <div className="w-1 h-3 rounded-full" style={{ background: T.blue }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: T.text4 }}>深度分析</span>
-              {currentTicker && (
-                <span className="text-[10px] font-mono px-1 rounded" style={{ background: T.bg3, color: T.text3 }}>{currentTicker}</span>
-              )}
-              {/* 分析模式切换 */}
-              <div className="ml-auto flex items-center gap-0.5 p-0.5 rounded" style={{ background: T.bg0, border: `1px solid ${T.border}` }}>
-                {(["quick", "standard", "deep"] as const).map((m) => (
-                  <button key={m} onClick={() => setAnalysisMode(m)}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-all"
-                    style={{
-                      background: analysisMode === m ? T.bg3 : "transparent",
-                      color: analysisMode === m ? T.gold : T.text4,
-                    }}>
-                    {m === "quick" ? "快速" : m === "standard" ? "标准" : "深度"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* AI Verdict */}
-            <div className="p-2 space-y-2" style={{ maxHeight: "360px", overflowY: "auto" }}>
-              <AIVerdictCard
-                answerObject={answerObject}
-                outputMode={outputMode}
-                evidenceScore={evidenceScore}
-                isLoading={isTyping && !answerObject}
-                ticker={currentTicker}
-                quoteData={quoteData}
-                resetKey={`${currentTicker}-${activeConvId ?? ""}-${convMessages.length}`}
-              />
-              {/* Main Chart */}
-              <MainChartCard ticker={currentTicker} colorScheme={colorScheme} quoteData={quoteData} onLivePrice={setLiveTick} alertSoundMuted={alertSoundMuted} onToggleAlertMute={toggleAlertMute} />
-              {/* Risk Panel */}
-              {risks && risks.length > 0 && (
-                <RiskPanel risks={risks} isLoading={isTyping && !answerObject} />
-              )}
-              {/* Deep Sections */}
-              {answerObject && (
-                <div className="rounded-xl overflow-hidden" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-                  <button
-                    onClick={() => setShowDeepSections(v => !v)}
-                    className="w-full flex items-center justify-between px-3 py-2 transition-colors hover:bg-white/3"
-                    style={{ borderBottom: showDeepSections ? `1px solid ${T.border}` : "none" }}>
-                    <div className="flex items-center gap-2">
-                      <FlaskConical className="w-3 h-3" style={{ color: T.blue }} />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>DEEP SECTIONS</span>
-                    </div>
-                    {showDeepSections ? <ChevronUp className="w-3 h-3" style={{ color: T.text3 }} /> : <ChevronDown className="w-3 h-3" style={{ color: T.text3 }} />}
-                  </button>
-                  {showDeepSections && (
-                    <div className="p-2 space-y-2">
-                      <div className="flex gap-1 flex-wrap">
-                        {(["backtest", "health", "sentiment", "alpha", "portfolio", "radar"] as const).map(t => (
-                          <button key={t} onClick={() => setDeepSectionsTab(t)}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium transition-all"
-                            style={{
-                              background: deepSectionsTab === t ? T.bg3 : "transparent",
-                              color: deepSectionsTab === t ? T.gold : T.text4,
-                              border: `1px solid ${deepSectionsTab === t ? T.borderBright : T.border}`,
-                            }}>
-                            {t === "backtest" ? "因子回测" : t === "health" ? "健康" : t === "sentiment" ? "情绪" : t === "alpha" ? "Alpha" : t === "portfolio" ? "模拟" : "雷达"}
-                          </button>
-                        ))}
-                      </div>
-                      <div>
-                        {deepSectionsTab === "backtest" && <BacktestCard ticker={tickerForCards || currentTicker || ""} spot={quoteData?.price ?? 100} sigma={0.25} />}
-                        {deepSectionsTab === "health" && healthScoreData && <HealthScoreCard payload={healthScoreData.payload} />}
-                        {deepSectionsTab === "health" && !healthScoreData && (
-                          <div className="p-2 rounded text-[10px] text-center" style={{ background: T.bg1, color: T.text4 }}>请先分析标的</div>
-                        )}
-                        {deepSectionsTab === "sentiment" && <SentimentNLPCard ticker={tickerForCards || currentTicker || ""} newsItems={newsItemsForCards} />}
-                        {deepSectionsTab === "alpha" && alphaFactorsData && <AlphaFactorCard payload={alphaFactorsData.payload} />}
-                        {deepSectionsTab === "alpha" && !alphaFactorsData && (
-                          <div className="p-2 rounded text-[10px] text-center" style={{ background: T.bg1, color: T.text4 }}>请先分析标的</div>
-                        )}
-                        {deepSectionsTab === "portfolio" && <AlpacaPortfolioCard />}
-                        {deepSectionsTab === "radar" && (
-                          <TrendRadarCard
-                            ticker={tickerForCards || currentTicker || ""}
-                            newsItems={newsItemsForCards}
-                            userWatchlist={currentTicker ? [currentTicker] : []}
-                            onWatchlistChange={() => {}}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Idle */}
-              {!answerObject && !isTyping && (
-                <WorkspaceIdleStream onSelectTicker={() => setShowInstrumentModal(true)} />
-              )}
-              {isTyping && !answerObject && (
-                <div className="space-y-2"><AIVerdictCard isLoading /></div>
-              )}
-            </div>
-          </div>
-
-          {/* ─── Discussion 小标题 */}
+          {/* ─── Discussion Header */}
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
             style={{ background: T.bg2, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-2 min-w-0">
@@ -2721,12 +2440,7 @@ export default function ResearchWorkspacePage() {
                     taskPhase === "gpt_reviewing" ? "综合" : taskPhase === "discussion" ? "生成" : "处理"}
                 </span>
               </div>
-            ) : (
-              <span className="text-[12px] px-1.5 py-0.5 rounded shrink-0"
-                style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}` }}>
-                Mode {analysisMode === "quick" ? "A" : analysisMode === "standard" ? "B" : "C"}
-              </span>
-            )}
+            ) : null}
           </div>
 
           {/* Messages */}
@@ -2864,12 +2578,15 @@ export default function ResearchWorkspacePage() {
         </div>
 
         {/* ════════════════════════════════════════════════════════════
-            COLUMN 4: Right Insight — Signals + Price Targets + Ratings + Forecasts
+            COLUMN 4: Insights 次级栏 — B5E 降权重建
+            ui-ux-pro-max: 宽度 240px，背景更暗（T.bg0），不得与中间主区竞争焦点
         ════════════════════════════════════════════════════════════ */}
         <div className="flex flex-col shrink-0 overflow-hidden transition-all duration-200"
           style={{
-            width: insightCollapsed ? "40px" : "280px",
-            background: T.bg1,
+            width: insightCollapsed ? "40px" : "240px",
+            background: T.bg0,
+            borderLeft: `1px solid ${T.border}`,
+            opacity: 0.88,
           }}>
           {/* Insight Header */}
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
@@ -2877,8 +2594,8 @@ export default function ResearchWorkspacePage() {
             {!insightCollapsed && (
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>INSIGHTS</span>
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest" style={{ background: "oklch(0.65 0.18 250 / 0.12)", border: "1px solid oklch(0.65 0.18 250 / 0.25)", color: "oklch(0.65 0.18 250)" }}>
-                  <span className="w-1 h-1 rounded-full animate-pulse" style={{ background: "oklch(0.65 0.18 250)" }} />
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest" style={{ background: "oklch(0.65 0.18 250 / 0.08)", border: "1px solid oklch(0.65 0.18 250 / 0.18)", color: "oklch(0.65 0.18 250 / 0.7)" }}>
+                  <span className="w-1 h-1 rounded-full" style={{ background: "oklch(0.65 0.18 250 / 0.6)" }} />
                   LIVE
                 </span>
               </div>

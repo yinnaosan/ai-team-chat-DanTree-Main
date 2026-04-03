@@ -2538,14 +2538,14 @@ export default function ResearchWorkspacePage() {
             )}
           </div>
 
-          {/* Quick prompts */}
+          {/* Quick prompts — ui-ux-pro-max: 2-col grid，全部可见，8px gap（Touch Spacing 规范） */}
           <div className="px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {quickPrompts.slice(0, 6).map((q, i) => (
                 <button key={i} onClick={() => handleSubmit(q)}
                   disabled={sending}
-                  className="px-2.5 py-1 rounded-full text-[12px] font-medium transition-all hover:opacity-80 disabled:opacity-50"
-                  style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}` }}>
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:opacity-90 disabled:opacity-50 text-left leading-snug"
+                  style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}`, minHeight: "32px" }}>
                   {q}
                 </button>
               ))}
@@ -2564,7 +2564,7 @@ export default function ResearchWorkspacePage() {
                 }}
                 placeholder={currentTicker ? `分析 ${currentTicker}…` : "输入分析请求…"}
                 disabled={sending}
-                rows={3}
+                rows={4}
                 className="flex-1 resize-none rounded-xl px-3 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
                 style={{
                   background: T.bg2,

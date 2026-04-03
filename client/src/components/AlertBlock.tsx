@@ -53,7 +53,7 @@ export function AlertBlock({ vm }: AlertBlockProps) {
           textTransform: "uppercase",
           flex: 1,
         }}>
-          Alert
+          风险预警
         </span>
 
         {/* Severity chip */}

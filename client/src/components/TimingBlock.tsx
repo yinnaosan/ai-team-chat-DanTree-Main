@@ -64,7 +64,7 @@ export function TimingBlock({ vm }: TimingBlockProps) {
           textTransform: "uppercase",
           flex: 1,
         }}>
-          Timing
+          时机分析
         </span>
 
         {/* Readiness chip */}

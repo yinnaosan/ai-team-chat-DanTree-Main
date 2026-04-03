@@ -94,7 +94,7 @@ export function ThesisBlock({ vm }: ThesisBlockProps) {
           textTransform: "uppercase",
           flex: 1,
         }}>
-          Thesis
+          论题分析
         </span>
 
         {/* Stance chip */}
@@ -141,7 +141,7 @@ export function ThesisBlock({ vm }: ThesisBlockProps) {
         borderBottom: vm.stateSummaryText ? "1px solid rgba(51, 65, 85, 0.2)" : "none",
       }}>
         <StateUnit label="证据" value={vm.evidenceState} />
-        <StateUnit label="Gate" value={vm.gateState} />
+        <StateUnit label="Gate门禁" value={vm.gateState} />
         <StateUnit label="来源" value={vm.sourceState} />
         {vm.fragilityScore != null && (
           <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "60px" }}>

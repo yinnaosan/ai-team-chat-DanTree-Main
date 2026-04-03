@@ -2412,7 +2412,7 @@ export default function ResearchWorkspacePage() {
             style={{ background: T.bg1, borderBottom: `1px solid ${T.border}` }}>
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-4 rounded-full" style={{ background: T.gold }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>ANALYSIS</span>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>研究分析</span>
               {currentTicker && (
                 <span className="text-[12px] px-1.5 py-0.5 rounded font-mono"
                   style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.goldBorder}` }}>
@@ -2442,7 +2442,7 @@ export default function ResearchWorkspacePage() {
                       background: analysisMode === m ? T.bg3 : "transparent",
                       color: analysisMode === m ? T.gold : T.text4,
                     }}>
-                    {m === "quick" ? "A" : m === "standard" ? "B" : "C"}
+                    {m === "quick" ? "快速" : m === "standard" ? "标准" : "深度"}
                   </button>
                 ))}
               </div>
@@ -2460,10 +2460,8 @@ export default function ResearchWorkspacePage() {
             </div>
           </div>
 
-          {/* B1d: DecisionHeader — 主脊柱决策栏（sticky top） */}
-          {currentSession && (
-            <DecisionHeader vm={vm.headerViewModel} />
-          )}
+          {/* B1e: DecisionHeader — 主脊柱决策栏（视觉顶层，sticky top） */}
+          <DecisionHeader vm={vm.headerViewModel} />
           {/* DECISION STRIP — primary decision surface, above all analysis */}
           {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
             <DecisionStrip

@@ -137,7 +137,7 @@ export function HistoryBlock({ vm }: HistoryBlockProps) {
             textTransform: "uppercase",
             marginBottom: "3px",
           }}>
-            上一 Snapshot
+            上一快照
           </div>
           <div style={{
             fontSize: "10px",

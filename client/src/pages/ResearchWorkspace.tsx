@@ -1602,9 +1602,6 @@ export default function ResearchWorkspacePage() {
   const [insightCollapsed, setInsightCollapsed] = useState(false);
   const [newConvTitle, setNewConvTitle] = useState("");
   const [showNewConvDialog, setShowNewConvDialog] = useState(false);
-  const [analysisRefreshed, setAnalysisRefreshed] = useState(false);
-  const [deepSectionsTab, setDeepSectionsTab] = useState<"backtest" | "health" | "sentiment" | "alpha" | "portfolio" | "radar">("backtest");
-  const [showDeepSections, setShowDeepSections] = useState(false)  // 实时价格（来自 SSE 流，优先级高于快照数据）
   const [liveTick, setLiveTick] = useState<{ price: number; prevClose?: number | null; change?: number | null; pctChange?: number | null } | null>(null);
   const livePrice = liveTick?.price ?? null;
   const [topPriceFlash, setTopPriceFlash] = useState<string>(""); // 顶部栏价格闪烁动画
@@ -1823,8 +1820,6 @@ export default function ResearchWorkspacePage() {
           setIsTyping(false); setIsStreaming(false); setSending(false);
           setTaskPhase("manus_working");
           refetchMsgs(); refetchConvs();
-          setAnalysisRefreshed(true);
-          setTimeout(() => setAnalysisRefreshed(false), 2000);
           es.close(); sseRef.current = null;
         } else if (d.type === "error") {
           setIsTyping(false); setIsStreaming(false); setSending(false);
@@ -2328,7 +2323,7 @@ export default function ResearchWorkspacePage() {
             background: T.bg0,
             borderRight: `1px solid ${T.border}`,
             transition: "box-shadow 0.3s ease",
-            boxShadow: analysisRefreshed ? `inset 0 0 0 1px ${T.gold}` : "none",
+            boxShadow: "none",
             minWidth: "360px",
           }}>
           {/* B5: Decision Canvas Header — 纯净标题栏，移除旧研究分析标签和 analysisMode 切换 */}
@@ -2423,7 +2418,8 @@ export default function ResearchWorkspacePage() {
         ════════════════════════════════════════════════════════════ */}
         <div className="flex flex-col overflow-hidden"
           style={{
-            width: "320px",
+            width: "360px",
+            minWidth: "300px",
             background: T.bg1,
             borderRight: `1px solid ${T.border}`,
           }}>
@@ -2543,13 +2539,13 @@ export default function ResearchWorkspacePage() {
           </div>
 
           {/* Quick prompts */}
-          <div className="px-3 py-2 shrink-0 overflow-x-auto" style={{ borderTop: `1px solid ${T.border}` }}>
-            <div className="flex gap-1.5 pb-0.5">
-              {quickPrompts.map((q, i) => (
+          <div className="px-3 py-2 shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
+            <div className="flex flex-wrap gap-1.5">
+              {quickPrompts.slice(0, 6).map((q, i) => (
                 <button key={i} onClick={() => handleSubmit(q)}
                   disabled={sending}
-                  className="shrink-0 px-2.5 py-1 rounded-full text-[12px] font-medium transition-all hover:scale-[1.02] disabled:opacity-50"
-                  style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>
+                  className="px-2.5 py-1 rounded-full text-[12px] font-medium transition-all hover:opacity-80 disabled:opacity-50"
+                  style={{ background: T.bg2, color: T.text3, border: `1px solid ${T.border}` }}>
                   {q}
                 </button>
               ))}
@@ -2568,8 +2564,8 @@ export default function ResearchWorkspacePage() {
                 }}
                 placeholder={currentTicker ? `分析 ${currentTicker}…` : "输入分析请求…"}
                 disabled={sending}
-                rows={2}
-                className="flex-1 resize-none rounded-xl px-3 py-2 text-sm outline-none transition-all disabled:opacity-50"
+                rows={3}
+                className="flex-1 resize-none rounded-xl px-3 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
                 style={{
                   background: T.bg2,
                   border: `1px solid ${T.border}`,
@@ -2597,7 +2593,7 @@ export default function ResearchWorkspacePage() {
             width: insightCollapsed ? "40px" : "240px",
             background: T.bg0,
             borderLeft: `1px solid ${T.border}`,
-            opacity: 0.88,
+            opacity: 0.80,
           }}>
           {/* Insight Header */}
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0"
@@ -2632,46 +2628,12 @@ export default function ResearchWorkspacePage() {
               <DecisionSignalsCard answerObject={answerObject} isLoading={isTyping && !answerObject} />
 
               {/* Why It Matters Now */}
-              <WhyItMattersNowCard discussionObject={discussionObject} isLoading={isTyping && !discussionObject} onAsk={handleSubmit} />
 
               {/* Price Targets */}
               <PriceTargetsCard ticker={currentTicker} currentPrice={quoteData?.price ?? undefined} />
 
               {/* Analyst Ratings */}
               <AnalystRatingsCard ticker={currentTicker} answerObject={answerObject} />
-
-              {/* Key Forecasts */}
-              <KeyForecastsCard answerObject={answerObject} />
-
-              {/* Follow-up questions from discussion */}
-              {discussionObject?.follow_up_questions && discussionObject.follow_up_questions.length > 0 && (
-                <div className="rounded-xl overflow-hidden opacity-70" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
-                  <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${T.border}` }}>
-                    <BookOpen className="w-3.5 h-3.5" style={{ color: T.blue }} />
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: T.text3 }}>FOLLOW-UP</span>
-                  </div>
-                  <div className="p-3 space-y-1.5">
-                    {discussionObject.follow_up_questions.slice(0, 3).map((q, i) => (
-                      <button key={i} onClick={() => handleSubmit(q)} disabled={sending}
-                        className="w-full text-left p-2 rounded-lg text-[12px] leading-relaxed transition-all hover:scale-[1.01] disabled:opacity-50"
-                        style={{ background: `${T.blue.replace(")", " / 0.06)")}`, color: T.blue, border: `1px solid ${T.blue.replace(")", " / 0.15)")}` }}>
-                        → {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Opportunity Radar */}
-              <OpportunityRadarCard />
-              {/* SELECT Stage Candidate Pool */}
-              <CandidatePoolCard onSelectCandidate={handleCandidateSelect} />
-              {/* Macro Cycle Engine */}
-              <CycleEngineCard />
-              {/* Decision History — auto-archived records */}
-              <DecisionHistoryPanel />
-              {/* Decision Analytics — lightweight pattern stats */}
-              <DecisionAnalyticsPanel />
               {/* Quick Access */}
               <div className="rounded-xl overflow-hidden opacity-60" style={{ background: T.bg2, border: `1px solid ${T.border}` }}>
                 <div className="px-4 py-2" style={{ borderBottom: `1px solid ${T.border}` }}>

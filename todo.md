@@ -2880,3 +2880,9 @@
 - [ ] DecisionHeader 点击 chip 滚动到对应区块（锚点联动）
 - [ ] 使用 ui-ux-pro-max 强化交互质感（hover/过渡/active state）
 - [ ] TSC 0 errors + 回归测试全部通过
+
+## B5 四栏布局重构（SessionRail + Decision Canvas + Discussion + Insights）
+- [x] B5-M1: 集成 Claude 最终版 SessionRail.tsx / DecisionHeader.tsx / DecisionSpine.tsx
+- [x] B5-M1.1: 兼容桥接补丁（compat props + 类型导出，TSC 0 errors）
+- [x] B5-M2: Column 1 SessionRail + Column 2 DecisionHeader/DecisionSpine 直接 props 挂接
+- [x] B5-M3: Column 3 Discussion 舒适化（360px + 消息气泡优化 + 输入框扩大 + quick prompts grid）+ Column 4 Insights 精简（5 核心卡片）+ 清理旧 state（analysisRefreshed/deepSectionsTab/showDeepSections）

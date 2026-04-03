@@ -2559,9 +2559,19 @@ export default function ResearchWorkspacePage() {
           {/* Analysis panels — scrollable (support layer) */}
           <div ref={spineScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* B1d: DecisionSpine — 主脂柱决策区（Thesis → Timing → Alert → History） */}
-            {currentSession && (
-              <DecisionSpine vm={vm} blockRefs={spineBlockRefs} sessionId={currentSession?.id} />
-            )}
+            {/* B3a: 容器增加 opacity 过渡 + 最小高度，避免 session 切换时布局跳动 */}
+            {/* ui-ux-pro-max: "Reserve space for async content" (Severity: High) */}
+            <div
+              style={{
+                transition: "opacity 0.25s ease-out",
+                opacity: currentSession ? 1 : 0,
+                minHeight: currentSession ? undefined : "220px",
+              }}
+            >
+              {currentSession && (
+                <DecisionSpine vm={vm} blockRefs={spineBlockRefs} sessionId={currentSession?.id} />
+              )}
+            </div>
             {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
             <AIVerdictCard
               answerObject={answerObject}

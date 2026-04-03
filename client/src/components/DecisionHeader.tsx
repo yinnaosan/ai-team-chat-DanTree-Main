@@ -1,9 +1,10 @@
 /**
- * DecisionHeader — DanTree Workspace v2.1-B2c
+ * DecisionHeader — DanTree Workspace v2.1-B3a
  * 交互层：点击 chip 滚动到对应区块（方案 A）+ activeSection 双向联动高亮
  * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code 字体
  * activeSection 高亮：稳定强调，非高饱和闪烁，底部 2px 线 + 轻微亮度提升
  * B2c 新增：独立 timing chip（readinessState → timing section）
+ * B3a 升级：timing chip 双状态表达（readinessState + actionBias 单 chip 内分层）
  * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
  */
 import React, { useState } from "react";
@@ -115,7 +116,108 @@ const Chip = ({
   );
 };
 
-// ─── 格式化时间 ─────────────────────────────────────────────────────────────
+// ─── TimingDualChip — B3a 双状态 Timing chip ───────────────────────────────────────────────────────────────────────
+// 规则：readiness 主文字 + · + actionBias 次文字（降低不透明度），单 chip 内分层表达
+// 颜色：以 readinessState 为主色，actionBias 仅作文字分层，不新增 chip
+const TimingDualChip = ({
+  readinessState,
+  actionBias,
+  readinessS,
+  biasS,
+  onClick,
+  active = false,
+}: {
+  readinessState: string;
+  actionBias: string | null;
+  readinessS: { bg: string; text: string; border: string };
+  biasS: { bg: string; text: string; border: string } | null;
+  onClick?: () => void;
+  active?: boolean;
+}) => {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const isClickable = !!onClick;
+
+  // readinessState 主文字映射
+  const readinessLabel =
+    readinessState === "ready" ? "时机就绪" :
+    readinessState === "conditional" ? "条件就绪" :
+    "时机未到";
+
+  // actionBias 次文字（仅显示有意义的值）
+  const showBias = actionBias && actionBias !== "NONE" && actionBias !== "UNKNOWN";
+
+  return (
+    <span
+      role={isClickable ? "button" : undefined}
+      title="点击跳转到 Timing 时机分析"
+      onClick={onClick}
+      onMouseEnter={() => isClickable && setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setPressed(false); }}
+      onMouseDown={() => isClickable && setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0",
+        fontSize: "10px",
+        fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+        fontWeight: active ? 600 : 500,
+        padding: "2px 7px",
+        borderRadius: "3px",
+        background: active
+          ? readinessS.bg.replace(/[\d.]+\)$/, m => `${Math.min(parseFloat(m) + 0.2, 0.85)})`)
+          : readinessS.bg,
+        color: readinessS.text,
+        border: `1px solid ${readinessS.border}`,
+        borderBottom: active ? `2px solid ${readinessS.text}` : `1px solid ${readinessS.border}`,
+        letterSpacing: "0.06em",
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+        transition: "opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease, background 0.2s ease",
+        cursor: isClickable ? "pointer" : "default",
+        opacity: pressed ? 0.75 : 1,
+        transform: pressed ? "scale(0.96)" : hovered ? "scale(1.03)" : "scale(1)",
+        boxShadow: active
+          ? `0 0 8px ${readinessS.border}, inset 0 0 4px ${readinessS.bg}`
+          : hovered && isClickable
+            ? `0 0 6px ${readinessS.border}`
+            : "none",
+        userSelect: "none",
+      }}
+    >
+      {/* readinessState 主文字 */}
+      <span>{readinessLabel}</span>
+
+      {/* 分隔符 + actionBias 次文字 */}
+      {showBias && (
+        <>
+          <span style={{
+            margin: "0 3px",
+            opacity: 0.4,
+            color: readinessS.text,
+            fontSize: "9px",
+          }}>·</span>
+          <span style={{
+            // actionBias 使用自身语义色（若有），降低不透明度以保持分层感
+            color: biasS ? biasS.text : readinessS.text,
+            opacity: 0.75,
+            fontSize: "9px",
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+          }}>{actionBias}</span>
+        </>
+      )}
+
+      {/* 可点击指示符 */}
+      {isClickable && (
+        <span style={{ marginLeft: "3px", opacity: active ? 0.8 : 0.5, fontSize: "8px" }}>↓</span>
+      )}
+    </span>
+  );
+};
+
+// ─── 格式化时间 ───────────────────────────────────────────────────────────────────────
 const formatTs = (ts: number | null) => {
   if (!ts) return null;
   const d = new Date(ts);
@@ -225,24 +327,22 @@ export function DecisionHeader({ vm, onScrollTo, activeSection }: DecisionHeader
         />
       )}
 
-      {/* ── B2c: 独立 Timing chip（readinessState → timing section）── */}
-      {/* 与 Thesis stance chip 分开，独立联动 timing 区块 */}
+      {/* ── B3a: Timing chip 双状态表达（readinessState + actionBias 单 chip 内分层）── */}
+      {/* 规则：readinessState 主文字 + 分隔符 · + actionBias 次文字（降低不透明度）*/}
+      {/* 颜色：以 readinessState 为主色，actionBias 仅作文字分层，不新增 chip */}
       {readinessS && vm.readinessState && (
-        <Chip
-          label={
-            vm.readinessState === "ready" ? "时机就绪" :
-            vm.readinessState === "conditional" ? "条件就绪" :
-            "时机未到"
-          }
-          s={readinessS}
+        <TimingDualChip
+          readinessState={vm.readinessState}
+          actionBias={vm.actionBias}
+          readinessS={readinessS}
+          biasS={biasS}
           onClick={onScrollTo ? () => onScrollTo("timing") : undefined}
-          title="点击跳转到 Timing 时机分析"
           active={activeSection === "timing"}
         />
       )}
 
-      {/* Action Bias — 不可点击（信息展示） */}
-      {biasS && vm.actionBias && vm.actionBias !== "NONE" && (
+      {/* Action Bias — 仅在没有 readinessState 时独立显示（fallback） */}
+      {!vm.readinessState && biasS && vm.actionBias && vm.actionBias !== "NONE" && (
         <Chip label={vm.actionBias} s={biasS} />
       )}
 

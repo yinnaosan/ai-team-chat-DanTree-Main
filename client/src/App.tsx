@@ -34,7 +34,9 @@ function Router() {
       <Route path={"/library"} component={InvestmentLibrary} />
       <Route path={"/networth"} component={NetWorthDashboard} />
       <Route path={"/backtest"} component={FactorBacktest} />
-      <Route path={"/research"} component={ResearchWorkspace} />
+      {/* S3-C: /research 已切换到 VNext（正式主路由） */}
+      <Route path={"/research"} component={ResearchWorkspaceVNext} />
+      {/* /research-vnext 保留为临时别名，便于回退和检查 */}
       <Route path={"/research-vnext"} component={ResearchWorkspaceVNext} />
       <Route path={"/telemetry"} component={LoopTelemetryDashboard} />
       <Route path={"/portfolio"} component={PortfolioDashboard} />

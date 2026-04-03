@@ -1,4 +1,11 @@
 /**
+ * @deprecated S3-C 已将此页面下线。
+ * 正式主路由 /research 已切换到 ResearchWorkspaceVNext。
+ * 此文件保留为历史归档，不再被任何路由引用。
+ * 归档时间: 2026-04-03 | 前置 checkpoint: 1791bc61
+ */
+
+/**
  * ResearchWorkspace — DanTree Workspace v2.1
  * B5: FROM-SCRATCH REBUILD. New 4-column skeleton:
  *   Col 1 (240px)  → SessionRail  — 会话列表，唯一职责

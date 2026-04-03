@@ -2317,7 +2317,7 @@ export default function ResearchWorkspacePage() {
             COLUMN 1: Session Rail — B5 会话列表，唯一职责
             ui-ux-pro-max: 固定 240px，背景最暗（bg0），不与主区竞争
         ════════════════════════════════════════════════════════════ */}
-        <SessionRail width={240} />
+        <SessionRail />
 
         {/* ════════════════════════════════════════════════════════════
             COLUMN 2: Decision Canvas — B5 主决策区（唯一主区）
@@ -2373,7 +2373,12 @@ export default function ResearchWorkspacePage() {
           </div>
 
           {/* B1e: DecisionHeader — 主脂柱决策栏（视觉顶层，sticky top） */}
-          <DecisionHeader vm={vm.headerViewModel} onScrollTo={handleScrollTo} activeSection={activeSection} />
+          {/* M2: 直接传 vm（HeaderViewModel）+ onScrollTo + activeSection，compat bridge 在组件内处理 */}
+          <DecisionHeader
+            vm={vm.headerViewModel}
+            onScrollTo={handleScrollTo}
+            activeSection={activeSection}
+          />
           {/* DECISION STRIP — primary decision surface, above all analysis */}
           {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
             <DecisionStrip
@@ -2394,7 +2399,13 @@ export default function ResearchWorkspacePage() {
               }}
             >
               {currentSession && (
-                <DecisionSpine vm={vm} blockRefs={spineBlockRefs} sessionId={currentSession?.id} />
+                <DecisionSpine
+                thesis={{ vm: vm.thesisViewModel, blockRef: spineBlockRefs.thesis, sessionId: currentSession?.id }}
+                timing={{ vm: vm.timingViewModel, blockRef: spineBlockRefs.timing, sessionId: currentSession?.id }}
+                alerts={{ vm: vm.alertViewModel, blockRef: spineBlockRefs.alert, sessionId: currentSession?.id }}
+                history={{ vm: vm.historyViewModel, blockRef: spineBlockRefs.history, sessionId: currentSession?.id }}
+                isLoading={vm.isLoading}
+              />
               )}
             </div>
             {/* Idle State */}

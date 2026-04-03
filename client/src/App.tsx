@@ -13,6 +13,7 @@ import InvestmentLibrary from "./pages/InvestmentLibrary";
 import NetWorthDashboard from "./pages/NetWorthDashboard";
 import FactorBacktest from "./pages/FactorBacktest";
 import ResearchWorkspace from "./pages/ResearchWorkspace";
+import ResearchWorkspaceVNext from "./pages/ResearchWorkspaceVNext";
 import TerminalEntry from "./pages/TerminalEntry";
 import LoopTelemetryDashboard from "./pages/LoopTelemetryDashboard";
 import PortfolioDashboard from "./pages/PortfolioDashboard";
@@ -34,6 +35,7 @@ function Router() {
       <Route path={"/networth"} component={NetWorthDashboard} />
       <Route path={"/backtest"} component={FactorBacktest} />
       <Route path={"/research"} component={ResearchWorkspace} />
+      <Route path={"/research-vnext"} component={ResearchWorkspaceVNext} />
       <Route path={"/telemetry"} component={LoopTelemetryDashboard} />
       <Route path={"/portfolio"} component={PortfolioDashboard} />
       <Route path={"/404"} component={NotFound} />

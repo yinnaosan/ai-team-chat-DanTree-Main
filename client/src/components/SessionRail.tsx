@@ -1,181 +1,121 @@
 /**
- * SessionRail.tsx — DanTree Workspace v2.1-B5
- * Column 1 | 220–260px | 会话导航轨道
- * 职责：搜索、会话列表、置顶、最近记录
+ * SessionRail.tsx — DanTree Workspace 最终视觉母版 v1
+ *
+ * 专业 Research Session Control Rail
+ * 不是聊天会话栏——是研究会话状态导航
+ * 有层级感、状态感、克制感
  */
 import React, { useState } from "react";
-import {
-  Search, Plus, Pin, Clock, Star, ChevronRight,
-  MessageSquare, TrendingUp, X, Hash
-} from "lucide-react";
+import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, TrendingUp, TrendingDown } from "lucide-react";
 
-interface SessionItem {
+export interface SessionItem {
   id: string;
   entity: string;
   title: string;
+  type?: "thesis" | "timing" | "risk" | "research";
   time: string;
   pinned?: boolean;
   active?: boolean;
   direction?: "bullish" | "bearish" | "neutral";
+  hasAlert?: boolean;
 }
 
 interface SessionRailProps {
+  // ─── Compat field (TerminalEntry.tsx 依赖) ───
+  width?: number;
+  // ─── Real props ───
   sessions?: SessionItem[];
   activeSessionId?: string;
   onSelectSession?: (id: string) => void;
   onNewSession?: () => void;
   activeEntity?: string;
-  /** compat: legacy callers pass width; ignored internally */
-  width?: number;
 }
 
-// 无默认 demo 会话 — 由父组件传入真实 sessions
-
-function DirectionDot({ direction }: { direction?: "bullish" | "bearish" | "neutral" }) {
-  const color = direction === "bullish" ? "#34d399" : direction === "bearish" ? "#f87171" : "#6b7280";
-  return (
-    <span
-      className="inline-block rounded-full flex-shrink-0"
-      style={{ width: 6, height: 6, background: color, boxShadow: direction !== "neutral" ? `0 0 6px ${color}60` : "none" }}
-    />
-  );
-}
+const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research: Lightbulb };
+const TYPE_LABEL = { thesis: "Thesis", timing: "Timing", risk: "Risk", research: "研究" };
 
 export function SessionRail({
-  sessions = [],
-  activeSessionId,
-  onSelectSession,
-  onNewSession,
-  activeEntity,
+  sessions = [], activeSessionId, onSelectSession, onNewSession, activeEntity,
 }: SessionRailProps) {
   const [query, setQuery] = useState("");
 
-  const filtered = sessions.filter(
-    (s) =>
-      !query ||
-      s.entity.toLowerCase().includes(query.toLowerCase()) ||
-      s.title.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = query.trim()
+    ? sessions.filter(s =>
+        s.title.toLowerCase().includes(query.toLowerCase()) ||
+        s.entity.toLowerCase().includes(query.toLowerCase())
+      )
+    : sessions;
 
-  const pinned = filtered.filter((s) => s.pinned);
-  const recent = filtered.filter((s) => !s.pinned);
+  const pinned = filtered.filter(s => s.pinned);
+  const recent = filtered.filter(s => !s.pinned);
 
   return (
-    <aside
-      className="flex flex-col h-full select-none"
-      style={{
-        width: 240,
-        minWidth: 220,
-        maxWidth: 260,
-        background: "linear-gradient(180deg, #0d0f11 0%, #0a0c0e 100%)",
-        borderRight: "1px solid #1c1f23",
-        fontFamily: "'SF Pro Display', 'JetBrains Mono', monospace",
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-5 pb-3">
-        <div className="flex items-center gap-2">
-          <Hash className="w-3.5 h-3.5" style={{ color: "#3b82f6" }} />
-          <span className="text-xs font-bold tracking-[0.15em] uppercase" style={{ color: "#94a3b8" }}>
-            Sessions
-          </span>
-        </div>
-        <button
-          onClick={onNewSession}
-          className="flex items-center justify-center rounded-md transition-all duration-150 active:scale-95"
-          style={{
-            width: 24, height: 24,
-            background: "#1e293b",
-            border: "1px solid #2d3748",
-            color: "#64748b",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#1e3a5f";
-            (e.currentTarget as HTMLButtonElement).style.color = "#3b82f6";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#1e293b";
-            (e.currentTarget as HTMLButtonElement).style.color = "#64748b";
-          }}
-        >
-          <Plus className="w-3 h-3" />
-        </button>
-      </div>
+    <aside style={{
+      width: 208, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      background: "#07090c",
+      borderRight: "1px solid rgba(255,255,255,0.04)",
+    }}>
 
-      {/* Search */}
-      <div className="px-3 pb-3">
-        <div
-          className="flex items-center gap-2 rounded-lg px-3"
-          style={{
-            background: "#111418",
-            border: "1px solid #1c2028",
-            height: 32,
-          }}
-        >
-          <Search className="w-3 h-3 flex-shrink-0" style={{ color: "#4b5563" }} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索会话..."
-            className="bg-transparent border-none outline-none text-xs w-full"
-            style={{ color: "#94a3b8", fontFamily: "inherit" }}
-          />
-          {query && (
-            <button onClick={() => setQuery("")}>
-              <X className="w-3 h-3" style={{ color: "#4b5563" }} />
-            </button>
-          )}
+      {/* Search + New */}
+      <div style={{ padding: "10px 10px 8px" }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ flex: 1, position: "relative" }}>
+            <Search size={12} color="rgba(255,255,255,0.18)" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="搜索..."
+              style={{
+                width: "100%", height: 30, paddingLeft: 28, paddingRight: 8,
+                fontSize: 11, lineHeight: 1,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6,
+                color: "rgba(255,255,255,0.70)", outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <button
+            onClick={onNewSession}
+            title="新建会话"
+            style={{
+              width: 30, height: 30, borderRadius: 6, border: "none",
+              background: "rgba(16,185,129,0.10)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Plus size={14} color="#10b981" />
+          </button>
         </div>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-2 pb-4" style={{ scrollbarWidth: "none" }}>
+      {/* List */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 6px 8px" }}>
+
+        {/* Empty state */}
+        {sessions.length === 0 && (
+          <div style={{ padding: "28px 12px", textAlign: "center" }}>
+            <Target size={18} color="rgba(255,255,255,0.07)" style={{ margin: "0 auto 8px", display: "block" }} />
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", lineHeight: 1.6, margin: 0 }}>
+              暂无研究会话<br />点击 + 开始新分析
+            </p>
+          </div>
+        )}
+
         {/* Pinned */}
         {pinned.length > 0 && (
-          <div className="mb-3">
-            <div className="flex items-center gap-1.5 px-2 mb-1.5">
-              <Pin className="w-2.5 h-2.5" style={{ color: "#475569" }} />
-              <span className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#475569" }}>
-                置顶
-              </span>
-            </div>
-            {pinned.map((s) => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                active={!!(s.id === activeSessionId || s.active)}
-                onClick={() => onSelectSession?.(s.id)}
-              />
-            ))}
+          <div style={{ marginBottom: 6 }}>
+            <SectionLabel icon={Pin} label="已固定" />
+            {pinned.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} onClick={() => onSelectSession?.(s.id)} />)}
           </div>
         )}
 
         {/* Recent */}
         {recent.length > 0 && (
           <div>
-            <div className="flex items-center gap-1.5 px-2 mb-1.5">
-              <Clock className="w-2.5 h-2.5" style={{ color: "#475569" }} />
-              <span className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#475569" }}>
-                最近
-              </span>
-            </div>
-            {recent.map((s) => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                active={s.id === activeSessionId}
-                onClick={() => onSelectSession?.(s.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 gap-2">
-            <MessageSquare className="w-6 h-6" style={{ color: "#1e293b" }} />
-            <p className="text-[11px]" style={{ color: "#374151" }}>
-              暂无会话
-            </p>
+            <SectionLabel icon={Clock} label="最近" />
+            {recent.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} onClick={() => onSelectSession?.(s.id)} />)}
           </div>
         )}
       </div>
@@ -183,64 +123,75 @@ export function SessionRail({
   );
 }
 
-function SessionCard({
-  session,
-  active,
-  onClick,
-}: {
-  session: SessionItem;
-  active: boolean;
-  onClick: () => void;
-}) {
+function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 8px 4px" }}>
+      <Icon size={9} color="rgba(255,255,255,0.20)" />
+      <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.24)", textTransform: "uppercase", letterSpacing: "0.09em" }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function SessionCard({ session, isActive, onClick }: { session: SessionItem; isActive: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const TypeIcon = TYPE_ICON[session.type ?? "research"] ?? Lightbulb;
+  const typeLabel = TYPE_LABEL[session.type ?? "research"];
+
+  const dirColor = session.direction === "bullish" ? "#10b981"
+    : session.direction === "bearish" ? "#ef4444"
+    : "rgba(255,255,255,0.25)";
 
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full text-left flex items-start gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 transition-all duration-150"
       style={{
-        background: active
-          ? "linear-gradient(135deg, #0f2040 0%, #0d1a2e 100%)"
-          : hovered
-            ? "#0f1620"
-            : "transparent",
-        border: active ? "1px solid #1e3a5f" : "1px solid transparent",
+        width: "100%", textAlign: "left",
+        display: "flex", alignItems: "flex-start", gap: 8,
+        padding: "7px 8px", borderRadius: 6, marginBottom: 1,
+        cursor: "pointer", border: "none",
+        borderLeft: `2px solid ${isActive ? "#10b981" : "transparent"}`,
+        background: isActive
+          ? "rgba(16,185,129,0.07)"
+          : hovered ? "rgba(255,255,255,0.03)" : "transparent",
+        transition: "background 0.12s",
       }}
     >
-      {/* Entity badge */}
-      <div
-        className="flex-shrink-0 rounded font-mono font-bold text-[9px] flex items-center justify-center mt-0.5"
-        style={{
-          width: 28, height: 18,
-          background: active ? "#1e3a5f" : "#131920",
-          color: active ? "#60a5fa" : "#4b5563",
-          letterSpacing: "0.05em",
-        }}
-      >
-        {session.entity.slice(0, 4)}
+      {/* Type badge */}
+      <div style={{
+        width: 22, height: 22, borderRadius: 5, flexShrink: 0, marginTop: 1,
+        background: isActive ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.05)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <TypeIcon size={12} color={isActive ? "#10b981" : "rgba(255,255,255,0.28)"} />
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <DirectionDot direction={session.direction} />
-          <span
-            className="text-[11px] font-medium truncate"
-            style={{ color: active ? "#e2e8f0" : "#9ca3af" }}
-          >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+          <span style={{
+            fontSize: 11, fontWeight: isActive ? 600 : 400,
+            color: isActive ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+          }}>
             {session.title}
           </span>
+          {session.hasAlert && (
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+          )}
         </div>
-        <span className="text-[10px]" style={{ color: "#374151" }}>
-          {session.time}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
+            {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
+          </span>
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.18)", marginLeft: "auto" }}>
+            {session.time}
+          </span>
+        </div>
       </div>
-
-      {active && (
-        <ChevronRight className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: "#3b82f6" }} />
-      )}
     </button>
   );
 }

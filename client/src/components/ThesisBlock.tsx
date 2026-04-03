@@ -1,213 +1,83 @@
 /**
- * ThesisBlock — DanTree Workspace v2.1-B2c
- * 交互层：折叠/展开（默认展开），折叠态保留 stance chip + 1行 summary
- * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_thesis_expanded）
- * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
- * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
+ * ThesisBlock.tsx — DanTree Workspace v2.1-B5
+ * Decision Canvas｜论点核心模块
  */
 import React, { useState } from "react";
-import type { ThesisViewModel } from "@/hooks/useWorkspaceViewModel";
-import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
-import { useSpineExpanded } from "@/hooks/useSpineExpanded";
+import { ChevronDown, ChevronRight, Target } from "lucide-react";
 
-interface ThesisBlockProps {
-  vm: ThesisViewModel;
-  blockRef?: React.RefObject<HTMLDivElement | null>;
-  sessionId?: string | null;
+export interface ThesisBlockProps {
+  coreThesis?: string;
+  criticalDriver?: string;
+  failureCondition?: string;
+  confidenceScore?: number | null;
+  evidenceState?: "strong" | "moderate" | "weak" | "insufficient";
+  keyVariables?: Array<{ name: string; signal: string; status: "active" | "warning" | "fail" }>;
 }
 
-// ─── State color resolver ─────────────────────────────────────────────────────
-function stateColor(state: string | null | undefined): string {
-  if (!state) return DS.text3;
-  const s = state.toLowerCase();
-  if (s.includes("strong") || s.includes("high") || s.includes("pass") || s.includes("confirmed")) return DS.bull;
-  if (s.includes("weak") || s.includes("low") || s.includes("fail") || s.includes("conflict")) return DS.bear;
-  if (s.includes("moderate") || s.includes("partial") || s.includes("mixed")) return DS.medium;
-  return DS.text2;
-}
+const EV = {
+  strong: { label: "证据强", color: "#34d399", bg: "#0d2b1e" },
+  moderate: { label: "证据中", color: "#60a5fa", bg: "#0d1a2b" },
+  weak: { label: "证据弱", color: "#fbbf24", bg: "#2b1e0d" },
+  insufficient: { label: "不足", color: "#6b7280", bg: "#151820" },
+};
 
-// ─── Accent color from stance ─────────────────────────────────────────────────
-function stanceAccent(stance: string | null | undefined): string {
-  if (!stance) return DS.border1;
-  const s = stance.toLowerCase();
-  if (s.includes("bull") || s === "多") return DS.bull;
-  if (s.includes("bear") || s === "空") return DS.bear;
-  return DS.accent;
-}
-
-// ─── State unit ───────────────────────────────────────────────────────────────
-function StateUnit({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
-      <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>{label}</span>
-      <span style={{ fontFamily: DS.fontMono, fontSize: "10px", color: stateColor(value), fontWeight: 500, lineHeight: 1.3 }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-// ─── Chevron icon ─────────────────────────────────────────────────────────────
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      style={{
-        transition: "transform 0.2s ease",
-        transform: open ? "rotate(180deg)" : "rotate(0deg)",
-        color: DS.text3,
-        flexShrink: 0,
-      }}
-    >
-      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ─── Smooth collapse panel ────────────────────────────────────────────────────
-function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        maxHeight: open ? "600px" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: open
-          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
-          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-export function ThesisBlock({ vm, blockRef, sessionId }: ThesisBlockProps) {
-  const [expanded, setExpanded] = useSpineExpanded(sessionId, "thesis", true);
-  const [headerHovered, setHeaderHovered] = useState(false);
-
-  if (!vm.available) return null;
-
-  const accent = stanceAccent(vm.stance);
-  const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "unknown";
-
-  const stanceLabel = () => {
-    if (!vm.stance) return null;
-    const s = vm.stance.toLowerCase();
-    if (s.includes("bull") || s === "多") return <span style={chipStyle("bull")}>多</span>;
-    if (s.includes("bear") || s === "空") return <span style={chipStyle("bear")}>空</span>;
-    return <span style={chipStyle("neutral")}>中性</span>;
-  };
-
-  const collapsedSummary = vm.stateSummaryText
-    ? vm.stateSummaryText.length > 60
-      ? vm.stateSummaryText.slice(0, 60) + "…"
-      : vm.stateSummaryText
-    : null;
+export function ThesisBlock({
+  coreThesis,
+  criticalDriver,
+  failureCondition,
+  confidenceScore = null,
+  evidenceState = "insufficient",
+  keyVariables = [],
+}: ThesisBlockProps) {
+  const [open, setOpen] = useState(true);
+  const ev = EV[evidenceState] ?? EV.insufficient;
+  const confColor = (confidenceScore ?? 0) >= 65 ? "#34d399" : (confidenceScore ?? 0) >= 40 ? "#fbbf24" : "#f87171";
 
   return (
-    <div
-      id="block-thesis"
-      data-block="thesis"
-      ref={blockRef as React.RefObject<HTMLDivElement>}
-      style={{
-        ...cardStyle,
-        borderLeft: `2px solid ${accent}`,
-        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
-        overflow: "hidden",
-      }}
-    >
-      <div
-        role="button"
-        aria-expanded={expanded}
-        aria-label={expanded ? "收起论题分析" : "展开论题分析"}
-        onClick={() => setExpanded(e => !e)}
-        onMouseEnter={() => setHeaderHovered(true)}
-        onMouseLeave={() => setHeaderHovered(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: DS.sp2,
-          padding: `${DS.sp2} ${DS.sp4}`,
-          borderBottom: `1px solid ${DS.border0}`,
-          background: headerHovered ? DS.surface3 : DS.surface2,
-          cursor: "pointer",
-          userSelect: "none",
-          transition: DS.transition,
-        }}
+    <div style={{ background: "#0a0e1a", border: "1px solid #1e2736", borderRadius: 10, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", cursor: "pointer", background: "transparent", border: "none", borderBottom: open ? "1px solid #1e2736" : "none" }}
       >
-        <span style={sectionTitleStyle}>Thesis 论题</span>
-        {!expanded && (
-          <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, flex: 1, overflow: "hidden" }}>
-            {stanceLabel()}
-            {collapsedSummary && (
-              <span style={{
-                fontFamily: DS.fontSans,
-                fontSize: "10px",
-                color: DS.text3,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flex: 1,
-              }}>
-                {collapsedSummary}
-              </span>
-            )}
-          </div>
-        )}
-        <div style={{ marginLeft: expanded ? "auto" : "0", display: "flex", alignItems: "center", gap: DS.sp2, flexShrink: 0 }}>
-          {expanded && stanceLabel()}
-          {expanded && showChange && vm.changeMarker && (
-            <span style={chipStyle("muted")}>{vm.changeMarker.replace(/_/g, " ").toUpperCase()}</span>
-          )}
-          <Chevron open={expanded} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Target size={13} color="#60a5fa" />
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: "#64748b", textTransform: "uppercase" }}>核心论点</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: ev.color, background: ev.bg, padding: "1px 6px", borderRadius: 3, border: `1px solid ${ev.color}30` }}>{ev.label}</span>
         </div>
-      </div>
-
-      <CollapsePanel open={expanded}>
-        <div style={{
-          display: "flex",
-          gap: DS.sp5,
-          flexWrap: "wrap",
-          padding: `${DS.sp3} ${DS.sp4}`,
-          borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
-        }}>
-          <StateUnit label="证据" value={vm.evidenceState} />
-          <StateUnit label="Gate 门禁" value={vm.gateState} />
-          <StateUnit label="来源" value={vm.sourceState} />
-          {vm.fragilityScore != null && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
-              <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>脆弱性</span>
-              <span style={{
-                fontFamily: DS.fontMono,
-                fontSize: "10px",
-                fontWeight: 500,
-                color: vm.fragilityScore > 0.6 ? DS.bear : vm.fragilityScore > 0.3 ? DS.medium : DS.bull,
-              }}>
-                {(vm.fragilityScore * 100).toFixed(0)}%
-              </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {confidenceScore != null && <span style={{ fontSize: 13, fontWeight: 700, color: confColor }}>{confidenceScore}%</span>}
+          {open ? <ChevronDown size={13} color="#374151" /> : <ChevronRight size={13} color="#374151" />}
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding: "13px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ fontSize: 13, lineHeight: 1.75, color: "#cbd5e1", margin: 0, borderLeft: "2px solid #3b82f6", paddingLeft: 11 }}>
+            {coreThesis}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ background: "#0d2b1e", border: "1px solid #1a4030", borderRadius: 7, padding: "9px 11px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#34d399", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>▲ 驱动因子</div>
+              <div style={{ fontSize: 12, color: "#86efac", lineHeight: 1.5 }}>{criticalDriver}</div>
             </div>
-          )}
-        </div>
-        {vm.stateSummaryText && (
-          <div style={{
-            padding: `${DS.sp2} ${DS.sp4}`,
-            fontFamily: DS.fontSans,
-            fontSize: "11px",
-            color: DS.text2,
-            lineHeight: 1.65,
-            letterSpacing: "0.01em",
-          }}>
-            {vm.stateSummaryText}
+            <div style={{ background: "#1a0d0d", border: "1px solid #3a1a1a", borderRadius: 7, padding: "9px 11px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>✕ 失效条件</div>
+              <div style={{ fontSize: 12, color: "#fca5a5", lineHeight: 1.5 }}>{failureCondition}</div>
+            </div>
           </div>
-        )}
-      </CollapsePanel>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>关键变量</div>
+            {keyVariables.map((v, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 9px", background: "#080c14", borderRadius: 5, marginBottom: 3, border: "1px solid #131c2e" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: v.status === "active" ? "#34d399" : v.status === "warning" ? "#fbbf24" : "#f87171" }} />
+                  <span style={{ fontSize: 11, color: "#94a3b8" }}>{v.name}</span>
+                </div>
+                <span style={{ fontSize: 11, color: "#475569" }}>{v.signal}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

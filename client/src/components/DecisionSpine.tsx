@@ -4,43 +4,28 @@
  * Decision Canvas 主脊柱 — 仅负责 Thesis / Timing / Alert / History
  * DecisionHeader 已解耦，由外层 ResearchWorkspaceShell 在 Column 2 顶部独立渲染。
  * DecisionSpine 不再包含 DecisionHeader。
- *
- * M1 fix: removed `import type { XxxBlockProps }` (not exported by blocks);
- *         declared local pass-through types instead.
  */
 import React from "react";
-import { ThesisBlock } from "./ThesisBlock";
-import { TimingBlock } from "./TimingBlock";
-import { AlertBlock } from "./AlertBlock";
-import { HistoryBlock } from "./HistoryBlock";
+import { ThesisBlock, type ThesisBlockProps } from "./ThesisBlock";
+import { TimingBlock, type TimingBlockProps } from "./TimingBlock";
+import { AlertBlock, type AlertBlockProps } from "./AlertBlock";
+import { HistoryBlock, type HistoryBlockProps } from "./HistoryBlock";
 
-// Local pass-through types — mirrors each block's Props interface
-type ThesisBlockProps = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
-type TimingBlockProps = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
-type AlertBlockProps  = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
-type HistoryBlockProps = { vm?: any; blockRef?: React.RefObject<HTMLDivElement | null>; sessionId?: string | null };
-
-/** Compat: block ref map for scroll-to-section */
+// ─── Compat type exports (旧 ResearchWorkspace.tsx 依赖) ─────────────────────
 export interface SpineBlockRefs {
-  thesis?: React.RefObject<HTMLDivElement | null>;
-  timing?: React.RefObject<HTMLDivElement | null>;
-  alert?: React.RefObject<HTMLDivElement | null>;
-  history?: React.RefObject<HTMLDivElement | null>;
+  thesis: React.RefObject<HTMLDivElement | null>;
+  timing: React.RefObject<HTMLDivElement | null>;
+  alert: React.RefObject<HTMLDivElement | null>;
+  history: React.RefObject<HTMLDivElement | null>;
 }
 
+// 允许旧页面传入额外字段（vm / blockRef / sessionId）而不报 TSC 错误
 export interface DecisionSpineProps {
-  thesis?: ThesisBlockProps;
-  timing?: TimingBlockProps;
-  alerts?: AlertBlockProps;
-  history?: HistoryBlockProps;
+  thesis?: ThesisBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
+  timing?: TimingBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
+  alerts?: AlertBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
+  history?: HistoryBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
   isLoading?: boolean;
-  /** compat: legacy callers pass WorkspaceViewModel via vm prop */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vm?: any;
-  /** compat: legacy block refs map */
-  blockRefs?: SpineBlockRefs;
-  /** compat: legacy session id */
-  sessionId?: string | null;
 }
 
 function SkeletonBlock({ height = 80 }: { height?: number }) {
@@ -51,23 +36,8 @@ function SkeletonBlock({ height = 80 }: { height?: number }) {
   );
 }
 
-export function DecisionSpine({
-  thesis: thesisProp,
-  timing: timingProp,
-  alerts: alertsProp,
-  history: historyProp,
-  isLoading = false,
-  vm,
-  blockRefs,
-  sessionId,
-}: DecisionSpineProps) {
-  // compat bridge: if vm is passed, extract block view-models from it
-  const thesis = thesisProp ?? (vm ? { vm: vm.thesisViewModel, blockRef: blockRefs?.thesis, sessionId } : undefined);
-  const timing = timingProp ?? (vm ? { vm: vm.timingViewModel, blockRef: blockRefs?.timing, sessionId } : undefined);
-  const alerts = alertsProp ?? (vm ? { vm: vm.alertViewModel,  blockRef: blockRefs?.alert,   sessionId } : undefined);
-  const history = historyProp ?? (vm ? { vm: vm.historyViewModel, blockRef: blockRefs?.history, sessionId } : undefined);
-  const loading = isLoading || (vm ? vm.isLoading : false);
-  if (loading) {
+export function DecisionSpine({ thesis, timing, alerts, history, isLoading = false }: DecisionSpineProps) {
+  if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <SkeletonBlock height={160} />
@@ -80,10 +50,10 @@ export function DecisionSpine({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <ThesisBlock {...(thesis as any ?? {})} />
-      <TimingBlock {...(timing as any ?? {})} />
-      <AlertBlock {...(alerts as any ?? {})} />
-      <HistoryBlock {...(history as any ?? {})} />
+      <ThesisBlock {...(thesis ?? {})} />
+      <TimingBlock {...(timing ?? {})} />
+      <AlertBlock {...(alerts ?? {})} />
+      <HistoryBlock {...(history ?? {})} />
     </div>
   );
 }

@@ -1,191 +1,85 @@
 /**
- * HistoryBlock — DanTree Workspace v2.1-B2c
- * 轻交互：前次摘要"查看更多/收起"，平滑折叠动画
- * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_history_expanded）
- * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
- * 风格：冷静、精密、克制
+ * HistoryBlock.tsx — DanTree Workspace v2.1-B5
+ * Decision Canvas｜论点历史时间线模块
  */
 import React, { useState } from "react";
-import type { HistoryViewModel } from "@/hooks/useWorkspaceViewModel";
-import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
-import { useSpineExpanded } from "@/hooks/useSpineExpanded";
+import { ChevronDown, ChevronRight, History } from "lucide-react";
 
-interface HistoryBlockProps {
-  vm: HistoryViewModel;
-  blockRef?: React.RefObject<HTMLDivElement | null>;
-  sessionId?: string | null;
+export interface HistoryEntry {
+  time: string;
+  changeMarker: "first_observation" | "stable" | "strengthening" | "weakening" | "reversal" | "diverging" | "unknown";
+  stance: string;
+  actionBias: string;
+  alertSeverity?: string | null;
+  deltaSummary?: string;
 }
 
-function formatTs(ts: number | null | undefined): string {
-  if (!ts) return "—";
-  const d = new Date(ts);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "刚刚";
-  if (diffMin < 60) return `${diffMin} 分钟前`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH} 小时前`;
-  return d.toLocaleDateString();
+export interface HistoryBlockProps {
+  entity?: string;
+  entries?: HistoryEntry[];
 }
 
-function changeColor(marker: string | null | undefined): string {
-  if (!marker) return DS.accent;
-  if (marker.includes("upgrade") || marker.includes("improve") || marker.includes("strengthen")) return DS.bull;
-  if (marker.includes("downgrade") || marker.includes("weaken") || marker.includes("deteriorat")) return DS.bear;
-  return DS.accent;
-}
+const MARKER = {
+  first_observation: { label: "首次观测", color: "#60a5fa" },
+  stable:            { label: "稳定",     color: "#94a3b8" },
+  strengthening:     { label: "强化",     color: "#34d399" },
+  weakening:         { label: "弱化",     color: "#fbbf24" },
+  reversal:          { label: "逆转",     color: "#f87171" },
+  diverging:         { label: "分歧",     color: "#f97316" },
+  unknown:           { label: "未知",     color: "#4b5563" },
+};
 
-// ─── Smooth collapse panel ────────────────────────────────────────────────────
-function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        maxHeight: open ? "400px" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: open
-          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
-          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+// 无默认 demo 历史记录 — 由父组件传入真实历史数据
 
-export function HistoryBlock({ vm, blockRef, sessionId }: HistoryBlockProps) {
-  // 前次快照展开状态不持久化（轻交互，每次进入默认收起）
-  const [showPrevious, setShowPrevious] = useState(false);
-  const [moreHovered, setMoreHovered] = useState(false);
-  // HistoryBlock 本身不折叠（无整体折叠交互），保持 B2b 设计
-  // 但 sessionId 传入以备未来扩展
-
-  if (!vm.available) return null;
-
-  const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "first_observation";
-  const accentColor = DS.accent;
-  const hasPrevious = !!vm.previousSummary;
+export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
+  const [open, setOpen] = useState(true);
 
   return (
-    <div
-      id="block-history"
-      data-block="history"
-      ref={blockRef as React.RefObject<HTMLDivElement>}
-      style={{
-        ...cardStyle,
-        borderLeft: `2px solid ${accentColor}`,
-        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header row */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: DS.sp2,
-        padding: `${DS.sp2} ${DS.sp4}`,
-        borderBottom: `1px solid ${DS.border0}`,
-        background: DS.surface2,
-      }}>
-        <span style={sectionTitleStyle}>History 历史变化</span>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: DS.sp2 }}>
-          {showChange && vm.changeMarker && (
-            <span style={{
-              ...chipStyle("muted"),
-              color: changeColor(vm.changeMarker),
-            }}>
-              {vm.changeMarker.replace(/_/g, " ").toUpperCase()}
-            </span>
-          )}
-          {vm.lastSnapshotAt && (
-            <span style={{ fontFamily: DS.fontMono, fontSize: "9px", color: DS.text3 }}>
-              {formatTs(vm.lastSnapshotAt)}
-            </span>
-          )}
+    <div style={{ background: "#0a0e1a", border: "1px solid #1e2736", borderRadius: 10, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", cursor: "pointer", background: "transparent", border: "none", borderBottom: open ? "1px solid #1e2736" : "none" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <History size={13} color="#94a3b8" />
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: "#64748b", textTransform: "uppercase" }}>论点历史</span>
+          <span style={{ fontSize: 10, color: "#374151" }}>{entries.length} 条记录</span>
         </div>
-      </div>
-
-      {/* Delta summary */}
-      {vm.deltaSummary && (
-        <div style={{
-          padding: `${DS.sp3} ${DS.sp4} ${DS.sp2}`,
-          fontFamily: DS.fontSans,
-          fontSize: "11px",
-          color: DS.text2,
-          lineHeight: 1.65,
-          letterSpacing: "0.01em",
-          borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
-        }}>
-          {vm.deltaSummary}
-        </div>
-      )}
-
-      {/* Current snapshot summary */}
-      {vm.stateSummaryText && (
-        <div style={{
-          padding: `${DS.sp2} ${DS.sp4}`,
-          fontFamily: DS.fontSans,
-          fontSize: "10px",
-          color: DS.text2,
-          lineHeight: 1.65,
-          letterSpacing: "0.01em",
-          borderBottom: hasPrevious ? `1px solid ${DS.border0}` : "none",
-        }}>
-          {vm.stateSummaryText}
-        </div>
-      )}
-
-      {/* Previous snapshot — 轻量"查看更多/收起"（平滑动画）*/}
-      {hasPrevious && (
-        <div>
-          <div
-            role="button"
-            aria-expanded={showPrevious}
-            aria-label={showPrevious ? "收起前次快照" : "查看前次快照"}
-            onClick={() => setShowPrevious(p => !p)}
-            onMouseEnter={() => setMoreHovered(true)}
-            onMouseLeave={() => setMoreHovered(false)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: DS.sp1,
-              padding: `${DS.sp1} ${DS.sp4}`,
-              cursor: "pointer",
-              background: moreHovered ? DS.surface2 : "transparent",
-              transition: DS.transition,
-            }}
-          >
-            <span style={{
-              fontFamily: DS.fontMono,
-              fontSize: "9px",
-              color: moreHovered ? DS.accent : DS.text3,
-              letterSpacing: "0.04em",
-              transition: DS.transition,
-            }}>
-              {showPrevious ? "▴ 收起前次快照" : "▾ 查看前次快照"}
-            </span>
-          </div>
-
-          <CollapsePanel open={showPrevious}>
-            <div style={{
-              padding: `${DS.sp2} ${DS.sp4} ${DS.sp3}`,
-              background: DS.surface3,
-              borderTop: `1px solid ${DS.border0}`,
-            }}>
-              <div style={{ ...sectionTitleStyle, fontSize: "8px", marginBottom: DS.sp1 }}>上一快照</div>
-              <div style={{
-                fontFamily: DS.fontSans,
-                fontSize: "10px",
-                color: DS.text3,
-                lineHeight: 1.65,
-                letterSpacing: "0.01em",
-              }}>
-                {vm.previousSummary}
+        {open ? <ChevronDown size={13} color="#374151" /> : <ChevronRight size={13} color="#374151" />}
+      </button>
+      {open && (
+        <div style={{ padding: "10px 14px" }}>
+          {entries.map((e, i) => {
+            const mk = MARKER[e.changeMarker] ?? MARKER.unknown;
+            return (
+              <div key={i} style={{ display: "flex", gap: 12, paddingBottom: 10, position: "relative" }}>
+                {/* Timeline line */}
+                {i < entries.length - 1 && (
+                  <div style={{ position: "absolute", left: 7, top: 16, bottom: 0, width: 1, background: "#1e2736" }} />
+                )}
+                {/* Dot */}
+                <div style={{ width: 15, height: 15, borderRadius: "50%", flexShrink: 0, background: mk.color + "20", border: `1.5px solid ${mk.color}`, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: mk.color }} />
+                </div>
+                {/* Content */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: mk.color, background: mk.color + "15", padding: "1px 5px", borderRadius: 3 }}>{mk.label}</span>
+                    <span style={{ fontSize: 10, color: "#374151" }}>{e.time}</span>
+                    {e.alertSeverity && (
+                      <span style={{ fontSize: 10, color: "#f97316" }}>⚠ 告警</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
+                    立场 <strong style={{ color: "#60a5fa" }}>{e.stance}</strong> · 行动 <strong style={{ color: "#fbbf24" }}>{e.actionBias}</strong>
+                  </div>
+                  {e.deltaSummary && (
+                    <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{e.deltaSummary}</div>
+                  )}
+                </div>
               </div>
-            </div>
-          </CollapsePanel>
+            );
+          })}
         </div>
       )}
     </div>

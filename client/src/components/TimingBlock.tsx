@@ -1,216 +1,94 @@
 /**
- * TimingBlock — DanTree Workspace v2.1-B2c
- * 交互层：折叠/展开（默认展开），折叠态保留 readiness chip + action bias + 1行 timingSummary
- * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_timing_expanded）
- * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
- * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
+ * TimingBlock.tsx — DanTree Workspace v2.1-B5
+ * Decision Canvas｜执行时机模块
  */
 import React, { useState } from "react";
-import type { TimingViewModel } from "@/hooks/useWorkspaceViewModel";
-import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
-import { useSpineExpanded } from "@/hooks/useSpineExpanded";
+import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 
-interface TimingBlockProps {
-  vm: TimingViewModel;
-  blockRef?: React.RefObject<HTMLDivElement | null>;
-  sessionId?: string | null;
+export interface TimingBlockProps {
+  readinessState?: "ready" | "conditional" | "not_ready" | "blocked";
+  actionBias?: "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE";
+  entryQuality?: "high" | "moderate" | "low" | "unavailable";
+  timingRisk?: "low" | "medium" | "high" | "critical";
+  confirmationState?: "confirmed" | "partial" | "unconfirmed" | "conflicted";
+  noActionReason?: string | null;
+  timingSummary?: string;
 }
 
-// ─── Readiness accent color ───────────────────────────────────────────────────
-function readinessAccent(state: string | null | undefined): string {
-  if (!state) return DS.medium;
-  const s = state.toLowerCase();
-  if (s === "ready") return DS.bull;
-  if (s === "conditional") return DS.medium;
-  return DS.border1;
-}
+const READINESS = {
+  ready:       { label: "可进场", color: "#34d399", bg: "#0d2b1e" },
+  conditional: { label: "条件待定", color: "#fbbf24", bg: "#2b1e0d" },
+  not_ready:   { label: "未就绪", color: "#6b7280", bg: "#151820" },
+  blocked:     { label: "被阻止", color: "#f87171", bg: "#2b0d0d" },
+};
+const ACTION = {
+  BUY:  { label: "买入", color: "#34d399", bg: "#0d2b1e" },
+  HOLD: { label: "持有", color: "#60a5fa", bg: "#0d1a2b" },
+  WAIT: { label: "等待", color: "#fbbf24", bg: "#2b1e0d" },
+  AVOID:{ label: "回避", color: "#f87171", bg: "#2b0d0d" },
+  NONE: { label: "—",   color: "#4b5563", bg: "#111827" },
+};
+const RISK = {
+  low:      { label: "低", color: "#34d399" },
+  medium:   { label: "中", color: "#fbbf24" },
+  high:     { label: "高", color: "#f97316" },
+  critical: { label: "极高", color: "#f87171" },
+};
 
-// ─── Risk color ───────────────────────────────────────────────────────────────
-function riskColor(risk: string | null | undefined): string {
-  if (!risk) return DS.text3;
-  const r = risk.toLowerCase();
-  if (r === "high") return DS.bear;
-  if (r === "medium") return DS.medium;
-  if (r === "low") return DS.bull;
-  return DS.text2;
-}
-
-// ─── Chevron icon ─────────────────────────────────────────────────────────────
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      style={{
-        transition: "transform 0.2s ease",
-        transform: open ? "rotate(180deg)" : "rotate(0deg)",
-        color: DS.text3,
-        flexShrink: 0,
-      }}
-    >
-      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ─── Smooth collapse panel ────────────────────────────────────────────────────
-function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        maxHeight: open ? "600px" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: open
-          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
-          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-export function TimingBlock({ vm, blockRef, sessionId }: TimingBlockProps) {
-  const [expanded, setExpanded] = useSpineExpanded(sessionId, "timing", true);
-  const [headerHovered, setHeaderHovered] = useState(false);
-
-  if (!vm.available) return null;
-
-  const accent = readinessAccent(vm.readinessState);
-
-  const readinessChip = () => {
-    if (!vm.readinessState) return null;
-    const s = vm.readinessState.toLowerCase();
-    if (s === "ready") return <span style={chipStyle("ready")}>时机就绪</span>;
-    if (s === "conditional") return <span style={chipStyle("conditional")}>条件就绪</span>;
-    return <span style={chipStyle("muted")}>时机未到</span>;
-  };
-
-  const biasChip = () => {
-    if (!vm.actionBias) return null;
-    const s = vm.actionBias.toUpperCase();
-    if (s === "BUY") return <span style={chipStyle("buy")}>BUY</span>;
-    if (s === "AVOID") return <span style={chipStyle("avoid")}>AVOID</span>;
-    if (s === "HOLD") return <span style={chipStyle("hold")}>HOLD</span>;
-    return null;
-  };
-
-  const collapsedSummary = vm.timingSummary
-    ? vm.timingSummary.length > 60
-      ? vm.timingSummary.slice(0, 60) + "…"
-      : vm.timingSummary
-    : null;
+export function TimingBlock({
+  readinessState = "conditional",
+  actionBias = "HOLD",
+  entryQuality = "moderate",
+  timingRisk = "medium",
+  confirmationState = "partial",
+  noActionReason = null,
+  timingSummary,
+}: TimingBlockProps) {
+  const [open, setOpen] = useState(true);
+  const rd = READINESS[readinessState] ?? READINESS.not_ready;
+  const ac = ACTION[actionBias] ?? ACTION.NONE;
+  const rk = RISK[timingRisk] ?? RISK.medium;
 
   return (
-    <div
-      id="block-timing"
-      data-block="timing"
-      ref={blockRef as React.RefObject<HTMLDivElement>}
-      style={{
-        ...cardStyle,
-        borderLeft: `2px solid ${accent}`,
-        borderRadius: `0 ${DS.r2} ${DS.r2} 0`,
-        overflow: "hidden",
-      }}
-    >
-      {/* ── Header row（可点击折叠/展开）── */}
-      <div
-        role="button"
-        aria-expanded={expanded}
-        aria-label={expanded ? "收起时机分析" : "展开时机分析"}
-        onClick={() => setExpanded(e => !e)}
-        onMouseEnter={() => setHeaderHovered(true)}
-        onMouseLeave={() => setHeaderHovered(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: DS.sp2,
-          padding: `${DS.sp2} ${DS.sp4}`,
-          borderBottom: `1px solid ${DS.border0}`,
-          background: headerHovered ? DS.surface3 : DS.surface2,
-          cursor: "pointer",
-          userSelect: "none",
-          transition: DS.transition,
-        }}
+    <div style={{ background: "#0a0e1a", border: "1px solid #1e2736", borderRadius: 10, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", cursor: "pointer", background: "transparent", border: "none", borderBottom: open ? "1px solid #1e2736" : "none" }}
       >
-        <span style={sectionTitleStyle}>Timing 时机</span>
-        {!expanded && (
-          <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, flex: 1, overflow: "hidden" }}>
-            {readinessChip()}
-            {biasChip()}
-            {collapsedSummary && (
-              <span style={{
-                fontFamily: DS.fontSans,
-                fontSize: "10px",
-                color: DS.text3,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flex: 1,
-              }}>
-                {collapsedSummary}
-              </span>
-            )}
-          </div>
-        )}
-        <div style={{ marginLeft: expanded ? "auto" : "0", display: "flex", alignItems: "center", gap: DS.sp2, flexShrink: 0 }}>
-          {expanded && readinessChip()}
-          {expanded && biasChip()}
-          <Chevron open={expanded} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Zap size={13} color="#fbbf24" />
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: "#64748b", textTransform: "uppercase" }}>执行时机</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: rd.color, background: rd.bg, padding: "1px 6px", borderRadius: 3, border: `1px solid ${rd.color}30` }}>{rd.label}</span>
         </div>
-      </div>
-
-      {/* ── Expanded content（平滑折叠动画）── */}
-      <CollapsePanel open={expanded}>
-        <div style={{
-          display: "flex",
-          gap: DS.sp4,
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          padding: `${DS.sp3} ${DS.sp4}`,
-          borderBottom: vm.timingSummary ? `1px solid ${DS.border0}` : "none",
-        }}>
-          {vm.actionBias && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>操作偏向</span>
-              {biasChip()}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 800, color: ac.color, background: ac.bg, padding: "2px 9px", borderRadius: 4, letterSpacing: "0.05em", border: `1px solid ${ac.color}40` }}>{ac.label}</span>
+          {open ? <ChevronDown size={13} color="#374151" /> : <ChevronRight size={13} color="#374151" />}
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+            {[
+              { label: "进场质量", value: entryQuality === "high" ? "高" : entryQuality === "moderate" ? "中" : entryQuality === "low" ? "低" : "—", color: entryQuality === "high" ? "#34d399" : entryQuality === "moderate" ? "#60a5fa" : "#f87171" },
+              { label: "时机风险", value: rk.label, color: rk.color },
+              { label: "信号确认", value: confirmationState === "confirmed" ? "已确认" : confirmationState === "partial" ? "部分" : confirmationState === "conflicted" ? "冲突" : "未确认", color: confirmationState === "confirmed" ? "#34d399" : confirmationState === "conflicted" ? "#f87171" : "#fbbf24" },
+            ].map((item, i) => (
+              <div key={i} style={{ background: "#080c14", border: "1px solid #131c2e", borderRadius: 7, padding: "8px 10px", textAlign: "center" }}>
+                <div style={{ fontSize: 9, fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>{item.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: item.color }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+          {noActionReason && (
+            <div style={{ fontSize: 11, color: "#6b7280", background: "#0d0f18", border: "1px solid #1e2736", borderRadius: 6, padding: "7px 10px", lineHeight: 1.5 }}>
+              ⚠ {noActionReason}
             </div>
           )}
-          {vm.timingRisk && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>时机风险</span>
-              <span style={{ fontFamily: DS.fontMono, fontSize: "10px", color: riskColor(vm.timingRisk), fontWeight: 500 }}>
-                {vm.timingRisk.toUpperCase()}
-              </span>
-            </div>
-          )}
-          {vm.confirmationState && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>确认状态</span>
-              <span style={{ fontFamily: DS.fontMono, fontSize: "10px", color: DS.text2, fontWeight: 500 }}>
-                {vm.confirmationState}
-              </span>
-            </div>
+          {timingSummary && (
+            <p style={{ fontSize: 11, color: "#475569", margin: 0, lineHeight: 1.6 }}>{timingSummary}</p>
           )}
         </div>
-        {vm.timingSummary && (
-          <div style={{
-            padding: `${DS.sp2} ${DS.sp4}`,
-            fontFamily: DS.fontSans,
-            fontSize: "11px",
-            color: DS.text2,
-            lineHeight: 1.65,
-            letterSpacing: "0.01em",
-          }}>
-            {vm.timingSummary}
-          </div>
-        )}
-      </CollapsePanel>
+      )}
     </div>
   );
 }

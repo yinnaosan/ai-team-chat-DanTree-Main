@@ -1,7 +1,8 @@
 /**
- * DecisionSpine — DanTree Workspace v2.1-B2a
+ * DecisionSpine — DanTree Workspace v2.1-B2c
  * 统一设计系统：DS tokens，纵向节奏容器
  * 交互层：接收并转发 blockRefs，支持 DecisionHeader scroll-to-section 联动
+ * 稳定化：接收 sessionId 并传递给四块，用于折叠状态持久化
  */
 import React, { useRef } from "react";
 import type { WorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -21,9 +22,10 @@ export interface SpineBlockRefs {
 interface DecisionSpineProps {
   vm: WorkspaceViewModel;
   blockRefs?: SpineBlockRefs;
+  sessionId?: string | null;
 }
 
-export function DecisionSpine({ vm, blockRefs }: DecisionSpineProps) {
+export function DecisionSpine({ vm, blockRefs, sessionId }: DecisionSpineProps) {
   const { thesisViewModel, timingViewModel, alertViewModel, historyViewModel } = vm;
 
   // Internal refs if not provided externally
@@ -61,10 +63,10 @@ export function DecisionSpine({ vm, blockRefs }: DecisionSpineProps) {
       }}
     >
       {/* 固定顺序：Thesis → Timing → Alert → History */}
-      <ThesisBlock vm={thesisViewModel} blockRef={thesisRef} />
-      <TimingBlock vm={timingViewModel} blockRef={timingRef} />
-      <AlertBlock vm={alertViewModel} blockRef={alertRef} />
-      <HistoryBlock vm={historyViewModel} blockRef={historyRef} />
+      <ThesisBlock vm={thesisViewModel} blockRef={thesisRef} sessionId={sessionId} />
+      <TimingBlock vm={timingViewModel} blockRef={timingRef} sessionId={sessionId} />
+      <AlertBlock vm={alertViewModel} blockRef={alertRef} sessionId={sessionId} />
+      <HistoryBlock vm={historyViewModel} blockRef={historyRef} sessionId={sessionId} />
     </div>
   );
 }

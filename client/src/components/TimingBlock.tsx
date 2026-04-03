@@ -1,17 +1,20 @@
 /**
- * TimingBlock — DanTree Workspace v2.1-B2b
+ * TimingBlock — DanTree Workspace v2.1-B2c
  * 交互层：折叠/展开（默认展开），折叠态保留 readiness chip + action bias + 1行 timingSummary
+ * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_timing_expanded）
  * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.2s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
  * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
  */
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import type { TimingViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
+import { useSpineExpanded } from "@/hooks/useSpineExpanded";
 
 interface TimingBlockProps {
   vm: TimingViewModel;
   blockRef?: React.RefObject<HTMLDivElement | null>;
+  sessionId?: string | null;
 }
 
 // ─── Readiness accent color ───────────────────────────────────────────────────
@@ -53,8 +56,7 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-// ─── Smooth collapse wrapper ──────────────────────────────────────────────────
-// ui-ux-pro-max: max-height + opacity + overflow hidden, 0.2s ease-out
+// ─── Smooth collapse panel ────────────────────────────────────────────────────
 function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
     <div
@@ -73,8 +75,8 @@ function CollapsePanel({ open, children }: { open: boolean; children: React.Reac
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
-  const [expanded, setExpanded] = useState(true);
+export function TimingBlock({ vm, blockRef, sessionId }: TimingBlockProps) {
+  const [expanded, setExpanded] = useSpineExpanded(sessionId, "timing", true);
   const [headerHovered, setHeaderHovered] = useState(false);
 
   if (!vm.available) return null;
@@ -98,7 +100,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
     return null;
   };
 
-  // 折叠态：1行 timingSummary（截断 60 字符）
   const collapsedSummary = vm.timingSummary
     ? vm.timingSummary.length > 60
       ? vm.timingSummary.slice(0, 60) + "…"
@@ -130,7 +131,7 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
           alignItems: "center",
           gap: DS.sp2,
           padding: `${DS.sp2} ${DS.sp4}`,
-          borderBottom: expanded ? `1px solid ${DS.border0}` : "none",
+          borderBottom: `1px solid ${DS.border0}`,
           background: headerHovered ? DS.surface3 : DS.surface2,
           cursor: "pointer",
           userSelect: "none",
@@ -138,8 +139,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
         }}
       >
         <span style={sectionTitleStyle}>Timing 时机</span>
-
-        {/* 折叠态：内联显示 readiness + bias + summary */}
         {!expanded && (
           <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, flex: 1, overflow: "hidden" }}>
             {readinessChip()}
@@ -159,7 +158,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
             )}
           </div>
         )}
-
         <div style={{ marginLeft: expanded ? "auto" : "0", display: "flex", alignItems: "center", gap: DS.sp2, flexShrink: 0 }}>
           {expanded && readinessChip()}
           {expanded && biasChip()}
@@ -169,7 +167,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
 
       {/* ── Expanded content（平滑折叠动画）── */}
       <CollapsePanel open={expanded}>
-        {/* Action matrix */}
         <div style={{
           display: "flex",
           gap: DS.sp4,
@@ -178,15 +175,12 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
           padding: `${DS.sp3} ${DS.sp4}`,
           borderBottom: vm.timingSummary ? `1px solid ${DS.border0}` : "none",
         }}>
-          {/* Action bias */}
           {vm.actionBias && (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>操作偏向</span>
               {biasChip()}
             </div>
           )}
-
-          {/* Timing risk */}
           {vm.timingRisk && (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>时机风险</span>
@@ -195,8 +189,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
               </span>
             </div>
           )}
-
-          {/* Confirmation state */}
           {vm.confirmationState && (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>确认状态</span>
@@ -206,8 +198,6 @@ export function TimingBlock({ vm, blockRef }: TimingBlockProps) {
             </div>
           )}
         </div>
-
-        {/* Summary text */}
         {vm.timingSummary && (
           <div style={{
             padding: `${DS.sp2} ${DS.sp4}`,

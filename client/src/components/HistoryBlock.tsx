@@ -1,17 +1,20 @@
 /**
- * HistoryBlock — DanTree Workspace v2.1-B2b
+ * HistoryBlock — DanTree Workspace v2.1-B2c
  * 轻交互：前次摘要"查看更多/收起"，平滑折叠动画
+ * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_history_expanded）
  * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
  * 风格：冷静、精密、克制
  */
 import React, { useState } from "react";
 import type { HistoryViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
+import { useSpineExpanded } from "@/hooks/useSpineExpanded";
 
 interface HistoryBlockProps {
   vm: HistoryViewModel;
   blockRef?: React.RefObject<HTMLDivElement | null>;
+  sessionId?: string | null;
 }
 
 function formatTs(ts: number | null | undefined): string {
@@ -52,9 +55,12 @@ function CollapsePanel({ open, children }: { open: boolean; children: React.Reac
   );
 }
 
-export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
+export function HistoryBlock({ vm, blockRef, sessionId }: HistoryBlockProps) {
+  // 前次快照展开状态不持久化（轻交互，每次进入默认收起）
   const [showPrevious, setShowPrevious] = useState(false);
   const [moreHovered, setMoreHovered] = useState(false);
+  // HistoryBlock 本身不折叠（无整体折叠交互），保持 B2b 设计
+  // 但 sessionId 传入以备未来扩展
 
   if (!vm.available) return null;
 
@@ -134,7 +140,6 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
       {/* Previous snapshot — 轻量"查看更多/收起"（平滑动画）*/}
       {hasPrevious && (
         <div>
-          {/* Toggle button */}
           <div
             role="button"
             aria-expanded={showPrevious}
@@ -163,7 +168,6 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
             </span>
           </div>
 
-          {/* Previous snapshot content（平滑动画）*/}
           <CollapsePanel open={showPrevious}>
             <div style={{
               padding: `${DS.sp2} ${DS.sp4} ${DS.sp3}`,

@@ -1,17 +1,20 @@
 /**
- * AlertBlock — DanTree Workspace v2.1-B2b
+ * AlertBlock — DanTree Workspace v2.1-B2c
  * 交互层：整体折叠/展开 + 单条警报详情展开
+ * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_alert_expanded）
  * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
  * 风格：冷静、精密、克制
  */
 import React, { useState } from "react";
 import type { AlertViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
+import { useSpineExpanded } from "@/hooks/useSpineExpanded";
 
 interface AlertBlockProps {
   vm: AlertViewModel;
   blockRef?: React.RefObject<HTMLDivElement | null>;
+  sessionId?: string | null;
 }
 
 function severityAccent(sev: string | null | undefined): string {
@@ -82,7 +85,6 @@ function CollapsePanel({ open, children, maxH = "600px" }: { open: boolean; chil
 // ─── AlertRow: single alert with expandable detail ────────────────────────────
 function AlertRow({
   alert,
-  index,
   isLast,
 }: {
   alert: { severity: string; message: string };
@@ -94,12 +96,7 @@ function AlertRow({
   const dot = severityDot(alert.severity);
 
   return (
-    <div
-      style={{
-        borderBottom: !isLast ? `1px solid ${DS.border0}` : "none",
-      }}
-    >
-      {/* Alert row — clickable */}
+    <div style={{ borderBottom: !isLast ? `1px solid ${DS.border0}` : "none" }}>
       <div
         role="button"
         aria-expanded={open}
@@ -117,7 +114,6 @@ function AlertRow({
           transition: DS.transition,
         }}
       >
-        {/* Severity dot */}
         <span style={{
           width: "5px",
           height: "5px",
@@ -127,7 +123,6 @@ function AlertRow({
           marginTop: "5px",
           boxShadow: `0 0 4px ${dot}80`,
         }} />
-        {/* Alert content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <span style={{
             fontFamily: DS.fontMono,
@@ -148,23 +143,19 @@ function AlertRow({
             {alert.message}
           </span>
         </div>
-        {/* Expand chevron */}
         <Chevron open={open} size={10} />
       </div>
 
-      {/* 详情展开区域（平滑动画）*/}
       <CollapsePanel open={open} maxH="200px">
         <div style={{
           padding: `${DS.sp2} ${DS.sp4} ${DS.sp3} calc(${DS.sp4} + 13px)`,
           background: DS.surface3,
           borderTop: `1px solid ${DS.border0}`,
         }}>
-          {/* Severity 行 */}
           <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, marginBottom: DS.sp2 }}>
             <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>Severity</span>
             {severityChip(alert.severity)}
           </div>
-          {/* 风险解释 */}
           <div>
             <span style={{
               ...sectionTitleStyle,
@@ -191,8 +182,8 @@ function AlertRow({
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
-  const [expanded, setExpanded] = useState(true);
+export function AlertBlock({ vm, blockRef, sessionId }: AlertBlockProps) {
+  const [expanded, setExpanded] = useSpineExpanded(sessionId, "alert", true);
   const [headerHovered, setHeaderHovered] = useState(false);
 
   if (!vm.available || vm.alertCount === 0) return null;
@@ -211,7 +202,6 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
         overflow: "hidden",
       }}
     >
-      {/* ── Header row（可点击整体折叠/展开）── */}
       <div
         role="button"
         aria-expanded={expanded}
@@ -232,8 +222,6 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
         }}
       >
         <span style={sectionTitleStyle}>Alert 风险预警</span>
-
-        {/* 折叠态：显示最高级别 chip + 条数 */}
         {!expanded && (
           <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, flex: 1 }}>
             {severityChip(vm.highestSeverity)}
@@ -242,7 +230,6 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
             </span>
           </div>
         )}
-
         <div style={{ marginLeft: expanded ? "auto" : "0", display: "flex", alignItems: "center", gap: DS.sp2, flexShrink: 0 }}>
           {expanded && severityChip(vm.highestSeverity)}
           {expanded && (
@@ -254,9 +241,7 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
         </div>
       </div>
 
-      {/* ── Expanded content（平滑折叠动画）── */}
       <CollapsePanel open={expanded}>
-        {/* Alert list with per-alert detail expansion */}
         {vm.keyAlerts.length > 0 && (
           <div style={{
             display: "flex",
@@ -273,8 +258,6 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
             ))}
           </div>
         )}
-
-        {/* Summary text */}
         {vm.summaryText && (
           <div style={{
             padding: `${DS.sp2} ${DS.sp4}`,

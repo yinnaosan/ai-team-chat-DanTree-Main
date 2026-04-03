@@ -1,17 +1,20 @@
 /**
- * ThesisBlock — DanTree Workspace v2.1-B2b
+ * ThesisBlock — DanTree Workspace v2.1-B2c
  * 交互层：折叠/展开（默认展开），折叠态保留 stance chip + 1行 summary
+ * 稳定化：sessionStorage 持久化折叠状态（key: spine_{sessionId}_thesis_expanded）
  * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
- * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出）
  * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
  */
 import React, { useState } from "react";
 import type { ThesisViewModel } from "@/hooks/useWorkspaceViewModel";
 import { DS, chipStyle, cardStyle, sectionTitleStyle } from "@/lib/designSystem";
+import { useSpineExpanded } from "@/hooks/useSpineExpanded";
 
 interface ThesisBlockProps {
   vm: ThesisViewModel;
   blockRef?: React.RefObject<HTMLDivElement | null>;
+  sessionId?: string | null;
 }
 
 // ─── State color resolver ─────────────────────────────────────────────────────
@@ -67,7 +70,6 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 // ─── Smooth collapse panel ────────────────────────────────────────────────────
-// ui-ux-pro-max: max-height + opacity + overflow hidden, 0.22s ease-out 进入 / 0.18s ease-in 退出
 function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
     <div
@@ -86,8 +88,8 @@ function CollapsePanel({ open, children }: { open: boolean; children: React.Reac
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
-  const [expanded, setExpanded] = useState(true);
+export function ThesisBlock({ vm, blockRef, sessionId }: ThesisBlockProps) {
+  const [expanded, setExpanded] = useSpineExpanded(sessionId, "thesis", true);
   const [headerHovered, setHeaderHovered] = useState(false);
 
   if (!vm.available) return null;
@@ -103,7 +105,6 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
     return <span style={chipStyle("neutral")}>中性</span>;
   };
 
-  // 折叠态：1行 summary（截断 60 字符）
   const collapsedSummary = vm.stateSummaryText
     ? vm.stateSummaryText.length > 60
       ? vm.stateSummaryText.slice(0, 60) + "…"
@@ -122,7 +123,6 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
         overflow: "hidden",
       }}
     >
-      {/* ── Header row（可点击折叠/展开）── */}
       <div
         role="button"
         aria-expanded={expanded}
@@ -143,8 +143,6 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
         }}
       >
         <span style={sectionTitleStyle}>Thesis 论题</span>
-
-        {/* 折叠态：内联显示 stance + summary */}
         {!expanded && (
           <div style={{ display: "flex", alignItems: "center", gap: DS.sp2, flex: 1, overflow: "hidden" }}>
             {stanceLabel()}
@@ -163,7 +161,6 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
             )}
           </div>
         )}
-
         <div style={{ marginLeft: expanded ? "auto" : "0", display: "flex", alignItems: "center", gap: DS.sp2, flexShrink: 0 }}>
           {expanded && stanceLabel()}
           {expanded && showChange && vm.changeMarker && (
@@ -173,9 +170,7 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
         </div>
       </div>
 
-      {/* ── Expanded content（平滑折叠动画）── */}
       <CollapsePanel open={expanded}>
-        {/* State matrix */}
         <div style={{
           display: "flex",
           gap: DS.sp5,
@@ -200,8 +195,6 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
             </div>
           )}
         </div>
-
-        {/* Summary text */}
         {vm.stateSummaryText && (
           <div style={{
             padding: `${DS.sp2} ${DS.sp4}`,

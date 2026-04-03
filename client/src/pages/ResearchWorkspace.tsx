@@ -1645,7 +1645,8 @@ export default function ResearchWorkspacePage() {
     const offset = targetTop - containerTop + container.scrollTop - 8;
     container.scrollTo({ top: offset, behavior: "smooth" });
   }, []);
-  // ── B2b: IntersectionObserver 双向联动（滚动 → activeSection 高亮）──
+  // ── B2c: IntersectionObserver 双向联动（滚动 → activeSection 高亮）+ 40-80ms 防抖 ──
+  const activeSectionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => {
     const container = spineScrollRef.current;
     if (!container) return;
@@ -1665,21 +1666,25 @@ export default function ResearchWorkspacePage() {
             visibilityMap.set(section, entry.intersectionRatio);
           }
         });
-        // 选择可见度最高的区块，按页面顺序优先
-        let best: ScrollToSection | null = null;
-        let bestRatio = 0;
-        for (const sec of order) {
-          const ratio = visibilityMap.get(sec) ?? 0;
-          if (ratio > bestRatio) {
-            bestRatio = ratio;
-            best = sec;
+        // B2c: 40-80ms 防抖，减少快速滚动时 chip 闪烁
+        if (activeSectionTimerRef.current) clearTimeout(activeSectionTimerRef.current);
+        activeSectionTimerRef.current = setTimeout(() => {
+          // 选择可见度最高的区块，按页面顺序优先
+          let best: ScrollToSection | null = null;
+          let bestRatio = 0;
+          for (const sec of order) {
+            const ratio = visibilityMap.get(sec) ?? 0;
+            if (ratio > bestRatio) {
+              bestRatio = ratio;
+              best = sec;
+            }
           }
-        }
-        if (bestRatio > 0.05) {
-          setActiveSection(best);
-        } else {
-          setActiveSection(null);
-        }
+          if (bestRatio > 0.05) {
+            setActiveSection(best);
+          } else {
+            setActiveSection(null);
+          }
+        }, 60); // 60ms 防抖：灵敏度与稳定性平衡
       },
       {
         root: container,
@@ -1690,7 +1695,10 @@ export default function ResearchWorkspacePage() {
       const el = refMap[sec]?.current;
       if (el) observer.observe(el);
     });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (activeSectionTimerRef.current) clearTimeout(activeSectionTimerRef.current);
+    };
   }, [currentSession]);
   // ── Data ───
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
@@ -2552,7 +2560,7 @@ export default function ResearchWorkspacePage() {
           <div ref={spineScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* B1d: DecisionSpine — 主脂柱决策区（Thesis → Timing → Alert → History） */}
             {currentSession && (
-              <DecisionSpine vm={vm} blockRefs={spineBlockRefs} />
+              <DecisionSpine vm={vm} blockRefs={spineBlockRefs} sessionId={currentSession?.id} />
             )}
             {/* AI Verdict — SUPPORT LAYER: deep analysis below decision strip */}
             <AIVerdictCard

@@ -1,8 +1,9 @@
 /**
- * DecisionHeader — DanTree Workspace v2.1-B2b
+ * DecisionHeader — DanTree Workspace v2.1-B2c
  * 交互层：点击 chip 滚动到对应区块（方案 A）+ activeSection 双向联动高亮
  * ui-ux-pro-max: Financial Dashboard 颜色系统 + Fira Code 字体
  * activeSection 高亮：稳定强调，非高饱和闪烁，底部 2px 线 + 轻微亮度提升
+ * B2c 新增：独立 timing chip（readinessState → timing section）
  * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
  */
 import React, { useState } from "react";
@@ -27,7 +28,7 @@ const C = {
   bullish: { bg: "rgba(20, 83, 45, 0.55)", text: "#86efac", border: "rgba(22, 163, 74, 0.5)" },
   bearish: { bg: "rgba(127, 29, 29, 0.55)", text: "#fca5a5", border: "rgba(239, 68, 68, 0.5)" },
   neutral: { bg: "rgba(30, 58, 95, 0.55)", text: "#93c5fd", border: "rgba(59, 130, 246, 0.5)" },
-  // Readiness
+  // Readiness / Timing
   ready: { bg: "rgba(20, 83, 45, 0.45)", text: "#4ade80", border: "rgba(22, 163, 74, 0.4)" },
   conditional: { bg: "rgba(69, 26, 3, 0.55)", text: "#fbbf24", border: "rgba(217, 119, 6, 0.5)" },
   not_ready: { bg: "rgba(30, 41, 59, 0.4)", text: "#64748b", border: "rgba(51, 65, 85, 0.4)" },
@@ -135,6 +136,7 @@ export function DecisionHeader({ vm, onScrollTo, activeSection }: DecisionHeader
     vm.stance === "bearish" ? C.bearish :
     vm.stance === "neutral" ? C.neutral : null;
 
+  // B2c: readinessState → timing chip（独立联动 timing section）
   const readinessS =
     vm.readinessState === "ready" ? C.ready :
     vm.readinessState === "conditional" ? C.conditional :
@@ -223,7 +225,8 @@ export function DecisionHeader({ vm, onScrollTo, activeSection }: DecisionHeader
         />
       )}
 
-      {/* Readiness — 点击滚动到 Thesis 区块，active 高亮 */}
+      {/* ── B2c: 独立 Timing chip（readinessState → timing section）── */}
+      {/* 与 Thesis stance chip 分开，独立联动 timing 区块 */}
       {readinessS && vm.readinessState && (
         <Chip
           label={
@@ -232,13 +235,13 @@ export function DecisionHeader({ vm, onScrollTo, activeSection }: DecisionHeader
             "时机未到"
           }
           s={readinessS}
-          onClick={onScrollTo ? () => onScrollTo("thesis") : undefined}
-          title="点击跳转到 Thesis 论题分析"
-          active={activeSection === "thesis"}
+          onClick={onScrollTo ? () => onScrollTo("timing") : undefined}
+          title="点击跳转到 Timing 时机分析"
+          active={activeSection === "timing"}
         />
       )}
 
-      {/* Action Bias */}
+      {/* Action Bias — 不可点击（信息展示） */}
       {biasS && vm.actionBias && vm.actionBias !== "NONE" && (
         <Chip label={vm.actionBias} s={biasS} />
       )}

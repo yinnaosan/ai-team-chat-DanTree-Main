@@ -99,18 +99,89 @@ interface DiscussionMsg {
   suggestedNext?: string;
 }
 
+// ── Dynamic quick prompts generator ──────────────────────────────────────────
+function buildQuickPrompts(opts: {
+  entity?: string;
+  stance?: string | null;
+  readinessState?: string | null;
+  alertCount?: number;
+  sessionTitle?: string;
+}): string[] {
+  const { entity, stance, readinessState, alertCount } = opts;
+  const base = entity ? entity : "当前标的";
+
+  // Tier 1: context-aware (entity + stance + readiness)
+  if (entity && stance && stance !== "unavailable") {
+    const stanceLabel = stance === "bullish" ? "看多" : stance === "bearish" ? "看空" : "中性";
+    const prompts: string[] = [
+      `为什么 ${base} 现在是${stanceLabel}？`,
+      `${base} 最大的尾部风险是什么？`,
+      readinessState === "ready" || readinessState === "conditional"
+        ? `${base} 现在进场的关键确认条件是什么？`
+        : `${base} 什么时候才算真正就绪？`,
+      `哪个变化会推翻 ${base} 当前 Thesis？`,
+      alertCount && alertCount > 0
+        ? `${base} 当前告警意味着什么？该怎么应对？`
+        : `${base} 下一步最该监控什么信号？`,
+      `${base} 的 Timing 和 Thesis 之间有没有矛盾？`,
+    ];
+    return prompts;
+  }
+
+  // Tier 2: entity only
+  if (entity) {
+    return [
+      `深度分析 ${base} 的核心 Thesis`,
+      `${base} 现在的主要风险是什么？`,
+      `${base} 的进场时机如何判断？`,
+      `${base} 的关键监控指标有哪些？`,
+      `${base} 与同行相比竞争优势如何？`,
+      `${base} 当前估值是否合理？`,
+    ];
+  }
+
+  // Tier 3: generic fallback
+  return [
+    "当前 Thesis 的核心逻辑是什么？",
+    "最大的下行风险是什么？",
+    "现在该不该动？",
+    "Timing 的关键确认条件是什么？",
+    "哪个变化会推翻当前判断？",
+    "下一步最该监控什么？",
+  ];
+}
+
 function DiscussionPanel({
-  entity, messages, isStreaming, input, onInputChange, onSend,
+  entity, sessionTitle, stance, readinessState, alertCount,
+  messages, isStreaming, input, onInputChange, onSend, onQuickPrompt,
 }: {
   entity?: string;
+  sessionTitle?: string;
+  stance?: string | null;
+  readinessState?: string | null;
+  alertCount?: number;
   messages: DiscussionMsg[];
   isStreaming: boolean;
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
+  onQuickPrompt: (text: string) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+
+  // Dynamic quick prompts — memoized
+  const quickPrompts = useMemo(() => buildQuickPrompts({ entity, stance, readinessState, alertCount, sessionTitle }),
+    [entity, stance, readinessState, alertCount, sessionTitle]);
+
+  // Stance label + color
+  const stanceColor = stance === "bullish" ? "rgba(16,185,129,0.70)" : stance === "bearish" ? "rgba(239,68,68,0.70)" : "rgba(255,255,255,0.22)";
+  const stanceLabel = stance === "bullish" ? "BULL" : stance === "bearish" ? "BEAR" : stance === "neutral" ? "NEUTRAL" : null;
+
+  // Dynamic placeholder
+  const placeholder = entity
+    ? `讨论 ${entity} 的 Thesis、Timing 或 Risk...`
+    : "输入标的开始分析，或继续已有会话";
 
   return (
     <div style={{
@@ -140,6 +211,18 @@ function DiscussionPanel({
               · {entity}
             </span>
           )}
+          {stanceLabel && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: stanceColor,
+              fontFamily: "ui-monospace, monospace",
+              background: stance === "bullish" ? "rgba(16,185,129,0.08)" : stance === "bearish" ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${stanceColor}`,
+              borderRadius: 3, padding: "1px 5px", marginLeft: 4,
+              letterSpacing: "0.04em",
+            }}>
+              {stanceLabel}
+            </span>
+          )}
         </div>
         <button style={{ background: "none", border: "none", cursor: "pointer", padding: 3, borderRadius: 4, lineHeight: 1 }}>
           <MoreHorizontal size={14} color="rgba(255,255,255,0.16)" />
@@ -163,6 +246,27 @@ function DiscussionPanel({
                 ? `开始讨论 ${entity} 的 Thesis、Timing 或 Risk`
                 : "输入标的开始分析，或继续已有会话"}
             </p>
+            {/* Quick prompts — empty state */}
+            <div style={{ marginTop: 16, width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {quickPrompts.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => onQuickPrompt(p)}
+                  style={{
+                    background: "rgba(255,255,255,0.025)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 7, padding: "8px 10px",
+                    cursor: "pointer", textAlign: "left",
+                    fontSize: 11, color: "rgba(255,255,255,0.38)",
+                    lineHeight: 1.55, transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.06)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(16,185,129,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.60)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.025)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.38)"; }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -279,7 +383,7 @@ function DiscussionPanel({
             value={input}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-            placeholder="讨论 Thesis、Timing 或 Risk..."
+            placeholder={placeholder}
             rows={1}
             style={{
               width: "100%", background: "transparent",
@@ -606,6 +710,16 @@ export default function ResearchWorkspacePage() {
     }
   }, [allConversations, activeConvId]);
 
+  // Session 切换时同步 Discussion 上下文：清空 input
+  const prevSessionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sid = currentSession?.id ?? null;
+    if (sid !== prevSessionIdRef.current) {
+      prevSessionIdRef.current = sid;
+      setInput(""); // 切换 session 时清空输入框，避免上一个 session 的未发送内容残留
+    }
+  }, [currentSession?.id]);
+
   // 从消息推导 ticker（仅在 workspace 无 entity 时生效）
   useEffect(() => {
     if (wsEntity) return; // workspace entity 优先
@@ -858,14 +972,23 @@ export default function ResearchWorkspacePage() {
             </div>
           </main>
 
-          {/* Col 3: Discussion — 高级副驾驶推理区 */}
+          {/* Col 3: Discussion — 高级副驾驶推理区，接入 WorkspaceContext 上下文 */}
           <DiscussionPanel
             entity={currentTicker || undefined}
+            sessionTitle={currentSession?.title ?? undefined}
+            stance={hvm.stance ?? stance ?? null}
+            readinessState={tivm.readinessState ?? null}
+            alertCount={avm.alertCount ?? 0}
             messages={discussionMsgs}
             isStreaming={sending || isTyping}
             input={input}
             onInputChange={setInput}
             onSend={() => handleSubmit()}
+            onQuickPrompt={(text) => {
+              // 同步 session 上下文后发送
+              setInput("");
+              handleSubmit(text);
+            }}
           />
 
           {/* Col 4: Insights Rail — NOW/MONITOR/RELATED/KEY LEVELS */}

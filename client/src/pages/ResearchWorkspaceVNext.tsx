@@ -14,7 +14,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  Loader2, Send, Sparkles, User, ArrowRight, MoreHorizontal,
+  Loader2, Send, Sparkles, User, Users, ArrowRight, MoreHorizontal,
   CheckCircle2, Zap, AlertCircle, Calendar, BarChart3, Target,
   ExternalLink, Shield,
 } from "lucide-react";
@@ -435,18 +435,32 @@ interface RelatedTicker {
 interface QuoteData {
   price?: number;
   changePercent?: number;
+  high?: number;
+  low?: number;
+  pe?: number;
+  pb?: number;
   entryZone?: string;
   support?: number;
   resistance?: number;
   stopLoss?: number;
   targetPrice?: number;
 }
+// ── Analyst data from real Finnhub recommendations ──────────────────────────────────────────
+interface AnalystData {
+  buy: number;
+  hold: number;
+  sell: number;
+  total: number;
+  period: string; // most recent period
+  trend: "improving" | "deteriorating" | "stable"; // vs previous period
+}
 
 function InsightsRail({
-  entity, quoteData, nowItems = [], monitorItems = [], relatedTickers = [],
+  entity, quoteData, analystData, nowItems = [], monitorItems = [], relatedTickers = [],
 }: {
   entity?: string;
   quoteData?: QuoteData;
+  analystData?: AnalystData;
   nowItems?: InsightItem[];
   monitorItems?: InsightItem[];
   relatedTickers?: RelatedTicker[];
@@ -531,6 +545,79 @@ function InsightsRail({
           </div>
         )}
 
+        {/* ── ANALYST RATINGS — 真实市场数据 ── */}
+        {analystData && analystData.total > 0 && (
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Users size={10} color="rgba(255,255,255,0.28)" />
+                <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Analyst Ratings
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontFamily: "ui-monospace, monospace" }}>
+                  {analystData.period}
+                </span>
+                {analystData.trend === "improving" && (
+                  <span style={{ fontSize: 9, color: "#10b981", fontWeight: 700 }}>▲</span>
+                )}
+                {analystData.trend === "deteriorating" && (
+                  <span style={{ fontSize: 9, color: "#ef4444", fontWeight: 700 }}>▼</span>
+                )}
+              </div>
+            </div>
+            {/* Distribution bar */}
+            <div style={{ display: "flex", height: 5, borderRadius: 3, overflow: "hidden", marginBottom: 8, gap: 1 }}>
+              {analystData.buy > 0 && (
+                <div style={{ flex: analystData.buy, background: "rgba(16,185,129,0.70)", borderRadius: "3px 0 0 3px" }} />
+              )}
+              {analystData.hold > 0 && (
+                <div style={{ flex: analystData.hold, background: "rgba(251,191,36,0.50)" }} />
+              )}
+              {analystData.sell > 0 && (
+                <div style={{ flex: analystData.sell, background: "rgba(239,68,68,0.60)", borderRadius: "0 3px 3px 0" }} />
+              )}
+            </div>
+            {/* Labels */}
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(16,185,129,0.70)" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+                  Buy <span style={{ color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.buy}</span>
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(251,191,36,0.50)" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+                  Hold <span style={{ color: "#f59e0b", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.hold}</span>
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(239,68,68,0.60)" }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+                  Sell <span style={{ color: "#ef4444", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.sell}</span>
+                </span>
+              </div>
+            </div>
+            {/* Consensus label */}
+            <div style={{ marginTop: 8, padding: "5px 8px", borderRadius: 5, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.04)" }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>共识：</span>
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                color: analystData.buy / analystData.total > 0.6 ? "#10b981" : analystData.sell / analystData.total > 0.4 ? "#ef4444" : "rgba(251,191,36,0.80)",
+              }}>
+                {analystData.buy / analystData.total > 0.6 ? "Strong Buy" :
+                  analystData.buy / analystData.total > 0.45 ? "Moderate Buy" :
+                  analystData.sell / analystData.total > 0.4 ? "Sell" :
+                  "Hold"}
+              </span>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.20)", marginLeft: 4 }}>
+                ({analystData.total} analysts)
+              </span>
+            </div>
+          </div>
+        )}
         {/* ── KEY LEVELS ── */}
         {quoteData && (
           <div style={{ padding: "12px 14px" }}>
@@ -547,7 +634,11 @@ function InsightsRail({
               display: "flex", flexDirection: "column", gap: 8,
             }}>
               {[
-                { label: "当前价",  value: quoteData.price != null ? `$${quoteData.price.toFixed(0)}` : null, color: "rgba(255,255,255,0.78)" },
+                { label: "当前价",  value: quoteData.price != null ? `$${quoteData.price.toFixed(2)}` : null, color: "rgba(255,255,255,0.78)" },
+                { label: "52W 高",  value: quoteData.high != null ? `$${quoteData.high.toFixed(2)}` : null, color: "rgba(255,255,255,0.50)" },
+                { label: "52W 低",  value: quoteData.low != null ? `$${quoteData.low.toFixed(2)}` : null, color: "rgba(255,255,255,0.50)" },
+                { label: "PE",       value: quoteData.pe != null ? quoteData.pe.toFixed(1) : null, color: "rgba(255,255,255,0.55)" },
+                { label: "PB",       value: quoteData.pb != null ? quoteData.pb.toFixed(2) : null, color: "rgba(255,255,255,0.55)" },
                 { label: "介入区",  value: quoteData.entryZone, color: "#10b981" },
                 { label: "支撑",    value: quoteData.support != null ? `$${quoteData.support}` : null, color: "rgba(255,255,255,0.65)" },
                 { label: "阻力",    value: quoteData.resistance != null ? `$${quoteData.resistance}` : null, color: "rgba(255,255,255,0.65)" },
@@ -666,6 +757,11 @@ export default function ResearchWorkspacePage() {
 
   const { data: quoteData } = trpc.market.getQuote.useQuery(
     { symbol: currentTicker }, { enabled: !!currentTicker, refetchInterval: 60000 }
+  );
+  // S3-B: 真实分析师评级数据（Finnhub recommendations）
+  const { data: analystRecs } = trpc.market.getAnalystRecommendations.useQuery(
+    { symbol: currentTicker },
+    { enabled: !!currentTicker, refetchInterval: 300000, staleTime: 240000 } // 5分钟轮询
   );
 
   const { data: rawConvMsgs } = trpc.chat.getConversationMessages.useQuery(
@@ -806,31 +902,100 @@ export default function ResearchWorkspacePage() {
       suggestedNext: m.metadata?.answerObject?.suggested_next,
     })), [convMessages]);
 
-  // Insights data — NOW items from bull_case, MONITOR from risks
+  // S3-B: Insights 真实数据接入
+  // ── AnalystData: 优先真实 Finnhub 数据，fallback undefined 静默降级 ──
+  const analystData = useMemo<AnalystData | undefined>(() => {
+    if (!analystRecs || analystRecs.length === 0) return undefined;
+    // 最新一期数据
+    const latest = analystRecs[analystRecs.length - 1];
+    const prev = analystRecs.length >= 2 ? analystRecs[analystRecs.length - 2] : null;
+    const total = (latest.buy ?? 0) + (latest.hold ?? 0) + (latest.sell ?? 0);
+    if (total === 0) return undefined;
+    // 趋势对比：与上期相比 buy 比例变化
+    let trend: AnalystData["trend"] = "stable";
+    if (prev) {
+      const prevTotal = (prev.buy ?? 0) + (prev.hold ?? 0) + (prev.sell ?? 0);
+      if (prevTotal > 0) {
+        const buyRatioNow = (latest.buy ?? 0) / total;
+        const buyRatioPrev = (prev.buy ?? 0) / prevTotal;
+        if (buyRatioNow - buyRatioPrev > 0.05) trend = "improving";
+        else if (buyRatioPrev - buyRatioNow > 0.05) trend = "deteriorating";
+      }
+    }
+    return {
+      buy: latest.buy ?? 0,
+      hold: latest.hold ?? 0,
+      sell: latest.sell ?? 0,
+      total,
+      period: latest.period ?? "",
+      trend,
+    };
+  }, [analystRecs]);
+
+  // ── NOW items: 优先真实 analyst 共识，fallback answerObject bull_case ──
   const nowItems = useMemo<InsightItem[]>(() => {
-    if (!answerObject) return [];
     const items: InsightItem[] = [];
-    if (answerObject.bull_case?.[0]) items.push({
-      icon: CheckCircle2, text: answerObject.bull_case[0],
-      sub: "多头证据", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
-    });
-    if (answerObject.reasoning?.[0]) items.push({
-      icon: Zap, text: answerObject.reasoning[0],
-      sub: "推理依据", bg: "rgba(251,191,36,0.06)", iconColor: "#f59e0b",
-    });
+    // 真实数据： analyst 共识强烈多头时展示
+    if (analystData && analystData.total > 0) {
+      const buyPct = Math.round((analystData.buy / analystData.total) * 100);
+      if (buyPct >= 55) {
+        items.push({
+          icon: CheckCircle2,
+          text: `${buyPct}% 分析师评级为 Buy，共识强烈多头`,
+          sub: `共 ${analystData.total} 位分析师 · ${analystData.period}`,
+          bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
+        });
+      }
+    }
+    // fallback: answerObject bull_case
+    if (items.length === 0 && answerObject?.bull_case?.[0]) {
+      items.push({
+        icon: CheckCircle2, text: answerObject.bull_case[0],
+        sub: "多头证据（AI推导）", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
+      });
+    }
+    if (answerObject?.reasoning?.[0]) {
+      items.push({
+        icon: Zap, text: answerObject.reasoning[0],
+        sub: "推理依据", bg: "rgba(251,191,36,0.06)", iconColor: "#f59e0b",
+      });
+    }
     return items;
-  }, [answerObject]);
+  }, [analystData, answerObject]);
 
-  const monitorItems = useMemo<InsightItem[]>(() =>
-    (answerObject?.risks ?? []).slice(0, 2).map(r => ({
+  // ── MONITOR items: 优先真实 analyst 恶化趋势，fallback answerObject risks ──
+  const monitorItems = useMemo<InsightItem[]>(() => {
+    const items: InsightItem[] = [];
+    // 真实数据： analyst 评级在恶化时展示警示
+    if (analystData && analystData.trend === "deteriorating") {
+      const sellPct = Math.round((analystData.sell / analystData.total) * 100);
+      items.push({
+        icon: AlertCircle,
+        text: `分析师评级在恶化，Sell 占比 ${sellPct}%`,
+        sub: `与上期相比多头比例下降`,
+        bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
+      });
+    }
+    // fallback: answerObject risks
+    const riskItems = (answerObject?.risks ?? []).slice(0, items.length >= 1 ? 1 : 2).map(r => ({
       icon: AlertCircle, text: r.description,
-      sub: `风险 · ${r.magnitude ?? "medium"}`,
+      sub: `风险 · ${r.magnitude ?? "medium"}（AI推导）`,
       bg: "rgba(255,255,255,0.02)", iconColor: "rgba(251,191,36,0.60)",
-    })), [answerObject]);
+    }));
+    return [...items, ...riskItems];
+  }, [analystData, answerObject]);
 
+  // ── QuoteData: 扩充真实行情字段（high/low/pe/pb） ──
   const mappedQuote = useMemo<QuoteData | undefined>(() => {
     if (!quoteData) return undefined;
-    return { price: quoteData.price as number | undefined, changePercent: quoteData.changePercent as number | undefined };
+    return {
+      price: quoteData.price as number | undefined,
+      changePercent: quoteData.changePercent as number | undefined,
+      high: (quoteData as any).high as number | undefined,
+      low: (quoteData as any).low as number | undefined,
+      pe: (quoteData as any).pe as number | undefined,
+      pb: (quoteData as any).pb as number | undefined,
+    };
   }, [quoteData]);
 
   // Auth guards
@@ -995,6 +1160,7 @@ export default function ResearchWorkspacePage() {
           <InsightsRail
             entity={currentTicker || undefined}
             quoteData={mappedQuote}
+            analystData={analystData}
             nowItems={nowItems}
             monitorItems={monitorItems}
           />

@@ -2886,3 +2886,11 @@
 - [x] B5-M1.1: 兼容桥接补丁（compat props + 类型导出，TSC 0 errors）
 - [x] B5-M2: Column 1 SessionRail + Column 2 DecisionHeader/DecisionSpine 直接 props 挂接
 - [x] B5-M3: Column 3 Discussion 舒适化（360px + 消息气泡优化 + 输入框扩大 + quick prompts grid）+ Column 4 Insights 精简（5 核心卡片）+ 清理旧 state（analysisRefreshed/deepSectionsTab/showDeepSections）
+
+## S2 主区真实数据接线（基于 checkpoint 35a22ae4）
+
+- [ ] S2-1: 分析 VNext 现有数据流，确定接线方案
+- [ ] S2-2: DecisionHeader 接入真实数据（entity/stance/confidence/gateState/alertCount 等）
+- [ ] S2-3: SessionRail 接入真实会话数据（sessions/activeSessionId/onSelectSession/onNewSession）
+- [ ] S2-4: DecisionSpine 接入真实数据（ThesisBlock/TimingBlock/AlertBlock/HistoryBlock）
+- [ ] S2-5: TSC + vitest + checkpoint + 反馈包

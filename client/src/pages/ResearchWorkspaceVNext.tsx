@@ -22,6 +22,10 @@ import { SessionRail, type SessionItem } from "@/components/SessionRail";
 import { DecisionHeader } from "@/components/DecisionHeader";
 import { DecisionSpine } from "@/components/DecisionSpine";
 import { MarketAlertManager } from "@/components/MarketStatus";
+import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import type { AlertItem } from "@/components/AlertBlock";
+import type { HistoryEntry } from "@/components/HistoryBlock";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -532,12 +536,19 @@ export default function ResearchWorkspacePage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  // ── Workspace Context (真实 session 管理) ──────────────────────────────────
+  const { sessionList, currentSession, createSession, setSession } = useWorkspace();
+
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [convMessages, setConvMessages] = useState<Msg[]>([]);
-  const [currentTicker, setCurrentTicker] = useState("");
+
+  // currentTicker 优先从 WorkspaceContext 取，fallback 到消息推导
+  const wsEntity = currentSession?.focusKey ?? "";
+  const [manualTicker, setManualTicker] = useState("");
+  const currentTicker = wsEntity || manualTicker;
 
   const prevConvIdRef = useRef<number | null>(null);
   const prevTickerRef = useRef("");
@@ -595,10 +606,12 @@ export default function ResearchWorkspacePage() {
     }
   }, [allConversations, activeConvId]);
 
+  // 从消息推导 ticker（仅在 workspace 无 entity 时生效）
   useEffect(() => {
+    if (wsEntity) return; // workspace entity 优先
     const t = extractTicker(convMessages);
-    if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setCurrentTicker(t); }
-  }, [convMessages]);
+    if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setManualTicker(t); }
+  }, [convMessages, wsEntity]);
 
   const handleSubmit = useCallback((text?: string) => {
     const msg = (text ?? input).trim();
@@ -616,11 +629,38 @@ export default function ResearchWorkspacePage() {
   }, [convMessages]);
 
   const answerObject = lastAssistant?.metadata?.answerObject;
-  const stance = stanceFrom(answerObject?.verdict);
 
-  // Session items
-  const sessionItems = useMemo<SessionItem[]>(() =>
-    [...(allConversations ?? [])].sort((a, b) =>
+  // ── useWorkspaceViewModel: 真实市场决策数据层 ─────────────────────────────
+  const vm = useWorkspaceViewModel();
+  const { headerViewModel: hvm, thesisViewModel: tvm, timingViewModel: tivm, alertViewModel: avm, historyViewModel: hivm, isLoading: vmLoading } = vm;
+
+  // stance: 优先用 vm 真实数据，fallback 到 answerObject 推导
+  const stance = (hvm.stance as "bullish" | "bearish" | "neutral" | "unavailable" | null) ?? stanceFrom(answerObject?.verdict);
+
+  // ── Session items: 优先用 WorkspaceContext sessionList，fallback 到 allConversations ──
+  const sessionItems = useMemo<SessionItem[]>(() => {
+    // 优先：WorkspaceContext workspace sessions（真实研究会话）
+    if (sessionList.length > 0) {
+      return sessionList.map(s => {
+        const type: SessionItem["type"] =
+          s.sessionType === "entity" ? "thesis" :
+          s.sessionType === "basket" ? "research" : "research";
+        const dir = (hvm.stance as "bullish" | "bearish" | "neutral" | null) ?? "neutral";
+        return {
+          id: s.id,
+          entity: s.focusKey,
+          title: s.title,
+          type,
+          time: timeAgo(new Date(s.lastActiveAt)),
+          pinned: s.pinned,
+          active: s.id === currentSession?.id,
+          direction: dir as "bullish" | "bearish" | "neutral",
+          hasAlert: avm.alertCount > 0,
+        };
+      });
+    }
+    // Fallback：chat conversations（兼容旧数据）
+    return [...(allConversations ?? [])].sort((a, b) =>
       new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
     ).map(c => {
       const tk = c.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/)?.[0];
@@ -629,7 +669,7 @@ export default function ResearchWorkspacePage() {
         t.includes("risk") || t.includes("风险") ? "risk" :
         t.includes("timing") || t.includes("时机") ? "timing" :
         t.includes("thesis") || t.includes("论点") ? "thesis" : "research";
-      const dir = stance === "unavailable" ? "neutral" : stance;
+      const dir = stance === "unavailable" ? "neutral" : (stance ?? "neutral");
       return {
         id: String(c.id), entity: tk ?? "—",
         title: c.title ?? `对话 #${c.id}`,
@@ -637,7 +677,8 @@ export default function ResearchWorkspacePage() {
         pinned: c.isPinned, active: c.id === activeConvId,
         direction: dir as "bullish" | "bearish" | "neutral",
       };
-    }), [allConversations, activeConvId, stance]);
+    });
+  }, [sessionList, allConversations, activeConvId, stance, currentSession?.id, hvm.stance, avm.alertCount]);
 
   // Discussion messages
   const discussionMsgs = useMemo<DiscussionMsg[]>(() =>
@@ -711,7 +752,7 @@ export default function ResearchWorkspacePage() {
             const ticker = prompt("输入股票代码（如 AAPL、NVDA）:");
             if (ticker?.trim()) {
               const t = ticker.trim().toUpperCase();
-              setCurrentTicker(t);
+              setManualTicker(t);
               handleSubmit(`深度分析 ${t}`);
             }
           }}
@@ -720,12 +761,28 @@ export default function ResearchWorkspacePage() {
         {/* ── 4-column workspace ── */}
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-          {/* Col 1: Session Rail */}
+          {/* Col 1: Session Rail — 接入 WorkspaceContext 真实会话 */}
           <SessionRail
             sessions={sessionItems}
-            activeSessionId={activeConvId != null ? String(activeConvId) : undefined}
-            onSelectSession={(id) => { setActiveConvId(Number(id)); setConvMessages([]); }}
-            onNewSession={() => createConvMutation.mutate({ title: "新会话" })}
+            activeSessionId={
+              currentSession?.id ??
+              (activeConvId != null ? String(activeConvId) : undefined)
+            }
+            onSelectSession={(id) => {
+              // 优先切换 workspace session
+              const wsSession = sessionList.find(s => s.id === id);
+              if (wsSession) {
+                setSession(wsSession);
+              } else {
+                setActiveConvId(Number(id));
+                setConvMessages([]);
+              }
+            }}
+            onNewSession={() => {
+              // 创建新 workspace session（以当前 ticker 为 focusKey）
+              const ticker = currentTicker || "AAPL";
+              createSession({ title: `${ticker} 研究`, focusKey: ticker, sessionType: "entity" });
+            }}
             activeEntity={currentTicker || undefined}
           />
 
@@ -735,28 +792,68 @@ export default function ResearchWorkspacePage() {
             overflowY: "auto", background: "#0c0f14",
           }}>
             <div style={{ padding: "16px 22px 24px" }}>
+              {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
-                thesis={answerObject ? {
+                thesis={tvm.available ? {
+                  coreThesis: tvm.stateSummaryText ?? tvm.stance ?? undefined,
+                  criticalDriver: tvm.evidenceState ?? undefined,
+                  failureCondition: tvm.fragility ?? undefined,
+                  confidenceScore: tvm.fragilityScore != null ? Math.round((1 - tvm.fragilityScore) * 100) : null,
+                  evidenceState: (tvm.evidenceState as "strong" | "moderate" | "weak" | "insufficient" | null) ?? "insufficient",
+                } : (answerObject ? {
+                  // fallback: answerObject 推导（首次分析前 vm 尚未就绪）
                   coreThesis: answerObject.verdict,
                   criticalDriver: answerObject.bull_case?.[0] ?? answerObject.reasoning?.[0],
                   failureCondition: answerObject.risks?.[0]?.description,
                   confidenceScore: answerObject.confidence === "high" ? 80 : answerObject.confidence === "medium" ? 55 : 30,
                   evidenceState: answerObject.confidence === "high" ? "strong" : answerObject.confidence === "medium" ? "moderate" : "weak",
-                } : undefined}
-                timing={{
+                } : undefined)}
+                timing={tivm.available ? {
+                  actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",
+                  readinessState: (tivm.readinessState as "ready" | "conditional" | "not_ready" | "blocked" | null) ?? "not_ready",
+                  entryQuality: (tivm.confirmationState === "confirmed" ? "high" : tivm.confirmationState === "partial" ? "moderate" : "unavailable"),
+                  timingRisk: (tivm.timingRisk as "low" | "medium" | "high" | "critical" | null) ?? "medium",
+                  confirmationState: (tivm.confirmationState as "confirmed" | "partial" | "unconfirmed" | "conflicted" | null) ?? "unconfirmed",
+                  timingSummary: tivm.timingSummary ?? undefined,
+                } : {
+                  // fallback: answerObject 推导
                   actionBias: (() => {
                     const v = answerObject?.verdict?.toLowerCase() ?? "";
-                    if (v.match(/buy|bull|增持|看多/)) return "BUY";
-                    if (v.match(/sell|bear|减持|看空/)) return "AVOID";
-                    if (v.match(/hold|neutral/)) return "HOLD";
-                    return answerObject ? "HOLD" : "NONE";
+                    if (v.match(/buy|bull|增持|看多/)) return "BUY" as const;
+                    if (v.match(/sell|bear|减持|看空/)) return "AVOID" as const;
+                    if (v.match(/hold|neutral/)) return "HOLD" as const;
+                    return "NONE" as const;
                   })(),
-                  readinessState: answerObject ? "ready" : "not_ready",
-                  entryQuality: answerObject?.confidence === "high" ? "high" : answerObject?.confidence === "medium" ? "moderate" : "unavailable",
-                  timingRisk: "medium",
-                  confirmationState: answerObject ? "partial" : "unconfirmed",
+                  readinessState: answerObject ? "ready" as const : "not_ready" as const,
+                  entryQuality: answerObject?.confidence === "high" ? "high" as const : answerObject?.confidence === "medium" ? "moderate" as const : "unavailable" as const,
+                  timingRisk: "medium" as const,
+                  confirmationState: answerObject ? "partial" as const : "unconfirmed" as const,
                 }}
-                isLoading={sending || isTyping}
+                alerts={avm.available ? {
+                  alerts: (avm.keyAlerts ?? []).map(a => ({
+                    alertType: a.type,
+                    severity: (a.severity as "low" | "medium" | "high" | "critical"),
+                    message: a.message,
+                    reason: a.message,
+                  } satisfies AlertItem)),
+                  alertCount: avm.alertCount,
+                  highestSeverity: (avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null,
+                  summaryText: avm.summaryText ?? undefined,
+                } : undefined}
+                history={hivm.available ? {
+                  entity: currentTicker || undefined,
+                  entries: [
+                    ...(hivm.deltaSummary ? [{
+                      time: hivm.lastSnapshotAt ? new Date(hivm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "—",
+                      changeMarker: (hivm.changeMarker as HistoryEntry["changeMarker"]) ?? "unknown",
+                      stance: hvm.stance ?? "—",
+                      actionBias: hvm.actionBias ?? "—",
+                      alertSeverity: hvm.highestSeverity ?? null,
+                      deltaSummary: hivm.deltaSummary,
+                    } satisfies HistoryEntry] : []),
+                  ],
+                } : undefined}
+                isLoading={vmLoading || sending || isTyping}
               />
             </div>
           </main>

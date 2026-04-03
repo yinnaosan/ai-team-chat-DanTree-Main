@@ -1,7 +1,9 @@
 /**
- * HistoryBlock — DanTree Workspace v2.1-B2a
- * 轻交互：前次摘要“查看更多/收起”
- * ui-ux-pro-max: Financial Dashboard + hover/transition
+ * HistoryBlock — DanTree Workspace v2.1-B2b
+ * 轻交互：前次摘要"查看更多/收起"，平滑折叠动画
+ * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 风格：冷静、精密、克制
  */
 import React, { useState } from "react";
 import type { HistoryViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -32,6 +34,24 @@ function changeColor(marker: string | null | undefined): string {
   return DS.accent;
 }
 
+// ─── Smooth collapse panel ────────────────────────────────────────────────────
+function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        maxHeight: open ? "400px" : "0px",
+        opacity: open ? 1 : 0,
+        overflow: "hidden",
+        transition: open
+          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
+          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
   const [showPrevious, setShowPrevious] = useState(false);
   const [moreHovered, setMoreHovered] = useState(false);
@@ -39,7 +59,7 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
   if (!vm.available) return null;
 
   const showChange = vm.changeMarker && vm.changeMarker !== "stable" && vm.changeMarker !== "first_observation";
-  const accentColor = DS.accent; // 青色系
+  const accentColor = DS.accent;
   const hasPrevious = !!vm.previousSummary;
 
   return (
@@ -105,13 +125,13 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
           color: DS.text2,
           lineHeight: 1.65,
           letterSpacing: "0.01em",
-          borderBottom: (hasPrevious) ? `1px solid ${DS.border0}` : "none",
+          borderBottom: hasPrevious ? `1px solid ${DS.border0}` : "none",
         }}>
           {vm.stateSummaryText}
         </div>
       )}
 
-      {/* Previous snapshot — 轻量“查看更多/收起” */}
+      {/* Previous snapshot — 轻量"查看更多/收起"（平滑动画）*/}
       {hasPrevious && (
         <div>
           {/* Toggle button */}
@@ -130,7 +150,6 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
               cursor: "pointer",
               background: moreHovered ? DS.surface2 : "transparent",
               transition: DS.transition,
-              borderTop: showPrevious ? `1px solid ${DS.border0}` : "none",
             }}
           >
             <span style={{
@@ -144,8 +163,8 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
             </span>
           </div>
 
-          {/* Previous snapshot content */}
-          {showPrevious && (
+          {/* Previous snapshot content（平滑动画）*/}
+          <CollapsePanel open={showPrevious}>
             <div style={{
               padding: `${DS.sp2} ${DS.sp4} ${DS.sp3}`,
               background: DS.surface3,
@@ -162,7 +181,7 @@ export function HistoryBlock({ vm, blockRef }: HistoryBlockProps) {
                 {vm.previousSummary}
               </div>
             </div>
-          )}
+          </CollapsePanel>
         </div>
       )}
     </div>

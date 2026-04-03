@@ -13,6 +13,7 @@ import { HistoryBlock } from "./HistoryBlock";
 
 export interface SpineBlockRefs {
   thesis: React.RefObject<HTMLDivElement | null>;
+  timing: React.RefObject<HTMLDivElement | null>;
   alert: React.RefObject<HTMLDivElement | null>;
   history: React.RefObject<HTMLDivElement | null>;
 }
@@ -27,10 +28,12 @@ export function DecisionSpine({ vm, blockRefs }: DecisionSpineProps) {
 
   // Internal refs if not provided externally
   const internalThesisRef = useRef<HTMLDivElement | null>(null);
+  const internalTimingRef = useRef<HTMLDivElement | null>(null);
   const internalAlertRef = useRef<HTMLDivElement | null>(null);
   const internalHistoryRef = useRef<HTMLDivElement | null>(null);
 
   const thesisRef = blockRefs?.thesis ?? internalThesisRef;
+  const timingRef = blockRefs?.timing ?? internalTimingRef;
   const alertRef = blockRefs?.alert ?? internalAlertRef;
   const historyRef = blockRefs?.history ?? internalHistoryRef;
 
@@ -59,7 +62,7 @@ export function DecisionSpine({ vm, blockRefs }: DecisionSpineProps) {
     >
       {/* 固定顺序：Thesis → Timing → Alert → History */}
       <ThesisBlock vm={thesisViewModel} blockRef={thesisRef} />
-      <TimingBlock vm={timingViewModel} />
+      <TimingBlock vm={timingViewModel} blockRef={timingRef} />
       <AlertBlock vm={alertViewModel} blockRef={alertRef} />
       <HistoryBlock vm={historyViewModel} blockRef={historyRef} />
     </div>

@@ -1,8 +1,9 @@
 /**
- * ThesisBlock — DanTree Workspace v2.1-B2a
- * 交互层：折叠/展开（默认展开），折叠态保留 stance + 1行 summary
- * ui-ux-pro-max: Financial Dashboard + hover/transition/active state
- * 风格：克制精密，高密度，长期可读
+ * ThesisBlock — DanTree Workspace v2.1-B2b
+ * 交互层：折叠/展开（默认展开），折叠态保留 stance chip + 1行 summary
+ * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 风格：冷静、精密、克制，对标 Apple / Tesla / NVIDIA
  */
 import React, { useState } from "react";
 import type { ThesisViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -65,6 +66,25 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+// ─── Smooth collapse panel ────────────────────────────────────────────────────
+// ui-ux-pro-max: max-height + opacity + overflow hidden, 0.22s ease-out 进入 / 0.18s ease-in 退出
+function CollapsePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        maxHeight: open ? "600px" : "0px",
+        opacity: open ? 1 : 0,
+        overflow: "hidden",
+        transition: open
+          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
+          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
   const [expanded, setExpanded] = useState(true);
@@ -83,7 +103,7 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
     return <span style={chipStyle("neutral")}>中性</span>;
   };
 
-  // 折叠态：1行 summary（截断）
+  // 折叠态：1行 summary（截断 60 字符）
   const collapsedSummary = vm.stateSummaryText
     ? vm.stateSummaryText.length > 60
       ? vm.stateSummaryText.slice(0, 60) + "…"
@@ -115,7 +135,7 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
           alignItems: "center",
           gap: DS.sp2,
           padding: `${DS.sp2} ${DS.sp4}`,
-          borderBottom: expanded ? `1px solid ${DS.border0}` : "none",
+          borderBottom: `1px solid ${DS.border0}`,
           background: headerHovered ? DS.surface3 : DS.surface2,
           cursor: "pointer",
           userSelect: "none",
@@ -153,50 +173,48 @@ export function ThesisBlock({ vm, blockRef }: ThesisBlockProps) {
         </div>
       </div>
 
-      {/* ── Expanded content ── */}
-      {expanded && (
-        <>
-          {/* State matrix */}
-          <div style={{
-            display: "flex",
-            gap: DS.sp5,
-            flexWrap: "wrap",
-            padding: `${DS.sp3} ${DS.sp4}`,
-            borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
-          }}>
-            <StateUnit label="证据" value={vm.evidenceState} />
-            <StateUnit label="Gate 门禁" value={vm.gateState} />
-            <StateUnit label="来源" value={vm.sourceState} />
-            {vm.fragilityScore != null && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
-                <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>脆弱性</span>
-                <span style={{
-                  fontFamily: DS.fontMono,
-                  fontSize: "10px",
-                  fontWeight: 500,
-                  color: vm.fragilityScore > 0.6 ? DS.bear : vm.fragilityScore > 0.3 ? DS.medium : DS.bull,
-                }}>
-                  {(vm.fragilityScore * 100).toFixed(0)}%
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Summary text */}
-          {vm.stateSummaryText && (
-            <div style={{
-              padding: `${DS.sp2} ${DS.sp4}`,
-              fontFamily: DS.fontSans,
-              fontSize: "11px",
-              color: DS.text2,
-              lineHeight: 1.65,
-              letterSpacing: "0.01em",
-            }}>
-              {vm.stateSummaryText}
+      {/* ── Expanded content（平滑折叠动画）── */}
+      <CollapsePanel open={expanded}>
+        {/* State matrix */}
+        <div style={{
+          display: "flex",
+          gap: DS.sp5,
+          flexWrap: "wrap",
+          padding: `${DS.sp3} ${DS.sp4}`,
+          borderBottom: vm.stateSummaryText ? `1px solid ${DS.border0}` : "none",
+        }}>
+          <StateUnit label="证据" value={vm.evidenceState} />
+          <StateUnit label="Gate 门禁" value={vm.gateState} />
+          <StateUnit label="来源" value={vm.sourceState} />
+          {vm.fragilityScore != null && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "64px" }}>
+              <span style={{ ...sectionTitleStyle, fontSize: "8px" }}>脆弱性</span>
+              <span style={{
+                fontFamily: DS.fontMono,
+                fontSize: "10px",
+                fontWeight: 500,
+                color: vm.fragilityScore > 0.6 ? DS.bear : vm.fragilityScore > 0.3 ? DS.medium : DS.bull,
+              }}>
+                {(vm.fragilityScore * 100).toFixed(0)}%
+              </span>
             </div>
           )}
-        </>
-      )}
+        </div>
+
+        {/* Summary text */}
+        {vm.stateSummaryText && (
+          <div style={{
+            padding: `${DS.sp2} ${DS.sp4}`,
+            fontFamily: DS.fontSans,
+            fontSize: "11px",
+            color: DS.text2,
+            lineHeight: 1.65,
+            letterSpacing: "0.01em",
+          }}>
+            {vm.stateSummaryText}
+          </div>
+        )}
+      </CollapsePanel>
     </div>
   );
 }

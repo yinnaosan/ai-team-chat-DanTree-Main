@@ -1,7 +1,9 @@
 /**
- * AlertBlock — DanTree Workspace v2.1-B2a
+ * AlertBlock — DanTree Workspace v2.1-B2b
  * 交互层：整体折叠/展开 + 单条警报详情展开
- * ui-ux-pro-max: Financial Dashboard + hover/transition/active state
+ * ui-ux-pro-max: Financial Dashboard + max-height/opacity smooth collapse + hover/press state
+ * 动效：0.22s ease-out（进入），0.18s ease-in（退出），prefers-reduced-motion 兼容
+ * 风格：冷静、精密、克制
  */
 import React, { useState } from "react";
 import type { AlertViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -56,6 +58,24 @@ function Chevron({ open, size = 12 }: { open: boolean; size?: number }) {
     >
       <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+// ─── Smooth collapse panel ────────────────────────────────────────────────────
+function CollapsePanel({ open, children, maxH = "600px" }: { open: boolean; children: React.ReactNode; maxH?: string }) {
+  return (
+    <div
+      style={{
+        maxHeight: open ? maxH : "0px",
+        opacity: open ? 1 : 0,
+        overflow: "hidden",
+        transition: open
+          ? "max-height 0.22s ease-out, opacity 0.18s ease-out"
+          : "max-height 0.18s ease-in, opacity 0.14s ease-in",
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -132,8 +152,8 @@ function AlertRow({
         <Chevron open={open} size={10} />
       </div>
 
-      {/* 详情展开区域 */}
-      {open && (
+      {/* 详情展开区域（平滑动画）*/}
+      <CollapsePanel open={open} maxH="200px">
         <div style={{
           padding: `${DS.sp2} ${DS.sp4} ${DS.sp3} calc(${DS.sp4} + 13px)`,
           background: DS.surface3,
@@ -165,7 +185,7 @@ function AlertRow({
             </span>
           </div>
         </div>
-      )}
+      </CollapsePanel>
     </div>
   );
 }
@@ -204,7 +224,7 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
           alignItems: "center",
           gap: DS.sp2,
           padding: `${DS.sp2} ${DS.sp4}`,
-          borderBottom: expanded ? `1px solid ${DS.border0}` : "none",
+          borderBottom: `1px solid ${DS.border0}`,
           background: headerHovered ? DS.surface3 : DS.surface2,
           cursor: "pointer",
           userSelect: "none",
@@ -234,42 +254,40 @@ export function AlertBlock({ vm, blockRef }: AlertBlockProps) {
         </div>
       </div>
 
-      {/* ── Expanded content ── */}
-      {expanded && (
-        <>
-          {/* Alert list with per-alert detail expansion */}
-          {vm.keyAlerts.length > 0 && (
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              borderBottom: vm.summaryText ? `1px solid ${DS.border0}` : "none",
-            }}>
-              {vm.keyAlerts.map((alert, i) => (
-                <AlertRow
-                  key={i}
-                  alert={alert}
-                  index={i}
-                  isLast={i === vm.keyAlerts.length - 1}
-                />
-              ))}
-            </div>
-          )}
+      {/* ── Expanded content（平滑折叠动画）── */}
+      <CollapsePanel open={expanded}>
+        {/* Alert list with per-alert detail expansion */}
+        {vm.keyAlerts.length > 0 && (
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            borderBottom: vm.summaryText ? `1px solid ${DS.border0}` : "none",
+          }}>
+            {vm.keyAlerts.map((alert, i) => (
+              <AlertRow
+                key={i}
+                alert={alert}
+                index={i}
+                isLast={i === vm.keyAlerts.length - 1}
+              />
+            ))}
+          </div>
+        )}
 
-          {/* Summary text */}
-          {vm.summaryText && (
-            <div style={{
-              padding: `${DS.sp2} ${DS.sp4}`,
-              fontFamily: DS.fontSans,
-              fontSize: "11px",
-              color: DS.text2,
-              lineHeight: 1.65,
-              letterSpacing: "0.01em",
-            }}>
-              {vm.summaryText}
-            </div>
-          )}
-        </>
-      )}
+        {/* Summary text */}
+        {vm.summaryText && (
+          <div style={{
+            padding: `${DS.sp2} ${DS.sp4}`,
+            fontFamily: DS.fontSans,
+            fontSize: "11px",
+            color: DS.text2,
+            lineHeight: 1.65,
+            letterSpacing: "0.01em",
+          }}>
+            {vm.summaryText}
+          </div>
+        )}
+      </CollapsePanel>
     </div>
   );
 }

@@ -1616,13 +1616,16 @@ export default function ResearchWorkspacePage() {
   // ── Workspace ViewModel (B1d: 主脂柱数据层) ──
   const { currentSession } = useWorkspace();
   const vm = useWorkspaceViewModel();
-  // ── B2a: Spine block refs + scroll container ref ──
+  // ── B2b: Spine block refs + scroll container ref + activeSection ──
   const spineScrollRef = useRef<HTMLDivElement>(null);
   const thesisBlockRef = useRef<HTMLDivElement | null>(null);
+  const timingBlockRef = useRef<HTMLDivElement | null>(null);
   const alertBlockRef = useRef<HTMLDivElement | null>(null);
   const historyBlockRef = useRef<HTMLDivElement | null>(null);
+  const [activeSection, setActiveSection] = React.useState<ScrollToSection | null>(null);
   const spineBlockRefs: SpineBlockRefs = {
     thesis: thesisBlockRef,
+    timing: timingBlockRef,
     alert: alertBlockRef,
     history: historyBlockRef,
   };
@@ -1631,6 +1634,7 @@ export default function ResearchWorkspacePage() {
     if (!container) return;
     const refMap: Record<ScrollToSection, React.RefObject<HTMLDivElement | null>> = {
       thesis: thesisBlockRef,
+      timing: timingBlockRef,
       alert: alertBlockRef,
       history: historyBlockRef,
     };
@@ -1641,6 +1645,53 @@ export default function ResearchWorkspacePage() {
     const offset = targetTop - containerTop + container.scrollTop - 8;
     container.scrollTo({ top: offset, behavior: "smooth" });
   }, []);
+  // ── B2b: IntersectionObserver 双向联动（滚动 → activeSection 高亮）──
+  React.useEffect(() => {
+    const container = spineScrollRef.current;
+    if (!container) return;
+    const refMap: Record<ScrollToSection, React.RefObject<HTMLDivElement | null>> = {
+      thesis: thesisBlockRef,
+      timing: timingBlockRef,
+      alert: alertBlockRef,
+      history: historyBlockRef,
+    };
+    const order: ScrollToSection[] = ["thesis", "timing", "alert", "history"];
+    const visibilityMap = new Map<ScrollToSection, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          const section = entry.target.getAttribute("data-block") as ScrollToSection | null;
+          if (section && order.includes(section)) {
+            visibilityMap.set(section, entry.intersectionRatio);
+          }
+        });
+        // 选择可见度最高的区块，按页面顺序优先
+        let best: ScrollToSection | null = null;
+        let bestRatio = 0;
+        for (const sec of order) {
+          const ratio = visibilityMap.get(sec) ?? 0;
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            best = sec;
+          }
+        }
+        if (bestRatio > 0.05) {
+          setActiveSection(best);
+        } else {
+          setActiveSection(null);
+        }
+      },
+      {
+        root: container,
+        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1.0],
+      }
+    );
+    order.forEach(sec => {
+      const el = refMap[sec]?.current;
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [currentSession]);
   // ── Data ───
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
   const { data: allConversations, refetch: refetchConvs } = trpc.chat.listConversations.useQuery(undefined, {
@@ -2488,7 +2539,7 @@ export default function ResearchWorkspacePage() {
           </div>
 
           {/* B1e: DecisionHeader — 主脂柱决策栏（视觉顶层，sticky top） */}
-          <DecisionHeader vm={vm.headerViewModel} onScrollTo={handleScrollTo} />
+          <DecisionHeader vm={vm.headerViewModel} onScrollTo={handleScrollTo} activeSection={activeSection} />
           {/* DECISION STRIP — primary decision surface, above all analysis */}
           {lastAssistantMsg && lastAssistantMsg.id > 0 && currentTicker && (
             <DecisionStrip

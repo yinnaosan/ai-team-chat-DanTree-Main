@@ -1141,19 +1141,87 @@ export default function ResearchWorkspacePage() {
                   nextCatalyst: answerObject?.suggested_next ?? undefined,
                   catalystDays: undefined,
                 }}
-                alerts={avm.available ? {
-                  alerts: (avm.keyAlerts ?? []).map(a => ({
-                    alertType: a.type,
-                    severity: (a.severity as "low" | "medium" | "high" | "critical"),
-                    message: a.message,
-                    reason: a.message,
-                    // V2 新字段：action 从 severity 推导应对动作
-                    action: a.severity === "critical" ? "立即减仓或退出" : a.severity === "high" ? "设置止损单" : "继续监控",
-                  } satisfies AlertItem)),
-                  alertCount: avm.alertCount,
-                  highestSeverity: (avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null,
-                  summaryText: avm.summaryText ?? undefined,
-                } : undefined}
+                alerts={avm.available ? (() => {
+                  // ── S5-B: disciplineItems 推导 ────────────────────────────
+                  // 从 keyAlerts 的 type + severity 组合生成行动约束
+                  // 原则：行动约束，不是风险复述；无可信来源则 undefined
+                  const DISCIPLINE_MAP: Record<string, Record<string, string>> = {
+                    volatility:  { critical: "立即评估仓位规模，不得追高", high: "设置止损，避免追高", medium: "减少仓位至计划上限以内", low: "保持现有仓位，观察波动收敛" },
+                    liquidity:   { critical: "暂停建仓，等待流动性恢复", high: "分批执行，避免大单冲击", medium: "控制单次交易规模", low: "正常执行，关注成交量" },
+                    fundamental: { critical: "暂停操作，重新评估论点", high: "等待基本面确认信号", medium: "降低仓位权重", low: "继续监控基本面变化" },
+                    sentiment:   { critical: "避免逆势操作，等待情绪稳定", high: "减少暴露，等待情绪反转确认", medium: "关注情绪指标变化", low: "正常持仓，监控情绪拐点" },
+                    technical:   { critical: "关键支撑已破，考虑止损出场", high: "设置技术止损位", medium: "等待技术信号确认", low: "监控关键技术位" },
+                    macro:       { critical: "宏观风险上升，降低总体暴露", high: "对冲宏观风险，减少方向性仓位", medium: "关注宏观数据发布节点", low: "维持现有配置，关注宏观变化" },
+                  };
+                  const SEVERITY_FALLBACK: Record<string, string> = {
+                    critical: "立即评估仓位规模，准备止损预案",
+                    high:     "设置明确止损位，控制仓位不超过计划上限",
+                    medium:   "保持仓位纪律，等待更多确认信号",
+                    low:      "继续监控，维持现有执行计划",
+                  };
+                  const keyAlerts = avm.keyAlerts ?? [];
+                  const disciplineSet = new Set<string>();
+                  const rawDisciplineItems: Array<{ label: string; checked: boolean; detail?: string }> = [];
+                  // 主路径：从 keyAlerts type+severity 推导
+                  for (const alert of keyAlerts) {
+                    const typeKey = alert.type?.toLowerCase() ?? "";
+                    const sevKey = alert.severity ?? "low";
+                    const matched = DISCIPLINE_MAP[typeKey]?.[sevKey] ?? DISCIPLINE_MAP[typeKey]?.["medium"] ?? SEVERITY_FALLBACK[sevKey];
+                    if (matched && !disciplineSet.has(matched)) {
+                      disciplineSet.add(matched);
+                      rawDisciplineItems.push({
+                        label: matched,
+                        checked: sevKey === "low" || sevKey === "medium",
+                        detail: alert.message ?? undefined,
+                      });
+                    }
+                  }
+                  // 补充路径：highestSeverity 追加通用纪律项（避免重复）
+                  if (rawDisciplineItems.length < 3 && avm.highestSeverity) {
+                    const generalItems: Record<string, string[]> = {
+                      critical: ["不得在当前风险状态下加仓", "准备好退出预案"],
+                      high:     ["仓位不超过组合的 5%", "等待风险信号降级后再操作"],
+                      medium:   ["保持耐心，不要因短期波动改变计划"],
+                      low:      [],
+                    };
+                    for (const item of (generalItems[avm.highestSeverity] ?? [])) {
+                      if (!disciplineSet.has(item) && rawDisciplineItems.length < 5) {
+                        disciplineSet.add(item);
+                        rawDisciplineItems.push({ label: item, checked: true });
+                      }
+                    }
+                  }
+                  const disciplineItems = rawDisciplineItems.length > 0 ? rawDisciplineItems : undefined;
+
+                  // ── S5-B: probability 推导（粗粒度等级映射，非精确值）────
+                  const SEVERITY_PROB: Record<string, number> = { critical: 82, high: 62, medium: 37, low: 17 };
+                  const topSeverity = keyAlerts[0]?.severity ?? avm.highestSeverity ?? null;
+                  const probability = topSeverity ? SEVERITY_PROB[topSeverity] : undefined;
+
+                  // ── S5-B: overallRiskScore 保守聚合（上限 100）────────────
+                  const SEVERITY_WEIGHT: Record<string, number> = { critical: 25, high: 15, medium: 8, low: 3 };
+                  let overallRiskScore: number | undefined = undefined;
+                  if (avm.alertCount > 0 && avm.highestSeverity) {
+                    const baseScore = (SEVERITY_WEIGHT[avm.highestSeverity] ?? 5) * Math.min(avm.alertCount, 3);
+                    overallRiskScore = Math.min(Math.round(baseScore), 100);
+                  }
+
+                  return {
+                    alerts: keyAlerts.map(a => ({
+                      alertType: a.type,
+                      severity: (a.severity as "low" | "medium" | "high" | "critical"),
+                      message: a.message,
+                      reason: a.message,
+                      action: a.severity === "critical" ? "立即减仓或退出" : a.severity === "high" ? "设置止损单" : "继续监控",
+                      probability: topSeverity === a.severity ? probability : undefined,
+                    } satisfies AlertItem)),
+                    alertCount: avm.alertCount,
+                    highestSeverity: (avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null,
+                    summaryText: avm.summaryText ?? undefined,
+                    disciplineItems,
+                    overallRiskScore,
+                  };
+                })() : undefined}
                 history={hivm.available ? {
                   entity: currentTicker || undefined,
                   entries: [

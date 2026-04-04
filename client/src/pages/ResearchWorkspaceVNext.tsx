@@ -763,6 +763,20 @@ export default function ResearchWorkspacePage() {
     { symbol: currentTicker },
     { enabled: !!currentTicker, refetchInterval: 300000, staleTime: 240000 } // 5分钟轮询
   );
+  // S5-D: 真实 peer tickers（Finnhub /stock/peers）
+  const { data: peerSymbols } = trpc.market.getPeers.useQuery(
+    { symbol: currentTicker },
+    { enabled: !!currentTicker, refetchInterval: 600000, staleTime: 540000 } // 10分钟轮询
+  );
+  // S5-D: 对 peer tickers 批量拿行情（最多 5 个）
+  const peerSymbolsInput = useMemo(
+    () => (peerSymbols && peerSymbols.length > 0 ? peerSymbols.slice(0, 5) : []),
+    [peerSymbols]
+  );
+  const { data: peerQuotes } = trpc.market.getBatchQuotes.useQuery(
+    { symbols: peerSymbolsInput },
+    { enabled: peerSymbolsInput.length > 0, refetchInterval: 60000 }
+  );
 
   const { data: rawConvMsgs } = trpc.chat.getConversationMessages.useQuery(
     { conversationId: activeConvId! }, { enabled: !!activeConvId }
@@ -984,6 +998,22 @@ export default function ResearchWorkspacePage() {
     }));
     return [...items, ...riskItems];
   }, [analystData, answerObject]);
+
+  // S5-D: RELATED tickers 展示数据（从 Finnhub peers + batchQuotes 推导）
+  const relatedTickers = useMemo<RelatedTicker[]>(() => {
+    if (!peerQuotes || peerQuotes.length === 0) return [];
+    return peerQuotes
+      .filter(q => q.price != null) // 只展示有有效行情的 peer
+      .map(q => {
+        const pct = q.changePercent ?? 0;
+        const sign = pct >= 0 ? "+" : "";
+        return {
+          symbol: q.symbol,
+          change: `${sign}${pct.toFixed(2)}%`,
+          positive: pct >= 0,
+        };
+      });
+  }, [peerQuotes]);
 
   // ── QuoteData: 扩充真实行情字段（high/low/pe/pb） ──
   const mappedQuote = useMemo<QuoteData | undefined>(() => {
@@ -1283,6 +1313,7 @@ export default function ResearchWorkspacePage() {
             analystData={analystData}
             nowItems={nowItems}
             monitorItems={monitorItems}
+            relatedTickers={relatedTickers}
           />
 
         </div>

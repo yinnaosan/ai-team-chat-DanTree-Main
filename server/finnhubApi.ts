@@ -132,6 +132,15 @@ export async function getInsiderTransactions(symbol: string): Promise<{ data: Fi
   return fetchFinnhub<{ data: FinnhubInsiderTransaction[] }>("/stock/insider-transactions", { symbol: symbol.toUpperCase() });
 }
 
+/** 获取同行业 peer 公司列表（Finnhub /stock/peers）*/
+export async function getPeers(symbol: string): Promise<string[]> {
+  const result = await fetchFinnhub<string[]>("/stock/peers", { symbol: symbol.toUpperCase() });
+  // Finnhub 返回的第一个元素通常是自身，过滤掉，最多取 5 个
+  return Array.isArray(result)
+    ? result.filter((s) => s.toUpperCase() !== symbol.toUpperCase()).slice(0, 5)
+    : [];
+}
+
 /** 市场综合新闻 */
 export async function getMarketNews(category: "general" | "forex" | "crypto" | "merger" = "general"): Promise<FinnhubNewsItem[]> {
   return fetchFinnhub<FinnhubNewsItem[]>("/news", { category });

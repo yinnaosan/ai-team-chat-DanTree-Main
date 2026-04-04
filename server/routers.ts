@@ -4856,6 +4856,19 @@ export const appRouter = router({
           return { symbol: sym.toUpperCase(), price: null, change: null, changePercent: null, prevClose: null };
         });
       }),
+    // S5-D: 获取同行业 peer 公司列表（Finnhub /stock/peers）
+    getPeers: protectedProcedure
+      .input(z.object({ symbol: z.string().min(1).max(20) }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        const sym = input.symbol.toUpperCase().trim();
+        try {
+          const { getPeers } = await import("./finnhubApi");
+          return await getPeers(sym);
+        } catch {
+          return [];
+        }
+      }),
     // 获取股价历史 OHLCV 数据（用于图表）
     getPriceHistory: protectedProcedure
       .input(z.object({

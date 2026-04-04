@@ -175,7 +175,7 @@ function DiscussionPanel({
     [entity, stance, readinessState, alertCount, sessionTitle]);
 
   // Stance label + color
-  const stanceColor = stance === "bullish" ? "rgba(16,185,129,0.70)" : stance === "bearish" ? "rgba(239,68,68,0.70)" : "rgba(255,255,255,0.22)";
+  const stanceColor = stance === "bullish" ? "rgba(52,211,153,0.85)" : stance === "bearish" ? "rgba(248,113,113,0.85)" : "rgba(255,255,255,0.28)";
   const stanceLabel = stance === "bullish" ? "BULL" : stance === "bearish" ? "BEAR" : stance === "neutral" ? "NEUTRAL" : null;
 
   // Dynamic placeholder
@@ -187,7 +187,9 @@ function DiscussionPanel({
     <div style={{
       flex: 1, minWidth: 0, height: "100%",
       display: "flex", flexDirection: "column",
-      background: "#0D1119",
+      background: "rgba(8,10,16,0.80)",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
       borderLeft: "1px solid rgba(255,255,255,0.07)",
     }}>
 
@@ -195,18 +197,20 @@ function DiscussionPanel({
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 16px 8px",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(255,255,255,0.02)",
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Sparkles size={12} color="rgba(16,185,129,0.60)" />
-          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.55)", letterSpacing: "0.02em" }}>
+          <Sparkles size={12} color="rgba(52,211,153,0.75)" />
+          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.78)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             Discussion
           </span>
           {entity && (
             <span style={{
-              fontSize: 10, color: "rgba(255,255,255,0.20)",
-              fontFamily: "ui-monospace, monospace", marginLeft: 2,
+              fontSize: 10, color: "rgba(255,255,255,0.42)",
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace", marginLeft: 2,
+              letterSpacing: "0.03em",
             }}>
               · {entity}
             </span>
@@ -215,7 +219,7 @@ function DiscussionPanel({
             <span style={{
               fontSize: 9, fontWeight: 700, color: stanceColor,
               fontFamily: "ui-monospace, monospace",
-              background: stance === "bullish" ? "rgba(16,185,129,0.08)" : stance === "bearish" ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.04)",
+              background: stance === "bullish" ? "rgba(52,211,153,0.10)" : stance === "bearish" ? "rgba(248,113,113,0.10)" : "rgba(255,255,255,0.05)",
               border: `1px solid ${stanceColor}`,
               borderRadius: 3, padding: "1px 5px", marginLeft: 4,
               letterSpacing: "0.04em",
@@ -237,9 +241,9 @@ function DiscussionPanel({
             justifyContent: "center", height: "100%", padding: "24px",
             gap: 10,
           }}>
-            <Sparkles size={24} color="rgba(16,185,129,0.15)" />
+            <Sparkles size={24} color="rgba(52,211,153,0.32)" />
             <p style={{
-              fontSize: 12, color: "rgba(255,255,255,0.18)",
+              fontSize: 12, color: "rgba(255,255,255,0.40)",
               textAlign: "center", lineHeight: 1.7, margin: 0,
             }}>
               {entity
@@ -253,15 +257,15 @@ function DiscussionPanel({
                   key={i}
                   onClick={() => onQuickPrompt(p)}
                   style={{
-                    background: "rgba(255,255,255,0.025)",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 7, padding: "8px 10px",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 8, padding: "9px 11px",
                     cursor: "pointer", textAlign: "left",
-                    fontSize: 11, color: "rgba(255,255,255,0.38)",
+                    fontSize: 11, color: "rgba(255,255,255,0.58)",
                     lineHeight: 1.55, transition: "all 0.15s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.06)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(16,185,129,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.60)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.025)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.38)"; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(52,211,153,0.09)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(52,211,153,0.22)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(237,237,239,0.85)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.58)"; }}
                 >
                   {p}
                 </button>
@@ -281,7 +285,7 @@ function DiscussionPanel({
                 style={{
                   padding: "14px 18px",
                   borderLeft: isLatest
-                    ? "2px solid rgba(16,185,129,0.28)"
+                    ? "2px solid rgba(52,211,153,0.35)"
                     : "2px solid transparent",
                 }}
               >
@@ -290,18 +294,18 @@ function DiscussionPanel({
                   <div style={{
                     width: 20, height: 20, borderRadius: 5, flexShrink: 0,
                     background: isUser
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(16,185,129,0.10)",
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(52,211,153,0.12)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
                     {isUser
-                      ? <User size={10} color="rgba(255,255,255,0.35)" />
-                      : <Sparkles size={10} color="rgba(16,185,129,0.65)" />}
+                      ? <User size={10} color="rgba(255,255,255,0.50)" />
+                      : <Sparkles size={10} color="rgba(52,211,153,0.80)" />}
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 500, color: "rgba(255,255,255,0.38)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: isUser ? "rgba(255,255,255,0.55)" : "rgba(52,211,153,0.70)" }}>
                     {isUser ? "你" : "助手"}
                   </span>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.16)" }}>
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)" }}>
                     {m.timestamp}
                   </span>
                 </div>
@@ -309,8 +313,8 @@ function DiscussionPanel({
                 {/* Body */}
                 <div style={{ paddingLeft: 27 }}>
                   <p style={{
-                    fontSize: 13, lineHeight: 1.78,
-                    color: isUser ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.62)",
+                    fontSize: 13, lineHeight: 1.80,
+                    color: isUser ? "rgba(237,237,239,0.88)" : "rgba(237,237,239,0.78)",
                     margin: 0,
                   }}>
                     {m.content}
@@ -323,13 +327,13 @@ function DiscussionPanel({
                         <div key={i} style={{
                           display: "flex", alignItems: "flex-start", gap: 9,
                           padding: "8px 10px", borderRadius: 6,
-                          background: "rgba(255,255,255,0.025)",
-                          border: "1px solid rgba(255,255,255,0.04)",
+                          background: "rgba(255,255,255,0.035)",
+                          border: "1px solid rgba(255,255,255,0.07)",
                         }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(16,185,129,0.50)", marginTop: 2, flexShrink: 0 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(52,211,153,0.65)", marginTop: 2, flexShrink: 0 }}>
                             {i + 1}.
                           </span>
-                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", lineHeight: 1.65 }}>
+                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", lineHeight: 1.65 }}>
                             {pt}
                           </span>
                         </div>
@@ -343,11 +347,11 @@ function DiscussionPanel({
                       marginTop: 10,
                       display: "flex", alignItems: "flex-start", gap: 8,
                       padding: "8px 10px", borderRadius: 6,
-                      background: "rgba(16,185,129,0.04)",
-                      border: "1px solid rgba(16,185,129,0.10)",
+                      background: "rgba(52,211,153,0.05)",
+                      border: "1px solid rgba(52,211,153,0.14)",
                     }}>
-                      <ArrowRight size={10} color="rgba(16,185,129,0.45)" style={{ marginTop: 2, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: "rgba(16,185,129,0.55)", lineHeight: 1.6 }}>
+                      <ArrowRight size={10} color="rgba(52,211,153,0.55)" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: "rgba(52,211,153,0.70)", lineHeight: 1.6 }}>
                         {m.suggestedNext}
                       </span>
                     </div>
@@ -360,8 +364,8 @@ function DiscussionPanel({
           {isStreaming && (
             <div style={{ padding: "14px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                <div style={{ width: 20, height: 20, borderRadius: 5, background: "rgba(16,185,129,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Sparkles size={10} color="rgba(16,185,129,0.65)" />
+                <div style={{ width: 20, height: 20, borderRadius: 5, background: "rgba(52,211,153,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={10} color="rgba(52,211,153,0.80)" />
                 </div>
                 <Loader2 size={11} color="rgba(255,255,255,0.20)" className="animate-spin" />
               </div>
@@ -375,9 +379,9 @@ function DiscussionPanel({
       <div style={{ padding: "6px 12px 8px", flexShrink: 0 }}>
         <div style={{
           position: "relative", borderRadius: 12,
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          transition: "border-color 0.15s",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          transition: "border-color 0.18s",
         }}>
           <textarea
             value={input}
@@ -388,8 +392,8 @@ function DiscussionPanel({
             style={{
               width: "100%", background: "transparent",
               border: "none", outline: "none",
-              padding: "9px 42px 9px 13px",
-              fontSize: 13, color: "rgba(255,255,255,0.85)",
+              padding: "10px 44px 10px 14px",
+              fontSize: 13, color: "rgba(237,237,239,0.90)",
               resize: "none", lineHeight: 1.55,
               fontFamily: "'Inter', system-ui, sans-serif", boxSizing: "border-box",
             }}
@@ -400,7 +404,7 @@ function DiscussionPanel({
             style={{
               position: "absolute", right: 9, bottom: 8,
               width: 28, height: 28, borderRadius: 8, border: "none",
-              background: input.trim() ? "rgba(16,185,129,0.90)" : "rgba(255,255,255,0.05)",
+              background: input.trim() ? "rgba(52,211,153,0.92)" : "rgba(255,255,255,0.06)",
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.15s",
             }}
@@ -468,21 +472,24 @@ function InsightsRail({
   return (
     <aside style={{
       width: 320, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "#0A0D14",
-      borderLeft: "1px solid rgba(255,255,255,0.07)",
+      background: "rgba(6,6,10,0.80)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
+      borderLeft: "1px solid rgba(255,255,255,0.055)",
     }}>
       {/* Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "11px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: "rgba(255,255,255,0.018)",
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.58)" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
           决策情报
         </span>
         {entity && (
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", fontFamily: "ui-monospace, monospace" }}>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "'IBM Plex Mono', ui-monospace, monospace", letterSpacing: "0.03em" }}>
             {entity}
           </span>
         )}
@@ -516,10 +523,10 @@ function InsightsRail({
 
         {/* ── RELATED tickers ── */}
         {relatedTickers.length > 0 && (
-          <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
-            <BarChart3 size={10} color="rgba(255,255,255,0.35)" />
-            <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <div style={{ padding: "10px 14px 10px", borderBottom: "1px solid rgba(255,255,255,0.045)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <BarChart3 size={10} color="rgba(255,255,255,0.40)" />
+            <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.52)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
               Related
             </span>
             </div>
@@ -534,14 +541,15 @@ function InsightsRail({
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <div style={{
-                    width: 3, height: 11, borderRadius: 1.5,
-                    background: t.positive ? "rgba(16,185,129,0.60)" : "rgba(239,68,68,0.50)",
+                    width: 3, height: 12, borderRadius: 1.5,
+                    background: t.positive ? "rgba(52,211,153,0.75)" : "rgba(248,113,113,0.65)",
+                    boxShadow: t.positive ? "0 0 5px rgba(52,211,153,0.35)" : "0 0 5px rgba(248,113,113,0.25)",
                   }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.78)", fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(237,237,239,0.88)", fontFamily: "'IBM Plex Mono', ui-monospace, monospace", letterSpacing: "0.02em" }}>
                     {t.symbol}
                   </span>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: t.positive ? "#10b981" : "#ef4444", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.positive ? "#34d399" : "#f87171", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                   {t.change}
                 </span>
               </div>
@@ -554,13 +562,13 @@ function InsightsRail({
           <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Users size={10} color="rgba(255,255,255,0.28)" />
-                <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                <Users size={10} color="rgba(255,255,255,0.38)" />
+                <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.50)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
                   Analyst Ratings
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", fontFamily: "ui-monospace, monospace" }}>
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                   {analystData.period}
                 </span>
                 {analystData.trend === "improving" && (
@@ -587,36 +595,36 @@ function InsightsRail({
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(16,185,129,0.70)" }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
-                  Buy <span style={{ color: "#10b981", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.buy}</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.52)" }}>
+                  Buy <span style={{ color: "#34d399", fontWeight: 700, fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{analystData.buy}</span>
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(251,191,36,0.50)" }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
-                  Hold <span style={{ color: "#f59e0b", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.hold}</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.52)" }}>
+                  Hold <span style={{ color: "#fbbf24", fontWeight: 700, fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{analystData.hold}</span>
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 6, height: 6, borderRadius: 1, background: "rgba(239,68,68,0.60)" }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
-                  Sell <span style={{ color: "#ef4444", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{analystData.sell}</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.52)" }}>
+                  Sell <span style={{ color: "#f87171", fontWeight: 700, fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{analystData.sell}</span>
                 </span>
               </div>
             </div>
             {/* Consensus label */}
-            <div style={{ marginTop: 8, padding: "5px 8px", borderRadius: 5, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.04)" }}>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>共识：</span>
+            <div style={{ marginTop: 8, padding: "6px 9px", borderRadius: 6, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.42)" }}>共识：</span>
               <span style={{
                 fontSize: 10, fontWeight: 700,
-                color: analystData.buy / analystData.total > 0.6 ? "#10b981" : analystData.sell / analystData.total > 0.4 ? "#ef4444" : "rgba(251,191,36,0.80)",
+                color: analystData.buy / analystData.total > 0.6 ? "#34d399" : analystData.sell / analystData.total > 0.4 ? "#f87171" : "rgba(251,191,36,0.90)",
               }}>
                 {analystData.buy / analystData.total > 0.6 ? "Strong Buy" :
                   analystData.buy / analystData.total > 0.45 ? "Moderate Buy" :
                   analystData.sell / analystData.total > 0.4 ? "Sell" :
                   "Hold"}
               </span>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.20)", marginLeft: 4 }}>
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginLeft: 4, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                 ({analystData.total} analysts)
               </span>
             </div>
@@ -626,15 +634,15 @@ function InsightsRail({
         {quoteData && (
           <div style={{ padding: "12px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <Target size={10} color="rgba(255,255,255,0.28)" />
-              <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              <Target size={10} color="rgba(255,255,255,0.42)" />
+              <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.52)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
                 Key Levels
               </span>
             </div>
             <div style={{
               padding: "10px 12px", borderRadius: 8,
-              background: "rgba(255,255,255,0.025)",
-              border: "1px solid rgba(255,255,255,0.04)",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
               display: "flex", flexDirection: "column", gap: 8,
             }}>
               {[
@@ -653,8 +661,8 @@ function InsightsRail({
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   ...(i === arr.length - 1 && arr.length > 4 ? { paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.04)" } : {}),
                 }}>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>{row.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: row.color, fontVariantNumeric: "tabular-nums" }}>{row.value}</span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.42)" }}>{row.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: row.color, fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -664,8 +672,8 @@ function InsightsRail({
         {/* Empty state when no data */}
         {nowItems.length === 0 && monitorItems.length === 0 && !quoteData && (
           <div style={{ padding: "28px 14px", textAlign: "center" }}>
-            <Shield size={18} color="rgba(255,255,255,0.07)" style={{ margin: "0 auto 8px", display: "block" }} />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.16)", lineHeight: 1.6, margin: 0 }}>
+            <Shield size={18} color="rgba(255,255,255,0.10)" style={{ margin: "0 auto 8px", display: "block" }} />
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", lineHeight: 1.6, margin: 0 }}>
               分析标的后<br />将显示决策情报
             </p>
           </div>
@@ -692,10 +700,10 @@ function Section({ dot, label, labelColor, show, children }: {
 }) {
   if (!show) return null;
   return (
-    <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0 }} />
-        <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+    <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 8px ${dot}, 0 0 3px ${dot}` }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, textTransform: "uppercase", letterSpacing: "0.10em" }}>
           {label}
         </span>
       </div>
@@ -708,16 +716,16 @@ function Section({ dot, label, labelColor, show, children }: {
 
 function InsightCard({ item }: { item: InsightItem }) {
   return (
-    <div style={{
-      display: "flex", gap: 8, padding: "8px 10px",
-      borderRadius: 7, background: item.bg,
+       <div style={{ display: "flex", gap: 8, padding: "8px 10px",
+      borderRadius: 8, background: item.bg,
+      border: "1px solid rgba(255,255,255,0.07)",
     }}>
       <item.icon size={12} color={item.iconColor} style={{ marginTop: 2, flexShrink: 0 }} />
       <div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.75)", lineHeight: 1.4 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: "rgba(237,237,239,0.88)", lineHeight: 1.50 }}>
           {item.text}
         </div>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.32)", marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>
           {item.sub}
         </div>
       </div>
@@ -1044,8 +1052,9 @@ export default function ResearchWorkspacePage() {
       <div style={{
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
-        overflow: "hidden", background: "#070B12",
-        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        overflow: "hidden",
+        background: "linear-gradient(160deg, #0a0a0f 0%, #060609 50%, #020203 100%)",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
       }}>
         {/* ── Global Top Bar / Decision Control Strip ── */}
         <DecisionHeader
@@ -1100,8 +1109,11 @@ export default function ResearchWorkspacePage() {
           {/* Col 2: Main Decision Canvas */}
           <main style={{
             width: 560, flexShrink: 0, minWidth: 0, height: "100%",
-            overflowY: "auto", background: "rgba(12,16,24,0.82)",
-            borderLeft: "1px solid rgba(255,255,255,0.07)",
+            overflowY: "auto",
+            background: "rgba(8,8,12,0.75)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            borderLeft: "1px solid rgba(255,255,255,0.06)",
           }}>
             <div style={{ padding: "18px 18px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}

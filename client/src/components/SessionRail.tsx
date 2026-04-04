@@ -52,8 +52,10 @@ export function SessionRail({
   return (
     <aside style={{
       width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "#070B12",
-      borderRight: "1px solid rgba(255,255,255,0.07)",
+      background: "rgba(4,5,8,0.80)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
+      borderRight: "1px solid rgba(255,255,255,0.055)",
     }}>
 
       {/* Search + New */}
@@ -68,9 +70,9 @@ export function SessionRail({
               style={{
                 width: "100%", height: 30, paddingLeft: 28, paddingRight: 8,
                 fontSize: 11, lineHeight: 1,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)", borderRadius: 7,
-                color: "rgba(255,255,255,0.70)", outline: "none",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7,
+                color: "rgba(255,255,255,0.75)", outline: "none",
                 boxSizing: "border-box",
               }}
             />
@@ -80,12 +82,12 @@ export function SessionRail({
             title="新建会话"
             style={{
               width: 30, height: 30, borderRadius: 6, border: "none",
-              background: "rgba(16,185,129,0.10)", cursor: "pointer",
+              background: "rgba(52,211,153,0.10)", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <Plus size={14} color="#10b981" />
+            <Plus size={14} color="#34d399" />
           </button>
         </div>
       </div>
@@ -96,8 +98,8 @@ export function SessionRail({
         {/* Empty state */}
         {sessions.length === 0 && (
           <div style={{ padding: "28px 12px", textAlign: "center" }}>
-            <Target size={18} color="rgba(255,255,255,0.07)" style={{ margin: "0 auto 8px", display: "block" }} />
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", lineHeight: 1.6, margin: 0 }}>
+            <Target size={18} color="rgba(255,255,255,0.10)" style={{ margin: "0 auto 8px", display: "block" }} />
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.24)", lineHeight: 1.6, margin: 0 }}>
               暂无研究会话<br />点击 + 开始新分析
             </p>
           </div>
@@ -126,8 +128,8 @@ export function SessionRail({
 function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 8px 4px" }}>
-      <Icon size={9} color="rgba(255,255,255,0.20)" />
-      <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.24)", textTransform: "uppercase", letterSpacing: "0.09em" }}>
+      <Icon size={9} color="rgba(255,255,255,0.28)" />
+      <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.32)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
         {label}
       </span>
     </div>
@@ -139,9 +141,9 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
   const TypeIcon = TYPE_ICON[session.type ?? "research"] ?? Lightbulb;
   const typeLabel = TYPE_LABEL[session.type ?? "research"];
 
-  const dirColor = session.direction === "bullish" ? "#10b981"
-    : session.direction === "bearish" ? "#ef4444"
-    : "rgba(255,255,255,0.25)";
+  const dirColor = session.direction === "bullish" ? "#34d399"
+    : session.direction === "bearish" ? "#f87171"
+    : "rgba(255,255,255,0.30)";
 
   return (
     <button
@@ -153,20 +155,20 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
         display: "flex", alignItems: "flex-start", gap: 8,
         padding: "8px 10px", borderRadius: 8, marginBottom: 1,
         cursor: "pointer", border: "none",
-        borderLeft: `2px solid ${isActive ? "rgba(16,185,129,0.85)" : "transparent"}`,
+        borderLeft: `2px solid ${isActive ? "rgba(52,211,153,0.90)" : "transparent"}`,
         background: isActive
-          ? "rgba(16,185,129,0.07)"
-          : hovered ? "rgba(255,255,255,0.03)" : "transparent",
+          ? "rgba(52,211,153,0.07)"
+          : hovered ? "rgba(255,255,255,0.04)" : "transparent",
         transition: "background 0.12s",
       }}
     >
       {/* Type badge */}
       <div style={{
         width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
-        background: isActive ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.05)",
+        background: isActive ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <TypeIcon size={12} color={isActive ? "#10b981" : "rgba(255,255,255,0.28)"} />
+        <TypeIcon size={12} color={isActive ? "#34d399" : "rgba(255,255,255,0.32)"} />
       </div>
 
       {/* Content */}
@@ -174,7 +176,7 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
           <span style={{
             fontSize: 11, fontWeight: isActive ? 600 : 400,
-            color: isActive ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)",
+            color: isActive ? "rgba(237,237,239,0.92)" : "rgba(255,255,255,0.60)",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
           }}>
             {session.title}
@@ -187,7 +189,7 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
           <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
             {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
           </span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.18)", marginLeft: "auto" }}>
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginLeft: "auto", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
             {session.time}
           </span>
         </div>

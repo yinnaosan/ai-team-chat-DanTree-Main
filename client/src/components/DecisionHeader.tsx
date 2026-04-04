@@ -32,16 +32,16 @@ export interface DecisionHeaderProps {
 }
 
 const STANCE = {
-  bullish:     { label: "看多",   color: "#10b981", dim: "rgba(16,185,129,0.12)",  Icon: TrendingUp },
-  bearish:     { label: "看空",   color: "#ef4444", dim: "rgba(239,68,68,0.10)",   Icon: TrendingDown },
-  neutral:     { label: "中性",   color: "#94a3b8", dim: "rgba(148,163,184,0.08)", Icon: Minus },
-  mixed:       { label: "混合",   color: "#f59e0b", dim: "rgba(245,158,11,0.09)",  Icon: Activity },
-  unavailable: { label: "未分析", color: "#374151", dim: "rgba(55,65,81,0.08)",    Icon: Minus },
+  bullish:     { label: "看多",   color: "#34d399", dim: "rgba(52,211,153,0.10)",  Icon: TrendingUp },
+  bearish:     { label: "看空",   color: "#f87171", dim: "rgba(248,113,113,0.09)",  Icon: TrendingDown },
+  neutral:     { label: "中性",   color: "#94a3b8", dim: "rgba(148,163,184,0.07)", Icon: Minus },
+  mixed:       { label: "混合",   color: "#fbbf24", dim: "rgba(251,191,36,0.08)",  Icon: Activity },
+  unavailable: { label: "未分析", color: "#4b5563", dim: "rgba(75,85,99,0.07)",    Icon: Minus },
 };
 
 const GATE_LABEL: Record<string, { label: string; color: string }> = {
-  pass:     { label: "介入",  color: "#10b981" },
-  block:    { label: "回避",  color: "#ef4444" },
+  pass:     { label: "介入",  color: "#34d399" },
+  block:    { label: "回避",  color: "#f87171" },
   fallback: { label: "待评",  color: "#6b7280" },
 };
 
@@ -50,9 +50,9 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 const MARKER_LABEL: Record<string, { label: string; color: string }> = {
-  strengthening: { label: "↑ 强化",   color: "#10b981" },
+  strengthening: { label: "↑ 强化",   color: "#34d399" },
   weakening:     { label: "↓ 弱化",   color: "#f87171" },
-  reversal:      { label: "⟳ 逆转",   color: "#f97316" },
+  reversal:      { label: "⟳ 逆转",   color: "#fb923c" },
   stable:        { label: "— 稳定",   color: "#4b5563" },
   unknown:       { label: "—",        color: "#374151" },
 };
@@ -73,16 +73,19 @@ export function DecisionHeader({
       height: 52, flexShrink: 0, width: "100%",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 22px",
-      background: "#070B12",
-      borderBottom: "1px solid rgba(255,255,255,0.07)",
+      background: "rgba(4,5,8,0.88)",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.04)",
       position: "sticky", top: 0, zIndex: 50,
     }}>
 
       {/* ── Left: Brand + Entity Selector ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <Leaf size={14} color="rgba(16,185,129,0.75)" />
-          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.70)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
+          <Leaf size={14} color="rgba(52,211,153,0.85)" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.82)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
             DanTree
           </span>
         </div>
@@ -94,8 +97,8 @@ export function DecisionHeader({
           style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "5px 12px 5px 9px", borderRadius: 8,
-            background: entity ? "rgba(16,185,129,0.07)" : "rgba(255,255,255,0.04)",
-            border: `1px solid ${entity ? "rgba(16,185,129,0.18)" : "rgba(255,255,255,0.07)"}`,
+            background: entity ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.05)",
+            border: `1px solid ${entity ? "rgba(52,211,153,0.22)" : "rgba(255,255,255,0.08)"}`,
             cursor: "pointer",
           }}
         >
@@ -103,15 +106,15 @@ export function DecisionHeader({
             <>
               <div style={{
                 width: 24, height: 24, borderRadius: 5,
-                background: "rgba(16,185,129,0.14)",
+                background: "rgba(52,211,153,0.16)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
               }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#34d399" }}>
                   {entity[0]}
                 </span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "0.03em", fontFamily: "ui-monospace, monospace" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(237,237,239,0.94)", letterSpacing: "0.03em", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                 {entity}
               </span>
               <ChevronDown size={11} color="rgba(255,255,255,0.28)" />
@@ -157,7 +160,7 @@ export function DecisionHeader({
                   );
                 })}
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                 {Math.round(confidence / 20)}/5
               </span>
             </div>
@@ -167,8 +170,8 @@ export function DecisionHeader({
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
             padding: "4px 10px", borderRadius: 6,
-            background: "rgba(16,185,129,0.08)",
-            border: "1px solid rgba(16,185,129,0.16)",
+            background: "rgba(52,211,153,0.07)",
+            border: "1px solid rgba(52,211,153,0.18)",
           }}>
             <Zap size={11} color={gt.color} />
             <span style={{ fontSize: 12, fontWeight: 700, color: gt.color }}>
@@ -200,8 +203,8 @@ export function DecisionHeader({
 
       {/* ── Right: System Clock ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-        <Clock size={10} color="rgba(255,255,255,0.18)" />
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", fontVariantNumeric: "tabular-nums" }}>
+        <Clock size={10} color="rgba(255,255,255,0.25)" />
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
           {lastUpdated ?? "—"}
         </span>
       </div>

@@ -26,32 +26,32 @@ export interface TimingBlockProps {
 }
 
 const READINESS_CFG = {
-  ready:       { label: "可进场",   color: "#10b981", bg: "rgba(16,185,129,0.10)", desc: "条件具备，可以执行" },
-  conditional: { label: "条件待定", color: "#f59e0b", bg: "rgba(245,158,11,0.08)", desc: "需等待关键确认" },
-  not_ready:   { label: "未就绪",   color: "#6b7280", bg: "rgba(107,114,128,0.07)", desc: "条件不足，继续观察" },
-  blocked:     { label: "被阻止",   color: "#ef4444", bg: "rgba(239,68,68,0.08)",  desc: "当前不适合操作" },
+  ready:       { label: "可进场",   color: "#34d399", bg: "rgba(52,211,153,0.08)", desc: "条件具备，可以执行" },
+  conditional: { label: "条件待定", color: "#fbbf24", bg: "rgba(251,191,36,0.07)", desc: "需等待关键确认" },
+  not_ready:   { label: "未就绪",   color: "#6b7280", bg: "rgba(107,114,128,0.06)", desc: "条件不足，继续观察" },
+  blocked:     { label: "被阻止",   color: "#f87171", bg: "rgba(248,113,113,0.07)",  desc: "当前不适合操作" },
 };
 
 const ACTION_CFG = {
-  BUY:   { label: "买入",  color: "#10b981", weight: "strong" },
+  BUY:   { label: "买入",  color: "#34d399", weight: "strong" },
   HOLD:  { label: "持有",  color: "#60a5fa", weight: "medium" },
-  WAIT:  { label: "等待",  color: "#f59e0b", weight: "medium" },
-  AVOID: { label: "回避",  color: "#ef4444", weight: "strong" },
+  WAIT:  { label: "等待",  color: "#fbbf24", weight: "medium" },
+  AVOID: { label: "回避",  color: "#f87171", weight: "strong" },
   NONE:  { label: "—",     color: "#4b5563", weight: "weak"   },
 };
 
 const CONF_CFG = {
-  confirmed:   { label: "已确认", color: "#10b981" },
-  partial:     { label: "部分确认", color: "#f59e0b" },
+  confirmed:   { label: "已确认", color: "#34d399" },
+  partial:     { label: "部分确认", color: "#fbbf24" },
   unconfirmed: { label: "未确认", color: "#6b7280" },
-  conflicted:  { label: "信号冲突", color: "#ef4444" },
+  conflicted:  { label: "信号冲突", color: "#f87171" },
 };
 
 const RISK_CFG = {
-  low:      { label: "低", color: "#10b981" },
-  medium:   { label: "中", color: "#f59e0b" },
-  high:     { label: "高", color: "#f97316" },
-  critical: { label: "极高", color: "#ef4444" },
+  low:      { label: "低", color: "#34d399" },
+  medium:   { label: "中", color: "#fbbf24" },
+  high:     { label: "高", color: "#fb923c" },
+  critical: { label: "极高", color: "#f87171" },
 };
 
 export function TimingBlock({
@@ -75,10 +75,13 @@ export function TimingBlock({
 
   return (
     <section style={{
-      background: "rgba(12,16,24,0.82)",
+      background: "rgba(10,12,18,0.75)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
       border: "1px solid rgba(255,255,255,0.07)",
+      borderTop: "1px solid rgba(255,255,255,0.10)",
       borderRadius: 16, overflow: "hidden",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+      boxShadow: "0 12px 32px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset",
     }}>
       {/* Header */}
       <button
@@ -91,8 +94,8 @@ export function TimingBlock({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Zap size={13} color="rgba(245,158,11,0.70)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.40)", textTransform: "uppercase" }}>
+          <Zap size={13} color="rgba(251,191,36,0.80)" />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.52)", textTransform: "uppercase" }}>
             Timing
           </span>
           <span style={{
@@ -152,14 +155,14 @@ export function TimingBlock({
             ].map((item, i) => (
               <div key={i} style={{
                 flex: 1, padding: "8px 10px",
-                background: "rgba(255,255,255,0.025)",
-                border: "1px solid rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 8, textAlign: "center",
               }}>
-                <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
                   {item.label}
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: item.color }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: item.color, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                   {item.value}
                 </div>
               </div>
@@ -169,7 +172,7 @@ export function TimingBlock({
           {/* Confirmation checklist — 关键确认条件 */}
           {confirmationItems.length > 0 && (
             <div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.22)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 6 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.32)", textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 6 }}>
                 确认条件
               </div>
               {confirmationItems.map((item, i) => (
@@ -179,9 +182,9 @@ export function TimingBlock({
                   borderBottom: i < confirmationItems.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
                 }}>
                   {item.met
-                    ? <CheckCircle2 size={13} color="#10b981" />
-                    : <Circle size={13} color="rgba(255,255,255,0.20)" />}
-                  <span style={{ fontSize: 12, color: item.met ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.35)" }}>
+                    ? <CheckCircle2 size={13} color="#34d399" />
+                    : <Circle size={13} color="rgba(255,255,255,0.25)" />}
+                  <span style={{ fontSize: 12, color: item.met ? "rgba(237,237,239,0.75)" : "rgba(255,255,255,0.40)" }}>
                     {item.label}
                   </span>
                 </div>
@@ -195,14 +198,14 @@ export function TimingBlock({
               {entryZone && (
                 <div style={{
                   flex: 1, padding: "8px 10px",
-                  background: "rgba(16,185,129,0.05)",
-                  border: "1px solid rgba(16,185,129,0.12)",
+                  background: "rgba(52,211,153,0.05)",
+                  border: "1px solid rgba(52,211,153,0.12)",
                   borderRadius: 8,
                 }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(16,185,129,0.55)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(52,211,153,0.65)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 3 }}>
                     介入区间
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#10b981", fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                     {entryZone}
                   </div>
                 </div>
@@ -210,18 +213,18 @@ export function TimingBlock({
               {nextCatalyst && (
                 <div style={{
                   flex: 1, padding: "8px 10px",
-                  background: "rgba(245,158,11,0.05)",
-                  border: "1px solid rgba(245,158,11,0.12)",
+                  background: "rgba(251,191,36,0.05)",
+                  border: "1px solid rgba(251,191,36,0.12)",
                   borderRadius: 8,
                 }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(245,158,11,0.55)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(251,191,36,0.65)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 3, display: "flex", alignItems: "center", gap: 4 }}>
                     <Clock size={9} />
                     下一催化剂
                   </div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.68)", lineHeight: 1.4 }}>
                     {nextCatalyst}
                     {catalystDays != null && (
-                      <span style={{ color: "#f59e0b", fontWeight: 700, marginLeft: 5 }}>
+                      <span style={{ color: "#fbbf24", fontWeight: 700, marginLeft: 5, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                         {catalystDays}d
                       </span>
                     )}
@@ -232,7 +235,7 @@ export function TimingBlock({
           )}
 
           {timingSummary && (
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.30)", margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", margin: 0, lineHeight: 1.6 }}>
               {timingSummary}
             </p>
           )}

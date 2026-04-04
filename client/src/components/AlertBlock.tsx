@@ -53,10 +53,13 @@ export function AlertBlock({
 
   return (
     <section style={{
-      background: "rgba(12,16,24,0.82)",
+      background: "rgba(10,12,18,0.75)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
       border: `1px solid ${sev ? sev.border : "rgba(255,255,255,0.07)"}`,
+      borderTop: `1px solid ${sev ? sev.border.replace("0.14", "0.18") : "rgba(255,255,255,0.10)"}`,
       borderRadius: 16, overflow: "hidden",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+      boxShadow: "0 12px 32px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset",
     }}>
       {/* Header */}
       <button
@@ -69,8 +72,8 @@ export function AlertBlock({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Shield size={13} color={sev?.color ?? "rgba(255,255,255,0.35)"} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.40)", textTransform: "uppercase" }}>
+          <Shield size={13} color={sev?.color ?? "rgba(255,255,255,0.42)"} />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.52)", textTransform: "uppercase" }}>
             Risk Control
           </span>
           {count > 0 && sev && (
@@ -86,15 +89,16 @@ export function AlertBlock({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {count === 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <CheckCircle2 size={12} color="#10b981" />
-              <span style={{ fontSize: 11, color: "#10b981" }}>纪律正常</span>
+              <CheckCircle2 size={12} color="#34d399" />
+              <span style={{ fontSize: 11, color: "#34d399" }}>纪律正常</span>
             </div>
           )}
           {overallRiskScore != null && (
             <span style={{
               fontSize: 12, fontWeight: 700,
-              color: overallRiskScore >= 70 ? "#ef4444" : overallRiskScore >= 40 ? "#f59e0b" : "#10b981",
+              color: overallRiskScore >= 70 ? "#f87171" : overallRiskScore >= 40 ? "#fbbf24" : "#34d399",
               fontVariantNumeric: "tabular-nums",
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
             }}>
               {overallRiskScore}
             </span>
@@ -112,12 +116,12 @@ export function AlertBlock({
           {count === 0 && (
             <div style={{
               padding: "12px 14px",
-              background: "rgba(16,185,129,0.05)",
-              border: "1px solid rgba(16,185,129,0.12)",
+              background: "rgba(52,211,153,0.05)",
+              border: "1px solid rgba(52,211,153,0.12)",
               borderRadius: 10, textAlign: "center",
             }}>
-              <div style={{ fontSize: 12, color: "rgba(16,185,129,0.70)" }}>当前无需关注的重大风险</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 3 }}>
+              <div style={{ fontSize: 12, color: "rgba(52,211,153,0.80)" }}>当前无需关注的重大风险</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.32)", marginTop: 3 }}>
                 系统持续监控中，出现变化将自动提示
               </div>
             </div>
@@ -137,7 +141,7 @@ export function AlertBlock({
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <AlertTriangle size={12} color={s.color} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.82)" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(237,237,239,0.88)" }}>
                       {a.message}
                     </span>
                   </div>
@@ -152,7 +156,7 @@ export function AlertBlock({
                   )}
                 </div>
                 {/* Reason */}
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", margin: 0, lineHeight: 1.6, marginBottom: a.action ? 8 : 0 }}>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.50)", margin: 0, lineHeight: 1.6, marginBottom: a.action ? 8 : 0 }}>
                   {a.reason}
                 </p>
                 {/* Action — 纪律应对 */}
@@ -175,7 +179,7 @@ export function AlertBlock({
           {/* Discipline checklist */}
           {disciplineItems.length > 0 && (
             <div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.22)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 7 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.32)", textTransform: "uppercase", letterSpacing: "0.10em", marginBottom: 7 }}>
                 决策纪律
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
@@ -183,18 +187,18 @@ export function AlertBlock({
                   <div key={i} style={{
                     display: "flex", alignItems: "center", gap: 7,
                     padding: "6px 9px",
-                    background: "rgba(255,255,255,0.025)",
-                    border: "1px solid rgba(255,255,255,0.04)",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
                     borderRadius: 7,
                   }}>
                     {item.checked
-                      ? <CheckCircle2 size={12} color="#10b981" />
-                      : <AlertTriangle size={12} color="#f59e0b" />}
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.58)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      ? <CheckCircle2 size={12} color="#34d399" />
+                      : <AlertTriangle size={12} color="#fbbf24" />}
+                    <span style={{ fontSize: 11, color: "rgba(237,237,239,0.68)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.label}
                     </span>
                     {item.detail && (
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", flexShrink: 0 }}>
                         {item.detail}
                       </span>
                     )}
@@ -205,7 +209,7 @@ export function AlertBlock({
           )}
 
           {summaryText && count > 0 && (
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", margin: 0, lineHeight: 1.5 }}>
               {summaryText}
             </p>
           )}

@@ -70,19 +70,19 @@ export function DecisionHeader({
 
   return (
     <header style={{
-      height: 48, flexShrink: 0, width: "100%",
+      height: 52, flexShrink: 0, width: "100%",
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "0 20px",
-      background: "#070a0e",
-      borderBottom: "1px solid rgba(255,255,255,0.055)",
+      padding: "0 22px",
+      background: "#070B12",
+      borderBottom: "1px solid rgba(255,255,255,0.07)",
       position: "sticky", top: 0, zIndex: 50,
     }}>
 
       {/* ── Left: Brand + Entity Selector ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <Leaf size={13} color="rgba(16,185,129,0.65)" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em" }}>
+          <Leaf size={14} color="rgba(16,185,129,0.75)" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.70)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
             DanTree
           </span>
         </div>
@@ -93,7 +93,7 @@ export function DecisionHeader({
           onClick={onEntitySearch}
           style={{
             display: "flex", alignItems: "center", gap: 8,
-            padding: "5px 10px 5px 8px", borderRadius: 6,
+            padding: "5px 12px 5px 9px", borderRadius: 8,
             background: entity ? "rgba(16,185,129,0.07)" : "rgba(255,255,255,0.04)",
             border: `1px solid ${entity ? "rgba(16,185,129,0.18)" : "rgba(255,255,255,0.07)"}`,
             cursor: "pointer",
@@ -111,7 +111,7 @@ export function DecisionHeader({
                   {entity[0]}
                 </span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.90)", letterSpacing: "0.02em" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "0.03em", fontFamily: "ui-monospace, monospace" }}>
                 {entity}
               </span>
               <ChevronDown size={11} color="rgba(255,255,255,0.28)" />

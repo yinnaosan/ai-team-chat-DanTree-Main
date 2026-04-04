@@ -75,23 +75,24 @@ export function TimingBlock({
 
   return (
     <section style={{
-      background: "#0a0e18",
-      border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 10, overflow: "hidden",
+      background: "rgba(12,16,24,0.82)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 16, overflow: "hidden",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
     }}>
       {/* Header */}
       <button
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%", display: "flex", alignItems: "center",
-          justifyContent: "space-between", padding: "12px 16px",
+          justifyContent: "space-between", padding: "14px 18px",
           cursor: "pointer", background: "transparent", border: "none",
           borderBottom: open ? "1px solid rgba(255,255,255,0.05)" : "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Zap size={13} color="rgba(245,158,11,0.70)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.40)", textTransform: "uppercase" }}>
             Timing
           </span>
           <span style={{
@@ -120,14 +121,14 @@ export function TimingBlock({
       </button>
 
       {open && (
-        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
 
           {/* Readiness description — "现在 vs 等待" */}
           <div style={{
             padding: "10px 13px",
             background: rd.bg,
             border: `1px solid ${rd.color}20`,
-            borderRadius: 7,
+            borderRadius: 10,
             display: "flex", alignItems: "center", gap: 10,
           }}>
             <div style={{ flex: 1 }}>
@@ -153,7 +154,7 @@ export function TimingBlock({
                 flex: 1, padding: "8px 10px",
                 background: "rgba(255,255,255,0.025)",
                 border: "1px solid rgba(255,255,255,0.05)",
-                borderRadius: 6, textAlign: "center",
+                borderRadius: 8, textAlign: "center",
               }}>
                 <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>
                   {item.label}
@@ -196,7 +197,7 @@ export function TimingBlock({
                   flex: 1, padding: "8px 10px",
                   background: "rgba(16,185,129,0.05)",
                   border: "1px solid rgba(16,185,129,0.12)",
-                  borderRadius: 6,
+                  borderRadius: 8,
                 }}>
                   <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(16,185,129,0.55)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>
                     介入区间
@@ -211,7 +212,7 @@ export function TimingBlock({
                   flex: 1, padding: "8px 10px",
                   background: "rgba(245,158,11,0.05)",
                   border: "1px solid rgba(245,158,11,0.12)",
-                  borderRadius: 6,
+                  borderRadius: 8,
                 }}>
                   <div style={{ fontSize: 9, fontWeight: 600, color: "rgba(245,158,11,0.55)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3, display: "flex", alignItems: "center", gap: 4 }}>
                     <Clock size={9} />

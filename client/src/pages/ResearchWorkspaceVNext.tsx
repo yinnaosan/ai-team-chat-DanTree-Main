@@ -185,17 +185,17 @@ function DiscussionPanel({
 
   return (
     <div style={{
-      width: 340, flexShrink: 0, height: "100%",
+      width: 420, flexShrink: 0, height: "100%",
       display: "flex", flexDirection: "column",
-      background: "#0e1117",
-      borderLeft: "1px solid rgba(255,255,255,0.05)",
+      background: "#0D1119",
+      borderLeft: "1px solid rgba(255,255,255,0.07)",
     }}>
 
       {/* Header — 克制，只标识功能区 */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 18px 10px",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        padding: "10px 16px 8px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -371,12 +371,12 @@ function DiscussionPanel({
         </div>
       </div>
 
-      {/* Input — 呼吸感、清晰边界 */}
-      <div style={{ padding: "8px 12px 10px", flexShrink: 0 }}>
+      {/* Input — 执行稿精确参数：紧凑、清晰、无廉价感 */}
+      <div style={{ padding: "6px 12px 8px", flexShrink: 0 }}>
         <div style={{
-          position: "relative", borderRadius: 10,
-          background: "rgba(255,255,255,0.025)",
-          border: "1px solid rgba(255,255,255,0.07)",
+          position: "relative", borderRadius: 12,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)",
           transition: "border-color 0.15s",
         }}>
           <textarea
@@ -388,19 +388,19 @@ function DiscussionPanel({
             style={{
               width: "100%", background: "transparent",
               border: "none", outline: "none",
-              padding: "10px 44px 10px 12px",
-              fontSize: 13, color: "rgba(255,255,255,0.82)",
-              resize: "none", lineHeight: 1.6,
-              fontFamily: "inherit", boxSizing: "border-box",
+              padding: "9px 42px 9px 13px",
+              fontSize: 13, color: "rgba(255,255,255,0.85)",
+              resize: "none", lineHeight: 1.55,
+              fontFamily: "'Inter', system-ui, sans-serif", boxSizing: "border-box",
             }}
           />
           <button
             onClick={onSend}
             disabled={!input.trim() || isStreaming}
             style={{
-              position: "absolute", right: 10, bottom: 9,
-              width: 28, height: 28, borderRadius: 7, border: "none",
-              background: input.trim() ? "rgba(16,185,129,0.88)" : "rgba(255,255,255,0.04)",
+              position: "absolute", right: 9, bottom: 8,
+              width: 28, height: 28, borderRadius: 8, border: "none",
+              background: input.trim() ? "rgba(16,185,129,0.90)" : "rgba(255,255,255,0.05)",
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.15s",
             }}
@@ -467,22 +467,22 @@ function InsightsRail({
 }) {
   return (
     <aside style={{
-      width: 256, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "#0a0c10",
-      borderLeft: "1px solid rgba(255,255,255,0.055)",
+      width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      background: "#0A0D14",
+      borderLeft: "1px solid rgba(255,255,255,0.07)",
     }}>
       {/* Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 14px",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        padding: "11px 16px",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.50)" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.58)" }}>
           决策情报
         </span>
         {entity && (
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", fontFamily: "ui-monospace, monospace" }}>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", fontFamily: "ui-monospace, monospace" }}>
             {entity}
           </span>
         )}
@@ -517,16 +517,16 @@ function InsightsRail({
         {/* ── RELATED tickers ── */}
         {relatedTickers.length > 0 && (
           <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <BarChart3 size={10} color="rgba(255,255,255,0.30)" />
-              <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Related
-              </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
+            <BarChart3 size={10} color="rgba(255,255,255,0.35)" />
+            <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Related
+            </span>
             </div>
             {relatedTickers.map((t, i) => (
               <div key={i} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "4px 6px", borderRadius: 4, cursor: "pointer",
+                padding: "5px 6px", borderRadius: 5, cursor: "pointer",
                 transition: "background 0.12s",
               }}
               onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)"}
@@ -537,11 +537,11 @@ function InsightsRail({
                     width: 3, height: 11, borderRadius: 1.5,
                     background: t.positive ? "rgba(16,185,129,0.60)" : "rgba(239,68,68,0.50)",
                   }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.70)", fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.78)", fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }}>
                     {t.symbol}
                   </span>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: t.positive ? "#10b981" : "#ef4444", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.positive ? "#10b981" : "#ef4444", fontVariantNumeric: "tabular-nums" }}>
                   {t.change}
                 </span>
               </div>
@@ -551,7 +551,7 @@ function InsightsRail({
 
         {/* ── ANALYST RATINGS — 真实市场数据 ── */}
         {analystData && analystData.total > 0 && (
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Users size={10} color="rgba(255,255,255,0.28)" />
@@ -624,7 +624,7 @@ function InsightsRail({
         )}
         {/* ── KEY LEVELS ── */}
         {quoteData && (
-          <div style={{ padding: "12px 14px" }}>
+          <div style={{ padding: "12px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
               <Target size={10} color="rgba(255,255,255,0.28)" />
               <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
@@ -653,10 +653,8 @@ function InsightsRail({
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   ...(i === arr.length - 1 && arr.length > 4 ? { paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.04)" } : {}),
                 }}>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{row.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: row.color, fontVariantNumeric: "tabular-nums" }}>
-                    {row.value}
-                  </span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>{row.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: row.color, fontVariantNumeric: "tabular-nums" }}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -675,7 +673,7 @@ function InsightsRail({
       </div>
 
       {/* Footer */}
-      <div style={{ padding: "8px 12px", borderTop: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
+      <div style={{ padding: "8px 14px", borderTop: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
         <button style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
           padding: "8px", borderRadius: 6,
@@ -694,8 +692,8 @@ function Section({ dot, label, labelColor, show, children }: {
 }) {
   if (!show) return null;
   return (
-    <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+    <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0 }} />
         <span style={{ fontSize: 9, fontWeight: 700, color: labelColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>
           {label}
@@ -1046,7 +1044,7 @@ export default function ResearchWorkspacePage() {
       <div style={{
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
-        overflow: "hidden", background: "#070a0e",
+        overflow: "hidden", background: "#070B12",
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}>
         {/* ── Global Top Bar / Decision Control Strip ── */}
@@ -1072,7 +1070,7 @@ export default function ResearchWorkspacePage() {
         />
 
         {/* ── 4-column workspace ── */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 1360, maxWidth: 1500 }}>
 
           {/* Col 1: Session Rail — 接入 WorkspaceContext 真实会话 */}
           <SessionRail
@@ -1101,10 +1099,11 @@ export default function ResearchWorkspacePage() {
 
           {/* Col 2: Main Decision Canvas */}
           <main style={{
-            flex: 1, minWidth: 0, maxWidth: 680, height: "100%",
-            overflowY: "auto", background: "#0b0e13",
+            width: 560, flexShrink: 0, minWidth: 0, height: "100%",
+            overflowY: "auto", background: "rgba(12,16,24,0.82)",
+            borderLeft: "1px solid rgba(255,255,255,0.07)",
           }}>
-            <div style={{ padding: "16px 22px 24px" }}>
+            <div style={{ padding: "18px 18px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
                 thesis={tvm.available ? {

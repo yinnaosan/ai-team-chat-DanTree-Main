@@ -66,23 +66,24 @@ export function ThesisBlock({
 
   return (
     <section style={{
-      background: "#0a0e18",
-      border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 10, overflow: "hidden",
+      background: "rgba(12,16,24,0.82)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 16, overflow: "hidden",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
     }}>
       {/* Header */}
       <button
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%", display: "flex", alignItems: "center",
-          justifyContent: "space-between", padding: "12px 16px",
+          justifyContent: "space-between", padding: "14px 18px",
           cursor: "pointer", background: "transparent", border: "none",
           borderBottom: open ? "1px solid rgba(255,255,255,0.05)" : "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Target size={13} color="rgba(96,165,250,0.70)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.40)", textTransform: "uppercase" }}>
             Thesis
           </span>
           {/* Evidence badge */}
@@ -116,7 +117,7 @@ export function ThesisBlock({
       </button>
 
       {open && (
-        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
 
           {/* Core thesis — 结论先行，最大视觉权重 */}
           {coreThesis ? (
@@ -143,7 +144,7 @@ export function ThesisBlock({
                   padding: "10px 12px",
                   background: "rgba(16,185,129,0.06)",
                   border: "1px solid rgba(16,185,129,0.14)",
-                  borderRadius: 7,
+                  borderRadius: 10,
                 }}>
                   <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(16,185,129,0.60)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
                     核心驱动
@@ -158,7 +159,7 @@ export function ThesisBlock({
                   padding: "10px 12px",
                   background: "rgba(239,68,68,0.05)",
                   border: "1px solid rgba(239,68,68,0.14)",
-                  borderRadius: 7,
+                  borderRadius: 10,
                 }}>
                   <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(248,113,113,0.65)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 5 }}>
                     失效条件
@@ -178,7 +179,7 @@ export function ThesisBlock({
               padding: "8px 10px",
               background: "rgba(255,255,255,0.025)",
               border: "1px solid rgba(255,255,255,0.04)",
-              borderRadius: 6,
+                  borderRadius: 8,
             }}>
               {sourceCount != null && (
                 <div style={{ textAlign: "center" }}>
@@ -225,7 +226,7 @@ export function ThesisBlock({
                       padding: "6px 10px",
                       background: "rgba(255,255,255,0.02)",
                       border: "1px solid rgba(255,255,255,0.04)",
-                      borderRadius: 5,
+                      borderRadius: 6,
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                         <Icon size={11} color={col} />

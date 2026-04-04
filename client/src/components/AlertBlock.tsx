@@ -53,23 +53,24 @@ export function AlertBlock({
 
   return (
     <section style={{
-      background: "#0a0e18",
-      border: `1px solid ${sev ? sev.border : "rgba(255,255,255,0.06)"}`,
-      borderRadius: 10, overflow: "hidden",
+      background: "rgba(12,16,24,0.82)",
+      border: `1px solid ${sev ? sev.border : "rgba(255,255,255,0.07)"}`,
+      borderRadius: 16, overflow: "hidden",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
     }}>
       {/* Header */}
       <button
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%", display: "flex", alignItems: "center",
-          justifyContent: "space-between", padding: "12px 16px",
+          justifyContent: "space-between", padding: "14px 18px",
           cursor: "pointer", background: "transparent", border: "none",
           borderBottom: open ? "1px solid rgba(255,255,255,0.05)" : "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Shield size={13} color={sev?.color ?? "rgba(255,255,255,0.35)"} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.40)", textTransform: "uppercase" }}>
             Risk Control
           </span>
           {count > 0 && sev && (
@@ -105,7 +106,7 @@ export function AlertBlock({
       </button>
 
       {open && (
-        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
           {/* No risks */}
           {count === 0 && (
@@ -113,7 +114,7 @@ export function AlertBlock({
               padding: "12px 14px",
               background: "rgba(16,185,129,0.05)",
               border: "1px solid rgba(16,185,129,0.12)",
-              borderRadius: 7, textAlign: "center",
+              borderRadius: 10, textAlign: "center",
             }}>
               <div style={{ fontSize: 12, color: "rgba(16,185,129,0.70)" }}>当前无需关注的重大风险</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 3 }}>
@@ -130,7 +131,7 @@ export function AlertBlock({
                 padding: "11px 13px",
                 background: s.bg,
                 border: `1px solid ${s.border}`,
-                borderRadius: 7,
+                borderRadius: 10,
               }}>
                 {/* Risk header */}
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
@@ -184,7 +185,7 @@ export function AlertBlock({
                     padding: "6px 9px",
                     background: "rgba(255,255,255,0.025)",
                     border: "1px solid rgba(255,255,255,0.04)",
-                    borderRadius: 5,
+                    borderRadius: 7,
                   }}>
                     {item.checked
                       ? <CheckCircle2 size={12} color="#10b981" />

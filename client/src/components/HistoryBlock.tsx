@@ -54,18 +54,18 @@ export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
 
   return (
     <section style={{
-      background: "#0a0e18",
-      border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 10, overflow: "hidden",
+      background: "#0D1220",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 16, overflow: "hidden",
     }}>
       {/* Header */}
       <button
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%", display: "flex", alignItems: "center",
-          justifyContent: "space-between", padding: "12px 16px",
+          justifyContent: "space-between", padding: "11px 16px",
           cursor: "pointer", background: "transparent", border: "none",
-          borderBottom: open ? "1px solid rgba(255,255,255,0.05)" : "none",
+          borderBottom: open ? "1px solid rgba(255,255,255,0.06)" : "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

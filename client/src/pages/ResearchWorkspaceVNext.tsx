@@ -185,7 +185,7 @@ function DiscussionPanel({
 
   return (
     <div style={{
-      width: 420, flexShrink: 0, height: "100%",
+      flex: 1, minWidth: 0, height: "100%",
       display: "flex", flexDirection: "column",
       background: "#0D1119",
       borderLeft: "1px solid rgba(255,255,255,0.07)",
@@ -467,7 +467,7 @@ function InsightsRail({
 }) {
   return (
     <aside style={{
-      width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      width: 320, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
       background: "#0A0D14",
       borderLeft: "1px solid rgba(255,255,255,0.07)",
     }}>
@@ -1070,7 +1070,7 @@ export default function ResearchWorkspacePage() {
         />
 
         {/* ── 4-column workspace ── */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 1360, maxWidth: 1500 }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 1200 }}>
 
           {/* Col 1: Session Rail — 接入 WorkspaceContext 真实会话 */}
           <SessionRail

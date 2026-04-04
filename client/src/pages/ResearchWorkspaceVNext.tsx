@@ -1099,6 +1099,25 @@ export default function ResearchWorkspacePage() {
                   timingRisk: (tivm.timingRisk as "low" | "medium" | "high" | "critical" | null) ?? "medium",
                   confirmationState: (tivm.confirmationState as "confirmed" | "partial" | "unconfirmed" | "conflicted" | null) ?? "unconfirmed",
                   timingSummary: tivm.timingSummary ?? undefined,
+                  // S5-A: confirmationItems — 从 tivm 现有字段推导执行前确认清单
+                  confirmationItems: (() => {
+                    const items: Array<{ label: string; met: boolean }> = [];
+                    const cs = tivm.confirmationState;
+                    const rs = tivm.readinessState;
+                    const tr = tivm.timingRisk;
+                    const ab = tivm.actionBias;
+                    items.push({ label: "就绪信号确认", met: rs === "ready" });
+                    items.push({ label: "方向已确认", met: cs === "confirmed" || cs === "partial" });
+                    items.push({ label: "时机风险可接受", met: tr === "low" || tr === "medium" });
+                    if (ab === "WAIT" || ab === "AVOID") items.push({ label: "触发条件已满足", met: false });
+                    return items.length > 0 ? items : undefined;
+                  })(),
+                  // S5-A: entryZone — 无可信价格区间来源，安全 fallback undefined
+                  entryZone: undefined,
+                  // S5-A: nextCatalyst — 从 answerObject.suggested_next 提取
+                  nextCatalyst: answerObject?.suggested_next ?? undefined,
+                  // S5-A: catalystDays — 无可信日期来源，安全 fallback undefined
+                  catalystDays: undefined,
                 } : {
                   // fallback: answerObject 推导
                   actionBias: (() => {
@@ -1112,6 +1131,15 @@ export default function ResearchWorkspacePage() {
                   entryQuality: answerObject?.confidence === "high" ? "high" as const : answerObject?.confidence === "medium" ? "moderate" as const : "unavailable" as const,
                   timingRisk: "medium" as const,
                   confirmationState: answerObject ? "partial" as const : "unconfirmed" as const,
+                  // S5-A fallback: confirmationItems — 从 answerObject 推导
+                  confirmationItems: answerObject ? [
+                    { label: "就绪信号确认", met: answerObject.confidence !== "low" },
+                    { label: "方向已确认", met: answerObject.confidence === "high" },
+                    { label: "风险已纳入考量", met: (answerObject.risks?.length ?? 0) > 0 },
+                  ] : undefined,
+                  entryZone: undefined,
+                  nextCatalyst: answerObject?.suggested_next ?? undefined,
+                  catalystDays: undefined,
                 }}
                 alerts={avm.available ? {
                   alerts: (avm.keyAlerts ?? []).map(a => ({

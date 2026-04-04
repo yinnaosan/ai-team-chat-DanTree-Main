@@ -2894,3 +2894,9 @@
 - [ ] S2-3: SessionRail 接入真实会话数据（sessions/activeSessionId/onSelectSession/onNewSession）
 - [ ] S2-4: DecisionSpine 接入真实数据（ThesisBlock/TimingBlock/AlertBlock/HistoryBlock）
 - [ ] S2-5: TSC + vitest + checkpoint + 反馈包
+
+## S4 卡片系统接入（CLAUDE_CARD_SYSTEM_V2）
+- [x] S4: ThesisBlock V2 覆盖（fragilityLevel 字段从 fragilityScore 推导）
+- [x] S4: TimingBlock V2 覆盖（新增字段全部可选，graceful fallback）
+- [x] S4: AlertBlock V2 覆盖（action 字段从 severity 推导）
+- [x] S4: HistoryBlock V2 覆盖（接口完全兼容）

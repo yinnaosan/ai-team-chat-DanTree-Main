@@ -1079,6 +1079,10 @@ export default function ResearchWorkspacePage() {
                   failureCondition: tvm.fragility ?? undefined,
                   confidenceScore: tvm.fragilityScore != null ? Math.round((1 - tvm.fragilityScore) * 100) : null,
                   evidenceState: (tvm.evidenceState as "strong" | "moderate" | "weak" | "insufficient" | null) ?? "insufficient",
+                  // V2 新字段：fragilityLevel 从 fragilityScore 推导
+                  fragilityLevel: tvm.fragilityScore != null
+                    ? (tvm.fragilityScore >= 0.7 ? "high" as const : tvm.fragilityScore >= 0.4 ? "medium" as const : "low" as const)
+                    : undefined,
                 } : (answerObject ? {
                   // fallback: answerObject 推导（首次分析前 vm 尚未就绪）
                   coreThesis: answerObject.verdict,
@@ -1086,6 +1090,7 @@ export default function ResearchWorkspacePage() {
                   failureCondition: answerObject.risks?.[0]?.description,
                   confidenceScore: answerObject.confidence === "high" ? 80 : answerObject.confidence === "medium" ? 55 : 30,
                   evidenceState: answerObject.confidence === "high" ? "strong" : answerObject.confidence === "medium" ? "moderate" : "weak",
+                  fragilityLevel: answerObject.confidence === "low" ? "high" as const : answerObject.confidence === "medium" ? "medium" as const : "low" as const,
                 } : undefined)}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",
@@ -1114,6 +1119,8 @@ export default function ResearchWorkspacePage() {
                     severity: (a.severity as "low" | "medium" | "high" | "critical"),
                     message: a.message,
                     reason: a.message,
+                    // V2 新字段：action 从 severity 推导应对动作
+                    action: a.severity === "critical" ? "立即减仓或退出" : a.severity === "high" ? "设置止损单" : "继续监控",
                   } satisfies AlertItem)),
                   alertCount: avm.alertCount,
                   highestSeverity: (avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null,

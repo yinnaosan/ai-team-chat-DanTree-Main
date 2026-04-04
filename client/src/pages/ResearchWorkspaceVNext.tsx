@@ -1112,8 +1112,16 @@ export default function ResearchWorkspacePage() {
                     if (ab === "WAIT" || ab === "AVOID") items.push({ label: "触发条件已满足", met: false });
                     return items.length > 0 ? items : undefined;
                   })(),
-                  // S5-A: entryZone — 无可信价格区间来源，安全 fallback undefined
-                  entryZone: undefined,
+                  // S5-C: entryZone — 从 quoteData.price / low 推导参考观察带
+                  entryZone: (() => {
+                    const p = mappedQuote?.price;
+                    const l = mappedQuote?.low;
+                    if (p == null || l == null || l <= 0 || p <= 0) return undefined;
+                    const lower = Math.min(p, l);
+                    const upper = Math.max(p, l);
+                    if (upper - lower < 0.01) return undefined;
+                    return `参考带 $${lower.toFixed(2)}–$${upper.toFixed(2)}`;
+                  })(),
                   // S5-A: nextCatalyst — 从 answerObject.suggested_next 提取
                   nextCatalyst: answerObject?.suggested_next ?? undefined,
                   // S5-A: catalystDays — 无可信日期来源，安全 fallback undefined
@@ -1137,7 +1145,16 @@ export default function ResearchWorkspacePage() {
                     { label: "方向已确认", met: answerObject.confidence === "high" },
                     { label: "风险已纳入考量", met: (answerObject.risks?.length ?? 0) > 0 },
                   ] : undefined,
-                  entryZone: undefined,
+                  // S5-C fallback: entryZone — 同样从 quoteData 推导
+                  entryZone: (() => {
+                    const p = mappedQuote?.price;
+                    const l = mappedQuote?.low;
+                    if (p == null || l == null || l <= 0 || p <= 0) return undefined;
+                    const lower = Math.min(p, l);
+                    const upper = Math.max(p, l);
+                    if (upper - lower < 0.01) return undefined;
+                    return `参考带 $${lower.toFixed(2)}–$${upper.toFixed(2)}`;
+                  })(),
                   nextCatalyst: answerObject?.suggested_next ?? undefined,
                   catalystDays: undefined,
                 }}

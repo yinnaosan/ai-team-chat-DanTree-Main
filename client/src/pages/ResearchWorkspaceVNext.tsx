@@ -187,8 +187,8 @@ function DiscussionPanel({
     <div style={{
       width: 340, flexShrink: 0, height: "100%",
       display: "flex", flexDirection: "column",
-      background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)",
-      borderLeft: "1px solid rgba(255,255,255,0.04)",
+      background: "#0e1117",
+      borderLeft: "1px solid rgba(255,255,255,0.05)",
     }}>
 
       {/* Header — 克制，只标识功能区 */}
@@ -372,7 +372,7 @@ function DiscussionPanel({
       </div>
 
       {/* Input — 呼吸感、清晰边界 */}
-      <div style={{ padding: "10px 14px 14px", flexShrink: 0 }}>
+      <div style={{ padding: "8px 12px 10px", flexShrink: 0 }}>
         <div style={{
           position: "relative", borderRadius: 10,
           background: "rgba(255,255,255,0.025)",
@@ -388,8 +388,8 @@ function DiscussionPanel({
             style={{
               width: "100%", background: "transparent",
               border: "none", outline: "none",
-              padding: "12px 46px 12px 14px",
-              fontSize: 13, color: "rgba(255,255,255,0.80)",
+              padding: "10px 44px 10px 12px",
+              fontSize: 13, color: "rgba(255,255,255,0.82)",
               resize: "none", lineHeight: 1.6,
               fontFamily: "inherit", boxSizing: "border-box",
             }}
@@ -468,8 +468,8 @@ function InsightsRail({
   return (
     <aside style={{
       width: 256, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "#0b0e13",
-      borderLeft: "1px solid rgba(255,255,255,0.05)",
+      background: "#0a0c10",
+      borderLeft: "1px solid rgba(255,255,255,0.055)",
     }}>
       {/* Header */}
       <div style={{
@@ -516,24 +516,28 @@ function InsightsRail({
 
         {/* ── RELATED tickers ── */}
         {relatedTickers.length > 0 && (
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <BarChart3 size={10} color="rgba(255,255,255,0.28)" />
-              <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <BarChart3 size={10} color="rgba(255,255,255,0.30)" />
+              <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.38)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Related
               </span>
             </div>
             {relatedTickers.map((t, i) => (
               <div key={i} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "5px 6px", borderRadius: 4, cursor: "pointer",
-              }}>
+                padding: "4px 6px", borderRadius: 4, cursor: "pointer",
+                transition: "background 0.12s",
+              }}
+              onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)"}
+              onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = "transparent"}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <div style={{
-                    width: 3, height: 12, borderRadius: 1.5,
-                    background: t.positive ? "rgba(16,185,129,0.55)" : "rgba(239,68,68,0.45)",
+                    width: 3, height: 11, borderRadius: 1.5,
+                    background: t.positive ? "rgba(16,185,129,0.60)" : "rgba(239,68,68,0.50)",
                   }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.60)", fontFamily: "ui-monospace, monospace" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.70)", fontFamily: "ui-monospace, monospace", letterSpacing: "0.02em" }}>
                     {t.symbol}
                   </span>
                 </div>
@@ -1030,7 +1034,7 @@ export default function ResearchWorkspacePage() {
 
   // Auth guards
   if (authLoading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#08090d" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#070a0e" }}>
       <Loader2 className="animate-spin" style={{ width: 22, height: 22, color: "#10b981" }} />
     </div>
   );
@@ -1042,8 +1046,8 @@ export default function ResearchWorkspacePage() {
       <div style={{
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
-        overflow: "hidden", background: "#08090d",
-        fontFamily: "'SF Pro Display', 'Helvetica Neue', -apple-system, system-ui, sans-serif",
+        overflow: "hidden", background: "#070a0e",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}>
         {/* ── Global Top Bar / Decision Control Strip ── */}
         <DecisionHeader
@@ -1098,7 +1102,7 @@ export default function ResearchWorkspacePage() {
           {/* Col 2: Main Decision Canvas */}
           <main style={{
             flex: 1, minWidth: 0, maxWidth: 680, height: "100%",
-            overflowY: "auto", background: "#0c0f14",
+            overflowY: "auto", background: "#0b0e13",
           }}>
             <div style={{ padding: "16px 22px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}

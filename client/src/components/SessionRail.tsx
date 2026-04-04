@@ -52,8 +52,8 @@ export function SessionRail({
   return (
     <aside style={{
       width: 208, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "#07090c",
-      borderRight: "1px solid rgba(255,255,255,0.04)",
+      background: "#070a0e",
+      borderRight: "1px solid rgba(255,255,255,0.05)",
     }}>
 
       {/* Search + New */}
@@ -69,7 +69,7 @@ export function SessionRail({
                 width: "100%", height: 30, paddingLeft: 28, paddingRight: 8,
                 fontSize: 11, lineHeight: 1,
                 background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6,
+                border: "1px solid rgba(255,255,255,0.055)", borderRadius: 5,
                 color: "rgba(255,255,255,0.70)", outline: "none",
                 boxSizing: "border-box",
               }}
@@ -153,7 +153,7 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
         display: "flex", alignItems: "flex-start", gap: 8,
         padding: "7px 8px", borderRadius: 6, marginBottom: 1,
         cursor: "pointer", border: "none",
-        borderLeft: `2px solid ${isActive ? "#10b981" : "transparent"}`,
+        borderLeft: `2px solid ${isActive ? "rgba(16,185,129,0.85)" : "transparent"}`,
         background: isActive
           ? "rgba(16,185,129,0.07)"
           : hovered ? "rgba(255,255,255,0.03)" : "transparent",

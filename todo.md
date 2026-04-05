@@ -40,6 +40,16 @@
 - [x] 更新 Settings.tsx 数据源面板（总计 15+N）
 - [x] 编写 simfin.test.ts 测试用例，142 个测试全部通过
 
+## UI 样式升级 v7（纯 CSS，不改功能/布局/位置）
+- [x] DecisionHeader：顶栏背景更深 rgba(3,4,7,0.96)，NVDA 胶囊绿色边框质感，Stance 胶囊边框加强
+- [x] SessionRail：背景更深 rgba(3,4,7,0.92)，右边框更清晰 0.10，搜索框边框更锐利，active session 左边框加粗至 3px
+- [x] ThesisBlock：背景 rgba(8,10,16,0.88)，边框 0.10，顶边高光 0.16，圆角收至 12px，阴影更深
+- [x] TimingBlock：同 ThesisBlock 样式参数统一
+- [x] AlertBlock：同 ThesisBlock 样式参数统一，保留 severity 颜色边框
+- [x] InsightsRail：背景更深 rgba(4,5,9,0.92)，左边框更清晰 0.10
+- [x] DiscussionPanel 输入框：边框更清晰 0.12，底边绿色细节 rgba(52,211,153,0.20)
+- [x] ResearchWorkspaceVNext：主容器背景更深，列分隔边框更清晰
+
 ## 数据来源归因 & 新闻 API 触发精细化
 - [ ] 后端：新闻 API 触发条件精细化（仅检测到股票代码/公司名/宏观事件时才调用 NewsAPI/Marketaux）
 - [ ] 后端：收集实际使用的数据源列表，随任务结果一起返回给前端

@@ -75,13 +75,13 @@ export function TimingBlock({
 
   return (
     <section style={{
-      background: "rgba(10,12,18,0.75)",
+      background: "rgba(8,10,16,0.88)",
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid rgba(255,255,255,0.07)",
-      borderTop: "1px solid rgba(255,255,255,0.10)",
-      borderRadius: 16, overflow: "hidden",
-      boxShadow: "0 12px 32px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset",
+      border: "1px solid rgba(255,255,255,0.10)",
+      borderTop: "1px solid rgba(255,255,255,0.16)",
+      borderRadius: 12, overflow: "hidden",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.40), 0 1px 0 rgba(255,255,255,0.08) inset",
     }}>
       {/* Header */}
       <button

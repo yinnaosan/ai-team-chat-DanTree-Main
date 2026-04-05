@@ -187,10 +187,10 @@ function DiscussionPanel({
     <div style={{
       flex: 1, minWidth: 0, height: "100%",
       display: "flex", flexDirection: "column",
-      background: "rgba(8,10,16,0.80)",
+      background: "rgba(6,8,14,0.88)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
-      borderLeft: "1px solid rgba(255,255,255,0.07)",
+      borderLeft: "1px solid rgba(255,255,255,0.10)",
     }}>
 
       {/* Header — 克制，只标识功能区 */}
@@ -378,9 +378,10 @@ function DiscussionPanel({
       {/* Input — 执行稿精确参数：紧凑、清晰、无廉价感 */}
       <div style={{ padding: "6px 12px 8px", flexShrink: 0 }}>
         <div style={{
-          position: "relative", borderRadius: 12,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.09)",
+          position: "relative", borderRadius: 10,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderBottom: "1px solid rgba(52,211,153,0.20)",
           transition: "border-color 0.18s",
         }}>
           <textarea
@@ -472,10 +473,10 @@ function InsightsRail({
   return (
     <aside style={{
       width: 320, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "rgba(6,6,10,0.80)",
+      background: "rgba(4,5,9,0.92)",
       backdropFilter: "blur(24px)",
       WebkitBackdropFilter: "blur(24px)",
-      borderLeft: "1px solid rgba(255,255,255,0.055)",
+      borderLeft: "1px solid rgba(255,255,255,0.10)",
     }}>
       {/* Header */}
       <div style={{
@@ -1053,7 +1054,7 @@ export default function ResearchWorkspacePage() {
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
-        background: "linear-gradient(160deg, #0a0a0f 0%, #060609 50%, #020203 100%)",
+        background: "linear-gradient(160deg, #080810 0%, #050508 50%, #020204 100%)",
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
       }}>
         {/* ── Global Top Bar / Decision Control Strip ── */}
@@ -1110,10 +1111,10 @@ export default function ResearchWorkspacePage() {
           <main style={{
             width: 560, flexShrink: 0, minWidth: 0, height: "100%",
             overflowY: "auto",
-            background: "rgba(8,8,12,0.75)",
+            background: "rgba(7,8,13,0.88)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
-            borderLeft: "1px solid rgba(255,255,255,0.06)",
+            borderLeft: "1px solid rgba(255,255,255,0.10)",
           }}>
             <div style={{ padding: "18px 18px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}

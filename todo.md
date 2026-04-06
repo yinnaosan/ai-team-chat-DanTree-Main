@@ -3010,3 +3010,14 @@
 - [x] 回归测试通过（2040 个测试通过）
 - [x] 截图验证完成
 - [x] 保存检查点并输出完整反馈包
+
+## Discussion v1 接线修复（Claude 骨架 3 个窄范围问题，基于 P2 版 3b9c1f67）
+- [ ] 复制 useSessionManager.ts 到项目 client/src/hooks 目录
+- [ ] 复制 useDiscussion.ts 到项目 client/src/hooks 目录
+- [ ] A. handleSubmit 接线修复：改为 discussion.sendMessage()，删除旧残留路径（setSending/setIsTyping/setConvMessages/submitMutation）
+- [ ] B. scroll refs 绑定：scrollContainerRef 绑定消息列表容器，bottomRef 绑定底部占位 div，handleScroll 绑定 onScroll 事件
+- [ ] C. autoSelectLatest 依赖修复：补充 session.autoSelectLatest 依赖
+- [ ] TSC 0 errors
+- [ ] 回归测试通过
+- [ ] 截图验证（默认状态/发送消息后/滚动底部状态）
+- [ ] 保存检查点并输出完整反馈包

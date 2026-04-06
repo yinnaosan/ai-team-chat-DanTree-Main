@@ -6833,6 +6833,21 @@ except Exception as e:
         await toggleFavoriteWorkspaceSession(input.sessionId, ctx.user.id, input.favorite);
         return { success: true as const };
       }),
+    // BUG-002 fix: link a conversation to a workspace session
+    linkConversation: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid(), conversationId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const { getDb } = await import("./db");
+        const { workspaceSessions } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) return { success: false as const };
+        await db
+          .update(workspaceSessions)
+          .set({ conversationId: input.conversationId })
+          .where(and(eq(workspaceSessions.id, input.sessionId), eq(workspaceSessions.userId, ctx.user.id)));
+        return { success: true as const };
+      }),
   }),
 
   portfolioDB: router({

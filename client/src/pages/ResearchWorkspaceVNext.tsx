@@ -985,8 +985,17 @@ export default function ResearchWorkspacePage() {
     { enabled: peerSymbolsInput.length > 0, refetchInterval: 60000 }
   );
 
+  const linkConvMutation = trpc.workspace.linkConversation.useMutation();
+
   const createConvMutation = trpc.chat.createConversation.useMutation({
-    onSuccess: (conv) => { setActiveConvId(conv.id); refetchConvs(); },
+    onSuccess: (conv) => {
+      setActiveConvId(conv.id);
+      refetchConvs();
+      // BUG-002: 新建 conversation 后立即绑定到当前 workspace session
+      if (currentSession?.id) {
+        linkConvMutation.mutate({ sessionId: currentSession.id, conversationId: conv.id });
+      }
+    },
   });
 
   // Note: rawConvMsgs, submitMutation, convMessages, setSending, setIsTyping
@@ -1331,6 +1340,13 @@ export default function ResearchWorkspacePage() {
               const wsSession = sessionList.find(s => s.id === id);
               if (wsSession) {
                 setSession(wsSession);
+                // BUG-002 fix: 切换 WorkspaceSession 时同步 activeConvId
+                if (wsSession.conversationId) {
+                  setActiveConvId(wsSession.conversationId);
+                } else {
+                  // 该 session 还没有绑定 conversation，保持当前 activeConvId
+                  // 发送第一条消息时 createConvMutation 会自动创建并绑定
+                }
               } else {
                 setActiveConvId(Number(id));
                 // visibleMessages 由 useDiscussion(activeConvId) 自动重置

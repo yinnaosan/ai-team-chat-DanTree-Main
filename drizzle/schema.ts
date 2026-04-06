@@ -842,6 +842,7 @@ export const workspaceSessions = mysqlTable("workspace_sessions", {
   createdAt:      bigintCol("created_at", { mode: "number" }).notNull(),
   updatedAt:      bigintCol("updated_at", { mode: "number" }).notNull(),
   lastActiveAt:   bigintCol("last_active_at", { mode: "number" }).notNull(),
+  conversationId: int("conversation_id"),
 });
 export type WorkspaceSession = typeof workspaceSessions.$inferSelect;
 export type InsertWorkspaceSession = typeof workspaceSessions.$inferInsert;

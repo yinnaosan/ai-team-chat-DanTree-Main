@@ -6,6 +6,7 @@
  * - 消息列表管理（optimistic + server sync）
  * - 滚动行为控制（默认到底部 / jump 按钮状态）
  * - 发送 + streaming 状态
+ * - SSE 实时推送（/api/task-stream/:taskId）+ refetchInterval fallback
  * - File ingestion v1：上传 → FileCard message（processing→ready）
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -17,22 +18,15 @@ import { toast } from "sonner";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface FileCardData {
-  /** Card type discriminator */
   type: "file_card";
   fileName: string;
   fileType: string;
   sizeBytes: number;
-  /** processing | ready | error */
   status: "processing" | "ready" | "error";
-  /** Short LLM summary (filled when ready) */
   summary?: string;
-  /** Key points extracted from file (filled when ready) */
   keyPoints?: string[];
-  /** S3 URL for direct access */
   s3Url?: string;
-  /** Attachment ID in DB */
   attachmentId?: number;
-  /** Error message if status=error */
   error?: string;
 }
 
@@ -42,7 +36,6 @@ export interface DiscussionMessage {
   content: string;
   createdAt: Date;
   taskId?: number | null;
-  /** If present, this message IS a file card */
   fileCard?: FileCardData;
   metadata?: {
     answerObject?: {
@@ -63,12 +56,12 @@ export interface DiscussionMessage {
       summary?: string;
     };
   } | null;
-  /** Optimistic: message not yet confirmed by server */
   isOptimistic?: boolean;
+  isStreaming?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// File Ingestion Interface (legacy — kept for compat)
+// File Ingestion Interface
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface FileIngestionRequest {
@@ -101,30 +94,104 @@ export function useDiscussion(conversationId: number | null) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevConvIdRef = useRef<number | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
 
-  // ── tRPC mutations ─────────────────────────────────────────────────────────
+  // ── tRPC ──────────────────────────────────────────────────────────────────
   const uploadMutation = trpc.file.upload.useMutation();
 
-  // ── Server sync ────────────────────────────────────────────────────────────
   const { data: rawMessages, refetch: refetchMessages } =
     trpc.chat.getConversationMessages.useQuery(
       { conversationId: conversationId! },
-      { enabled: !!conversationId }
+      {
+        enabled: !!conversationId,
+        refetchInterval: (sending || isTyping) ? 3000 : false,
+      }
     );
 
-  const submitMutation = trpc.chat.submitTask.useMutation({
-    onSuccess: (result) => {
+  // ── SSE ───────────────────────────────────────────────────────────────────
+
+  const startSSE = useCallback((taskId: number) => {
+    if (sseRef.current) {
+      sseRef.current.close();
+      sseRef.current = null;
+    }
+
+    const es = new EventSource(`/api/task-stream/${taskId}`, { withCredentials: true });
+    sseRef.current = es;
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+
+        if (data.type === "chunk" && data.content) {
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.isStreaming) {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, content: last.content + data.content },
+              ];
+            }
+            return [
+              ...prev.filter(m => !m.isOptimistic),
+              {
+                id: data.msgId ?? Date.now(),
+                role: "assistant" as const,
+                content: data.content,
+                createdAt: new Date(),
+                isStreaming: true,
+              },
+            ];
+          });
+        } else if (data.type === "done") {
+          setSending(false);
+          setIsTyping(false);
+          setMessages(prev =>
+            prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m)
+          );
+          refetchMessages();
+          es.close();
+          sseRef.current = null;
+        } else if (data.type === "error") {
+          setSending(false);
+          setIsTyping(false);
+          setMessages(prev => prev.filter(m => !m.isOptimistic && !m.isStreaming));
+          toast.error(`AI 处理失败：${data.message ?? "未知错误"}`);
+          refetchMessages();
+          es.close();
+          sseRef.current = null;
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    es.onerror = () => {
       setSending(false);
       setIsTyping(false);
-      if (result) {
-        const assistantMsg: DiscussionMessage = {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: typeof result === "string" ? result : (result as any).content ?? "",
-          createdAt: new Date(),
-          metadata: (result as any).metadata ?? null,
-        };
-        setMessages(prev => [...prev.filter(m => !m.isOptimistic), assistantMsg]);
+      refetchMessages();
+      es.close();
+      sseRef.current = null;
+    };
+  }, [refetchMessages]);
+
+  useEffect(() => {
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+    };
+  }, []);
+
+  const submitMutation = trpc.chat.submitTask.useMutation({
+    onSuccess: (data) => {
+      if ((data as any)?.taskId) {
+        startSSE((data as any).taskId);
+      } else {
+        setSending(false);
+        setIsTyping(false);
+        refetchMessages();
       }
     },
     onError: (err) => {
@@ -135,10 +202,16 @@ export function useDiscussion(conversationId: number | null) {
     },
   });
 
-  // ── Sync messages from server when conversation changes ───────────────────
+  // ── Server sync ────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!rawMessages) return;
-    if (conversationId === prevConvIdRef.current && rawMessages.length === messages.filter(m => !m.isOptimistic).length) return;
+    const hasStreaming = messages.some(m => m.isStreaming);
+    if (hasStreaming) return;
+    if (
+      conversationId === prevConvIdRef.current &&
+      rawMessages.length === messages.filter(m => !m.isOptimistic).length
+    ) return;
     prevConvIdRef.current = conversationId;
     const mapped: DiscussionMessage[] = (rawMessages as any[]).map(m => ({
       id: m.id,
@@ -151,16 +224,19 @@ export function useDiscussion(conversationId: number | null) {
     setMessages(mapped);
   }, [rawMessages, conversationId]);
 
-  // Reset when conversation changes
   useEffect(() => {
     if (conversationId !== prevConvIdRef.current) {
       setInput("");
       setPendingFileContext(null);
       setShowJumpToBottom(false);
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
     }
   }, [conversationId]);
 
-  // ── Scroll behavior ────────────────────────────────────────────────────────
+  // ── Scroll ─────────────────────────────────────────────────────────────────
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     bottomRef.current?.scrollIntoView({ behavior });
@@ -170,8 +246,7 @@ export function useDiscussion(conversationId: number | null) {
     const container = scrollContainerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
-    if (isNearBottom) {
+    if (scrollHeight - scrollTop - clientHeight < 120) {
       scrollToBottom("smooth");
     }
   }, [messages.length, scrollToBottom]);
@@ -183,7 +258,7 @@ export function useDiscussion(conversationId: number | null) {
     setShowJumpToBottom(scrollHeight - scrollTop - clientHeight > 150);
   }, []);
 
-  // ── Send message ───────────────────────────────────────────────────────────
+  // ── Send ───────────────────────────────────────────────────────────────────
 
   const sendMessage = useCallback((text?: string) => {
     const raw = (text ?? input).trim();
@@ -222,32 +297,25 @@ export function useDiscussion(conversationId: number | null) {
     submitMutation.mutate({ title: content, conversationId });
   }, [input, sending, conversationId, pendingFileContext, submitMutation, scrollToBottom]);
 
-  // ── File ingestion v1 ──────────────────────────────────────────────────────
-  // Uploads file to S3 via trpc.file.upload, inserts FileCard message
-  // with processing → ready state flow.
+  // ── File ingestion ─────────────────────────────────────────────────────────
 
   const attachFile = useCallback(async (file: File) => {
     if (!conversationId || isUploading) return;
 
-    // Validate type
     const allowed = ["application/pdf", "text/plain", "text/csv", "text/markdown"];
     const isAllowed = allowed.includes(file.type) || file.name.endsWith(".txt") || file.name.endsWith(".csv") || file.name.endsWith(".md");
     if (!isAllowed) {
       toast.error("仅支持 PDF、TXT、CSV 文件");
       return;
     }
-
-    // 16MB limit
     if (file.size > 16 * 1024 * 1024) {
       toast.error("文件大小不能超过 16MB");
       return;
     }
 
     setIsUploading(true);
-
-    // Insert processing FileCard message immediately (optimistic)
     const cardId = Date.now();
-    const processingCard: DiscussionMessage = {
+    setMessages(prev => [...prev, {
       id: cardId,
       role: "user",
       content: `[文件上传] ${file.name}`,
@@ -260,24 +328,17 @@ export function useDiscussion(conversationId: number | null) {
         sizeBytes: file.size,
         status: "processing",
       },
-    };
-    setMessages(prev => [...prev, processingCard]);
+    }]);
     scrollToBottom("smooth");
 
     try {
-      // Read file as base64
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          // Strip data URL prefix (data:...;base64,)
-          resolve(result.split(",")[1] ?? result);
-        };
+        reader.onload = () => resolve((reader.result as string).split(",")[1] ?? (reader.result as string));
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
 
-      // Upload to S3 via tRPC
       const uploadResult = await uploadMutation.mutateAsync({
         filename: file.name,
         mimeType: file.type || "application/octet-stream",
@@ -286,32 +347,27 @@ export function useDiscussion(conversationId: number | null) {
         conversationId,
       });
 
-      // Build summary from extracted text preview
       const extractedPreview = uploadResult.extractedText
         ? uploadResult.extractedText.replace(/\[文件内容：[^\]]+\]\n?/, "").slice(0, 200)
         : undefined;
 
-      // Update FileCard to ready
       setMessages(prev => prev.map(m =>
-        m.id === cardId
-          ? {
-              ...m,
-              isOptimistic: false,
-              fileCard: {
-                type: "file_card",
-                fileName: file.name,
-                fileType: file.type,
-                sizeBytes: file.size,
-                status: "ready",
-                summary: extractedPreview ? `${extractedPreview}...` : "文件已就绪，可继续提问",
-                s3Url: uploadResult.s3Url,
-                attachmentId: uploadResult.attachmentId,
-              },
-            }
-          : m
+        m.id === cardId ? {
+          ...m,
+          isOptimistic: false,
+          fileCard: {
+            type: "file_card" as const,
+            fileName: file.name,
+            fileType: file.type,
+            sizeBytes: file.size,
+            status: "ready" as const,
+            summary: extractedPreview ? `${extractedPreview}...` : "文件已就绪，可继续提问",
+            s3Url: uploadResult.s3Url,
+            attachmentId: uploadResult.attachmentId,
+          },
+        } : m
       ));
 
-      // Set pending file context for next message
       setPendingFileContext({
         fileName: file.name,
         fileType: file.type,
@@ -321,22 +377,19 @@ export function useDiscussion(conversationId: number | null) {
 
       toast.success(`${file.name} 已就绪，可继续提问`);
     } catch (e: any) {
-      // Update FileCard to error
       setMessages(prev => prev.map(m =>
-        m.id === cardId
-          ? {
-              ...m,
-              isOptimistic: false,
-              fileCard: {
-                type: "file_card",
-                fileName: file.name,
-                fileType: file.type,
-                sizeBytes: file.size,
-                status: "error",
-                error: e?.message ?? "上传失败",
-              },
-            }
-          : m
+        m.id === cardId ? {
+          ...m,
+          isOptimistic: false,
+          fileCard: {
+            type: "file_card" as const,
+            fileName: file.name,
+            fileType: file.type,
+            sizeBytes: file.size,
+            status: "error" as const,
+            error: e?.message ?? "上传失败",
+          },
+        } : m
       ));
       toast.error(`上传失败：${e?.message ?? "未知错误"}`);
     } finally {
@@ -344,9 +397,7 @@ export function useDiscussion(conversationId: number | null) {
     }
   }, [conversationId, isUploading, uploadMutation, scrollToBottom]);
 
-  const clearFile = useCallback(() => {
-    setPendingFileContext(null);
-  }, []);
+  const clearFile = useCallback(() => setPendingFileContext(null), []);
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -363,7 +414,6 @@ export function useDiscussion(conversationId: number | null) {
   }, [messages]);
 
   return {
-    // State
     messages,
     visibleMessages,
     lastAssistantMessage,
@@ -374,10 +424,8 @@ export function useDiscussion(conversationId: number | null) {
     showJumpToBottom,
     pendingFileContext,
     isUploading,
-    // Refs
     scrollContainerRef,
     bottomRef,
-    // Actions
     sendMessage,
     attachFile,
     clearFile,

@@ -26,6 +26,7 @@ export interface WorkspaceSession {
   createdAt: number;
   updatedAt: number;
   lastActiveAt: number;
+  conversationId?: number | null;
 }
 
 export interface WorkspaceContextValue {

@@ -13,9 +13,9 @@
  * 路由规则：
  *   development（DANTREE_MODE != "production"）：所有 task_type → Anthropic (Claude)
  *   production（DANTREE_MODE=production）：
- *     research / deep_research / narrative / execution / summarization → anthropic
- *     reasoning / structured_json / step_analysis                     → openai
- *     classification / code_analysis / agent_task / default           → anthropic
+ *     GPT 主控： research / reasoning / deep_research / narrative / summarization
+ *                  structured_json / step_analysis / default → openai (GPT-5.4)
+ *     Claude 执行： execution / code_analysis / agent_task / classification → anthropic
  *
  * 使用方式：
  *   import { modelRouter, TaskType } from "./model_router";
@@ -145,22 +145,26 @@ export type DanTreeMode = "development" | "production";
 
 type ProviderTarget = "anthropic" | "openai";
 
-/** 生产路由表：task_type → provider */
+/** 生产路由表：task_type → provider
+ *
+ * GPT 主控：研究 / 判断 / 风险 / 输出类
+ * Claude 执行：执行 / 代码 / Agent pipeline 类
+ */
 export const PRODUCTION_ROUTING_MAP: Record<TaskType, ProviderTarget> = {
-  // 通用类型
-  research:      "anthropic",  // Claude — 深度研究最佳
-  reasoning:     "openai",     // GPT o 系列 — 推理链最佳
-  narrative:     "anthropic",  // Claude — 叙事生成（OI-001 resolved: narrative 归 Anthropic）
-  execution:     "anthropic",  // Claude — 结构化执行最佳
-  summarization: "anthropic",  // Claude — 长文压缩最佳
-  // DanTree 专用类型
-  deep_research:   "anthropic",  // Claude Opus — 最强推理
-  structured_json: "openai",     // GPT-5.4 — 结构化输出
-  step_analysis:   "openai",     // GPT-5.4 — Step 分析
-  classification:  "anthropic",  // Claude Haiku — 最快最便宜
-  code_analysis:   "anthropic",  // Claude Sonnet — 代码理解
-  agent_task:      "anthropic",  // Claude Opus — Agent 规划
-  default:         "anthropic",  // Claude Sonnet — 通用回退
+  // ── GPT 主控（研究 / 判断 / 风险 / 输出）────────────────────────────────
+  research:        "openai",     // GPT-5.4 — 深度研究、多源综合
+  reasoning:       "openai",     // GPT-5.4 / o3 — 推理链、因果分析
+  deep_research:   "openai",     // GPT-5.4 — 深度叙事研究
+  narrative:       "openai",     // GPT-5.4 — 报告生成、投资者沟通
+  summarization:   "openai",     // GPT-5.4-mini — 摘要压缩、要点提取
+  structured_json: "openai",     // GPT-5.4 — 结构化 JSON 输出
+  step_analysis:   "openai",     // GPT-5.4 — DanTree Step 分析流程
+  default:         "openai",     // GPT-5.4 — 通用回退
+  // ── Claude 执行（执行 / 代码 / Agent pipeline）─────────────────────────
+  execution:       "anthropic",  // Claude Sonnet — 结构化指令执行
+  code_analysis:   "anthropic",  // Claude Sonnet — 代码理解 / 分析
+  agent_task:      "anthropic",  // Claude Opus — Agent 规划 / 多步流程
+  classification:  "anthropic",  // Claude Haiku — 快速分类，最低成本
 };
 
 /** 生产路由表：task_type → 各 provider 的默认模型 */

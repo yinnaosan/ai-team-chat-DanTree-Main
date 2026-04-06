@@ -3084,3 +3084,10 @@
 - [x] 真实 AI 请求验证（claude-sonnet-4-5-20250929，5.7s，PASS）
 - [x] TSC 0 errors
 - [x] 输出完整审计报告
+
+## P1 模型职责分工落地 — GPT 主控 + Claude 执行
+- [x] 读取 PRODUCTION_ROUTING_MAP 当前内容
+- [x] 修改：research/reasoning/deep_research/narrative/summarization/structured_json/step_analysis/default → openai（GPT-5.4）
+- [x] 修改：execution/code_analysis/agent_task/classification → anthropic（Claude）
+- [x] 研发态保持全 Claude（不改 development 逻辑）
+- [x] TSC 0 errors 验证

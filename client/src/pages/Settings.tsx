@@ -16,7 +16,7 @@ import {
   BookOpen, Edit3, X, Filter, Search, Download, TrendingUp, Sliders, BarChart2, Clock, CheckCircle, Globe, CalendarDays, AlertCircle,
 } from "lucide-react";
 
-type SettingsTab = "api" | "database" | "access" | "logic" | "memory" | "monitoring" | "research_style" | "holidays";
+type SettingsTab = "api" | "database" | "access" | "memory" | "research_style";
 type RulesTab = "investment" | "task" | "data";
 
 // ---- TrustedSource 类型（与后端 db.ts 一致）----
@@ -912,11 +912,8 @@ export default function Settings() {
     { id: "api", label: "ChatGPT API", icon: Key, badge: hasApiKey ? "已配置" : undefined },
     { id: "database", label: "数据库", icon: Database },
     ...(isOwner ? [{ id: "access" as SettingsTab, label: "访问管理", icon: Shield, ownerOnly: true }] : []),
-    { id: "logic", label: "逻辑", icon: Brain },
     { id: "memory", label: "AI 记忆", icon: BookOpen },
-    { id: "monitoring", label: "监控", icon: BarChart2 },
     { id: "research_style", label: "研究风格", icon: Sliders },
-    { id: "holidays", label: "节假日数据", icon: CalendarDays },
   ];
 
   const DEFAULT_INVESTMENT_RULES = `### 投资理念（段永平体系）
@@ -2076,7 +2073,7 @@ export default function Settings() {
           </div>
         )}
 
-        {activeTab === "logic" && (
+        {("" as string) === "logic" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 14 }}>
               <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>三步并行协作架构</h2>
@@ -2213,7 +2210,7 @@ export default function Settings() {
         {activeTab === "memory" && <MemoryManager />}
 
         {/* ── Tab: 监控 ── */}
-        {activeTab === "monitoring" && (
+        {("" as string) === "monitoring" && (
           <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em", marginBottom: 4 }}>Pipeline 执行监控</h3>
@@ -2284,7 +2281,7 @@ export default function Settings() {
 
         {/* ── Tab: 研究风格 ── */}
         {/* ── Tab: 节假日数据同步状态 ── */}
-        {activeTab === "holidays" && <HolidaySyncPanel />}
+        {("" as string) === "holidays" && <HolidaySyncPanel />}
 
         {activeTab === "research_style" && (
           <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>

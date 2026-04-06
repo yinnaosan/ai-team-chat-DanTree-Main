@@ -341,6 +341,51 @@ function _callGptStub(
 // 6. TASK TYPE VALIDATION
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+/** v2 白名单（与 TASK_TYPES 保持同步） */
+const TASK_TYPE_WHITELIST = new Set<string>(Object.keys(TASK_TYPES));
+
+/** GPT 主控任务列表（用于 dev_override 标记） */
+const GPT_TASK_TYPES = new Set<string>([
+  "research", "reasoning", "deep_research", "narrative",
+  "summarization", "structured_json", "step_analysis", "default",
+]);
+
+export interface NormalizeResult {
+  normalized_task_type: TaskType;
+  fallback_applied: boolean;
+  fallback_reason: string;
+}
+
+/**
+ * normalizeTaskType — v2 规范
+ * - undefined / null / "" → "default"
+ * - 不在白名单 → "default" + fallback_applied = true
+ * - 合法值 → 原值
+ */
+export function normalizeTaskType(raw: unknown): NormalizeResult {
+  if (raw === undefined || raw === null || raw === "") {
+    return {
+      normalized_task_type: "default",
+      fallback_applied: true,
+      fallback_reason: `task_type is ${raw === "" ? "empty string" : String(raw)}, fallback to "default"`,
+    };
+  }
+  if (!TASK_TYPE_WHITELIST.has(raw as string)) {
+    return {
+      normalized_task_type: "default",
+      fallback_applied: true,
+      fallback_reason: `task_type "${raw}" not in whitelist, fallback to "default"`,
+    };
+  }
+  return {
+    normalized_task_type: raw as TaskType,
+    fallback_applied: false,
+    fallback_reason: "",
+  };
+}
+
+/** @deprecated 内部 assert，仅向后兼容，新代码请用 normalizeTaskType */
 function _validateTaskType(taskType: unknown): asserts taskType is TaskType {
   if (!Object.keys(TASK_TYPES).includes(taskType as string)) {
     throw new Error(
@@ -369,86 +414,120 @@ export const modelRouter = {
    *   );
    *   console.log(result.output, result.provider);
    */
-  async generate(input: RouterInput, taskType: TaskType): Promise<RouterResponse> {
-    _validateTaskType(taskType);
+  async generate(input: RouterInput, taskType?: unknown): Promise<RouterResponse> {
+    // ── Step 1-2: normalize task_type（v2 规范：非法值 fallback 到 default）
+    const { normalized_task_type, fallback_applied, fallback_reason } = normalizeTaskType(taskType);
+    const resolvedTaskType = normalized_task_type;
 
+    // ── Step 3: 判 mode
     const mode = getCurrentMode();
     const forceModel = input.forceModel ?? input.override_model;
 
-    // forceModel 覆盖路由
+    // ── forceModel 覆盖路由
     if (forceModel) {
       const provider = detectProvider(forceModel);
       let result: RouterResponse;
       if (provider === "anthropic") {
-        result = await _callAnthropic(forceModel, input, taskType);
+        result = await _callAnthropic(forceModel, input, resolvedTaskType);
       } else {
         const hasOpenAIKey = !!process.env.OPENAI_API_KEY || !!process.env.BUILT_IN_FORGE_API_KEY;
         result = hasOpenAIKey
-          ? await _callOpenAI(forceModel, input, taskType)
-          : _callGptStub(forceModel, input, taskType);
+          ? await _callOpenAI(forceModel, input, resolvedTaskType)
+          : _callGptStub(forceModel, input, resolvedTaskType);
       }
+      const log = {
+        original_task_type: taskType,
+        normalized_task_type: resolvedTaskType,
+        mode,
+        provider: result.provider,
+        model: forceModel,
+        fallback_applied,
+        fallback_reason,
+        dev_override_applied: false,
+        dev_override_reason: "",
+      };
+      console.log("[model_router:route]", JSON.stringify(log));
       return {
         ...result,
-        routing: {
-          task_type: taskType,
-          mode,
-          resolved_model: forceModel,
-          provider: result.provider,
-          was_overridden: true,
-        },
+        routing: { task_type: resolvedTaskType, mode, resolved_model: forceModel, provider: result.provider, was_overridden: true },
       };
     }
 
     if (mode === "development") {
-      // Development: 所有 task_type → Claude Sonnet（性价比最高）
+      // ── Step 4-5: development — 全部走 Claude，但标记 GPT 任务的 dev_override
+      const isGptTask = GPT_TASK_TYPES.has(resolvedTaskType);
+      const devOverrideApplied = isGptTask;
+      const devOverrideReason = isGptTask
+        ? `task_type "${resolvedTaskType}" is GPT-assigned in production, overridden to Claude in development`
+        : "";
+
       const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
       const resolvedModel = DEVELOPMENT_MODEL;
+
+      let result: RouterResponse;
       if (!hasAnthropicKey) {
-        const result = _callGptStub(resolvedModel, input, taskType);
-        return {
-          ...result,
-          routing: { task_type: taskType, mode, resolved_model: resolvedModel, provider: "gpt_stub", was_overridden: false },
-        };
+        result = _callGptStub(resolvedModel, input, resolvedTaskType);
+      } else {
+        result = await _callAnthropic(resolvedModel, input, resolvedTaskType);
       }
-      const result = await _callAnthropic(resolvedModel, input, taskType);
+
+      // ── Step 6: LOG
+      const log = {
+        original_task_type: taskType,
+        normalized_task_type: resolvedTaskType,
+        mode,
+        provider: result.provider,
+        model: resolvedModel,
+        fallback_applied,
+        fallback_reason,
+        dev_override_applied: devOverrideApplied,
+        dev_override_reason: devOverrideReason,
+      };
+      console.log("[model_router:route]", JSON.stringify(log));
+
       return {
         ...result,
-        routing: { task_type: taskType, mode, resolved_model: resolvedModel, provider: "anthropic", was_overridden: false },
+        routing: { task_type: resolvedTaskType, mode, resolved_model: resolvedModel, provider: result.provider, was_overridden: false },
       };
     }
 
-    // Production: 按路由表分发
-    const targetProvider = PRODUCTION_ROUTING_MAP[taskType];
-    const targetModel = PRODUCTION_MODEL_MAP[taskType][targetProvider];
+    // ── Production: 按路由表分发
+    const targetProvider = PRODUCTION_ROUTING_MAP[resolvedTaskType];
+    const targetModel = PRODUCTION_MODEL_MAP[resolvedTaskType][targetProvider];
 
+    let result: RouterResponse;
     if (targetProvider === "anthropic") {
-      const result = await _callAnthropic(targetModel, input, taskType);
-      return {
-        ...result,
-        routing: { task_type: taskType, mode, resolved_model: targetModel, provider: "anthropic", was_overridden: false },
-      };
+      result = await _callAnthropic(targetModel, input, resolvedTaskType);
+    } else {
+      // OpenAI — 如未接入 key，降级到 stub
+      const hasOpenAIKey = !!process.env.OPENAI_API_KEY || !!process.env.BUILT_IN_FORGE_API_KEY;
+      if (!hasOpenAIKey) {
+        console.warn(`[model_router] OpenAI key not set for task_type="${resolvedTaskType}". Falling back to GPT stub.`);
+        result = _callGptStub(targetModel, input, resolvedTaskType);
+      } else {
+        result = await _callOpenAI(targetModel, input, resolvedTaskType);
+      }
     }
 
-    // OpenAI — 如未接入 key，降级到 stub
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY || !!process.env.BUILT_IN_FORGE_API_KEY;
-    if (!hasOpenAIKey) {
-      console.warn(
-        `[model_router] OpenAI key not set for task_type="${taskType}". Falling back to GPT stub.`
-      );
-      const result = _callGptStub(targetModel, input, taskType);
-      return {
-        ...result,
-        routing: { task_type: taskType, mode, resolved_model: targetModel, provider: "gpt_stub", was_overridden: false },
-      };
-    }
+    // ── Step 6: LOG
+    const log = {
+      original_task_type: taskType,
+      normalized_task_type: resolvedTaskType,
+      mode,
+      provider: result.provider,
+      model: targetModel,
+      fallback_applied,
+      fallback_reason,
+      dev_override_applied: false,
+      dev_override_reason: "",
+    };
+    console.log("[model_router:route]", JSON.stringify(log));
 
-    const result = await _callOpenAI(targetModel, input, taskType);
     return {
       ...result,
-      routing: { task_type: taskType, mode, resolved_model: targetModel, provider: "openai", was_overridden: false },
+      routing: { task_type: resolvedTaskType, mode, resolved_model: targetModel, provider: result.provider, was_overridden: false },
     };
   },
-
   /**
    * routingFor() — 查询某 task_type 在当前环境下的路由目标（不实际调用）
    */

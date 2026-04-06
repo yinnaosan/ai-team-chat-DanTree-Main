@@ -3091,3 +3091,11 @@
 - [x] 修改：execution/code_analysis/agent_task/classification → anthropic（Claude）
 - [x] 研发态保持全 Claude（不改 development 逻辑）
 - [x] TSC 0 errors 验证
+
+## modelRouter v2 FINAL EXECUTABLE
+- [x] 读取 model_router.ts / llm.ts 当前内容
+- [x] 完整重写 model_router.ts：白名单 + normalizeTaskType + dev/prod 双态 + 路由日志 + fallback
+- [x] 确认 invokeLLM 委托逻辑正确（不改 14 个调用文件）
+- [x] 运行 5 个验收测试（21/21 PASS）
+- [x] TSC 0 errors
+- [x] Checkpoint + 反馈包

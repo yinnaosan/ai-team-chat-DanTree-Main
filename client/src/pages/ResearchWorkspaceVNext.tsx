@@ -1076,13 +1076,31 @@ export default function ResearchWorkspacePage() {
           entity={currentTicker || undefined}
           stance={stance}
           confidence={
+            // 优先用 hvm.confidenceAvg（真实语义置信度），fallback 到 answerObject 推导
+            hvm.confidenceAvg != null ? Math.round(hvm.confidenceAvg * 100) :
             answerObject?.confidence === "high" ? 80 :
             answerObject?.confidence === "medium" ? 55 :
             answerObject?.confidence === "low" ? 30 : null
           }
-          gateState={answerObject ? "pass" : "fallback"}
-          changeMarker="stable"
-          lastUpdated={lastAssistant ? fmtTime(lastAssistant.createdAt) : undefined}
+          gateState={
+            // 优先用 tvm.gateState（真实 gate 评估结果），fallback 到 answerObject 推导
+            tvm.gateState === "pass" ? "pass" :
+            tvm.gateState === "block" ? "block" :
+            tvm.gateState != null ? "fallback" :
+            answerObject ? "pass" : "fallback"
+          }
+          changeMarker={
+            // 优先用 hvm.changeMarker（真实状态变化标记），fallback 到 stable
+            (hvm.changeMarker as "stable" | "strengthening" | "weakening" | "reversal" | "unknown" | null) ?? "stable"
+          }
+          alertCount={avm.alertCount ?? 0}
+          highestAlertSeverity={(avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null}
+          lastUpdated={
+            // 优先用 hvm.lastSnapshotAt（真实快照时间），fallback 到 lastAssistant 消息时间
+            hvm.lastSnapshotAt != null
+              ? new Date(hvm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
+              : lastAssistant ? fmtTime(lastAssistant.createdAt) : undefined
+          }
           onEntitySearch={() => {
             const ticker = prompt("输入股票代码（如 AAPL、NVDA）:");
             if (ticker?.trim()) {

@@ -2933,3 +2933,16 @@
 - [x] 分析师评级共识标签背景从 0.035 升至 0.045，边框从 0.06 升至 0.09
 - [x] Section 分隔线从 0.055 升至 0.08
 - [x] RELATED/ANALYST RATINGS 区块分隔线从 0.045/0.05 升至 0.08
+
+## P0 真实 Workspace 数据接线（基于 v8 视觉锁定版 64ae0a5f）
+- [x] 分析 ResearchWorkspaceVNext 当前数据流（useWorkspaceViewModel / WorkspaceContext / currentTicker）
+- [x] DecisionHeader 接入真实字段：entity / stance / confidence / gateState / alertCount / highestAlertSeverity / changeMarker / lastUpdated
+- [x] DecisionSpine ThesisBlock 接入真实数据（thesisViewModel）
+- [x] DecisionSpine TimingBlock 接入真实数据（timingViewModel）
+- [x] DecisionSpine AlertBlock 接入真实数据（alertViewModel）
+- [x] DecisionSpine HistoryBlock 接入真实数据（historyViewModel）
+- [x] 确保 session 切换时 Header 与主区同步（WorkspaceContext 天然驱动）
+- [x] TSC 验证 0 errors
+- [x] 回归测试通过（2040 个测试通过）
+- [x] 截图验证同步性
+- [x] 保存检查点并输出反馈包

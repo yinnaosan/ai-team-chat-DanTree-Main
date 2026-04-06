@@ -26,6 +26,7 @@ import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import type { AlertItem } from "@/components/AlertBlock";
 import type { HistoryEntry } from "@/components/HistoryBlock";
+import type { SnapshotEntry } from "@/hooks/useWorkspaceViewModel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1382,19 +1383,33 @@ export default function ResearchWorkspacePage() {
                     overallRiskScore,
                   };
                 })() : undefined}
-                history={hivm.available ? {
-                  entity: currentTicker || undefined,
-                  entries: [
-                    ...(hivm.deltaSummary ? [{
-                      time: hivm.lastSnapshotAt ? new Date(hivm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "—",
-                      changeMarker: (hivm.changeMarker as HistoryEntry["changeMarker"]) ?? "unknown",
-                      stance: hvm.stance ?? "—",
-                      actionBias: hvm.actionBias ?? "—",
-                      alertSeverity: hvm.highestSeverity ?? null,
-                      deltaSummary: hivm.deltaSummary,
-                    } satisfies HistoryEntry] : []),
-                  ],
-                } : undefined}
+                history={(() => {
+                  // P1-2: 优先使用 entitySnapshots 最近 5 条（真实时间线）
+                  const snapshotEntries: HistoryEntry[] = hivm.snapshots.length > 0
+                    ? hivm.snapshots.map((s: SnapshotEntry) => ({
+                        time: s.snapshotTime
+                          ? new Date(s.snapshotTime).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+                          : "—",
+                        changeMarker: (s.changeMarker as HistoryEntry["changeMarker"]) ?? "unknown",
+                        stance: s.thesisStance ?? "—",
+                        actionBias: s.timingBias ?? "—",
+                        alertSeverity: s.alertSeverity ?? null,
+                        deltaSummary: s.stateSummaryText ?? undefined,
+                      }))
+                    // fallback: 若 snapshots 为空但 hivm.available，使用单条 deltaSummary
+                    : (hivm.available && hivm.deltaSummary ? [{
+                        time: hivm.lastSnapshotAt ? new Date(hivm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "—",
+                        changeMarker: (hivm.changeMarker as HistoryEntry["changeMarker"]) ?? "unknown",
+                        stance: hvm.stance ?? "—",
+                        actionBias: hvm.actionBias ?? "—",
+                        alertSeverity: hvm.highestSeverity ?? null,
+                        deltaSummary: hivm.deltaSummary,
+                      } satisfies HistoryEntry] : []);
+
+                  return snapshotEntries.length > 0
+                    ? { entity: currentTicker || undefined, entries: snapshotEntries }
+                    : undefined;
+                })()}
                 isLoading={vmLoading || sending || isTyping}
               />
             </div>

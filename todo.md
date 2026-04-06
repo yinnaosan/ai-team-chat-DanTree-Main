@@ -2958,3 +2958,14 @@
 - [x] 回归测试通过（2037 个测试通过）
 - [x] 截图验证完成
 - [x] 保存检查点并输出反馈包
+
+## P1-2 HistoryBlock 多条快照接线（基于 P1-1 版 7edd69ef）
+- [x] 分析 HistoryBlock 当前数据流和 useWorkspaceViewModel entitySnapshots 结构
+- [x] 接线 HistoryBlock 到最近 5 条 entitySnapshots（时间倒序）
+- [x] 每条 snapshot 接入：snapshotTime / changeMarker / thesisStance / timingBias / alertSeverity / stateSummaryText
+- [x] 确保与 currentTicker / currentSession 严格同步（WorkspaceContext 天然驱动）
+- [x] 零 CSS 改动，v8 视觉锁定不变
+- [x] TSC 验证 0 errors
+- [x] 回归测试通过（2040 个测试通过）
+- [x] 截图验证完成
+- [x] 保存检查点并输出反馈包

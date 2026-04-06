@@ -87,6 +87,16 @@ export interface AlertViewModel {
   advisoryOnly: boolean;
 }
 
+/** Single snapshot entry for HistoryBlock timeline */
+export interface SnapshotEntry {
+  snapshotTime: number;
+  changeMarker: string | null;
+  thesisStance: string | null;
+  timingBias: string | null;
+  alertSeverity: string | null;
+  stateSummaryText: string | null;
+}
+
 export interface HistoryViewModel {
   available: boolean;
   changeMarker: string | null;
@@ -95,6 +105,8 @@ export interface HistoryViewModel {
   // B1a additions
   previousSummary: string | null;
   lastSnapshotAt: number | null;
+  // P1-2: multi-snapshot timeline (up to 5, newest first)
+  snapshots: SnapshotEntry[];
 }
 
 export interface WorkspaceViewModel {
@@ -181,9 +193,9 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     { refetchInterval: 60_000, staleTime: 30_000 }
   );
 
-  // ── Layer 1b: Entity snapshots (for lastSnapshotAt) ───────────────────────
+  // ── Layer 1b: Entity snapshots (for lastSnapshotAt + P1-2 multi-snapshot) ──
   const { data: entitySnapshots } = trpc.market.getEntitySnapshots.useQuery(
-    { entityKey: entity, limit: 1 },
+    { entityKey: entity, limit: 5 },
     { staleTime: 60_000 }
   );
 
@@ -365,6 +377,22 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     advisoryOnly: (entityAlerts as any)?.advisory_only ?? true,
   }), [entityAlerts]);
 
+  // P1-2: map raw entitySnapshots to typed SnapshotEntry array (newest first, max 5)
+  const snapshotEntries = useMemo<SnapshotEntry[]>(() => {
+    const raw = (entitySnapshots as any)?.snapshots;
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw
+      .slice(0, 5)
+      .map((s: any) => ({
+        snapshotTime: s.snapshotTime ?? s.snapshot_time ?? 0,
+        changeMarker: s.changeMarker ?? s.change_marker ?? null,
+        thesisStance: s.thesisStance ?? s.thesis_stance ?? null,
+        timingBias: s.timingBias ?? s.timing_bias ?? null,
+        alertSeverity: s.alertSeverity ?? s.alert_severity ?? null,
+        stateSummaryText: s.stateSummaryText ?? s.state_summary_text ?? null,
+      }));
+  }, [entitySnapshots]);
+
   const historyViewModel = useMemo<HistoryViewModel>(() => ({
     available: !!(sessionData as any)?.available,
     changeMarker: (sessionData as any)?.change_marker ?? null,
@@ -373,7 +401,9 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
     // B1a additions
     previousSummary: (sessionData as any)?.previous_snapshot?.state_summary_text ?? null,
     lastSnapshotAt,
-  }), [sessionData, lastSnapshotAt]);
+    // P1-2: multi-snapshot timeline
+    snapshots: snapshotEntries,
+  }), [sessionData, lastSnapshotAt, snapshotEntries]);
 
   return {
     entity,

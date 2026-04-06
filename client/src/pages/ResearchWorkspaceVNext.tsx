@@ -1318,9 +1318,19 @@ export default function ResearchWorkspacePage() {
               setManualTicker(candidate.ticker);
             }
           }}
-          onNewEntity={(ticker) => {
-            // 新 ticker：新建 session 并触发分析
-            setManualTicker(ticker);
+          onNewEntity={async (ticker) => {
+            // Fix 4-5: 先创建 session（title=ticker, focusKey=ticker），再触发分析
+            // createSession 内部会调用 setCurrentSession，驱动 Header/Canvas/Insights/Discussion 全页同步
+            const newSession = await createSession({
+              title: ticker,
+              focusKey: ticker,
+              sessionType: "entity",
+            });
+            if (newSession) {
+              setSession(newSession);
+            } else {
+              setManualTicker(ticker);
+            }
             handleSubmit(`深度分析 ${ticker}`);
           }}
         />

@@ -300,7 +300,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768;
+  // max_tokens: OpenAI gpt-4o 上限 16384，平台内置模型支持更高，统一用 8192 安全值
+  payload.max_tokens = 8192;
   // thinking 参数仅平台内置模型支持，OpenAI 不支持
   if (!useOpenAI) {
     payload.thinking = { budget_tokens: 128 };

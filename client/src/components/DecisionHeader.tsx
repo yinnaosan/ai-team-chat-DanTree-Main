@@ -7,7 +7,8 @@
  *
  * P1-3: 实体搜索升级 — prompt() → 内联 Combobox (Popover + cmdk)
  */
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { trpc } from "@/lib/trpc";
 import {
   Leaf, TrendingUp, TrendingDown, Minus, Zap, AlertTriangle,
   Activity, Clock, Search, ChevronDown,
@@ -90,7 +91,22 @@ interface EntityComboboxProps {
 function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // debounce 300ms
+  const handleQueryChange = useCallback((val: string) => {
+    setQuery(val);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(val.trim()), 300);
+  }, []);
+
+  // 外部搜索（debounced）
+  const { data: searchData, isFetching: isSearching } = trpc.market.searchTicker.useQuery(
+    { query: debouncedQuery },
+    { enabled: debouncedQuery.length >= 1, staleTime: 30000 }
+  );
 
   // 打开时聚焦输入框
   useEffect(() => {
@@ -98,18 +114,30 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setQuery("");
+      setDebouncedQuery("");
     }
   }, [open]);
 
-  // 过滤候选：ticker 或 title 包含 query（不区分大小写）
+  // 合并本地候选 + 外部搜索结果
   const filtered = useMemo(() => {
-    if (!query.trim()) return candidates;
     const q = query.trim().toUpperCase();
-    return candidates.filter(c =>
+    // 本地候选过滤
+    const localFiltered = !q ? candidates : candidates.filter(c =>
       c.ticker.toUpperCase().includes(q) ||
       c.title.toUpperCase().includes(q)
     );
-  }, [candidates, query]);
+    // 外部搜索结果（去重：已在本地候选中的不重复显示）
+    const localTickers = new Set(localFiltered.map(c => c.ticker.toUpperCase()));
+    const externalResults: EntityCandidate[] = (Array.isArray(searchData) ? searchData : []).filter(
+      (r: { symbol: string; name?: string; cnName?: string }) => !localTickers.has(r.symbol.toUpperCase())
+    ).map((r: { symbol: string; name?: string; cnName?: string }) => ({
+      id: `__ext__${r.symbol}`,
+      ticker: r.symbol,
+      title: r.cnName || r.name || r.symbol,
+      sessionType: "entity" as const,
+    }));
+    return [...localFiltered, ...externalResults];
+  }, [candidates, query, searchData]);
 
   // 判断当前输入是否是新 ticker（不在候选列表中）
   const isNewTicker = query.trim().length > 0 &&
@@ -206,7 +234,7 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
             <input
               ref={inputRef}
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => handleQueryChange(e.target.value)}
               onKeyDown={e => {
                 if (e.key === "Escape") { setOpen(false); setQuery(""); }
                 if (e.key === "Enter" && isNewTicker) handleNewTicker();

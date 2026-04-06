@@ -2982,3 +2982,31 @@
 - [x] 回归测试通过（2039 个测试通过）
 - [x] 截图验证（关闭状态/展开状态/候选列表/新 ticker 入口）
 - [x] 保存检查点并输出完整反馈包
+
+## P2 合并增强包（基于 P1-3 版 f76887ff）
+
+### P2-A: KEY LEVELS 字段升级
+- [x] 分析 tvm.priceTargets / tivm / answerObject 中可用的真实价位字段
+- [x] 升级 KEY LEVELS：当前价 + 今日涨跌 + 年高/年低（参考）+ PE/PB（估值参考）
+- [x] fallback 策略：支撑/阻力/止损/目标仅在有值时显示，不编造
+- [x] 与 currentTicker 严格同步（WorkspaceContext 天然驱动）
+
+### P2-B: InsightsRail NOW/MONITOR 解释增强
+- [x] NOW：实时行情卡片 subtext 说明"可判断当日市场情绪"
+- [x] NOW：分析师评级 subtext 说明"机构共识强烁多头"
+- [x] MONITOR：52W 低点接近警示 subtext 说明"历史支撑区附近，注意下跌风险"
+- [x] MONITOR：日内振幅警示 subtext 说明"注意价格波动风险"
+- [x] MONITOR：评级恶化 subtext 说明"建议进一步核实基本面"
+- [x] 不编造 narrative，字段不足宁可少显示
+
+### P2-C: DecisionHeader 状态表达优化
+- [x] alertCount > 0 时 badge 加 animate-pulse（critical/high 级别）
+- [x] badge 背景按严重度分三档（critical/high/medium）
+- [x] lastUpdated 改为"已更新 · {time}"，无数据时显示"待分析"
+
+### 验证
+- [x] 零 CSS 破坏，v8 视觉锁定不变
+- [x] TSC 验证 0 errors
+- [x] 回归测试通过（2040 个测试通过）
+- [x] 截图验证完成
+- [x] 保存检查点并输出完整反馈包

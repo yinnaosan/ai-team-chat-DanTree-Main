@@ -444,15 +444,20 @@ export function DecisionHeader({
           </div>
 
           {/* Alert severity */}
-          {alertCount > 0 && highestAlertSeverity && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "4px 10px", borderRadius: 6,
-              background: "rgba(245,158,11,0.07)",
-              border: "1px solid rgba(245,158,11,0.15)",
-            }}>
-              <AlertTriangle size={11} color={SEVERITY_COLOR[highestAlertSeverity] ?? "#f59e0b"} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: SEVERITY_COLOR[highestAlertSeverity] ?? "#f59e0b" }}>
+          {alertCount > 0 && (
+            <div
+              className={highestAlertSeverity === "critical" || highestAlertSeverity === "high" ? "animate-pulse" : ""}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "4px 10px", borderRadius: 6,
+                background: highestAlertSeverity === "critical" ? "rgba(239,68,68,0.12)" :
+                            highestAlertSeverity === "high" ? "rgba(249,115,22,0.10)" :
+                            "rgba(245,158,11,0.08)",
+                border: `1px solid ${SEVERITY_COLOR[highestAlertSeverity ?? "medium"] ?? "#f59e0b"}40`,
+              }}
+            >
+              <AlertTriangle size={11} color={SEVERITY_COLOR[highestAlertSeverity ?? "medium"] ?? "#f59e0b"} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: SEVERITY_COLOR[highestAlertSeverity ?? "medium"] ?? "#f59e0b", letterSpacing: "0.01em" }}>
                 {alertCount} 风险
               </span>
             </div>
@@ -470,7 +475,7 @@ export function DecisionHeader({
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <Clock size={10} color="rgba(255,255,255,0.25)" />
           <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
-            最后更新: {lastUpdated ?? "—"}
+            {lastUpdated ? `已更新 · ${lastUpdated}` : "待分析"}
           </span>
         </div>
         <button

@@ -664,17 +664,33 @@ function InsightsRail({
               display: "flex", flexDirection: "column", gap: 8,
             }}>
               {[
-                { label: "当前价",  value: quoteData.price != null ? `$${quoteData.price.toFixed(2)}` : null, color: "rgba(255,255,255,0.78)" },
-                { label: "52W 高",  value: quoteData.high != null ? `$${quoteData.high.toFixed(2)}` : null, color: "rgba(255,255,255,0.50)" },
-                { label: "52W 低",  value: quoteData.low != null ? `$${quoteData.low.toFixed(2)}` : null, color: "rgba(255,255,255,0.50)" },
-                { label: "PE",       value: quoteData.pe != null ? quoteData.pe.toFixed(1) : null, color: "rgba(255,255,255,0.55)" },
-                { label: "PB",       value: quoteData.pb != null ? quoteData.pb.toFixed(2) : null, color: "rgba(255,255,255,0.55)" },
-                { label: "介入区",  value: quoteData.entryZone, color: "#10b981" },
+                // ── 真实行情字段（Finnhub getQuote）──
+                { label: "当前价",  value: quoteData.price != null ? `$${quoteData.price.toFixed(2)}` : null, color: "rgba(255,255,255,0.88)" },
+                { label: "今日涨跌", value: (() => {
+                  const pct = (quoteData as any).changePercent;
+                  const chg = (quoteData as any).change;
+                  if (pct == null) return null;
+                  const sign = pct >= 0 ? "+" : "";
+                  const chgStr = chg != null ? ` (${sign}$${Math.abs(chg).toFixed(2)})` : "";
+                  return `${sign}${pct.toFixed(2)}%${chgStr}`;
+                })(), color: (() => {
+                  const pct = (quoteData as any).changePercent;
+                  if (pct == null) return "rgba(255,255,255,0.55)";
+                  return pct >= 0 ? "#34d399" : "#f87171";
+                })() },
+                // ── 年度区间参考（Finnhub basicFinancials 52W 数据）──
+                { label: "年高（参考）", value: quoteData.high != null ? `$${quoteData.high.toFixed(2)}` : null, color: "rgba(255,255,255,0.45)" },
+                { label: "年低（参考）", value: quoteData.low != null ? `$${quoteData.low.toFixed(2)}` : null, color: "rgba(255,255,255,0.45)" },
+                // ── 估值参考（Finnhub basicFinancials）──
+                { label: "PE",       value: quoteData.pe != null ? quoteData.pe.toFixed(1) : null, color: "rgba(255,255,255,0.50)" },
+                { label: "PB",       value: quoteData.pb != null ? quoteData.pb.toFixed(2) : null, color: "rgba(255,255,255,0.50)" },
+                // ── 以下字段当前无真实数据源，仅在有值时显示（不编造）──
+                { label: "介入区",  value: quoteData.entryZone ?? null, color: "#10b981" },
                 { label: "支撑",    value: quoteData.support != null ? `$${quoteData.support}` : null, color: "rgba(255,255,255,0.65)" },
                 { label: "阻力",    value: quoteData.resistance != null ? `$${quoteData.resistance}` : null, color: "rgba(255,255,255,0.65)" },
                 { label: "止损",    value: quoteData.stopLoss != null ? `$${quoteData.stopLoss}` : null, color: "#ef4444" },
                 { label: "目标",    value: quoteData.targetPrice != null ? `$${quoteData.targetPrice}` : null, color: "#10b981" },
-              ].filter(r => r.value).map((row, i, arr) => (
+              ].filter(r => r.value != null).map((row, i, arr) => (
                 <div key={i} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   ...(i === arr.length - 1 && arr.length > 4 ? { paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.04)" } : {}),
@@ -1018,7 +1034,7 @@ export default function ResearchWorkspacePage() {
       items.push({
         icon: isUp ? TrendingUp : TrendingDown,
         text: `$${mappedQuote.price.toFixed(2)}  ${sign}${pct.toFixed(2)}%`,
-        sub: `今日变动 ${sign}$${Math.abs(chg).toFixed(2)} · 实时行情`,
+        sub: `实时行情 · 今日变动 ${sign}$${Math.abs(chg).toFixed(2)} · 可判断当日市场情绪`,
         bg: isUp ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.05)",
         iconColor: isUp ? "#10b981" : "#f87171",
       });
@@ -1031,7 +1047,7 @@ export default function ResearchWorkspacePage() {
         items.push({
           icon: CheckCircle2,
           text: `${buyPct}% 分析师评级为 Buy，共识强烈多头`,
-          sub: `共 ${analystData.total} 位分析师 · ${analystData.period}`,
+          sub: `${analystData.total} 位分析师评级 · ${analystData.period} · 机构共识强烁多头`,
           bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
         });
       }
@@ -1041,7 +1057,7 @@ export default function ResearchWorkspacePage() {
     if (items.length === 0 && answerObject?.bull_case?.[0]) {
       items.push({
         icon: CheckCircle2, text: answerObject.bull_case[0],
-        sub: "多头证据（AI推导）", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
+          sub: "多头逻辑（AI推导，仅供参考）", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
       });
     }
     if (answerObject?.reasoning?.[0]) {
@@ -1064,7 +1080,7 @@ export default function ResearchWorkspacePage() {
         items.push({
           icon: AlertCircle,
           text: `价格接近 52W 低点 $${mappedQuote.low.toFixed(2)}`,
-          sub: `距低点仅 ${(distFromLow * 100).toFixed(1)}%，注意支撑`,
+          sub: `距 52W 低点仅 ${(distFromLow * 100).toFixed(1)}%，历史支撑区附近，注意下跌风险`,
           bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
         });
       }
@@ -1077,7 +1093,7 @@ export default function ResearchWorkspacePage() {
         items.push({
           icon: AlertCircle,
           text: `今日振幅 ${(dayRange * 100).toFixed(1)}%，日内波动较大`,
-          sub: `日高 $${mappedQuote.high.toFixed(2)} · 日低 $${mappedQuote.low.toFixed(2)}`,
+          sub: `日内振幅较大，注意价格波动风险 · 日高 $${mappedQuote.high.toFixed(2)} / 日低 $${mappedQuote.low.toFixed(2)}`,
           bg: "rgba(251,191,36,0.05)", iconColor: "rgba(251,191,36,0.65)",
         });
       }
@@ -1089,7 +1105,7 @@ export default function ResearchWorkspacePage() {
       items.push({
         icon: AlertCircle,
         text: `分析师评级在恶化，Sell 占比 ${sellPct}%`,
-        sub: `与上期相比多头比例下降`,
+        sub: `评级趋势恶化，机构信心下降 · 建议进一步核实基本面`,
         bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
       });
     }
@@ -1097,7 +1113,7 @@ export default function ResearchWorkspacePage() {
     // fallback: answerObject risks（仅在无真实监控信号时补充）
     const riskItems = (answerObject?.risks ?? []).slice(0, items.length >= 1 ? 1 : 2).map(r => ({
       icon: AlertCircle, text: r.description,
-      sub: `风险 · ${r.magnitude ?? "medium"}（AI推导）`,
+        sub: `风险信号 · 严重度 ${r.magnitude ?? "medium"}（AI推导，需交叉验证）`,
       bg: "rgba(255,255,255,0.02)", iconColor: "rgba(251,191,36,0.60)",
     }));
     return [...items, ...riskItems];

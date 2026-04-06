@@ -46,7 +46,7 @@ const GATE_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  low: "#60a5fa", medium: "#f59e0b", high: "#f97316", critical: "#ef4444",
+  low: "rgba(255,255,255,0.55)", medium: "#f59e0b", high: "#f97316", critical: "#ef4444",
 };
 
 const MARKER_LABEL: Record<string, { label: string; color: string }> = {
@@ -70,14 +70,14 @@ export function DecisionHeader({
 
   return (
     <header style={{
-      height: 52, flexShrink: 0, width: "100%",
+      height: 56, flexShrink: 0, width: "100%",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 22px",
-      background: "rgba(5,6,10,0.98)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
-      borderBottom: "1px solid rgba(255,255,255,0.08)",
-      boxShadow: "0 1px 0 rgba(255,255,255,0.05), 0 2px 16px rgba(0,0,0,0.6)",
+      background: "rgba(3,4,7,1.00)",
+      backdropFilter: "blur(28px)",
+      WebkitBackdropFilter: "blur(28px)",
+      borderBottom: "1px solid rgba(255,255,255,0.12)",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.07), 0 6px 32px rgba(0,0,0,0.85)",
       position: "sticky", top: 0, zIndex: 50,
     }}>
 
@@ -96,10 +96,10 @@ export function DecisionHeader({
           onClick={onEntitySearch}
           style={{
             display: "flex", alignItems: "center", gap: 8,
-            padding: "5px 12px 5px 9px", borderRadius: 8,
+            padding: "5px 14px 5px 10px", borderRadius: 8,
             background: entity ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
-            border: entity ? "1px solid rgba(52,211,153,0.45)" : "1px solid rgba(255,255,255,0.10)",
-            boxShadow: entity ? "0 0 8px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.10)" : "none",
+            border: entity ? "1px solid rgba(52,211,153,0.85)" : "1px solid rgba(255,255,255,0.12)",
+            boxShadow: entity ? "0 0 28px rgba(52,211,153,0.38), 0 0 12px rgba(52,211,153,0.22), inset 0 0 12px rgba(52,211,153,0.07)" : "none",
             cursor: "pointer",
           }}
         >
@@ -136,10 +136,10 @@ export function DecisionHeader({
           {/* Stance */}
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
-            padding: "4px 11px", borderRadius: 6,
+            padding: "5px 13px", borderRadius: 7,
             background: st.dim,
-            border: `1px solid ${st.color}50`,
-            boxShadow: `0 0 6px ${st.color}18`,
+            border: `1px solid ${st.color}70`,
+            boxShadow: `0 0 12px ${st.color}28, 0 0 4px ${st.color}14`,
           }}>
             <StIcon size={12} color={st.color} />
             <span style={{ fontSize: 12, fontWeight: 700, color: st.color, letterSpacing: "0.02em" }}>
@@ -203,12 +203,27 @@ export function DecisionHeader({
         </div>
       )}
 
-      {/* ── Right: System Clock ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-        <Clock size={10} color="rgba(255,255,255,0.25)" />
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
-          {lastUpdated ?? "—"}
-        </span>
+      {/* ── Right: System Clock + Update ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Clock size={10} color="rgba(255,255,255,0.25)" />
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", fontVariantNumeric: "tabular-nums", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+            最后更新: {lastUpdated ?? "—"}
+          </span>
+        </div>
+        <button
+          onClick={onEntitySearch}
+          style={{
+            padding: "5px 14px", borderRadius: 7, cursor: "pointer",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            color: "rgba(255,255,255,0.82)",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+            transition: "border-color 0.15s, color 0.15s",
+          }}
+        >
+          更新
+        </button>
       </div>
     </header>
   );

@@ -52,14 +52,38 @@ export function SessionRail({
   return (
     <aside style={{
       width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "rgba(5,6,10,0.96)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      borderRight: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(3,4,8,1.00)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
+      borderRight: "1px solid rgba(255,255,255,0.12)",
     }}>
 
+      {/* Column Header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "12px 14px 11px",
+        borderBottom: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(255,255,255,0.025)",
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          研究会话
+        </span>
+        <button
+          onClick={onNewSession}
+          style={{
+            width: 22, height: 22, borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "rgba(255,255,255,0.50)", fontSize: 14, lineHeight: 1,
+          }}
+        >
+          +
+        </button>
+      </div>
+
       {/* Search + New */}
-      <div style={{ padding: "10px 10px 8px" }}>
+      <div style={{ padding: "8px 10px 6px" }}>
         <div style={{ display: "flex", gap: 6 }}>
           <div style={{ flex: 1, position: "relative" }}>
             <Search size={12} color="rgba(255,255,255,0.18)" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
@@ -68,10 +92,10 @@ export function SessionRail({
               onChange={e => setQuery(e.target.value)}
               placeholder="搜索..."
               style={{
-                width: "100%", height: 30, paddingLeft: 28, paddingRight: 8,
+                width: "100%", height: 28, paddingLeft: 28, paddingRight: 8,
                 fontSize: 11, lineHeight: 1,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.10)", borderRadius: 7,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
                 color: "rgba(255,255,255,0.80)", outline: "none",
                 boxSizing: "border-box",
               }}
@@ -81,8 +105,8 @@ export function SessionRail({
             onClick={onNewSession}
             title="新建会话"
             style={{
-              width: 30, height: 30, borderRadius: 6, border: "none",
-              background: "rgba(52,211,153,0.10)", cursor: "pointer",
+              width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(52,211,153,0.20)",
+              background: "rgba(52,211,153,0.08)", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
             }}
@@ -93,7 +117,7 @@ export function SessionRail({
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "4px 6px 8px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px 8px" }}>
 
         {/* Empty state */}
         {sessions.length === 0 && (
@@ -153,14 +177,14 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
       style={{
         width: "100%", textAlign: "left",
         display: "flex", alignItems: "flex-start", gap: 8,
-        padding: "8px 10px", borderRadius: 8, marginBottom: 1,
+        padding: "8px 10px", borderRadius: 7, marginBottom: 2,
         cursor: "pointer", border: "none",
-        borderLeft: `3px solid ${isActive ? "rgba(52,211,153,1.0)" : "transparent"}`,
+        borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
         background: isActive
-          ? "rgba(52,211,153,0.10)"
-          : hovered ? "rgba(255,255,255,0.04)" : "transparent",
-        boxShadow: isActive ? "inset 0 0 0 1px rgba(52,211,153,0.10)" : "none",
-        transition: "background 0.12s",
+          ? "rgba(52,211,153,0.16)"
+          : hovered ? "rgba(255,255,255,0.065)" : "transparent",
+        boxShadow: isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
+        transition: "background 0.12s, box-shadow 0.12s",
       }}
     >
       {/* Type badge */}

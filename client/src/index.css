@@ -43,120 +43,120 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FXOLOGY INVESTMENT TERMINAL DESIGN SYSTEM V4
-   FXology 风格 — 深蓝黑背景 + 蓝色 accent + 专业投资终端
-   背景: #0f1115  面板: #111827  卡片: #161a21  边框: #232937
-   文字: #e6e8eb → #9aa4b2  Accent: #4c8bf5 → #7aa2ff
-   成功: #22c55e  风险: #ef4444
+   DANTREE INVESTMENT TERMINAL DESIGN SYSTEM V5
+   DanTree 风格 — 纯黑背景 + 绿色 accent + 专业投资终端
+   背景: #060810  面板: #0a0c12  卡片: #0d1018  边框: rgba(255,255,255,0.08)
+   文字: #e8eaed → #8a9ab0  Accent: #34d399
+   成功: #34d399  风险: #ef4444
 ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
   --radius: 0.625rem;
 
-  /* ── 背景层级 — FXology 深蓝黑 #0f1115 ── */
-  --background: oklch(8.5% 0.008 240);
-  --foreground: oklch(91% 0.006 220);
+  /* ── 背景层级 — 纯黑 #060810 ── */
+  --background: oklch(5.5% 0.004 240);
+  --foreground: oklch(92% 0.004 220);
 
-  /* 卡片/面板 — #161a21 */
-  --card: oklch(11.5% 0.010 240);
-  --card-foreground: oklch(91% 0.006 220);
+  /* 卡片/面板 — #0d1018 */
+  --card: oklch(8% 0.006 240);
+  --card-foreground: oklch(92% 0.004 220);
 
   /* 弹出层 */
-  --popover: oklch(13% 0.012 240);
-  --popover-foreground: oklch(91% 0.006 220);
+  --popover: oklch(9% 0.007 240);
+  --popover-foreground: oklch(92% 0.004 220);
 
-  /* 主色 — FXology 蓝 #4c8bf5 */
-  --primary: oklch(65% 0.18 255);
-  --primary-foreground: oklch(98% 0 0);
+  /* 主色 — DanTree 绿 #34d399 */
+  --primary: oklch(76% 0.17 162);
+  --primary-foreground: oklch(10% 0.004 240);
 
   /* 次级 */
-  --secondary: oklch(16% 0.015 240);
-  --secondary-foreground: oklch(80% 0.008 220);
+  --secondary: oklch(11% 0.006 240);
+  --secondary-foreground: oklch(78% 0.005 220);
 
   /* 静音 */
-  --muted: oklch(13.5% 0.012 240);
-  --muted-foreground: oklch(58% 0.010 230);
+  --muted: oklch(9.5% 0.006 240);
+  --muted-foreground: oklch(52% 0.006 230);
 
   /* 强调 hover */
-  --accent: oklch(16% 0.015 240);
-  --accent-foreground: oklch(91% 0.006 220);
+  --accent: oklch(11% 0.006 240);
+  --accent-foreground: oklch(92% 0.004 220);
 
   /* 危险红 #ef4444 */
   --destructive: oklch(60% 0.22 25);
   --destructive-foreground: oklch(98% 0 0);
 
-  /* 边框 — #232937 */
-  --border: oklch(22% 0.018 240);
-  /* 输入框 — #11151c */
-  --input: oklch(10% 0.012 240);
-  /* focus ring — FXology 蓝 */
-  --ring: oklch(65% 0.18 255);
+  /* 边框 — rgba(255,255,255,0.08) */
+  --border: oklch(18% 0.006 240);
+  /* 输入框 */
+  --input: oklch(7% 0.005 240);
+  /* focus ring — DanTree 绿 */
+  --ring: oklch(76% 0.17 162);
 
   /* ── 侧边栏 ── */
-  --sidebar: oklch(9% 0.010 240);
-  --sidebar-foreground: oklch(91% 0.006 220);
-  --sidebar-primary: oklch(65% 0.18 255);
-  --sidebar-primary-foreground: oklch(98% 0 0);
-  --sidebar-accent: oklch(16% 0.015 240);
-  --sidebar-accent-foreground: oklch(91% 0.006 220);
-  --sidebar-border: oklch(19% 0.016 240);
-  --sidebar-ring: oklch(65% 0.18 255);
+  --sidebar: oklch(5.5% 0.004 240);
+  --sidebar-foreground: oklch(92% 0.004 220);
+  --sidebar-primary: oklch(76% 0.17 162);
+  --sidebar-primary-foreground: oklch(10% 0.004 240);
+  --sidebar-accent: oklch(11% 0.006 240);
+  --sidebar-accent-foreground: oklch(92% 0.004 220);
+  --sidebar-border: oklch(15% 0.005 240);
+  --sidebar-ring: oklch(76% 0.17 162);
 
   /* ── 图表色 — 金融专业配色 ── */
-  --chart-1: oklch(65% 0.18 255);   /* FXology 蓝 — 主 accent */
-  --chart-2: oklch(65% 0.20 155);   /* 涨绿 #22c55e */
-  --chart-3: oklch(72% 0.16 280);   /* 蓝紫 */
-  --chart-4: oklch(65% 0.20 300);   /* 紫 */
+  --chart-1: oklch(76% 0.17 162);   /* DanTree 绿 — 主 accent */
+  --chart-2: oklch(76% 0.17 162);   /* 涨绿 #34d399 */
+  --chart-3: oklch(72% 0.14 200);   /* 青色 */
+  --chart-4: oklch(68% 0.12 220);   /* 蓝灰 */
   --chart-5: oklch(62% 0.22 25);    /* 跌红 #ef4444 */
 
-  /* ── FXology 专属设计 token（保留 bloomberg 命名以兼容现有代码）── */
-  --bloomberg-gold: oklch(65% 0.18 255);          /* FXology 蓝替代琥珀金 */
-  --bloomberg-gold-dim: oklch(58% 0.15 255);
-  --bloomberg-gold-glow: oklch(65% 0.18 255 / 0.12);
-  --bloomberg-green: oklch(65% 0.20 155);         /* #22c55e */
+  /* ── DanTree 专属设计 token（保留 bloomberg 命名以兼容现有代码）── */
+  --bloomberg-gold: oklch(76% 0.17 162);          /* DanTree 绿 */
+  --bloomberg-gold-dim: oklch(68% 0.14 162);
+  --bloomberg-gold-glow: oklch(76% 0.17 162 / 0.12);
+  --bloomberg-green: oklch(76% 0.17 162);         /* #34d399 */
   --bloomberg-red: oklch(62% 0.22 25);            /* #ef4444 */
-  --bloomberg-blue: oklch(68% 0.18 255);          /* FXology 蓝亮版 #7aa2ff */
-  --bloomberg-surface-0: oklch(8.5% 0.008 240);   /* #0f1115 — 最底层 */
-  --bloomberg-surface-1: oklch(10% 0.010 240);    /* #111827 — 面板 */
-  --bloomberg-surface-2: oklch(11.5% 0.010 240);  /* #161a21 — 卡片 */
-  --bloomberg-surface-3: oklch(14% 0.012 240);    /* hover */
-  --bloomberg-border-dim: oklch(19% 0.016 240);   /* #232937 dim */
-  --bloomberg-border: oklch(22% 0.018 240);       /* #232937 */
-  --bloomberg-border-bright: oklch(30% 0.022 240);
-  --bloomberg-text-primary: oklch(91% 0.006 220);    /* #e6e8eb */
-  --bloomberg-text-secondary: oklch(65% 0.010 230);  /* #9aa4b2 */
-  --bloomberg-text-tertiary: oklch(48% 0.009 235);
-  --bloomberg-text-dim: oklch(34% 0.008 240);
+  --bloomberg-blue: oklch(72% 0.14 200);          /* 青色替代蓝 */
+  --bloomberg-surface-0: oklch(5.5% 0.004 240);   /* #060810 — 最底层 */
+  --bloomberg-surface-1: oklch(7% 0.005 240);     /* #0a0c12 — 面板 */
+  --bloomberg-surface-2: oklch(8% 0.006 240);     /* #0d1018 — 卡片 */
+  --bloomberg-surface-3: oklch(10.5% 0.007 240);  /* hover */
+  --bloomberg-border-dim: oklch(14% 0.005 240);   /* dim border */
+  --bloomberg-border: oklch(18% 0.006 240);       /* normal border */
+  --bloomberg-border-bright: oklch(24% 0.008 240);
+  --bloomberg-text-primary: oklch(92% 0.004 220);    /* #e8eaed */
+  --bloomberg-text-secondary: oklch(62% 0.007 230);  /* #8a9ab0 */
+  --bloomberg-text-tertiary: oklch(45% 0.006 235);
+  --bloomberg-text-dim: oklch(30% 0.005 240);
 
   /* ── AI 角色专属色 ── */
-  --manus-color: oklch(65% 0.18 255);    /* FXology 蓝 — Manus */
-  --manus-bg: oklch(13% 0.020 255);
-  --manus-border: oklch(21% 0.030 255);
-  --chatgpt-color: oklch(72% 0.16 280);  /* 蓝紫 — GPT */
-  --chatgpt-bg: oklch(12% 0.020 280);
-  --chatgpt-border: oklch(20% 0.030 280);
-  --user-color: oklch(91% 0.006 220);
-  --user-bg: oklch(15% 0.012 240);
-  --user-border: oklch(26% 0.018 240);
-  --system-color: oklch(48% 0.009 235);
+  --manus-color: oklch(76% 0.17 162);    /* DanTree 绿 — Manus */
+  --manus-bg: oklch(9% 0.012 162);
+  --manus-border: oklch(16% 0.018 162);
+  --chatgpt-color: oklch(72% 0.14 200);  /* 青色 — GPT */
+  --chatgpt-bg: oklch(8.5% 0.012 200);
+  --chatgpt-border: oklch(15% 0.016 200);
+  --user-color: oklch(92% 0.004 220);
+  --user-bg: oklch(10.5% 0.006 240);
+  --user-border: oklch(20% 0.007 240);
+  --system-color: oklch(45% 0.006 235);
 
   /* ── 功能性颜色 ── */
-  --color-up: oklch(65% 0.20 155);
+  --color-up: oklch(76% 0.17 162);
   --color-down: oklch(62% 0.22 25);
-  --color-neutral: oklch(65% 0.010 230);
+  --color-neutral: oklch(62% 0.007 230);
 
-  /* ── FXology 原始十六进制 token ── */
-  --fxo-accent: #4c8bf5;
-  --fxo-accent-light: #7aa2ff;
-  --fxo-bg: #0f1115;
-  --fxo-surface: #111827;
-  --fxo-card: #161a21;
-  --fxo-border: #232937;
-  --fxo-text: #e6e8eb;
-  --fxo-text-dim: #9aa4b2;
-  --fxo-success: #22c55e;
+  /* ── DanTree 原始十六进制 token ── */
+  --fxo-accent: #34d399;
+  --fxo-accent-light: #6ee7b7;
+  --fxo-bg: #060810;
+  --fxo-surface: #0a0c12;
+  --fxo-card: #0d1018;
+  --fxo-border: #1a1e28;
+  --fxo-text: #e8eaed;
+  --fxo-text-dim: #8a9ab0;
+  --fxo-success: #34d399;
   --fxo-risk: #ef4444;
-  --fxo-strategy-bg: #1b2130;
+  --fxo-strategy-bg: #0e1220;
 }
 
 /* Dark class kept for compatibility */

@@ -25,7 +25,7 @@ export interface ThesisBlockProps {
 
 const EV_CFG = {
   strong:      { label: "证据充分",  color: "#34d399", bg: "rgba(52,211,153,0.08)",  bar: 4 },
-  moderate:    { label: "证据尚可",  color: "#60a5fa", bg: "rgba(96,165,250,0.07)",  bar: 3 },
+  moderate:    { label: "证据尚可",  color: "rgba(255,255,255,0.60)", bg: "rgba(255,255,255,0.05)",  bar: 3 },
   weak:        { label: "证据薄弱",  color: "#fbbf24", bg: "rgba(251,191,36,0.07)",  bar: 2 },
   insufficient:{ label: "证据不足",  color: "#6b7280", bg: "rgba(107,114,128,0.05)", bar: 1 },
 };
@@ -66,13 +66,13 @@ export function ThesisBlock({
 
   return (
     <section style={{
-      background: "rgba(10,12,18,0.92)",
-      backdropFilter: "blur(10px)",
-      WebkitBackdropFilter: "blur(10px)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderTop: "1px solid rgba(255,255,255,0.11)",
+      background: "rgba(9,11,18,0.97)",
+      backdropFilter: "blur(18px)",
+      WebkitBackdropFilter: "blur(18px)",
+      border: "1px solid rgba(255,255,255,0.13)",
+      borderTop: "2px solid rgba(52,211,153,0.55)",
       borderRadius: 10, overflow: "hidden",
-      boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.07) inset, 0 0 0 1px rgba(52,211,153,0.08), 0 0 20px rgba(52,211,153,0.05)",
     }}>
       {/* Header */}
       <button
@@ -81,13 +81,13 @@ export function ThesisBlock({
           width: "100%", display: "flex", alignItems: "center",
           justifyContent: "space-between", padding: "14px 18px",
           cursor: "pointer", background: "transparent", border: "none",
-          borderBottom: open ? "1px solid rgba(255,255,255,0.05)" : "none",
+          borderBottom: open ? "1px solid rgba(255,255,255,0.06)" : "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Target size={13} color="rgba(52,211,153,0.70)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(52,211,153,0.78)", textTransform: "uppercase" }}>
-            Thesis
+          <Target size={13} color="rgba(52,211,153,0.80)" />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(52,211,153,0.92)" }}>
+            投资逻辑
           </span>
           {/* Evidence badge */}
           <span style={{

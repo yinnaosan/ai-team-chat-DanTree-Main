@@ -2910,3 +2910,26 @@
 - [x] S4: TimingBlock V2 覆盖（新增字段全部可选，graceful fallback）
 - [x] S4: AlertBlock V2 覆盖（action 字段从 severity 推导）
 - [x] S4: HistoryBlock V2 覆盖（接口完全兼容）
+
+## UI 样式大修 v8（对齐 v5/v7 设计稿，纯 CSS 参数调整）
+- [x] 主容器背景从 #060810 改为 #040608（更纯粹深黑）
+- [x] 所有列标题字体从 11px 升至 12px，weight 800，letterSpacing 0.12em
+- [x] 所有卡片标题（投资逻辑/进场时机/风险控制/历史追踪）字体从 11px 升至 12px
+- [x] 所有卡片顶边 glow 从 0.45 升至 0.55，边框从 0.11 升至 0.13
+- [x] 所有卡片 boxShadow 增加绿色 glow 层（0 0 20px rgba(52,211,153,0.05)）
+- [x] 卡片间距从 10px 升至 12px
+- [x] DecisionCanvas 列背景从 rgba(6,8,14,0.96) 升至 rgba(7,9,15,0.98)
+- [x] Discussion 列背景从 rgba(5,7,12,0.97) 升至 rgba(5,7,12,0.99)
+- [x] InsightsRail 列背景从 rgba(4,5,9,0.98) 升至 rgba(3,4,8,1.00)
+- [x] SessionRail 列背景已为 rgba(3,4,8,1.00)（确认）
+- [x] 所有列分隔边框从 0.10 升至 0.12
+- [x] 所有列标题底边框从 0.10 升至 0.12，背景从 0.02 升至 0.025
+- [x] SessionCard active 状态 glow 增强（boxShadow 三层）
+- [x] 消息气泡背景从 0.055 升至 0.065，边框从 0.10 升至 0.12
+- [x] 消息气泡 AI 最新消息 glow 从 0.06 升至 0.10
+- [x] 输入框 focused 状态 glow 增强（0 0 12px rgba(52,211,153,0.12)）
+- [x] InsightCard 边框从 0.07 升至 0.10
+- [x] 关键价位区块边框从 0.07 升至 0.10，背景从 0.03 升至 0.035
+- [x] 分析师评级共识标签背景从 0.035 升至 0.045，边框从 0.06 升至 0.09
+- [x] Section 分隔线从 0.055 升至 0.08
+- [x] RELATED/ANALYST RATINGS 区块分隔线从 0.045/0.05 升至 0.08

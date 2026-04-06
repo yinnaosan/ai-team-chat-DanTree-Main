@@ -32,7 +32,7 @@ export interface AlertBlockProps {
 }
 
 const SEV_CFG = {
-  low:      { color: "#60a5fa", bg: "rgba(96,165,250,0.06)",  border: "rgba(96,165,250,0.14)",  label: "低" },
+  low:      { color: "rgba(255,255,255,0.55)", bg: "rgba(255,255,255,0.04)",  border: "rgba(255,255,255,0.10)",  label: "低" },
   medium:   { color: "#f59e0b", bg: "rgba(245,158,11,0.06)",  border: "rgba(245,158,11,0.14)",  label: "中" },
   high:     { color: "#f97316", bg: "rgba(249,115,22,0.06)",  border: "rgba(249,115,22,0.14)",  label: "高" },
   critical: { color: "#ef4444", bg: "rgba(239,68,68,0.06)",   border: "rgba(239,68,68,0.14)",   label: "严重" },
@@ -53,13 +53,13 @@ export function AlertBlock({
 
   return (
     <section style={{
-      background: "rgba(10,12,18,0.92)",
-      backdropFilter: "blur(10px)",
-      WebkitBackdropFilter: "blur(10px)",
-      border: `1px solid ${sev ? sev.border.replace("0.14", "0.16") : "rgba(255,255,255,0.08)"}`,
-      borderTop: `1px solid ${sev ? sev.border.replace("0.14", "0.18") : "rgba(255,255,255,0.11)"}`,
+      background: "rgba(9,11,18,0.96)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
+      border: `1px solid ${sev ? sev.border.replace("0.14", "0.20") : "rgba(255,255,255,0.13)"}`,
+      borderTop: `2px solid ${sev ? sev.border.replace("0.14", "0.55") : "rgba(52,211,153,0.55)"}`,
       borderRadius: 10, overflow: "hidden",
-      boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.07) inset, 0 0 0 1px rgba(52,211,153,0.08), 0 0 20px rgba(52,211,153,0.05)",
     }}>
       {/* Header */}
       <button
@@ -72,9 +72,9 @@ export function AlertBlock({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Shield size={13} color={sev?.color ?? "rgba(52,211,153,0.65)"} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(52,211,153,0.78)", textTransform: "uppercase" }}>
-            Risk Control
+          <Shield size={13} color={sev?.color ?? "rgba(52,211,153,0.80)"} />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(52,211,153,0.92)" }}>
+            风险控制
           </span>
           {count > 0 && sev && (
             <span style={{

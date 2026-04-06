@@ -168,6 +168,7 @@ function DiscussionPanel({
   onQuickPrompt: (text: string) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [inputFocused, setInputFocused] = useState(false);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
   // Dynamic quick prompts — memoized
@@ -187,24 +188,24 @@ function DiscussionPanel({
     <div style={{
       flex: 1, minWidth: 0, height: "100%",
       display: "flex", flexDirection: "column",
-      background: "rgba(7,9,15,0.94)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      borderLeft: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(5,7,12,0.99)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
+      borderLeft: "1px solid rgba(255,255,255,0.12)",
     }}>
 
-      {/* Header — 克制，只标识功能区 */}
+      {/* Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 16px 8px",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.02)",
+        padding: "12px 16px 11px",
+        borderBottom: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(255,255,255,0.025)",
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Sparkles size={12} color="rgba(52,211,153,0.75)" />
-          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.78)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Discussion
+          <Sparkles size={11} color="rgba(52,211,153,0.55)" />
+          <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            推理讨论
           </span>
           {entity && (
             <span style={{
@@ -283,10 +284,21 @@ function DiscussionPanel({
               <div
                 key={m.id}
                 style={{
-                  padding: "14px 18px",
+                  padding: "11px 15px",
+                  margin: "5px 10px",
+                  borderRadius: 10,
+                  background: isUser
+                    ? "rgba(255,255,255,0.065)"
+                    : "rgba(52,211,153,0.065)",
+                  border: isUser
+                    ? "1px solid rgba(255,255,255,0.12)"
+                    : isLatest
+                      ? "1px solid rgba(52,211,153,0.28)"
+                      : "1px solid rgba(52,211,153,0.15)",
                   borderLeft: isLatest
-                    ? "2px solid rgba(52,211,153,0.35)"
-                    : "2px solid transparent",
+                    ? "3px solid rgba(52,211,153,0.75)"
+                    : isUser ? "3px solid rgba(255,255,255,0.18)" : "3px solid rgba(52,211,153,0.35)",
+                  boxShadow: isLatest ? "0 2px 16px rgba(52,211,153,0.10)" : isUser ? "none" : "0 1px 8px rgba(52,211,153,0.04)",
                 }}
               >
                 {/* Role + timestamp */}
@@ -379,14 +391,16 @@ function DiscussionPanel({
       <div style={{ padding: "6px 12px 8px", flexShrink: 0 }}>
         <div style={{
           position: "relative", borderRadius: 10,
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.10)",
-          borderBottom: "2px solid rgba(52,211,153,0.28)",
-          transition: "border-color 0.18s",
+          background: "rgba(255,255,255,0.04)",
+          border: inputFocused ? "1px solid rgba(52,211,153,0.45)" : "1px solid rgba(255,255,255,0.10)",
+          boxShadow: inputFocused ? "0 0 0 3px rgba(52,211,153,0.08), 0 0 12px rgba(52,211,153,0.12)" : "0 1px 4px rgba(0,0,0,0.30)",
+          transition: "border-color 0.18s, box-shadow 0.18s",
         }}>
           <textarea
             value={input}
             onChange={e => onInputChange(e.target.value)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
             placeholder={placeholder}
             rows={1}
@@ -473,21 +487,21 @@ function InsightsRail({
   return (
     <aside style={{
       width: 320, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "rgba(5,6,11,0.96)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      borderLeft: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(3,4,8,1.00)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
+      borderLeft: "1px solid rgba(255,255,255,0.12)",
     }}>
       {/* Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "11px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
-        background: "rgba(255,255,255,0.018)",
+        padding: "12px 16px 11px",
+        borderBottom: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(255,255,255,0.025)",
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.72)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-          决策情报
+        <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          情报洞察
         </span>
         {entity && (
           <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "'IBM Plex Mono', ui-monospace, monospace", letterSpacing: "0.03em" }}>
@@ -524,11 +538,11 @@ function InsightsRail({
 
         {/* ── RELATED tickers ── */}
         {relatedTickers.length > 0 && (
-          <div style={{ padding: "10px 14px 10px", borderBottom: "1px solid rgba(255,255,255,0.045)" }}>
+          <div style={{ padding: "10px 14px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
             <BarChart3 size={10} color="rgba(255,255,255,0.40)" />
-            <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.52)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
-              Related
+            <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.60)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              相关标的
             </span>
             </div>
             {relatedTickers.map((t, i) => (
@@ -560,12 +574,12 @@ function InsightsRail({
 
         {/* ── ANALYST RATINGS — 真实市场数据 ── */}
         {analystData && analystData.total > 0 && (
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Users size={10} color="rgba(255,255,255,0.38)" />
-                <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.50)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
-                  Analyst Ratings
+                <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.60)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  分析师评级
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -614,7 +628,7 @@ function InsightsRail({
               </div>
             </div>
             {/* Consensus label */}
-            <div style={{ marginTop: 8, padding: "6px 9px", borderRadius: 6, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ marginTop: 8, padding: "6px 9px", borderRadius: 6, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)" }}>
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.42)" }}>共识：</span>
               <span style={{
                 fontSize: 10, fontWeight: 700,
@@ -636,14 +650,14 @@ function InsightsRail({
           <div style={{ padding: "12px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
               <Target size={10} color="rgba(255,255,255,0.42)" />
-              <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.52)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
-                Key Levels
+              <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.60)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                关键价位
               </span>
             </div>
             <div style={{
               padding: "10px 12px", borderRadius: 8,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              background: "rgba(255,255,255,0.035)",
+              border: "1px solid rgba(255,255,255,0.10)",
               display: "flex", flexDirection: "column", gap: 8,
             }}>
               {[
@@ -701,7 +715,7 @@ function Section({ dot, label, labelColor, show, children }: {
 }) {
   if (!show) return null;
   return (
-    <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
+    <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <div style={{ width: 5, height: 5, borderRadius: "50%", background: dot, flexShrink: 0, boxShadow: `0 0 8px ${dot}, 0 0 3px ${dot}` }} />
         <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, textTransform: "uppercase", letterSpacing: "0.10em" }}>
@@ -719,7 +733,7 @@ function InsightCard({ item }: { item: InsightItem }) {
   return (
        <div style={{ display: "flex", gap: 8, padding: "8px 10px",
       borderRadius: 8, background: item.bg,
-      border: "1px solid rgba(255,255,255,0.07)",
+      border: "1px solid rgba(255,255,255,0.10)",
     }}>
       <item.icon size={12} color={item.iconColor} style={{ marginTop: 2, flexShrink: 0 }} />
       <div>
@@ -1054,7 +1068,7 @@ export default function ResearchWorkspacePage() {
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
-        background: "#060810",
+        background: "#040608",
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
       }}>
         {/* ── Global Top Bar / Decision Control Strip ── */}
@@ -1111,12 +1125,28 @@ export default function ResearchWorkspacePage() {
           <main style={{
             width: 560, flexShrink: 0, minWidth: 0, height: "100%",
             overflowY: "auto",
-            background: "rgba(8,10,16,0.94)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(7,9,15,0.98)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            borderLeft: "1px solid rgba(255,255,255,0.12)",
+            display: "flex", flexDirection: "column",
           }}>
-            <div style={{ padding: "18px 18px 24px" }}>
+            {/* Column Header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "12px 18px 11px",
+              borderBottom: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.025)",
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                决策展板
+              </span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                DECISION CANVAS
+              </span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
                 thesis={tvm.available ? {

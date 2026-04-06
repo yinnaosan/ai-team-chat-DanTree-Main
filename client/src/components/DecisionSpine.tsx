@@ -30,8 +30,8 @@ export interface DecisionSpineProps {
 
 function SkeletonBlock({ height = 80 }: { height?: number }) {
   return (
-    <div style={{ height, background: "#0a0e1a", border: "1px solid #1a2030", borderRadius: 10, overflow: "hidden" }}>
-      <div style={{ height: "100%", background: "linear-gradient(90deg, #0d1117 25%, #111827 50%, #0d1117 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
+    <div style={{ height, background: "rgba(9,11,18,0.96)", border: "1px solid rgba(255,255,255,0.11)", borderTop: "2px solid rgba(52,211,153,0.25)", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ height: "100%", background: "linear-gradient(90deg, rgba(255,255,255,0.01) 25%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.01) 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
     </div>
   );
 }
@@ -49,7 +49,7 @@ export function DecisionSpine({ thesis, timing, alerts, history, isLoading = fal
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <ThesisBlock {...(thesis ?? {})} />
       <TimingBlock {...(timing ?? {})} />
       <AlertBlock {...(alerts ?? {})} />

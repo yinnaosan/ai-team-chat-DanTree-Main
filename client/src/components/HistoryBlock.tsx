@@ -27,13 +27,13 @@ export interface HistoryBlockProps {
 }
 
 const MARKER_CFG = {
-  first_observation: { label: "初始建立", color: "#60a5fa",  dot: "#60a5fa",  weight: "normal" },
-  stable:            { label: "维持稳定", color: "#4b5563",  dot: "#374151",  weight: "light"  },
+  first_observation: { label: "初始建立", color: "rgba(52,211,153,0.65)",  dot: "rgba(52,211,153,0.65)",  weight: "normal" },
+  stable:            { label: "维持稳定", color: "rgba(255,255,255,0.28)",  dot: "rgba(255,255,255,0.20)",  weight: "light"  },
   strengthening:     { label: "↑ 强化",   color: "#10b981",  dot: "#10b981",  weight: "strong" },
   weakening:         { label: "↓ 弱化",   color: "#f59e0b",  dot: "#f59e0b",  weight: "strong" },
   reversal:          { label: "⟳ 逆转",   color: "#ef4444",  dot: "#ef4444",  weight: "strong" },
   diverging:         { label: "分歧",     color: "#f97316",  dot: "#f97316",  weight: "normal" },
-  unknown:           { label: "—",        color: "#374151",  dot: "#374151",  weight: "light"  },
+  unknown:           { label: "—",        color: "rgba(255,255,255,0.18)",  dot: "rgba(255,255,255,0.12)",  weight: "light"  },
 };
 
 const STANCE_COLOR: Record<string, string> = {
@@ -41,8 +41,8 @@ const STANCE_COLOR: Record<string, string> = {
 };
 
 const ACTION_COLOR: Record<string, string> = {
-  BUY: "#10b981", AVOID: "#ef4444", HOLD: "#60a5fa",
-  WAIT: "#f59e0b", NONE: "#4b5563",
+  BUY: "#10b981", AVOID: "#ef4444", HOLD: "rgba(255,255,255,0.55)",
+  WAIT: "#f59e0b", NONE: "rgba(255,255,255,0.25)",
 };
 
 export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
@@ -54,9 +54,13 @@ export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
 
   return (
     <section style={{
-      background: "#0D1220",
-      border: "1px solid rgba(255,255,255,0.07)",
-      borderRadius: 16, overflow: "hidden",
+      background: "rgba(9,11,18,0.97)",
+      backdropFilter: "blur(18px)",
+      WebkitBackdropFilter: "blur(18px)",
+      border: "1px solid rgba(255,255,255,0.13)",
+      borderTop: "2px solid rgba(52,211,153,0.55)",
+      borderRadius: 10, overflow: "hidden",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.07) inset, 0 0 0 1px rgba(52,211,153,0.08), 0 0 20px rgba(52,211,153,0.05)",
     }}>
       {/* Header */}
       <button
@@ -69,9 +73,9 @@ export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <GitBranch size={13} color="rgba(255,255,255,0.35)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
-            演化追踪
+          <GitBranch size={11} color="rgba(52,211,153,0.80)" />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(52,211,153,0.92)" }}>
+            历史追踪
           </span>
           {entries.length > 0 && (
             <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)" }}>

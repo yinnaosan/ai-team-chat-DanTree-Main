@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, httpLink, splitLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -37,18 +37,34 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+const fetchWithCredentials: typeof globalThis.fetch = (input, init) =>
+  globalThis.fetch(input, { ...(init ?? {}), credentials: "include" });
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      maxURLLength: 2083,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
+    splitLink({
+      // Requests whose serialized URL fits within 2083 chars → GET batch (cacheable)
+      condition: (op) => {
+        if (op.type !== "query") return false;
+        try {
+          const url = `/api/trpc/${op.path}?input=${encodeURIComponent(JSON.stringify(op.input))}`;
+          return url.length <= 2083;
+        } catch {
+          return false;
+        }
       },
+      true: httpBatchLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        maxURLLength: 2083,
+        fetch: fetchWithCredentials,
+      }),
+      // Everything else (large inputs, mutations, subscriptions) → POST
+      false: httpLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        fetch: fetchWithCredentials,
+      }),
     }),
   ],
 });

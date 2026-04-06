@@ -279,9 +279,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     response_format,
   } = params;
 
-  // 当用户配置了自己的 OpenAI Key 时使用 gpt-4o，否则使用平台默认模型
+  // 当用户配置了自己的 OpenAI Key 时使用 gpt-5.4（2026-03 最新旗舰，API 核实可用），否则使用平台默认模型
   const useOpenAI = !!process.env.OPENAI_API_KEY;
-  const defaultModel = useOpenAI ? "gpt-4o" : "gemini-2.5-flash";
+  const defaultModel = useOpenAI ? "gpt-5.4" : "gemini-2.5-flash";
 
   const payload: Record<string, unknown> = {
     model: defaultModel,
@@ -300,8 +300,8 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  // max_tokens: OpenAI gpt-4o 上限 16384，平台内置模型支持更高，统一用 8192 安全值
-  payload.max_tokens = 8192;
+  // max_tokens: gpt-4.1 支持更长输出，统一用 16384 安全值
+  payload.max_tokens = 16384;
   // thinking 参数仅平台内置模型支持，OpenAI 不支持
   if (!useOpenAI) {
     payload.thinking = { budget_tokens: 128 };

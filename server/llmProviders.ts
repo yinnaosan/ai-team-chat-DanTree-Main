@@ -49,10 +49,11 @@ export const MODELS = {
 
   // ── OpenAI GPT ────────────────────────────────────────────────────────────
   OPENAI: {
-    // GPT-5.4 系列（最新旗舰，2026年）
-    GPT_5_4: "gpt-5.4",                   // 旗舰：最强推理/代码/agentic，$2.50/$15 per MTok，1M ctx
-    GPT_5_4_MINI: "gpt-5.4-mini",         // Mini：强代码/computer use，$0.75/$4.50 per MTok，400K ctx
-    GPT_5_4_NANO: "gpt-5.4-nano",         // Nano：最便宜高频任务，$0.20/$1.25 per MTok，400K ctx
+    // GPT-5.4 系列（当前最新旗舰，2026-03 发布，API 核实可用）
+    GPT_5_4: "gpt-5.4",                   // 旗舰：最强通用旗舰，深度研究/复杂推理/专业工作流
+    GPT_5_4_PRO: "gpt-5.4-pro",           // Pro：旗舰 Pro 版，最高输出质量
+    GPT_5_4_MINI: "gpt-5.4-mini",         // Mini：日常任务性价比最佳
+    GPT_5_4_NANO: "gpt-5.4-nano",         // Nano：高频分类任务，最低成本
 
     // GPT-4o 系列（2024-2025年，稳定可用）
     GPT_4O: "gpt-4o",                     // 4o 最新版（alias，指向最新快照）
@@ -169,7 +170,14 @@ export const MODEL_METADATA: Record<string, ModelMeta> = {
     contextWindow: 1_000_000, maxOutput: 128_000,
     inputPricePerMTok: 2.5, outputPricePerMTok: 15.0,
     supportsVision: true, supportsExtendedThinking: false, latency: "fast",
-    recommended_for: ["agentic_tasks", "coding", "professional_workflows"],
+    recommended_for: ["deep_research", "complex_reasoning", "professional_workflows", "structured_json"],
+  },
+  "gpt-5.4-pro": {
+    id: "gpt-5.4-pro", provider: "openai", displayName: "GPT-5.4 Pro",
+    contextWindow: 1_000_000, maxOutput: 128_000,
+    inputPricePerMTok: 5.0, outputPricePerMTok: 25.0,
+    supportsVision: true, supportsExtendedThinking: false, latency: "moderate",
+    recommended_for: ["highest_quality_output", "critical_analysis", "premium_research"],
   },
   "gpt-5.4-mini": {
     id: "gpt-5.4-mini", provider: "openai", displayName: "GPT-5.4 Mini",

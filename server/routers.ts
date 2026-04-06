@@ -4156,6 +4156,7 @@ export const appRouter = router({
       return {
         openaiApiKey: config?.openaiApiKey ? "•".repeat(8) + config.openaiApiKey.slice(-4) : "",
         openaiModel: config?.openaiModel ?? DEFAULT_MODEL,
+        gptModel: (config as any)?.gptModel ?? config?.openaiModel ?? "gpt-5.4",
         hasApiKey: !!config?.openaiApiKey,
         manusSystemPrompt: config?.manusSystemPrompt ?? "",
         userCoreRules: config?.userCoreRules ?? "",
@@ -4200,6 +4201,7 @@ export const appRouter = router({
       .input(z.object({
         openaiApiKey: z.string().max(256).optional(),
         openaiModel: z.string().max(128).optional(),
+        gptModel: z.string().max(128).optional(),  // GPT 模型选择（gpt-5.4 / gpt-5.4-pro / gpt-5.4-mini / gpt-5.4-nano）
         manusSystemPrompt: z.string().max(8000).optional(),
         userCoreRules: z.string().max(10000).optional().nullable(),
         // 三部分守则
@@ -4268,7 +4270,8 @@ export const appRouter = router({
         await requireAccess(ctx.user.id, ctx.user.openId);
         await upsertRpaConfig(ctx.user.id, {
           openaiApiKey: input.openaiApiKey,
-          openaiModel: input.openaiModel,
+          openaiModel: input.openaiModel ?? input.gptModel,  // 兼容旧字段
+          gptModel: input.gptModel ?? input.openaiModel,
           manusSystemPrompt: input.manusSystemPrompt,
           userCoreRules: input.userCoreRules,
           // 三部分守则

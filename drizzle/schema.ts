@@ -136,8 +136,10 @@ export const rpaConfigs = mysqlTable("rpa_configs", {
   userId: int("userId").notNull().unique(),
   // OpenAI API Key
   openaiApiKey: varchar("openaiApiKey", { length: 256 }),
-  // 使用的模型（默认 gpt-4o-mini）
-  openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-4o-mini"),
+  // 使用的模型（默认 gpt-5.4）
+  openaiModel: varchar("openaiModel", { length: 128 }).default("gpt-5.4"),
+  // GPT 模型选择（用户在设置页可选：gpt-5.4 / gpt-5.4-pro / gpt-5.4-mini / gpt-5.4-nano）
+  gptModel: varchar("gptModel", { length: 128 }).default("gpt-5.4"),
   // Manus 底层指令（用户已训练好的系统提示词）
   manusSystemPrompt: text("manusSystemPrompt"),
   // 第一部分：投资守则（用户投资喜好、理念、个人情况）

@@ -3,7 +3,7 @@
  * 直接通过 OpenAI API 调用 GPT 模型，无需浏览器或 RPA
  */
 
-export const DEFAULT_MODEL = "gpt-4o-mini";
+export const DEFAULT_MODEL = "gpt-5.4-mini";  // 升级到 gpt-5.4-mini（2026-03 最新，性价比最佳）
 
 export interface OpenAIMessage {
   role: "system" | "user" | "assistant";

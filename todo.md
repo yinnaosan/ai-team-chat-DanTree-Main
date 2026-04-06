@@ -3056,3 +3056,11 @@
 - [ ] 前端：FileCard 组件 processing->ready
 - [ ] useDiscussion.ts：attachFile 升级
 - [ ] fileContext 注入 sendMessage
+
+## GPT 模型升级 — gpt-5.4 系列接入 + 用户设置页选择器
+- [x] llmProviders.ts：写入 gpt-5.4 / gpt-5.4-pro / gpt-5.4-mini / gpt-5.4-nano 四个模型（含元数据）
+- [x] model_router.ts：PRODUCTION_MODEL_MAP 中 GPT 任务默认改为 gpt-5.4
+- [x] llm.ts：invokeLLM defaultModel 改为 gpt-5.4
+- [x] DB：rpaConfigs 表新增 gptModel 字段（默认 gpt-5.4）
+- [x] 后端 routers.ts：getConfig 返回 gptModel，setConfig 写入 gptModel
+- [x] 设置页面：AI 模型 Tab 新增 GPT 模型选择器（四个选项 + 说明）

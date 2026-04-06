@@ -90,7 +90,7 @@ export async function checkGPTHealth(): Promise<{ ok: boolean; latency_ms: numbe
   const start = Date.now();
   try {
     await invokeGPT({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-nano",  // 使用 nano 进行健康检测，成本最低
       messages: [{ role: "user", content: "ping" }],
       maxTokens: 10,
     });

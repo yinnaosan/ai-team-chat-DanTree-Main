@@ -155,8 +155,8 @@ export const PRODUCTION_ROUTING_MAP: Record<TaskType, ProviderTarget> = {
   summarization: "anthropic",  // Claude — 长文压缩最佳
   // DanTree 专用类型
   deep_research:   "anthropic",  // Claude Opus — 最强推理
-  structured_json: "openai",     // GPT-4o — 结构化输出稳定
-  step_analysis:   "openai",     // GPT-4o — Step 分析
+  structured_json: "openai",     // GPT-5.4 — 结构化输出
+  step_analysis:   "openai",     // GPT-5.4 — Step 分析
   classification:  "anthropic",  // Claude Haiku — 最快最便宜
   code_analysis:   "anthropic",  // Claude Sonnet — 代码理解
   agent_task:      "anthropic",  // Claude Opus — Agent 规划
@@ -171,8 +171,8 @@ const PRODUCTION_MODEL_MAP: Record<TaskType, Record<ProviderTarget, string>> = {
   execution:     { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_5_4 },
   summarization: { anthropic: MODELS.ANTHROPIC.HAIKU_4_5,   openai: MODELS.OPENAI.GPT_5_4_MINI },
   deep_research:   { anthropic: MODELS.ANTHROPIC.OPUS_4_6,    openai: MODELS.OPENAI.GPT_5_4 },
-  structured_json: { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_4O },
-  step_analysis:   { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_4O },
+  structured_json: { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_5_4 },
+  step_analysis:   { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_5_4 },
   classification:  { anthropic: MODELS.ANTHROPIC.HAIKU_4_5,   openai: MODELS.OPENAI.GPT_5_4_MINI },
   code_analysis:   { anthropic: MODELS.ANTHROPIC.SONNET_4_6,  openai: MODELS.OPENAI.GPT_5_4 },
   agent_task:      { anthropic: MODELS.ANTHROPIC.OPUS_4_6,    openai: MODELS.OPENAI.GPT_5_4 },

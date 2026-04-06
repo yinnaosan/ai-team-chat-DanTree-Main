@@ -274,6 +274,13 @@
       "when": 1775117412946,
       "tag": "0038_steep_the_enforcers",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1775476324443,
+      "tag": "0039_glossy_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

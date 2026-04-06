@@ -677,7 +677,7 @@ export default function Settings() {
   // OpenAI API 配置
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
+  const [selectedModel, setSelectedModel] = useState("gpt-5.4");  // 默认 gpt-5.4
   const [manusSystemPrompt, setManusSystemPrompt] = useState("");
   const [userCoreRules, setUserCoreRules] = useState("");
   // 三部分守则独立字段
@@ -764,7 +764,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (savedConfig) {
-      setSelectedModel(savedConfig.openaiModel || "gpt-4o-mini");
+      setSelectedModel((savedConfig as any).gptModel || savedConfig.openaiModel || "gpt-5.4");
       setManusSystemPrompt(savedConfig.manusSystemPrompt || "");
       setUserCoreRules(savedConfig.userCoreRules || "");
       setInvestmentRules((savedConfig as any).investmentRules || "");
@@ -972,10 +972,10 @@ export default function Settings() {
 - 每次任务开头声明：已遵守投资守则 ✓`;
 
   const MODELS = [
-    { value: "gpt-4o-mini", label: "GPT-4o mini", desc: "推荐 · 投资分析性价比最高", badge: "推荐" },
-    { value: "gpt-4o", label: "GPT-4o", desc: "强力模型 · 深度分析", badge: "强力" },
-    { value: "gpt-4-turbo", label: "GPT-4 Turbo", desc: "高性能 · 复杂任务", badge: "" },
-    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", desc: "最经济 · 快速响应", badge: "经济" },
+    { value: "gpt-5.4",      label: "GPT-5.4",       desc: "旗舰 · 最新最强，深度研究 / 复杂推理 / 专业工作流",    badge: "默认" },
+    { value: "gpt-5.4-pro",  label: "GPT-5.4 Pro",   desc: "Pro 版 · 最高输出质量，适合核心分析任务",   badge: "Pro" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini",  desc: "Mini · 日常任务性价比最佳，速度快成本低",  badge: "性价比" },
+    { value: "gpt-5.4-nano", label: "GPT-5.4 Nano",  desc: "Nano · 高频分类任务，成本最低",                badge: "经济" },
   ];
 
   return (
@@ -1069,7 +1069,7 @@ export default function Settings() {
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>
                   {hasApiKey
-                    ? `当前模型：${savedConfig?.openaiModel || "gpt-4o-mini"} · ${savedConfig?.openaiApiKey}`
+                    ? `当前模型：${(savedConfig as any)?.gptModel || savedConfig?.openaiModel || "gpt-5.4"} · ${savedConfig?.openaiApiKey}`
                     : "配置后，GPT 将作为主大脑主导每次投资分析任务"}
                 </p>
               </div>
@@ -1176,6 +1176,7 @@ export default function Settings() {
                     onClick={() => saveConfigMutation.mutate({
                       openaiApiKey: apiKeyInput.trim() || undefined,
                       openaiModel: selectedModel,
+                      gptModel: selectedModel,
                       manusSystemPrompt,
                     })}
                     disabled={saveConfigMutation.isPending}

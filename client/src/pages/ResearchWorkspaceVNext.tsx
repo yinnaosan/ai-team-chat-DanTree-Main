@@ -19,7 +19,7 @@ import {
   ExternalLink, Shield, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { SessionRail, type SessionItem } from "@/components/SessionRail";
-import { DecisionHeader } from "@/components/DecisionHeader";
+import { DecisionHeader, type EntityCandidate } from "@/components/DecisionHeader";
 import { DecisionSpine } from "@/components/DecisionSpine";
 import { MarketAlertManager } from "@/components/MarketStatus";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
@@ -1151,13 +1151,25 @@ export default function ResearchWorkspacePage() {
               ? new Date(hvm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
               : lastAssistant ? fmtTime(lastAssistant.createdAt) : undefined
           }
-          onEntitySearch={() => {
-            const ticker = prompt("输入股票代码（如 AAPL、NVDA）:");
-            if (ticker?.trim()) {
-              const t = ticker.trim().toUpperCase();
-              setManualTicker(t);
-              handleSubmit(`深度分析 ${t}`);
+          entityCandidates={sessionList.map((s): EntityCandidate => ({
+            id: s.id,
+            ticker: s.focusKey || "—",
+            title: s.title,
+            sessionType: s.sessionType,
+          }))}
+          onSelectEntity={(candidate) => {
+            // 切换到已有 session（全页同步：WorkspaceContext 驱动 Header/Canvas/Insights/History）
+            const session = sessionList.find(s => s.id === candidate.id);
+            if (session) {
+              setSession(session);
+            } else {
+              setManualTicker(candidate.ticker);
             }
+          }}
+          onNewEntity={(ticker) => {
+            // 新 ticker：新建 session 并触发分析
+            setManualTicker(ticker);
+            handleSubmit(`深度分析 ${ticker}`);
           }}
         />
 

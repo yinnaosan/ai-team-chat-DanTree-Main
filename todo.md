@@ -2969,3 +2969,16 @@
 - [x] 回归测试通过（2040 个测试通过）
 - [x] 截图验证完成
 - [x] 保存检查点并输出反馈包
+
+## P1-3 DecisionHeader 搜索升级（基于 P1-2 版 f1acb64c）
+- [x] 分析 DecisionHeader 当前 prompt() 实现和 WorkspaceContext 数据流
+- [x] 实现内联 Combobox 搜索下拉框（Popover + cmdk Command）
+- [x] 候选数据来源：sessionList（WorkspaceContext）focusKey / title
+- [x] 选中已有 session：setSession() 全页同步（Header/Canvas/Insights/History）
+- [x] 输入新 ticker：setManualTicker + handleSubmit 新建 session
+- [x] 键盘交互：↑/↓ 导航 + Enter 确认 + Esc 关闭（cmdk 原生支持）
+- [x] 零 CSS 破坏，v8 视觉锁定不变
+- [x] TSC 验证 0 errors
+- [x] 回归测试通过（2039 个测试通过）
+- [x] 截图验证（关闭状态/展开状态/候选列表/新 ticker 入口）
+- [x] 保存检查点并输出完整反馈包

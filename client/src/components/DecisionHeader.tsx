@@ -4,15 +4,29 @@
  * Global Top Bar / Decision Control Strip
  * 驾驶舱全局控制条：一抬头看到最重要状态
  * 不是行情栏，不是 navbar，是 decision-first 的全局状态条
+ *
+ * P1-3: 实体搜索升级 — prompt() → 内联 Combobox (Popover + cmdk)
  */
-import React from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Leaf, TrendingUp, TrendingDown, Minus, Zap, AlertTriangle,
-  Activity, Clock, Search, Shield, ChevronDown,
+  Activity, Clock, Search, ChevronDown,
 } from "lucide-react";
+import {
+  Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup,
+} from "@/components/ui/command";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 // ─── Compat type exports (旧 ResearchWorkspace.tsx 依赖) ─────────────────────
 export type ScrollToSection = "thesis" | "timing" | "alert" | "history";
+
+/** 候选 ticker 条目（来自 WorkspaceContext sessionList） */
+export interface EntityCandidate {
+  id: string;
+  ticker: string;
+  title: string;
+  sessionType?: string;
+}
 
 export interface DecisionHeaderProps {
   // ─── Compat fields (旧 ResearchWorkspace.tsx 依赖) ───
@@ -28,6 +42,13 @@ export interface DecisionHeaderProps {
   highestAlertSeverity?: "low" | "medium" | "high" | "critical" | null;
   gateState?: "pass" | "block" | "fallback";
   lastUpdated?: string;
+  /** P1-3: 候选 entity 列表（来自 WorkspaceContext sessionList） */
+  entityCandidates?: EntityCandidate[];
+  /** P1-3: 选中候选后的回调（传入选中的 candidate） */
+  onSelectEntity?: (candidate: EntityCandidate) => void;
+  /** P1-3: 用户输入新 ticker 并确认（不在候选列表中） */
+  onNewEntity?: (ticker: string) => void;
+  /** 兼容旧接口（已废弃，P1-3 后不再使用） */
   onEntitySearch?: () => void;
 }
 
@@ -57,43 +78,71 @@ const MARKER_LABEL: Record<string, { label: string; color: string }> = {
   unknown:       { label: "—",        color: "#374151" },
 };
 
-export function DecisionHeader({
-  entity, stance = "unavailable", confidence = null,
-  changeMarker = "unknown", alertCount = 0,
-  highestAlertSeverity = null, gateState = "fallback",
-  lastUpdated, onEntitySearch,
-}: DecisionHeaderProps) {
-  const st = STANCE[stance] ?? STANCE.unavailable;
-  const gt = GATE_LABEL[gateState] ?? GATE_LABEL.fallback;
-  const mk = MARKER_LABEL[changeMarker] ?? MARKER_LABEL.unknown;
-  const { Icon: StIcon } = st;
+// ─── EntityCombobox: 内联搜索下拉框 ──────────────────────────────────────────
+
+interface EntityComboboxProps {
+  entity?: string;
+  candidates: EntityCandidate[];
+  onSelect: (candidate: EntityCandidate) => void;
+  onNew: (ticker: string) => void;
+}
+
+function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 打开时聚焦输入框
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setQuery("");
+    }
+  }, [open]);
+
+  // 过滤候选：ticker 或 title 包含 query（不区分大小写）
+  const filtered = useMemo(() => {
+    if (!query.trim()) return candidates;
+    const q = query.trim().toUpperCase();
+    return candidates.filter(c =>
+      c.ticker.toUpperCase().includes(q) ||
+      c.title.toUpperCase().includes(q)
+    );
+  }, [candidates, query]);
+
+  // 判断当前输入是否是新 ticker（不在候选列表中）
+  const isNewTicker = query.trim().length > 0 &&
+    !candidates.some(c => c.ticker.toUpperCase() === query.trim().toUpperCase());
+
+  const handleSelect = (candidate: EntityCandidate) => {
+    onSelect(candidate);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleNewTicker = () => {
+    const t = query.trim().toUpperCase();
+    if (t) {
+      onNew(t);
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  // Esc 关闭
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
 
   return (
-    <header style={{
-      height: 56, flexShrink: 0, width: "100%",
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "0 22px",
-      background: "rgba(3,4,7,1.00)",
-      backdropFilter: "blur(28px)",
-      WebkitBackdropFilter: "blur(28px)",
-      borderBottom: "1px solid rgba(255,255,255,0.12)",
-      boxShadow: "0 1px 0 rgba(255,255,255,0.07), 0 6px 32px rgba(0,0,0,0.85)",
-      position: "sticky", top: 0, zIndex: 50,
-    }}>
-
-      {/* ── Left: Brand + Entity Selector ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <Leaf size={14} color="rgba(52,211,153,0.85)" />
-          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.82)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
-            DanTree
-          </span>
-        </div>
-
-        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
-
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {/* 触发按钮：与原有 entity 胶囊视觉完全一致 */}
         <button
-          onClick={onEntitySearch}
           style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "5px 14px 5px 10px", borderRadius: 8,
@@ -127,6 +176,219 @@ export function DecisionHeader({
             </>
           )}
         </button>
+      </PopoverTrigger>
+
+      {/* 下拉候选面板：v8 视觉语言，不破坏边框/颜色/圆角体系 */}
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        style={{
+          width: 280, padding: 0,
+          background: "rgba(8,10,14,0.97)",
+          border: "1px solid rgba(52,211,153,0.22)",
+          borderRadius: 10,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.85), 0 0 20px rgba(52,211,153,0.08)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          overflow: "hidden",
+        }}
+        className="p-0"
+        onKeyDown={handleKeyDown}
+      >
+        <Command shouldFilter={false} style={{ background: "transparent" }}>
+          {/* 搜索输入框 */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 12px",
+            borderBottom: "1px solid rgba(255,255,255,0.07)",
+          }}>
+            <Search size={12} color="rgba(52,211,153,0.55)" style={{ flexShrink: 0 }} />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Escape") { setOpen(false); setQuery(""); }
+                if (e.key === "Enter" && isNewTicker) handleNewTicker();
+              }}
+              placeholder="输入股票代码或名称..."
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                fontSize: 12, color: "rgba(237,237,239,0.9)",
+                fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                caretColor: "#34d399",
+              }}
+            />
+          </div>
+
+          <CommandList style={{ maxHeight: 240, overflowY: "auto" }}>
+            {/* 候选列表 */}
+            {filtered.length > 0 && (
+              <CommandGroup>
+                {filtered.map(c => (
+                  <CommandItem
+                    key={c.id}
+                    value={c.ticker}
+                    onSelect={() => handleSelect(c)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 12px", cursor: "pointer",
+                      borderRadius: 0,
+                    }}
+                    className="hover:bg-[rgba(52,211,153,0.07)] data-[selected=true]:bg-[rgba(52,211,153,0.07)]"
+                  >
+                    <div style={{
+                      width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+                      background: c.ticker === entity ? "rgba(52,211,153,0.20)" : "rgba(255,255,255,0.06)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 800,
+                        color: c.ticker === entity ? "#34d399" : "rgba(255,255,255,0.55)",
+                      }}>
+                        {c.ticker[0]}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 12, fontWeight: 700,
+                        color: c.ticker === entity ? "#34d399" : "rgba(237,237,239,0.9)",
+                        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                        letterSpacing: "0.03em",
+                      }}>
+                        {c.ticker}
+                      </div>
+                      <div style={{
+                        fontSize: 10, color: "rgba(255,255,255,0.35)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {c.title}
+                      </div>
+                    </div>
+                    {c.ticker === entity && (
+                      <div style={{
+                        width: 5, height: 5, borderRadius: "50%",
+                        background: "#34d399", flexShrink: 0,
+                      }} />
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {/* 新 ticker 快捷入口 */}
+            {isNewTicker && (
+              <CommandGroup>
+                <CommandItem
+                  value={`__new__${query}`}
+                  onSelect={handleNewTicker}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 12px", cursor: "pointer",
+                  }}
+                  className="hover:bg-[rgba(52,211,153,0.07)] data-[selected=true]:bg-[rgba(52,211,153,0.07)]"
+                >
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+                    background: "rgba(52,211,153,0.12)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Search size={10} color="#34d399" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+                      分析 {query.trim().toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+                      新建研究会话
+                    </div>
+                  </div>
+                </CommandItem>
+              </CommandGroup>
+            )}
+
+            {/* 空态 */}
+            {filtered.length === 0 && !isNewTicker && (
+              <CommandEmpty>
+                <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+                  暂无匹配的研究标的
+                </div>
+              </CommandEmpty>
+            )}
+          </CommandList>
+
+          {/* 底部提示 */}
+          <div style={{
+            padding: "6px 12px",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.20)", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+              ↑↓ 导航 · Enter 确认 · Esc 关闭
+            </span>
+          </div>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── DecisionHeader ───────────────────────────────────────────────────────────
+
+export function DecisionHeader({
+  entity, stance = "unavailable", confidence = null,
+  changeMarker = "unknown", alertCount = 0,
+  highestAlertSeverity = null, gateState = "fallback",
+  lastUpdated,
+  entityCandidates = [],
+  onSelectEntity,
+  onNewEntity,
+  onEntitySearch, // 兼容旧接口，不再使用
+}: DecisionHeaderProps) {
+  const st = STANCE[stance] ?? STANCE.unavailable;
+  const gt = GATE_LABEL[gateState] ?? GATE_LABEL.fallback;
+  const mk = MARKER_LABEL[changeMarker] ?? MARKER_LABEL.unknown;
+  const { Icon: StIcon } = st;
+
+  const handleSelect = (candidate: EntityCandidate) => {
+    onSelectEntity?.(candidate);
+  };
+
+  const handleNew = (ticker: string) => {
+    onNewEntity?.(ticker);
+  };
+
+  return (
+    <header style={{
+      height: 56, flexShrink: 0, width: "100%",
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "0 22px",
+      background: "rgba(3,4,7,1.00)",
+      backdropFilter: "blur(28px)",
+      WebkitBackdropFilter: "blur(28px)",
+      borderBottom: "1px solid rgba(255,255,255,0.12)",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.07), 0 6px 32px rgba(0,0,0,0.85)",
+      position: "sticky", top: 0, zIndex: 50,
+    }}>
+
+      {/* ── Left: Brand + Entity Combobox ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+          <Leaf size={14} color="rgba(52,211,153,0.85)" />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.82)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
+            DanTree
+          </span>
+        </div>
+
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+
+        {/* P1-3: 内联 Combobox 替换原 prompt() 按钮 */}
+        <EntityCombobox
+          entity={entity}
+          candidates={entityCandidates}
+          onSelect={handleSelect}
+          onNew={handleNew}
+        />
       </div>
 
       {/* ── Center: Decision State ── */}
@@ -212,7 +474,10 @@ export function DecisionHeader({
           </span>
         </div>
         <button
-          onClick={onEntitySearch}
+          onClick={() => {
+            // 更新按钮：触发 entity 重新分析（复用 onNewEntity 传入当前 entity）
+            if (entity) onNewEntity?.(entity);
+          }}
           style={{
             padding: "5px 14px", borderRadius: 7, cursor: "pointer",
             background: "rgba(255,255,255,0.04)",

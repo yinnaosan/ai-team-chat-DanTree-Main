@@ -3021,3 +3021,23 @@
 - [ ] 回归测试通过
 - [ ] 截图验证（默认状态/发送消息后/滚动底部状态）
 - [ ] 保存检查点并输出完整反馈包
+
+## Discussion v1 VNext 接入（基于 002d70d3）
+- [ ] 分析 ResearchWorkspaceVNext.tsx 当前旧 discussion 逻辑
+- [ ] 接入 useSessionManager（替换旧 session 管理）
+- [ ] 接入 useDiscussion（替换旧消息发送/渲染/滚动）
+- [ ] visibleMessages 接管消息流渲染
+- [ ] scrollContainerRef / bottomRef / handleScroll 接入真实 DOM
+- [ ] 删除旧 discussion 双路径，确保单一主路径
+- [ ] currentSession / currentTicker 保持单一真源
+- [ ] TSC 0 errors
+- [ ] 回归测试通过
+- [ ] 4 张截图验证
+- [ ] 保存检查点并输出完整反馈包
+
+## 3D 悬浮小球组件（ManusOrb）
+- [ ] 实现 Manus 风格蓝色渐变 3D 球体（CSS radial-gradient + box-shadow）
+- [ ] AI 处理任务时显示呼吸动画（scale + opacity pulse）
+- [ ] 悬浮光晕效果（多层 box-shadow glow）
+- [ ] 集成到 ResearchWorkspaceVNext Discussion 区域（发送中状态显示）
+- [ ] TSC 验证

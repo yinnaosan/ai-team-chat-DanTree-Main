@@ -24,6 +24,8 @@ import { DecisionSpine } from "@/components/DecisionSpine";
 import { MarketAlertManager } from "@/components/MarketStatus";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { ManusOrb } from "@/components/ManusOrb";
+import { useDiscussion } from "@/hooks/useDiscussion";
 import type { AlertItem } from "@/components/AlertBlock";
 import type { HistoryEntry } from "@/components/HistoryBlock";
 import type { SnapshotEntry } from "@/hooks/useWorkspaceViewModel";
@@ -155,6 +157,7 @@ function buildQuickPrompts(opts: {
 function DiscussionPanel({
   entity, sessionTitle, stance, readinessState, alertCount,
   messages, isStreaming, input, onInputChange, onSend, onQuickPrompt,
+  scrollContainerRef, bottomRef, onScroll,
 }: {
   entity?: string;
   sessionTitle?: string;
@@ -167,10 +170,19 @@ function DiscussionPanel({
   onInputChange: (v: string) => void;
   onSend: () => void;
   onQuickPrompt: (text: string) => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+  bottomRef?: React.RefObject<HTMLDivElement | null>;
+  onScroll?: () => void;
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const internalBottomRef = useRef<HTMLDivElement>(null);
+  const resolvedBottomRef = bottomRef ?? internalBottomRef;
   const [inputFocused, setInputFocused] = useState(false);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+  // Only use internal scroll if no external ref provided
+  useEffect(() => {
+    if (!scrollContainerRef) {
+      resolvedBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, scrollContainerRef, resolvedBottomRef]);
 
   // Dynamic quick prompts — memoized
   const quickPrompts = useMemo(() => buildQuickPrompts({ entity, stance, readinessState, alertCount, sessionTitle }),
@@ -236,7 +248,7 @@ function DiscussionPanel({
       </div>
 
       {/* Message stream */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div ref={scrollContainerRef} onScroll={onScroll} style={{ flex: 1, overflowY: "auto" }}>
         {messages.length === 0 && (
           <div style={{
             display: "flex", flexDirection: "column", alignItems: "center",
@@ -376,15 +388,13 @@ function DiscussionPanel({
 
           {isStreaming && (
             <div style={{ padding: "14px 18px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                <div style={{ width: 20, height: 20, borderRadius: 5, background: "rgba(52,211,153,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Sparkles size={10} color="rgba(52,211,153,0.80)" />
-                </div>
-                <Loader2 size={11} color="rgba(255,255,255,0.20)" className="animate-spin" />
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ManusOrb isActive size={36} />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>分析中...</span>
               </div>
             </div>
           )}
-          <div ref={bottomRef} />
+          <div ref={resolvedBottomRef} />
         </div>
       </div>
 
@@ -779,10 +789,12 @@ export default function ResearchWorkspacePage() {
   const { sessionList, currentSession, createSession, setSession } = useWorkspace();
 
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [convMessages, setConvMessages] = useState<Msg[]>([]);
+
+  // ── Discussion System v1 ───────────────────────────────────────────────────
+  const discussion = useDiscussion(activeConvId);
+  const { input, setInput, sending, isTyping, visibleMessages, lastAssistantMessage,
+    scrollContainerRef: discussionScrollRef, bottomRef: discussionBottomRef,
+    handleScroll: discussionHandleScroll, sendMessage: discussionSendMessage } = discussion;
 
   // currentTicker 优先从 WorkspaceContext 取，fallback 到消息推导
   const wsEntity = currentSession?.focusKey ?? "";
@@ -798,6 +810,8 @@ export default function ResearchWorkspacePage() {
 
   const { data: allConversations, refetch: refetchConvs } =
     trpc.chat.listConversations.useQuery(undefined, { enabled: isAuthenticated, refetchInterval: 30000 });
+
+  // Removed: old convMessages/sending/isTyping state — now managed by useDiscussion
 
   const { data: quoteData } = trpc.market.getQuote.useQuery(
     { symbol: currentTicker }, { enabled: !!currentTicker, refetchInterval: 60000 }
@@ -822,38 +836,12 @@ export default function ResearchWorkspacePage() {
     { enabled: peerSymbolsInput.length > 0, refetchInterval: 60000 }
   );
 
-  const { data: rawConvMsgs } = trpc.chat.getConversationMessages.useQuery(
-    { conversationId: activeConvId! }, { enabled: !!activeConvId }
-  );
-
   const createConvMutation = trpc.chat.createConversation.useMutation({
     onSuccess: (conv) => { setActiveConvId(conv.id); refetchConvs(); },
   });
 
-  const submitMutation = trpc.chat.submitTask.useMutation({
-    onSuccess: (result) => {
-      setSending(false); setIsTyping(false);
-      if (result) {
-        setConvMessages(prev => [...prev, {
-          id: Date.now() + 1, role: "assistant" as const,
-          content: typeof result === "string" ? result : (result as any).content ?? "",
-          createdAt: new Date(), metadata: (result as any).metadata ?? null,
-        }]);
-        refetchConvs();
-      }
-    },
-    onError: (err) => { setSending(false); setIsTyping(false); toast.error(`分析失败：${err.message}`); },
-  });
-
-  useEffect(() => {
-    if (!rawConvMsgs) return;
-    if (activeConvId === prevConvIdRef.current && rawConvMsgs.length === convMessages.length) return;
-    prevConvIdRef.current = activeConvId;
-    setConvMessages((rawConvMsgs as any[]).map(m => ({
-      id: m.id, role: m.role as Msg["role"], content: m.content,
-      createdAt: new Date(m.createdAt), metadata: m.metadata ?? null,
-    })));
-  }, [rawConvMsgs, activeConvId]);
+  // Note: rawConvMsgs, submitMutation, convMessages, setSending, setIsTyping
+  // are now managed internally by useDiscussion — removed from VNext state
 
   useEffect(() => {
     if (!activeConvId && allConversations?.length) {
@@ -877,25 +865,15 @@ export default function ResearchWorkspacePage() {
   // 从消息推导 ticker（仅在 workspace 无 entity 时生效）
   useEffect(() => {
     if (wsEntity) return; // workspace entity 优先
-    const t = extractTicker(convMessages);
+    const t = extractTicker(visibleMessages);
     if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setManualTicker(t); }
-  }, [convMessages, wsEntity]);
+  }, [visibleMessages, wsEntity]);
 
   const handleSubmit = useCallback((text?: string) => {
-    const msg = (text ?? input).trim();
-    if (!msg || sending) return;
-    if (!text) setInput("");
-    setSending(true); setIsTyping(true);
-    setConvMessages(prev => [...prev, { id: Date.now(), role: "user" as const, content: msg, createdAt: new Date() }]);
-    submitMutation.mutate({ title: msg, conversationId: activeConvId ?? undefined });
-  }, [input, sending, activeConvId, submitMutation]);
+    discussionSendMessage(text);
+  }, [discussionSendMessage]);
 
-  const lastAssistant = useMemo(() => {
-    for (let i = convMessages.length - 1; i >= 0; i--)
-      if (convMessages[i].role === "assistant") return convMessages[i];
-    return null;
-  }, [convMessages]);
-
+  const lastAssistant = lastAssistantMessage;
   const answerObject = lastAssistant?.metadata?.answerObject;
 
   // ── useWorkspaceViewModel: 真实市场决策数据层 ─────────────────────────────
@@ -948,9 +926,9 @@ export default function ResearchWorkspacePage() {
     });
   }, [sessionList, allConversations, activeConvId, stance, currentSession?.id, hvm.stance, avm.alertCount]);
 
-  // Discussion messages
+  // Discussion messages — driven by useDiscussion.visibleMessages
   const discussionMsgs = useMemo<DiscussionMsg[]>(() =>
-    convMessages.filter(m => m.role !== "system").slice(-40).map(m => ({
+    visibleMessages.slice(-40).map(m => ({
       id: String(m.id),
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -958,7 +936,7 @@ export default function ResearchWorkspacePage() {
       keyPoints: m.metadata?.answerObject?.key_points
         ?? (m.role === "assistant" ? m.metadata?.answerObject?.bull_case?.slice(0, 3) : undefined),
       suggestedNext: m.metadata?.answerObject?.suggested_next,
-    })), [convMessages]);
+    })), [visibleMessages]);
 
   // S3-B: Insights 真实数据接入
   // ── AnalystData: 优先真实 Finnhub 数据，fallback undefined 静默降级 ──
@@ -1206,7 +1184,7 @@ export default function ResearchWorkspacePage() {
                 setSession(wsSession);
               } else {
                 setActiveConvId(Number(id));
-                setConvMessages([]);
+                // visibleMessages 由 useDiscussion(activeConvId) 自动重置
               }
             }}
             onNewSession={() => {
@@ -1455,11 +1433,10 @@ export default function ResearchWorkspacePage() {
             input={input}
             onInputChange={setInput}
             onSend={() => handleSubmit()}
-            onQuickPrompt={(text) => {
-              // 同步 session 上下文后发送
-              setInput("");
-              handleSubmit(text);
-            }}
+            onQuickPrompt={(text) => handleSubmit(text)}
+            scrollContainerRef={discussionScrollRef}
+            bottomRef={discussionBottomRef}
+            onScroll={discussionHandleScroll}
           />
 
           {/* Col 4: Insights Rail — NOW/MONITOR/RELATED/KEY LEVELS */}

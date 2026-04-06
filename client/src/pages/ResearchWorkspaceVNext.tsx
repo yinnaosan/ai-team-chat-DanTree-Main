@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   Loader2, Send, Sparkles, User, Users, ArrowRight, MoreHorizontal,
   CheckCircle2, Zap, AlertCircle, Calendar, BarChart3, Target,
-  ExternalLink, Shield,
+  ExternalLink, Shield, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { SessionRail, type SessionItem } from "@/components/SessionRail";
 import { DecisionHeader } from "@/components/DecisionHeader";
@@ -453,9 +453,11 @@ interface RelatedTicker {
 
 interface QuoteData {
   price?: number;
+  change?: number;
   changePercent?: number;
   high?: number;
   low?: number;
+  volume?: number;
   pe?: number;
   pb?: number;
   entryZone?: string;
@@ -971,59 +973,6 @@ export default function ResearchWorkspacePage() {
     };
   }, [analystRecs]);
 
-  // ── NOW items: 优先真实 analyst 共识，fallback answerObject bull_case ──
-  const nowItems = useMemo<InsightItem[]>(() => {
-    const items: InsightItem[] = [];
-    // 真实数据： analyst 共识强烈多头时展示
-    if (analystData && analystData.total > 0) {
-      const buyPct = Math.round((analystData.buy / analystData.total) * 100);
-      if (buyPct >= 55) {
-        items.push({
-          icon: CheckCircle2,
-          text: `${buyPct}% 分析师评级为 Buy，共识强烈多头`,
-          sub: `共 ${analystData.total} 位分析师 · ${analystData.period}`,
-          bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
-        });
-      }
-    }
-    // fallback: answerObject bull_case
-    if (items.length === 0 && answerObject?.bull_case?.[0]) {
-      items.push({
-        icon: CheckCircle2, text: answerObject.bull_case[0],
-        sub: "多头证据（AI推导）", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
-      });
-    }
-    if (answerObject?.reasoning?.[0]) {
-      items.push({
-        icon: Zap, text: answerObject.reasoning[0],
-        sub: "推理依据", bg: "rgba(251,191,36,0.06)", iconColor: "#f59e0b",
-      });
-    }
-    return items;
-  }, [analystData, answerObject]);
-
-  // ── MONITOR items: 优先真实 analyst 恶化趋势，fallback answerObject risks ──
-  const monitorItems = useMemo<InsightItem[]>(() => {
-    const items: InsightItem[] = [];
-    // 真实数据： analyst 评级在恶化时展示警示
-    if (analystData && analystData.trend === "deteriorating") {
-      const sellPct = Math.round((analystData.sell / analystData.total) * 100);
-      items.push({
-        icon: AlertCircle,
-        text: `分析师评级在恶化，Sell 占比 ${sellPct}%`,
-        sub: `与上期相比多头比例下降`,
-        bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
-      });
-    }
-    // fallback: answerObject risks
-    const riskItems = (answerObject?.risks ?? []).slice(0, items.length >= 1 ? 1 : 2).map(r => ({
-      icon: AlertCircle, text: r.description,
-      sub: `风险 · ${r.magnitude ?? "medium"}（AI推导）`,
-      bg: "rgba(255,255,255,0.02)", iconColor: "rgba(251,191,36,0.60)",
-    }));
-    return [...items, ...riskItems];
-  }, [analystData, answerObject]);
-
   // S5-D: RELATED tickers 展示数据（从 Finnhub peers + batchQuotes 推导）
   const relatedTickers = useMemo<RelatedTicker[]>(() => {
     if (!peerQuotes || peerQuotes.length === 0) return [];
@@ -1040,18 +989,118 @@ export default function ResearchWorkspacePage() {
       });
   }, [peerQuotes]);
 
-  // ── QuoteData: 扩充真实行情字段（high/low/pe/pb） ──
+  // ── QuoteData: 扩充真实行情字段（price/change/changePercent/high/low/volume/pe/pb） ──
   const mappedQuote = useMemo<QuoteData | undefined>(() => {
     if (!quoteData) return undefined;
     return {
       price: quoteData.price as number | undefined,
+      change: (quoteData as any).change as number | undefined,
       changePercent: quoteData.changePercent as number | undefined,
       high: (quoteData as any).high as number | undefined,
       low: (quoteData as any).low as number | undefined,
+      volume: (quoteData as any).volume as number | undefined,
       pe: (quoteData as any).pe as number | undefined,
       pb: (quoteData as any).pb as number | undefined,
     };
   }, [quoteData]);
+
+  // ── NOW items: 真实价格状态 + analyst 共识，fallback answerObject bull_case ──
+  const nowItems = useMemo<InsightItem[]>(() => {
+    const items: InsightItem[] = [];
+
+    // 真实数据 1：当前价格状态（mappedQuote.price / changePercent）
+    if (mappedQuote?.price != null) {
+      const pct = mappedQuote.changePercent ?? 0;
+      const chg = mappedQuote.change ?? 0;
+      const sign = pct >= 0 ? "+" : "";
+      const isUp = pct >= 0;
+      items.push({
+        icon: isUp ? TrendingUp : TrendingDown,
+        text: `$${mappedQuote.price.toFixed(2)}  ${sign}${pct.toFixed(2)}%`,
+        sub: `今日变动 ${sign}$${Math.abs(chg).toFixed(2)} · 实时行情`,
+        bg: isUp ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.05)",
+        iconColor: isUp ? "#10b981" : "#f87171",
+      });
+    }
+
+    // 真实数据 2：analyst 共识强烈多头时展示
+    if (analystData && analystData.total > 0) {
+      const buyPct = Math.round((analystData.buy / analystData.total) * 100);
+      if (buyPct >= 55) {
+        items.push({
+          icon: CheckCircle2,
+          text: `${buyPct}% 分析师评级为 Buy，共识强烈多头`,
+          sub: `共 ${analystData.total} 位分析师 · ${analystData.period}`,
+          bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
+        });
+      }
+    }
+
+    // fallback: answerObject bull_case（仅在无真实价格数据时补充）
+    if (items.length === 0 && answerObject?.bull_case?.[0]) {
+      items.push({
+        icon: CheckCircle2, text: answerObject.bull_case[0],
+        sub: "多头证据（AI推导）", bg: "rgba(16,185,129,0.07)", iconColor: "#10b981",
+      });
+    }
+    if (answerObject?.reasoning?.[0]) {
+      items.push({
+        icon: Zap, text: answerObject.reasoning[0],
+        sub: "推理依据", bg: "rgba(251,191,36,0.06)", iconColor: "#f59e0b",
+      });
+    }
+    return items;
+  }, [analystData, answerObject, mappedQuote]);
+
+  // ── MONITOR items: 真实价格监控 + analyst 恶化趋势，fallback answerObject risks ──
+  const monitorItems = useMemo<InsightItem[]>(() => {
+    const items: InsightItem[] = [];
+
+    // 真实数据 1：价格接近 52W 低点（< 5% 以内）时发出监控警示
+    if (mappedQuote?.price != null && mappedQuote?.low != null && mappedQuote.low > 0) {
+      const distFromLow = (mappedQuote.price - mappedQuote.low) / mappedQuote.low;
+      if (distFromLow < 0.05) {
+        items.push({
+          icon: AlertCircle,
+          text: `价格接近 52W 低点 $${mappedQuote.low.toFixed(2)}`,
+          sub: `距低点仅 ${(distFromLow * 100).toFixed(1)}%，注意支撑`,
+          bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
+        });
+      }
+    }
+
+    // 真实数据 2：当天振幅较大（> 3%）时提示波动监控
+    if (mappedQuote?.high != null && mappedQuote?.low != null && mappedQuote.low > 0) {
+      const dayRange = (mappedQuote.high - mappedQuote.low) / mappedQuote.low;
+      if (dayRange > 0.03 && items.length === 0) {
+        items.push({
+          icon: AlertCircle,
+          text: `今日振幅 ${(dayRange * 100).toFixed(1)}%，日内波动较大`,
+          sub: `日高 $${mappedQuote.high.toFixed(2)} · 日低 $${mappedQuote.low.toFixed(2)}`,
+          bg: "rgba(251,191,36,0.05)", iconColor: "rgba(251,191,36,0.65)",
+        });
+      }
+    }
+
+    // 真实数据 3：analyst 评级在恶化时展示警示
+    if (analystData && analystData.trend === "deteriorating") {
+      const sellPct = Math.round((analystData.sell / analystData.total) * 100);
+      items.push({
+        icon: AlertCircle,
+        text: `分析师评级在恶化，Sell 占比 ${sellPct}%`,
+        sub: `与上期相比多头比例下降`,
+        bg: "rgba(239,68,68,0.05)", iconColor: "rgba(239,68,68,0.65)",
+      });
+    }
+
+    // fallback: answerObject risks（仅在无真实监控信号时补充）
+    const riskItems = (answerObject?.risks ?? []).slice(0, items.length >= 1 ? 1 : 2).map(r => ({
+      icon: AlertCircle, text: r.description,
+      sub: `风险 · ${r.magnitude ?? "medium"}（AI推导）`,
+      bg: "rgba(255,255,255,0.02)", iconColor: "rgba(251,191,36,0.60)",
+    }));
+    return [...items, ...riskItems];
+  }, [analystData, answerObject, mappedQuote]);
 
   // Auth guards
   if (authLoading) return (

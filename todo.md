@@ -2946,3 +2946,15 @@
 - [x] 回归测试通过（2040 个测试通过）
 - [x] 截图验证同步性
 - [x] 保存检查点并输出反馈包
+
+## P1-1 InsightsRail 真实数据接线（基于 v8+P0 版 19f60863）
+- [x] 分析 InsightsRail NOW/MONITOR/关键价位当前渲染结构和数据来源
+- [x] NOW 区块接入真实字段（price/change/changePercent/实时行情卡片）
+- [x] MONITOR 区块接入真实字段（52W低点接近警示/日内振幅警示/analyst恶化）
+- [x] 关键价位类展示接入 mappedQuote（price/change/changePercent/high/low/volume/pe/pb）
+- [x] 确保 currentTicker 切换时 InsightsRail 同步（WorkspaceContext 天然驱动）
+- [x] 零 CSS 改动，v8 视觉锁定不变
+- [x] TSC 验证 0 errors
+- [x] 回归测试通过（2037 个测试通过）
+- [x] 截图验证完成
+- [x] 保存检查点并输出反馈包

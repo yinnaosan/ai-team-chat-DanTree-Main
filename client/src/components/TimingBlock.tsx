@@ -75,13 +75,13 @@ export function TimingBlock({
 
   return (
     <section style={{
-      background: "rgba(8,10,16,0.88)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid rgba(255,255,255,0.10)",
-      borderTop: "1px solid rgba(255,255,255,0.16)",
-      borderRadius: 12, overflow: "hidden",
-      boxShadow: "0 8px 24px rgba(0,0,0,0.40), 0 1px 0 rgba(255,255,255,0.08) inset",
+      background: "rgba(10,12,18,0.92)",
+      backdropFilter: "blur(10px)",
+      WebkitBackdropFilter: "blur(10px)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderTop: "1px solid rgba(255,255,255,0.11)",
+      borderRadius: 10, overflow: "hidden",
+      boxShadow: "0 4px 16px rgba(0,0,0,0.55)",
     }}>
       {/* Header */}
       <button
@@ -94,8 +94,8 @@ export function TimingBlock({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Zap size={13} color="rgba(251,191,36,0.80)" />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.52)", textTransform: "uppercase" }}>
+          <Zap size={13} color="rgba(52,211,153,0.70)" />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(52,211,153,0.78)", textTransform: "uppercase" }}>
             Timing
           </span>
           <span style={{

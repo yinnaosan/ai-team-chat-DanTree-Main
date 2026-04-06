@@ -52,10 +52,10 @@ export function SessionRail({
   return (
     <aside style={{
       width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "rgba(3,4,7,0.92)",
+      background: "rgba(5,6,10,0.96)",
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
-      borderRight: "1px solid rgba(255,255,255,0.10)",
+      borderRight: "1px solid rgba(255,255,255,0.08)",
     }}>
 
       {/* Search + New */}
@@ -71,7 +71,7 @@ export function SessionRail({
                 width: "100%", height: 30, paddingLeft: 28, paddingRight: 8,
                 fontSize: 11, lineHeight: 1,
                 background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7,
+                border: "1px solid rgba(255,255,255,0.10)", borderRadius: 7,
                 color: "rgba(255,255,255,0.80)", outline: "none",
                 boxSizing: "border-box",
               }}
@@ -155,11 +155,11 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
         display: "flex", alignItems: "flex-start", gap: 8,
         padding: "8px 10px", borderRadius: 8, marginBottom: 1,
         cursor: "pointer", border: "none",
-        borderLeft: `3px solid ${isActive ? "rgba(52,211,153,0.95)" : "transparent"}`,
+        borderLeft: `3px solid ${isActive ? "rgba(52,211,153,1.0)" : "transparent"}`,
         background: isActive
-          ? "rgba(52,211,153,0.09)"
+          ? "rgba(52,211,153,0.10)"
           : hovered ? "rgba(255,255,255,0.04)" : "transparent",
-        boxShadow: isActive ? "inset 0 0 0 1px rgba(52,211,153,0.07)" : "none",
+        boxShadow: isActive ? "inset 0 0 0 1px rgba(52,211,153,0.10)" : "none",
         transition: "background 0.12s",
       }}
     >

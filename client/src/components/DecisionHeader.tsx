@@ -73,11 +73,11 @@ export function DecisionHeader({
       height: 52, flexShrink: 0, width: "100%",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "0 22px",
-      background: "rgba(3,4,7,0.96)",
+      background: "rgba(5,6,10,0.98)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
-      borderBottom: "1px solid rgba(255,255,255,0.10)",
-      boxShadow: "0 1px 0 rgba(255,255,255,0.06), 0 2px 12px rgba(0,0,0,0.5)",
+      borderBottom: "1px solid rgba(255,255,255,0.08)",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.05), 0 2px 16px rgba(0,0,0,0.6)",
       position: "sticky", top: 0, zIndex: 50,
     }}>
 
@@ -97,9 +97,9 @@ export function DecisionHeader({
           style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "5px 12px 5px 9px", borderRadius: 8,
-            background: entity ? "rgba(52,211,153,0.07)" : "rgba(255,255,255,0.04)",
-            border: entity ? "1px solid rgba(52,211,153,0.35)" : "1px solid rgba(255,255,255,0.10)",
-            boxShadow: entity ? "0 0 0 1px rgba(52,211,153,0.08), inset 0 1px 0 rgba(52,211,153,0.08)" : "none",
+            background: entity ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
+            border: entity ? "1px solid rgba(52,211,153,0.45)" : "1px solid rgba(255,255,255,0.10)",
+            boxShadow: entity ? "0 0 8px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.10)" : "none",
             cursor: "pointer",
           }}
         >
@@ -136,10 +136,10 @@ export function DecisionHeader({
           {/* Stance */}
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
-            padding: "4px 10px", borderRadius: 6,
+            padding: "4px 11px", borderRadius: 6,
             background: st.dim,
-            border: `1px solid ${st.color}38`,
-            boxShadow: `0 0 0 1px ${st.color}10`,
+            border: `1px solid ${st.color}50`,
+            boxShadow: `0 0 6px ${st.color}18`,
           }}>
             <StIcon size={12} color={st.color} />
             <span style={{ fontSize: 12, fontWeight: 700, color: st.color, letterSpacing: "0.02em" }}>

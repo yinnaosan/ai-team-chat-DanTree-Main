@@ -8,10 +8,11 @@
  * P1-3: 实体搜索升级 — prompt() → 内联 Combobox (Popover + cmdk)
  */
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
   Leaf, TrendingUp, TrendingDown, Minus, Zap, AlertTriangle,
-  Activity, Clock, Search, ChevronDown,
+  Activity, Clock, Search, ChevronDown, Settings,
 } from "lucide-react";
 import {
   Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup,
@@ -498,7 +499,7 @@ export function DecisionHeader({
         </div>
       )}
 
-      {/* ── Right: System Clock + Update ── */}
+      {/* ── Right: System Clock + Update + Settings ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <Clock size={10} color="rgba(255,255,255,0.25)" />
@@ -522,6 +523,32 @@ export function DecisionHeader({
         >
           更新
         </button>
+        {/* 设置入口按鈕 */}
+        <Link href="/settings">
+          <button
+            title="系统设置"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 30, height: 30, borderRadius: 7, cursor: "pointer",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.50)",
+              transition: "border-color 0.15s, color 0.15s, background 0.15s",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(52,211,153,0.50)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#34d399";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(52,211,153,0.06)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)";
+              (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.50)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+            }}
+          >
+            <Settings size={13} />
+          </button>
+        </Link>
       </div>
     </header>
   );

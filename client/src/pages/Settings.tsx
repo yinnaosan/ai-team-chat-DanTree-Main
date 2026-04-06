@@ -107,8 +107,8 @@ function DataSourceStatusPanel() {
         <div className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ background: statusColor(statusStr), boxShadow: statusStr === "active" ? `0 0 5px ${statusColor(statusStr)}` : "none" }} />
         <div className="min-w-0">
-          <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</span>
-          <span className="text-xs ml-1.5" style={{ color: "oklch(40% 0 0)" }}>{desc}</span>
+          <span className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.75)" }}>{label}</span>
+          <span className="text-xs ml-1.5" style={{ color: "rgba(226,232,240,0.35)" }}>{desc}</span>
         </div>
         {badge}
       </div>
@@ -120,11 +120,10 @@ function DataSourceStatusPanel() {
   );
 
   return (
-    <div className="p-4 rounded-2xl space-y-3"
-      style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
+    <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
       {/* 标题行 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Activity className="w-3.5 h-3.5" style={{ color: "oklch(60% 0.15 250)" }} />
           <span className="text-xs font-semibold" style={{ color: "oklch(0.80 0.005 270)" }}>实时数据源状态</span>
           {status && (
@@ -184,8 +183,8 @@ function DataSourceStatusPanel() {
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-2">
-          <Loader2 className="w-3 h-3 animate-spin" style={{ color: "oklch(42% 0 0)" }} />
-          <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>检测中...</span>
+          <Loader2 className="w-3 h-3 animate-spin" style={{ color: "rgba(226,232,240,0.38)" }} />
+          <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>检测中...</span>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -655,8 +654,8 @@ function DataSourceStatusPanel() {
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ background: "oklch(42% 0 0)" }} />
-              <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>网页搜索</span>
-              <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>已关闭（纯 API 模式）</span>
+              <span className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.75)" }}>网页搜索</span>
+              <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>已关闭（纯 API 模式）</span>
             </div>
             <span className="text-xs font-medium ml-2 flex-shrink-0 px-1.5 py-0.5 rounded"
               style={{ color: "oklch(42% 0 0)", background: "oklch(0.22 0.005 270)", border: "1px solid oklch(0.28 0.007 270)" }}>
@@ -980,155 +979,229 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bloomberg-surface-0)" }}>
-      {/* 顶部导航 — Bloomberg Terminal 风格 */}
-      <header className="flex items-center gap-3 px-5 py-3 shrink-0 sticky top-0 z-10"
-        style={{ background: "oklch(8.5% 0.015 240 / 0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--bloomberg-border-dim)" }}>
-        <button
-          onClick={() => navigate("/research")}
-          className="w-7 h-7 rounded flex items-center justify-center transition-all"
-          style={{ color: "var(--bloomberg-text-tertiary)", background: "var(--bloomberg-surface-2)", border: "1px solid var(--bloomberg-border-dim)" }}>
-          <ArrowLeft className="w-3.5 h-3.5" />
-        </button>
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-bold" style={{ color: "var(--bloomberg-text-primary)", fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.02em" }}>设置</h1>
-          <span className="bloomberg-badge gold">SYSTEM</span>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{
-              background: hasApiKey ? "oklch(68% 0.18 155 / 0.12)" : "oklch(100% 0 0 / 0.04)",
-              border: `1px solid ${hasApiKey ? "oklch(68% 0.18 155 / 0.30)" : "oklch(100% 0 0 / 0.08)"}`,
-              color: hasApiKey ? "oklch(68% 0.18 155)" : "oklch(40% 0 0)",
-            }}>
-            {hasApiKey
-              ? <><span className="w-1.5 h-1.5 rounded-full bg-current inline-block mr-1" />API 已配置</>
-              : <><Key className="w-3 h-3 mr-1" />API 未配置</>}
+      {/* 顶部导航 — 与 ResearchWorkspaceVNext 对齐 */}
+      <header
+        style={{
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          gap: 0,
+          padding: "0 12px",
+          background: "oklch(5.5% 0.004 240 / 0.97)",
+          backdropFilter: "blur(20px)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          flexShrink: 0,
+        }}
+      >
+        {/* Logo 区 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 168, paddingRight: 12, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ width: 22, height: 22, borderRadius: 6, background: "linear-gradient(135deg, #34d399 0%, #059669 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3L3 8.5V15.5L12 21L21 15.5V8.5L12 3Z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
           </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(226,232,240,0.92)", fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.02em" }}>DanTree</span>
+        </div>
+
+        {/* 中间：页面标题 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 16, flex: 1 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(226,232,240,0.55)", letterSpacing: "0.10em", textTransform: "uppercase" }}>SYSTEM</span>
+          <span style={{ width: 1, height: 12, background: "rgba(255,255,255,0.12)" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em" }}>设置</span>
+        </div>
+
+        {/* 右侧：API 状态 + 返回按钮 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "3px 10px", borderRadius: 5,
+            background: hasApiKey ? "rgba(52,211,153,0.08)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${hasApiKey ? "rgba(52,211,153,0.28)" : "rgba(255,255,255,0.10)"}`,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: hasApiKey ? "#34d399" : "rgba(255,255,255,0.20)", display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: 10, fontWeight: 600, color: hasApiKey ? "#34d399" : "rgba(255,255,255,0.35)", letterSpacing: "0.06em", fontFamily: "'IBM Plex Mono', monospace" }}>
+              {hasApiKey ? "API 已配置" : "API 未配置"}
+            </span>
+          </div>
+          <button
+            onClick={() => navigate("/research")}
+            title="返回工作台"
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(226,232,240,0.55)",
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(52,211,153,0.40)"; (e.currentTarget as HTMLButtonElement).style.color = "#34d399"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(226,232,240,0.55)"; }}
+          >
+            <ArrowLeft size={11} />
+            返回
+          </button>
         </div>
       </header>
 
       {/* 主体：左侧导航 + 右侧内容 */}
-      <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
-        {/* 左侧垂直导航栏 */}
-        <nav className="w-48 shrink-0 flex flex-col py-4 px-3 overflow-y-auto"
-          style={{ background: "oklch(7% 0.01 240)", borderRight: "1px solid var(--bloomberg-border-dim)" }}>
-          <div className="space-y-0.5">
+      <div style={{ display: "flex", height: "calc(100vh - 40px)" }}>
+        {/* 左侧垂直导航栏 — 宽度对齐工作台侧边栏 */}
+        <nav
+          style={{
+            width: 168,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            paddingTop: 12,
+            paddingBottom: 12,
+            overflowY: "auto",
+            background: "oklch(5.5% 0.004 240)",
+            borderRight: "1px solid rgba(255,255,255,0.07)",
+          }}
+        >
+          {/* Section 标签 */}
+          <div style={{ padding: "0 12px 6px", fontSize: 9, fontWeight: 700, color: "rgba(226,232,240,0.28)", letterSpacing: "0.12em", textTransform: "uppercase" }}>SYSTEM</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "0 6px" }}>
             {tabs.map(({ id, label, icon: Icon, badge, ownerOnly }) => {
               const isActive = activeTab === id;
               return (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all"
                   style={{
-                    background: isActive ? "oklch(0.72 0.18 75 / 0.12)" : "transparent",
-                    color: isActive ? "var(--bloomberg-gold)" : "var(--bloomberg-text-tertiary)",
-                    border: isActive ? "1px solid oklch(0.72 0.18 75 / 0.2)" : "1px solid transparent",
-                  }}>
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="text-xs font-medium truncate">{label}</span>
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "7px 10px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
+                    transition: "all 0.12s",
+                    background: isActive ? "rgba(52,211,153,0.08)" : "transparent",
+                    borderLeft: isActive ? "2px solid #34d399" : "2px solid transparent",
+                    color: isActive ? "#34d399" : "rgba(226,232,240,0.42)",
+                    paddingLeft: isActive ? 8 : 10,
+                  }}
+                  onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(226,232,240,0.72)"; } }}
+                  onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(226,232,240,0.42)"; } }}
+                >
+                  <Icon size={12} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: isActive ? 600 : 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
                   {badge && (
-                    <span className="ml-auto bloomberg-badge green text-[9px] px-1">{badge}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(52,211,153,0.15)", color: "#34d399", letterSpacing: "0.04em", flexShrink: 0 }}>{badge}</span>
                   )}
                   {ownerOnly && (
-                    <span className="ml-auto bloomberg-badge gold text-[9px] px-1">Owner</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(52,211,153,0.12)", color: "#34d399", letterSpacing: "0.04em", flexShrink: 0 }}>OWNER</span>
                   )}
                 </button>
               );
             })}
           </div>
           {/* 底部版本信息 */}
-          <div className="mt-auto pt-4 px-1">
-            <div className="text-[10px] leading-relaxed" style={{ color: "oklch(35% 0 0)" }}>
-              <div className="font-medium mb-0.5" style={{ color: "oklch(45% 0 0)" }}>AI Team Chat</div>
-              <div>Bloomberg Terminal</div>
+          <div style={{ marginTop: "auto", padding: "12px 16px 4px" }}>
+            <div style={{ fontSize: 9, color: "rgba(226,232,240,0.22)", letterSpacing: "0.08em", lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 700, marginBottom: 2, color: "rgba(226,232,240,0.32)" }}>DanTree</div>
+              <div>Terminal v2</div>
             </div>
           </div>
         </nav>
         {/* 右侧内容区 */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-6">
+        <div style={{ flex: 1, overflowY: "auto", background: "oklch(5.5% 0.004 240)" }}>
+          <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 28px" }}>
 
         {/* ── Tab: ChatGPT API 配置 ── */}
         {activeTab === "api" && (
-          <div className="space-y-5 animate-fade-in-up">
-            {/* 当前状态 — Apple 玻璃卡片 */}
-            <div className="p-4 rounded-2xl flex items-center gap-4 glass-card-v2"
-              style={{
-                borderColor: hasApiKey ? "oklch(68% 0.18 155 / 0.25)" : "oklch(100% 0 0 / 0.08)",
-              }}>
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 inner-glow"
-                style={{ background: hasApiKey ? "oklch(68% 0.18 155 / 0.15)" : "oklch(100% 0 0 / 0.06)" }}>
-                {hasApiKey
-                  ? <CheckCircle2 className="w-5 h-5" style={{ color: "oklch(68% 0.18 155)" }} />
-                  : <Key className="w-5 h-5" style={{ color: "oklch(42% 0 0)" }} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* 状态条 — Terminal 风格 */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 14px", borderRadius: 8,
+              background: hasApiKey ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${hasApiKey ? "rgba(52,211,153,0.22)" : "rgba(255,255,255,0.08)"}`,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: hasApiKey ? "#34d399" : "rgba(255,255,255,0.20)", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: hasApiKey ? "#34d399" : "rgba(226,232,240,0.55)", letterSpacing: "0.02em" }}>
                   {hasApiKey ? "OpenAI API Key 已配置" : "尚未配置 OpenAI API Key"}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(226,232,240,0.35)", marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
                   {hasApiKey
                     ? `当前模型：${(savedConfig as any)?.gptModel || savedConfig?.openaiModel || "gpt-5.4"} · ${savedConfig?.openaiApiKey}`
                     : "配置后，GPT 将作为主大脑主导每次投资分析任务"}
-                </p>
+                </div>
               </div>
             </div>
 
-            {/* API Key 输入 */}
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Key className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>OpenAI API Key</h2>
+            {/* API Key 输入 — Terminal 面板 */}
+            <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Section 标题 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <Key size={12} style={{ color: "#34d399", flexShrink: 0 }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em" }}>OpenAI API Key</span>
               </div>
-              <div className="p-5 rounded-2xl space-y-4 glass-card-v2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" style={{ color: "oklch(72% 0 0)" }}>
-                    API Key <span style={{ color: "oklch(42% 0 0)" }}>（格式：sk-proj-...）</span>
-                  </Label>
-                  <div className="relative">
+              <div style={{
+                padding: "16px 18px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                display: "flex", flexDirection: "column", gap: 14,
+              }}>
+                {/* Key 输入框 */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: "rgba(226,232,240,0.40)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    API KEY <span style={{ color: "rgba(226,232,240,0.22)", textTransform: "none", letterSpacing: 0 }}>（格式：sk-proj-...）</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
                     <Input
                       type={showApiKey ? "text" : "password"}
                       value={apiKeyInput}
                       onChange={(e) => { setApiKeyInput(e.target.value); setTestResult(null); }}
                       placeholder={hasApiKey ? "输入新 Key 以替换现有配置" : "sk-proj-..."}
-                      className="pr-10 text-sm font-mono"
-                      style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)" }}
+                      style={{
+                        paddingRight: 36, fontSize: 12,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        background: "rgba(255,255,255,0.04)",
+                        borderColor: "rgba(255,255,255,0.10)",
+                        color: "rgba(226,232,240,0.85)",
+                        borderRadius: 6, height: 34,
+                      }}
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: "oklch(40% 0 0)" }}>
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "rgba(226,232,240,0.30)", background: "none", border: "none", cursor: "pointer" }}>
+                      {showApiKey ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
                   </div>
-                  <p className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>
+                  <div style={{ fontSize: 10, color: "rgba(226,232,240,0.28)" }}>
                     前往{" "}
                     <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
-                      className="underline" style={{ color: "oklch(60% 0.15 250)" }}>
+                      style={{ color: "#34d399", textDecoration: "underline" }}>
                       platform.openai.com/api-keys
                     </a>{" "}
                     创建 API Key
-                  </p>
+                  </div>
                 </div>
 
                 {/* 模型选择 */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" style={{ color: "oklch(72% 0 0)" }}>选择模型</Label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: "rgba(226,232,240,0.40)", letterSpacing: "0.08em", textTransform: "uppercase" }}>选择模型</label>
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="text-sm"
-                      style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)" }}>
+                    <SelectTrigger style={{ fontSize: 12, background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.10)", color: "rgba(226,232,240,0.85)", borderRadius: 6, height: 34 }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent style={{ background: "oklch(100% 0 0 / 0.05)", borderColor: "oklch(100% 0 0 / 0.12)" }}>
+                    <SelectContent style={{ background: "oklch(8% 0.006 240)", borderColor: "rgba(255,255,255,0.12)" }}>
                       {MODELS.map((m) => (
                         <SelectItem key={m.value} value={m.value}>
-                          <div className="flex items-center gap-2">
-                            <span>{m.label}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12 }}>{m.label}</span>
                             {m.badge && (
-                              <span className="text-xs px-1.5 py-0.5 rounded-full"
-                                style={{ background: "oklch(0.72 0.18 250 / 0.15)", color: "oklch(60% 0.15 250)", fontSize: "10px" }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(52,211,153,0.15)", color: "#34d399", letterSpacing: "0.04em" }}>
                                 {m.badge}
                               </span>
                             )}
@@ -1137,42 +1210,49 @@ export default function Settings() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs" style={{ color: "var(--bloomberg-text-dim)" }}>
+                  <div style={{ fontSize: 10, color: "rgba(226,232,240,0.30)" }}>
                     {MODELS.find(m => m.value === selectedModel)?.desc}
-                  </p>
+                  </div>
                 </div>
 
                 {/* 测试结果 */}
                 {testResult && (
-                  <div className="px-3 py-2 rounded-lg text-xs flex items-center gap-2"
-                    style={{
-                      background: testResult.ok ? "oklch(68% 0.18 155 / 0.08)" : "oklch(55% 0.18 25 / 0.08)",
-                      border: `1px solid ${testResult.ok ? "oklch(68% 0.18 155 / 0.25)" : "oklch(55% 0.18 25 / 0.25)"}`,
-                      color: testResult.ok ? "oklch(68% 0.18 155)" : "oklch(70% 0.18 25)",
-                    }}>
+                  <div style={{
+                    padding: "8px 12px", borderRadius: 6, fontSize: 11,
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: testResult.ok ? "rgba(52,211,153,0.08)" : "rgba(239,68,68,0.08)",
+                    border: `1px solid ${testResult.ok ? "rgba(52,211,153,0.25)" : "rgba(239,68,68,0.25)"}`,
+                    color: testResult.ok ? "#34d399" : "#ef4444",
+                  }}>
                     {testResult.ok
-                      ? <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" />连接成功！{testResult.model} 已就绪</>
-                      : <><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{testResult.error || "连接失败，请检查 API Key"}</>}
+                      ? <><CheckCircle2 size={12} style={{ flexShrink: 0 }} />连接成功！{testResult.model} 已就绪</>
+                      : <><AlertTriangle size={12} style={{ flexShrink: 0 }} />{testResult.error || "连接失败，请检查 API Key"}</>}
                   </div>
                 )}
 
-                {/* 操作按钮 */}
-                <div className="flex gap-2">
-                  <Button
+                {/* 操作按鈕 */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
                     onClick={() => {
                       const key = apiKeyInput.trim();
                       if (!key) { toast.error("请先输入 API Key"); return; }
                       testConnectionMutation.mutate({ apiKey: key, model: selectedModel });
                     }}
                     disabled={testConnectionMutation.isPending || !apiKeyInput.trim()}
-                    variant="outline"
-                    className="flex-1 gap-2 text-sm"
-                    style={{ borderColor: "oklch(100% 0 0 / 0.12)", color: "oklch(72% 0 0)", background: "oklch(100% 0 0 / 0.05)" }}>
+                    style={{
+                      flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      padding: "7px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)",
+                      color: "rgba(226,232,240,0.65)",
+                      opacity: (testConnectionMutation.isPending || !apiKeyInput.trim()) ? 0.5 : 1,
+                      transition: "border-color 0.15s, color 0.15s",
+                    }}
+                  >
                     {testConnectionMutation.isPending
-                      ? <><Loader2 className="w-4 h-4 animate-spin" />测试中...</>
-                      : <><Zap className="w-4 h-4" />测试连接</>}
-                  </Button>
-                  <Button
+                      ? <><Loader2 size={12} className="animate-spin" />测试中...</>
+                      : <><Zap size={12} />测试连接</>}
+                  </button>
+                  <button
                     onClick={() => saveConfigMutation.mutate({
                       openaiApiKey: apiKeyInput.trim() || undefined,
                       openaiModel: selectedModel,
@@ -1180,21 +1260,28 @@ export default function Settings() {
                       manusSystemPrompt,
                     })}
                     disabled={saveConfigMutation.isPending}
-                    className="flex-1 gap-2 text-sm"
-                    style={{ background: "oklch(60% 0.15 250)", color: "var(--bloomberg-surface-0)" }}>
+                    style={{
+                      flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      padding: "7px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                      background: "#34d399", border: "none",
+                      color: "#030407",
+                      opacity: saveConfigMutation.isPending ? 0.7 : 1,
+                      transition: "opacity 0.15s",
+                    }}
+                  >
                     {saveConfigMutation.isPending
-                      ? <><Loader2 className="w-4 h-4 animate-spin" />保存中...</>
-                      : <><Save className="w-4 h-4" />保存配置</>}
-                  </Button>
+                      ? <><Loader2 size={12} className="animate-spin" />保存中...</>
+                      : <><Save size={12} />保存配置</>}
+                  </button>
                 </div>
               </div>
             </section>
 
             {/* 投资理念 & 任务守则（三部分独立 Tab） */}
             <section className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Brain className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>投资理念 & 任务守则</h2>
+                <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>投资理念 & 任务守则</h2>
                 <span className="ml-auto text-xs px-2 py-0.5 rounded-full"
                   style={{ background: "oklch(0.65 0.18 25 / 0.15)", color: "oklch(70% 0.18 25)", border: "1px solid oklch(65% 0.18 25 / 0.3)" }}>
                   GPT & Manus 最高优先级，强制遵守
@@ -1208,14 +1295,14 @@ export default function Settings() {
                   <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "oklch(60% 0.15 250)" }} />
                   <div>
                     <span className="font-medium" style={{ color: "oklch(0.80 0.01 270)" }}>当前显示的是平台默认配置</span>
-                    <span style={{ color: "oklch(42% 0 0)" }}>，可直接使用。如需自定义，修改后点「保存」即可覆盖为个人配置。</span>
+                    <span style={{ color: "rgba(226,232,240,0.38)" }}>，可直接使用。如需自定义，修改后点「保存」即可覆盖为个人配置。</span>
                   </div>
                 </div>
               )}
 
               {/* 三部分内部 Tab 导航 */}
               <div className="flex gap-1 p-1 rounded-lg"
-                style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
                 {([
                   { id: "investment" as RulesTab, label: "投资守则", color: "oklch(68% 0.18 155)" },
                   { id: "task" as RulesTab, label: "全局任务指令", color: "oklch(70% 0.18 25)" },
@@ -1236,14 +1323,13 @@ export default function Settings() {
 
               {/* 投资守则 Tab - 结构化表单 */}
               {activeRulesTab === "investment" && (
-                <div className="p-4 rounded-2xl space-y-4"
-                  style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(0.72 0.18 155 / 0.2)" }}>
+                <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 14 }}>
                   {/* 模式切换 */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
                       GPT & Manus 每次任务必须遵守以下守则
                     </p>
-                    <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: "oklch(100% 0 0 / 0.06)" }}>
+                    <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
                       {(["structured", "freetext"] as const).map(m => (
                         <button key={m} onClick={() => setInvFormMode(m)}
                           className="text-xs px-2.5 py-1 rounded-md transition-all"
@@ -1258,7 +1344,7 @@ export default function Settings() {
                   </div>
 
                   {invFormMode === "structured" ? (
-                    <div className="space-y-4">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                       {/* 投资哲学 */}
                       <div>
                         <p className="text-xs font-semibold mb-2" style={{ color: "oklch(68% 0.18 155)" }}>投资哲学</p>
@@ -1303,27 +1389,27 @@ export default function Settings() {
                         <p className="text-xs font-semibold mb-2" style={{ color: "oklch(70% 0.18 25)" }}>风险策略</p>
                         <div className="grid grid-cols-3 gap-3">
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(42% 0 0)" }}>单仓上限 %</label>
+                            <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.38)" }}>单仓上限 %</label>
                             <input type="number" min={5} max={100} step={5}
                               value={invRiskPolicy.maxSinglePosition}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, maxSinglePosition: Number(e.target.value) }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
                           </div>
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(42% 0 0)" }}>行业上限 %</label>
+                            <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.38)" }}>行业上限 %</label>
                             <input type="number" min={10} max={100} step={5}
                               value={invRiskPolicy.maxSectorPosition}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, maxSectorPosition: Number(e.target.value) }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
                           </div>
                           <div>
-                            <label className="text-xs mb-1 block" style={{ color: "oklch(42% 0 0)" }}>持仓周期</label>
+                            <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.38)" }}>持仓周期</label>
                             <select value={invRiskPolicy.holdingPeriod}
                               onChange={e => setInvRiskPolicy(p => ({ ...p, holdingPeriod: e.target.value as any }))}
                               className="w-full text-xs px-2 py-1.5 rounded-lg"
-                              style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }}>
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }}>
                               <option value="short">短期(＜1年)</option>
                               <option value="medium">中期(1-3年)</option>
                               <option value="long">长期(3年+)</option>
@@ -1334,11 +1420,11 @@ export default function Settings() {
 
                       {/* 自由补充 */}
                       <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: "oklch(42% 0 0)" }}>补充说明（可选）</p>
+                        <p className="text-xs font-semibold mb-2" style={{ color: "rgba(226,232,240,0.38)" }}>补充说明（可选）</p>
                         <Textarea value={invFreeText} onChange={e => setInvFreeText(e.target.value)}
                           placeholder="其他特殊约束、禁止行业、个人情况等..."
                           className="min-h-[80px] text-xs resize-y"
-                          style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
+                          style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.12)", color: "var(--bloomberg-text-primary)" }} />
                       </div>
 
                       {/* 保存按钮 */}
@@ -1374,7 +1460,7 @@ export default function Settings() {
                         onChange={(e) => { setInvFreeText(e.target.value); setInvestmentRules(e.target.value); }}
                         placeholder={"示例：\n我的投资理念基于段永平价値投资体系。\n我关注美股和港股，尤其是科技和消费行业。\n我的风险承受能力中等，希望长期持有。"}
                         className="min-h-[280px] text-sm font-mono resize-y"
-                        style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(68% 0.18 155 / 0.3)", color: "var(--bloomberg-text-primary)" }}
+                        style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(68% 0.18 155 / 0.3)", color: "var(--bloomberg-text-primary)" }}
                       />
                       <div className="flex justify-between items-center">
                         <button type="button"
@@ -1399,8 +1485,7 @@ export default function Settings() {
 
               {/* 全局任务指令 Tab */}
               {activeRulesTab === "task" && (
-                <div className="p-4 rounded-2xl space-y-3"
-                  style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(65% 0.18 25 / 0.15)" }}>
+                <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
                   {/* 模式切换 */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs" style={{ color: "oklch(0.60 0.01 270)" }}>
@@ -1432,10 +1517,10 @@ export default function Settings() {
                         { key: "citationRequired" as const, label: "强制引用来源", desc: "所有关键判断必须标注数据来源" },
                       ]).map(item => (
                         <div key={item.key} className="flex items-center justify-between py-1.5 px-2 rounded-lg"
-                          style={{ background: "oklch(100% 0 0 / 0.06)" }}>
+                          style={{ background: "rgba(255,255,255,0.04)" }}>
                           <div>
                             <p className="text-xs font-medium" style={{ color: "oklch(0.85 0.005 264)" }}>{item.label}</p>
-                            <p className="text-xs mt-0.5" style={{ color: "oklch(40% 0 0)" }}>{item.desc}</p>
+                            <p className="text-xs mt-0.5" style={{ color: "rgba(226,232,240,0.35)" }}>{item.desc}</p>
                           </div>
                           <button
                             onClick={() => setTaskSwitches(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
@@ -1448,7 +1533,7 @@ export default function Settings() {
                       ))}
                       {/* 补充文本 */}
                       <div className="pt-1">
-                        <p className="text-xs mb-1" style={{ color: "oklch(42% 0 0)" }}>补充指令（可选）</p>
+                        <p className="text-xs mb-1" style={{ color: "rgba(226,232,240,0.38)" }}>补充指令（可选）</p>
                         <Textarea
                           value={taskFreeText}
                           onChange={(e) => setTaskFreeText(e.target.value)}
@@ -1511,11 +1596,11 @@ export default function Settings() {
                   <DataSourceStatusPanel />
 
                   {/* ---- 结构化 Trusted Sources ---- */}
-                  <div className="p-4 rounded-2xl space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(0.63 0.20 258 / 0.15)" }}>
+                  <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(52,211,153,0.12)", display: "flex", flexDirection: "column", gap: 12 }}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>可信来源层 (Trusted Sources)</p>
-                        <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em" }}>可信来源层 (Trusted Sources)</p>
+                        <p className="text-xs mt-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>添加权威研究来源，系统优先从这里检索并强制引用来源</p>
                       </div>
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
@@ -1533,7 +1618,7 @@ export default function Settings() {
 
                     {/* 快速导入面板 */}
                     {showQuickImport && (
-                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(0.55 0.15 150 / 0.3)" }}>
+                      <div className="p-3 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(0.55 0.15 150 / 0.3)" }}>
                         <p className="text-xs font-medium mb-2" style={{ color: "oklch(0.72 0.18 150)" }}>选择预置来源（已存在的来源会被跳过）</p>
                         <div className="grid grid-cols-2 gap-1.5">
                           {PRESET_SOURCES.map((src) => {
@@ -1575,36 +1660,36 @@ export default function Settings() {
 
                     {/* 添加来源表单 */}
                     {showNewSourceForm && (
-                      <div className="p-3 rounded-lg space-y-2" style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(0.63 0.20 258 / 0.25)" }}>
+                      <div className="p-3 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(0.63 0.20 258 / 0.25)" }}>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
-                            <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>来源名称</Label>
+                            <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>来源名称</Label>
                             <Input value={newSourceForm.name} onChange={e => setNewSourceForm(f => ({ ...f, name: e.target.value }))}
                               placeholder="AQR Capital" className="h-8 text-xs"
                               style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>分类</Label>
+                            <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>分类</Label>
                             <Input value={newSourceForm.category} onChange={e => setNewSourceForm(f => ({ ...f, category: e.target.value }))}
                               placeholder="quant / macro / fundamentals" className="h-8 text-xs"
                               style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>URL</Label>
+                          <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>URL</Label>
                           <Input value={newSourceForm.url} onChange={e => setNewSourceForm(f => ({ ...f, url: e.target.value }))}
                             placeholder="https://www.aqr.com/insights" className="h-8 text-xs font-mono"
                             style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
-                            <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>路由关键词（逗号分隔）</Label>
+                            <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>路由关键词（逗号分隔）</Label>
                             <Input value={newSourceForm.routingKeys} onChange={e => setNewSourceForm(f => ({ ...f, routingKeys: e.target.value }))}
                               placeholder="\u91cf化,因子,小市値" className="h-8 text-xs"
                               style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>信任等级</Label>
+                            <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>信任等级</Label>
                             <Select value={newSourceForm.trustLevel} onValueChange={v => setNewSourceForm(f => ({ ...f, trustLevel: v as TrustedSource["trustLevel"] }))}>
                               <SelectTrigger className="h-8 text-xs" style={{ background: "oklch(0.12 0.003 270)", borderColor: "oklch(100% 0 0 / 0.1)" }}>
                                 <SelectValue />
@@ -1656,12 +1741,12 @@ export default function Settings() {
                                 : <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: "oklch(0.35 0.008 270)" }} />}
                             </button>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span className="text-xs font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{src.name}</span>
                                 <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: src.trustLevel === "primary" ? "oklch(0.63 0.20 258 / 0.15)" : "oklch(100% 0 0 / 0.1)", color: src.trustLevel === "primary" ? "oklch(60% 0.15 250)" : "oklch(42% 0 0)" }}>
                                   {src.trustLevel === "primary" ? "主要" : src.trustLevel === "secondary" ? "次要" : "补充"}
                                 </span>
-                                {src.category && <span className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{src.category}</span>}
+                                {src.category && <span className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>{src.category}</span>}
                               </div>
                               <p className="text-xs truncate mt-0.5" style={{ color: "var(--bloomberg-text-dim)" }}>{src.url}</p>
                               {src.routingKeys.length > 0 && (
@@ -1682,7 +1767,7 @@ export default function Settings() {
 
                     {/* Policy 配置 */}
                     <div className="pt-2 border-t" style={{ borderColor: "oklch(100% 0 0 / 0.1)" }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: "var(--bloomberg-text-tertiary)" }}>Policy 配置</p>
+                      <p className="text-xs font-medium mb-2" style={{ color: "rgba(226,232,240,0.35)" }}>Policy 配置</p>
                       <div className="grid grid-cols-2 gap-2">
                         {([
                           { key: "requireCitation" as const, label: "强制引用来源" },
@@ -1697,8 +1782,8 @@ export default function Settings() {
                             {label}
                           </button>
                         ))}
-                        <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "oklch(100% 0 0 / 0.06)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
-                          <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>最低证据分</span>
+                        <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+                          <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>最低证据分</span>
                           <input type="range" min="0" max="1" step="0.1"
                             value={trustedSourcesConfig.policy.minEvidenceScore}
                             onChange={e => setTrustedSourcesConfig(c => ({ ...c, policy: { ...c.policy, minEvidenceScore: parseFloat(e.target.value) } }))}
@@ -1720,10 +1805,9 @@ export default function Settings() {
                   </div>
 
                   {/* ---- 传统资料库文本输入（兼容旧模式）---- */}
-                  <div className="p-4 rounded-2xl space-y-3"
-                    style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(0.72 0.18 250 / 0.15)" }}>
-                    <p className="text-xs font-medium" style={{ color: "var(--bloomberg-text-tertiary)" }}>传统模式：直接输入 URL 列表</p>
-                    <p className="text-xs" style={{ color: "oklch(40% 0 0)" }}>如果上方已配置结构化来源，优先使用结构化配置。</p>
+                  <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
+                    <p className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.35)" }}>传统模式：直接输入 URL 列表</p>
+                    <p className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>如果上方已配置结构化来源，优先使用结构化配置。</p>
                     <Textarea
                       value={dataLibrary}
                       onChange={(e) => setDataLibrary(e.target.value)}
@@ -1752,15 +1836,15 @@ export default function Settings() {
         {activeTab === "database" && (
           <div className="space-y-6">
             <section className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Database className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>金融数据库连接</h2>
+                <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>金融数据库连接</h2>
               </div>
               {dbConnections.length > 0 && (
                 <div className="space-y-2">
                   {dbConnections.map((conn) => (
                     <div key={conn.id} className="flex items-center justify-between p-3 rounded-2xl"
-                      style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+                      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
                       <div className="flex items-center gap-3">
                         <button onClick={() => setActiveMutation.mutate({ connId: conn.id })} className="flex-shrink-0">
                           {conn.isActive
@@ -1769,35 +1853,34 @@ export default function Settings() {
                         </button>
                         <div>
                           <p className="text-sm font-medium" style={{ color: "var(--bloomberg-text-primary)" }}>{conn.name}</p>
-                          <p className="text-xs" style={{ color: "oklch(40% 0 0)" }}>
+                          <p className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>
                             {conn.dbType}{conn.host ? ` · ${conn.host}` : ""}{conn.database ? ` · ${conn.database}` : ""}
                           </p>
                         </div>
                       </div>
                       <button onClick={() => deleteMutation.mutate({ connId: conn.id })}
                         className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-                        style={{ color: "oklch(40% 0 0)" }}>
+                        style={{ color: "rgba(226,232,240,0.35)" }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="p-4 rounded-2xl space-y-3"
-                style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+              <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>连接名称</Label>
+                    <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>连接名称</Label>
                     <Input placeholder="我的金融数据库" value={dbForm.name}
                       onChange={(e) => setDbForm(f => ({ ...f, name: e.target.value }))}
                       className="h-9 text-sm"
-                      style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
+                      style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>数据库类型</Label>
+                    <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>数据库类型</Label>
                     <Select value={dbForm.dbType} onValueChange={(v) => setDbForm(f => ({ ...f, dbType: v as any }))}>
                       <SelectTrigger className="h-9 text-sm"
-                        style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)" }}>
+                        style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.1)" }}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1810,11 +1893,11 @@ export default function Settings() {
                 </div>
                 {dbForm.dbType === "sqlite" ? (
                   <div className="space-y-1.5">
-                    <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>SQLite 文件路径</Label>
+                    <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>SQLite 文件路径</Label>
                     <Input placeholder="/path/to/finance.db" value={dbForm.filePath}
                       onChange={(e) => setDbForm(f => ({ ...f, filePath: e.target.value }))}
                       className="h-9 text-sm font-mono"
-                      style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
+                      style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -1825,19 +1908,19 @@ export default function Settings() {
                       { label: "用户名", key: "username", placeholder: "root" },
                     ].map(({ label, key, placeholder }) => (
                       <div key={key} className="space-y-1.5">
-                        <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>{label}</Label>
+                        <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>{label}</Label>
                         <Input placeholder={placeholder} value={(dbForm as any)[key]}
                           onChange={(e) => setDbForm(f => ({ ...f, [key]: e.target.value }))}
                           className="h-9 text-sm"
-                          style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
+                          style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                       </div>
                     ))}
                     <div className="col-span-2 space-y-1.5">
-                      <Label className="text-xs" style={{ color: "var(--bloomberg-text-tertiary)" }}>密码</Label>
+                      <Label className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>密码</Label>
                       <Input type="password" placeholder="••••••••" value={dbForm.password}
                         onChange={(e) => setDbForm(f => ({ ...f, password: e.target.value }))}
                         className="h-9 text-sm"
-                        style={{ background: "oklch(100% 0 0 / 0.06)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
+                        style={{ background: "rgba(255,255,255,0.04)", borderColor: "oklch(100% 0 0 / 0.1)" }} />
                     </div>
                   </div>
                 )}
@@ -1855,11 +1938,10 @@ export default function Settings() {
 
         {/* ── Tab: 关于 ── */}
         {activeTab === "access" && isOwner && (
-          <div className="space-y-4">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* 生成新密码 */}
-            <div className="p-4 rounded-2xl space-y-3"
-              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
-              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(92% 0 0)" }}>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
+              <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(226,232,240,0.88)" }}>
                 <Plus className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
                 生成访客密码
               </h2>
@@ -1919,7 +2001,7 @@ export default function Settings() {
                 <div className="p-3 rounded-lg flex items-center justify-between gap-2"
                   style={{ background: "oklch(0.72 0.18 155 / 0.12)", border: "1px solid oklch(0.72 0.18 155 / 0.4)" }}>
                   <div>
-                    <div className="text-xs mb-0.5" style={{ color: "oklch(42% 0 0)" }}>新密码（请立即复制）</div>
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>新密码（请立即复制）</div>
                     <div className="font-mono text-base font-bold tracking-widest" style={{ color: "oklch(68% 0.18 155)" }}>{generatedCode}</div>
                   </div>
                   <Button
@@ -1936,14 +2018,14 @@ export default function Settings() {
 
             {/* 密码列表 */}
             <div className="p-4 rounded-2xl space-y-2"
-              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+              style={{ background: "rgba(255,255,255,0.025)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "oklch(92% 0 0)" }}>
+                <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(226,232,240,0.88)" }}>
                   <Shield className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
                   已生成密码 ({accessCodes.length})
                 </h2>
                 <Button size="icon" variant="ghost" onClick={() => refetchCodes()} className="w-6 h-6">
-                  <RefreshCw className="w-3 h-3" style={{ color: "oklch(42% 0 0)" }} />
+                  <RefreshCw className="w-3 h-3" style={{ color: "rgba(226,232,240,0.38)" }} />
                 </Button>
               </div>
               {accessCodes.length === 0 ? (
@@ -1954,7 +2036,7 @@ export default function Settings() {
                     <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg"
                       style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(0.13 0.006 264)" }}>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span className="font-mono text-sm font-semibold" style={{ color: c.isRevoked ? "oklch(0.40 0.01 270)" : "var(--bloomberg-text-primary)" }}>{c.code}</span>
                           {c.isRevoked && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 25 / 0.2)", color: "oklch(0.60 0.12 25)" }}>已撤销</span>}
                           {!c.isRevoked && c.usedCount >= c.maxUses && c.maxUses !== -1 && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 60 / 0.2)", color: "oklch(0.65 0.12 60)" }}>已用完</span>}
@@ -1968,7 +2050,7 @@ export default function Settings() {
                       <div className="flex items-center gap-1 shrink-0">
                         <Button size="icon" variant="ghost" className="w-7 h-7"
                           onClick={() => { navigator.clipboard.writeText(c.code); toast.success("已复制密码"); }}>
-                          <Copy className="w-3.5 h-3.5" style={{ color: "oklch(42% 0 0)" }} />
+                          <Copy className="w-3.5 h-3.5" style={{ color: "rgba(226,232,240,0.38)" }} />
                         </Button>
                         {!c.isRevoked && (
                           <Button size="icon" variant="ghost" className="w-7 h-7"
@@ -1995,10 +2077,9 @@ export default function Settings() {
         )}
 
         {activeTab === "logic" && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl space-y-4"
-              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>三步并行协作架构</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 14 }}>
+              <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>三步并行协作架构</h2>
               {[
                 {
                   step: "Step 1 · GPT", label: "GPT 主导规划 + 初步分析",
@@ -2028,7 +2109,7 @@ export default function Settings() {
                       <span className="text-xs px-1.5 py-0.5 rounded"
                         style={{ background: "oklch(0.13 0.006 264)", color: "oklch(40% 0 0)" }}>{step}</span>
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: "oklch(42% 0 0)" }}>{desc}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: "rgba(226,232,240,0.38)" }}>{desc}</p>
                   </div>
                 </div>
               ))}
@@ -2038,12 +2119,11 @@ export default function Settings() {
               </div>
             </div>
             {/* 成本控制模式 */}
-            <div className="p-4 rounded-2xl space-y-4"
-              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>默认分析深度</h2>
-                  <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>控制每次分析的 Token 消耗与数据广度，可在对话框中临时切换</p>
+                  <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>默认分析深度</h2>
+                  <p className="text-xs mt-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>控制每次分析的 Token 消耗与数据广度，可在对话框中临时切换</p>
                 </div>
                 <button
                   onClick={() => {
@@ -2075,8 +2155,8 @@ export default function Settings() {
                         <span className="text-xs font-semibold" style={{ color: isSelected ? color : "oklch(82% 0 0)" }}>{label}</span>
                         {isSelected && <div className="w-2 h-2 rounded-full" style={{ background: color }} />}
                       </div>
-                      <p className="text-[10px] leading-relaxed mb-2" style={{ color: "oklch(42% 0 0)" }}>{desc}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="text-[10px] leading-relaxed mb-2" style={{ color: "rgba(226,232,240,0.38)" }}>{desc}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "oklch(0.12 0.006 264)", color: "oklch(40% 0 0)" }}>{tokens}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "oklch(0.12 0.006 264)", color: "oklch(40% 0 0)" }}>{speed}</span>
                       </div>
@@ -2087,11 +2167,10 @@ export default function Settings() {
             </div>
 
             {/* 图表涨跌颜色方案 */}
-            <div className="p-4 rounded-2xl space-y-4"
-              style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>图表涨跌颜色</h2>
-                <p className="text-xs mt-0.5" style={{ color: "oklch(42% 0 0)" }}>设置股价图表中涨跌的颜色风格，默认中国风格（红涨绿跌）</p>
+                <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>图表涨跌颜色</h2>
+                <p className="text-xs mt-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>设置股价图表中涨跌的颜色风格，默认中国风格（红涨绿跌）</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {([
@@ -2112,8 +2191,8 @@ export default function Settings() {
                         <span className="text-xs font-semibold" style={{ color: isSelected ? "oklch(0.78 0.18 85)" : "oklch(82% 0 0)" }}>{label}</span>
                         {isSelected && <div className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.18 85)" }} />}
                       </div>
-                      <p className="text-[10px] mb-2" style={{ color: "oklch(42% 0 0)" }}>{desc}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="text-[10px] mb-2" style={{ color: "rgba(226,232,240,0.38)" }}>{desc}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div className="flex items-center gap-1">
                           <div className="w-3 h-3 rounded-sm" style={{ background: upColor }} />
                           <span className="text-[10px]" style={{ color: "oklch(55% 0 0)" }}>涨</span>
@@ -2135,15 +2214,15 @@ export default function Settings() {
 
         {/* ── Tab: 监控 ── */}
         {activeTab === "monitoring" && (
-          <div className="p-6 space-y-6">
+          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-              <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>Pipeline 执行监控</h3>
-              <p className="text-xs mb-4" style={{ color: "oklch(42% 0 0)" }}>9 步推理引擎实时状态、数据源健康、成本消耗监控</p>
+              <h3 style={{ fontSize: 12, fontWeight: 700, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em", marginBottom: 4 }}>Pipeline 执行监控</h3>
+              <p className="text-xs mb-4" style={{ color: "rgba(226,232,240,0.38)" }}>9 步推理引擎实时状态、数据源健康、成本消耗监控</p>
             </div>
             {/* Pipeline 步骤状态卡片 */}
-            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: "#34d399" }} />
                 <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>9步推理引擎 Pipeline</span>
               </div>
               {[
@@ -2158,12 +2237,12 @@ export default function Settings() {
                 { step: 9, label: "Discussion Engine", desc: "深度讨论生成", status: "active" },
               ].map(({ step, label, desc, status }) => (
                 <div key={step} className="flex items-center gap-3 py-1.5 px-2 rounded-lg"
-                  style={{ background: "oklch(100% 0 0 / 0.03)" }}>
+                  style={{ background: "rgba(255,255,255,0.02)" }}>
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                     style={{ background: "var(--bloomberg-gold)", color: "oklch(8% 0.02 264)" }}>{step}</div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</span>
-                    <span className="text-xs ml-2" style={{ color: "oklch(40% 0 0)" }}>{desc}</span>
+                    <span className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.75)" }}>{label}</span>
+                    <span className="text-xs ml-2" style={{ color: "rgba(226,232,240,0.35)" }}>{desc}</span>
                   </div>
                   <div className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ background: "oklch(0.72 0.18 142)", boxShadow: "0 0 5px oklch(0.72 0.18 142)" }} />
@@ -2171,17 +2250,17 @@ export default function Settings() {
               ))}
             </div>
             {/* 数据源健康卡片 */}
-            <div className="rounded-2xl p-4" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Activity className="w-3.5 h-3.5" style={{ color: "oklch(0.60 0.15 250)" }} />
-                <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>数据源健康实时监控</span>
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Activity size={12} style={{ color: "#34d399" }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(226,232,240,0.85)" }}>数据源健康实时监控</span>
               </div>
               <DataSourceStatusPanel />
             </div>
             {/* 成本模式卡片 */}
-            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Clock className="w-3.5 h-3.5" style={{ color: "#34d399" }} />
                 <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>成本模式监控</span>
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -2191,10 +2270,10 @@ export default function Settings() {
                   { mode: "C", label: "深度模式", desc: "Deep", tokens: "~20K", color: "oklch(0.72 0.18 250)" },
                 ].map(({ mode, label, desc, tokens, color }) => (
                   <div key={mode} className="rounded-xl p-3 text-center"
-                    style={{ background: "oklch(100% 0 0 / 0.04)", border: `1px solid ${color}33` }}>
+                    style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${color}33` }}>
                     <div className="text-lg font-bold mb-1" style={{ color }}>{mode}</div>
-                    <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
-                    <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                    <div className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.75)" }}>{label}</div>
+                    <div className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>{desc}</div>
                     <div className="text-xs mt-1 font-mono" style={{ color }}>{tokens} tokens</div>
                   </div>
                 ))}
@@ -2208,14 +2287,14 @@ export default function Settings() {
         {activeTab === "holidays" && <HolidaySyncPanel />}
 
         {activeTab === "research_style" && (
-          <div className="p-6 space-y-6">
+          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--bloomberg-text-primary)" }}>研究风格配置</h3>
-                <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>自定义 AI 研究输出的风格、深度和展示偏好</p>
+                <h3 style={{ fontSize: 12, fontWeight: 700, color: "rgba(226,232,240,0.85)", letterSpacing: "0.04em", marginBottom: 4 }}>研究风格配置</h3>
+                <p className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>自定义 AI 研究输出的风格、深度和展示偏好</p>
               </div>
               <Button size="sm" className="text-xs h-7 px-3"
-                style={{ background: "var(--bloomberg-gold)", color: "oklch(10% 0 0)" }}
+                style={{ background: "#34d399", color: "#030407", border: "none" }}
                 disabled={saveConfigMutation.isPending}
                 onClick={() => saveConfigMutation.mutate({
                   researchStyle: { outputStyle: selectedOutputStyle, analysisEmphasis: selectedEmphasis },
@@ -2225,9 +2304,9 @@ export default function Settings() {
               </Button>
             </div>
             {/* 输出风格选择 */}
-            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
-              <div className="flex items-center gap-2">
-                <Sliders className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Sliders className="w-3.5 h-3.5" style={{ color: "#34d399" }} />
                 <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>输出风格</span>
               </div>
               {[
@@ -2244,8 +2323,8 @@ export default function Settings() {
                   }}>
                   <span className="text-lg">{icon}</span>
                   <div className="flex-1">
-                    <div className="text-xs font-semibold" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
-                    <div className="text-xs mt-0.5" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                    <div className="text-xs font-semibold" style={{ color: "rgba(226,232,240,0.75)" }}>{label}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "rgba(226,232,240,0.35)" }}>{desc}</div>
                   </div>
                   <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5"
                     style={{ color: selectedOutputStyle === id ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }} />
@@ -2253,9 +2332,9 @@ export default function Settings() {
               ))}
             </div>
             {/* 分析重点偏好（多选） */}
-            <div className="rounded-2xl p-4 space-y-3" style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid var(--bloomberg-border)" }}>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-gold)" }} />
+            <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: "#34d399" }} />
                 <span className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-primary)" }}>分析重点偏好（可多选）</span>
               </div>
               {[
@@ -2273,8 +2352,8 @@ export default function Settings() {
                     className="flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer transition-all"
                     style={{ background: isOn ? "oklch(0.72 0.18 75 / 0.07)" : "oklch(100% 0 0 / 0.03)", border: `1px solid ${isOn ? "var(--bloomberg-gold)" : "var(--bloomberg-border)"}` }}>
                     <div>
-                      <div className="text-xs font-medium" style={{ color: "oklch(0.82 0.005 264)" }}>{label}</div>
-                      <div className="text-xs" style={{ color: "oklch(40% 0 0)" }}>{desc}</div>
+                      <div className="text-xs font-medium" style={{ color: "rgba(226,232,240,0.75)" }}>{label}</div>
+                      <div className="text-xs" style={{ color: "rgba(226,232,240,0.35)" }}>{desc}</div>
                     </div>
                     <div className="w-8 h-4 rounded-full relative transition-all"
                       style={{ background: isOn ? "var(--bloomberg-gold)" : "oklch(25% 0 0)" }}>
@@ -2477,19 +2556,19 @@ function MemoryManager() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 标题区 */}
       <div className="p-4 rounded-2xl"
-        style={{ background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
+        style={{ background: "rgba(255,255,255,0.025)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
         <div className="flex items-center gap-2 mb-1">
           <BookOpen className="w-4 h-4" style={{ color: "oklch(0.65 0.15 250)" }} />
-          <h2 className="text-sm font-semibold" style={{ color: "oklch(92% 0 0)" }}>AI 记忆管理</h2>
+          <h2 className="text-sm font-semibold" style={{ color: "rgba(226,232,240,0.88)" }}>AI 记忆管理</h2>
           <span className="text-xs px-2 py-0.5 rounded-full"
             style={{ background: "oklch(0.65 0.15 250 / 0.15)", color: "oklch(0.65 0.15 250)" }}>
             {(memories as MemoryItem[]).length} 条
           </span>
         </div>
-        <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+        <p className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>
           AI 在对话中自动提取并存储的长期记忆，包括你的投资偏好、常用工作流、关注标的和分析结论。你可以在此查看、编辑或删除这些记忆。
         </p>
       </div>
@@ -2498,7 +2577,7 @@ function MemoryManager() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 p-1 rounded-xl"
           style={{ background: "oklch(100% 0 0 / 0.05)", border: "1px solid oklch(100% 0 0 / 0.08)" }}>
-          <Filter className="w-3 h-3 ml-1" style={{ color: "oklch(42% 0 0)" }} />
+          <Filter className="w-3 h-3 ml-1" style={{ color: "rgba(226,232,240,0.38)" }} />
           {typeFilters.map(f => (
             <button key={f.id}
               onClick={() => setFilterType(f.id)}
@@ -2539,7 +2618,7 @@ function MemoryManager() {
           )}
           {(searchText || semanticQuery) && (
             <button onClick={clearSearch} title="清除搜索">
-              <X className="w-3 h-3" style={{ color: "oklch(42% 0 0)" }} />
+              <X className="w-3 h-3" style={{ color: "rgba(226,232,240,0.38)" }} />
             </button>
           )}
         </div>
@@ -2604,13 +2683,13 @@ function MemoryManager() {
       {/* 记忆列表 */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12 gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "oklch(42% 0 0)" }} />
-          <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>加载记忆中...</span>
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: "rgba(226,232,240,0.38)" }} />
+          <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>加载记忆中...</span>
         </div>
       ) : displayMemories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <BookOpen className="w-10 h-10" style={{ color: "oklch(28% 0 0)" }} />
-          <p className="text-sm" style={{ color: "oklch(42% 0 0)" }}>
+          <p className="text-sm" style={{ color: "rgba(226,232,240,0.38)" }}>
             {semanticQuery ? `未找到与「${semanticQuery}」相关的记忆` : "暂无 AI 记忆，开始对话后自动生成"}
           </p>
         </div>
@@ -2624,7 +2703,7 @@ function MemoryManager() {
               onChange={toggleSelectAll}
               className="w-3.5 h-3.5 rounded accent-blue-500"
             />
-            <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+            <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>
               {selectedIds.size > 0 ? `已选 ${selectedIds.size} 条` : `共 ${displayMemories.length} 条`}
             </span>
           </div>
@@ -2680,35 +2759,35 @@ function MemoryManager() {
                     {isEditing ? (
                       <div className="space-y-2">
                         <div>
-                          <label className="text-xs mb-1 block" style={{ color: "var(--bloomberg-text-tertiary)" }}>摘要</label>
+                          <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.35)" }}>摘要</label>
                           <textarea
                             value={editSummary}
                             onChange={e => setEditSummary(e.target.value)}
                             rows={4}
                             className="w-full text-xs p-2 rounded-lg resize-none outline-none"
                             style={{
-                              background: "oklch(100% 0 0 / 0.06)",
+                              background: "rgba(255,255,255,0.04)",
                               border: "1px solid oklch(0.65 0.15 250 / 0.4)",
                               color: "var(--bloomberg-text-primary)",
                             }}
                           />
                         </div>
                         <div>
-                          <label className="text-xs mb-1 block" style={{ color: "var(--bloomberg-text-tertiary)" }}>关键词（逗号分隔）</label>
+                          <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.35)" }}>关键词（逗号分隔）</label>
                           <input
                             value={editKeywords}
                             onChange={e => setEditKeywords(e.target.value)}
                             className="w-full text-xs p-2 rounded-lg outline-none"
                             style={{
-                              background: "oklch(100% 0 0 / 0.06)",
+                              background: "rgba(255,255,255,0.04)",
                               border: "1px solid oklch(0.65 0.15 250 / 0.4)",
                               color: "var(--bloomberg-text-primary)",
                             }}
                           />
                         </div>
                         <div>
-                          <label className="text-xs mb-1 block" style={{ color: "var(--bloomberg-text-tertiary)" }}>重要性（1-5）</label>
-                          <div className="flex items-center gap-2">
+                          <label className="text-xs mb-1 block" style={{ color: "rgba(226,232,240,0.35)" }}>重要性（1-5）</label>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             {[1,2,3,4,5].map(i => (
                               <button key={i}
                                 type="button"
@@ -2718,7 +2797,7 @@ function MemoryManager() {
                                 ★
                               </button>
                             ))}
-                            <span className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+                            <span className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>
                               {["",'\u4e00般','\u6709用','\u91cd要','\u5f88重要','\u6838心'][editImportance]}
                             </span>
                           </div>
@@ -2735,7 +2814,7 @@ function MemoryManager() {
                           <button
                             onClick={cancelEdit}
                             className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
-                            style={{ background: "oklch(100% 0 0 / 0.06)", color: "oklch(42% 0 0)" }}>
+                            style={{ background: "rgba(255,255,255,0.04)", color: "oklch(42% 0 0)" }}>
                             <X className="w-3 h-3" /> 取消
                           </button>
                         </div>
@@ -2749,7 +2828,7 @@ function MemoryManager() {
                           <div className="flex flex-wrap gap-1 mb-1.5">
                             {m.keywords.split(/[,，]/).filter(Boolean).map((kw, i) => (
                               <span key={i} className="text-xs px-1.5 py-0.5 rounded"
-                                style={{ background: "oklch(100% 0 0 / 0.06)", color: "var(--bloomberg-text-tertiary)" }}>
+                                style={{ background: "rgba(255,255,255,0.04)", color: "var(--bloomberg-text-tertiary)" }}>
                                 {kw.trim()}
                               </span>
                             ))}
@@ -2771,8 +2850,8 @@ function MemoryManager() {
                         onClick={() => startEdit(m)}
                         className="p-1.5 rounded-lg transition-opacity hover:opacity-80"
                         title="编辑"
-                        style={{ background: "oklch(100% 0 0 / 0.06)" }}>
-                        <Edit3 className="w-3.5 h-3.5" style={{ color: "var(--bloomberg-text-tertiary)" }} />
+                        style={{ background: "rgba(255,255,255,0.04)" }}>
+                        <Edit3 className="w-3.5 h-3.5" style={{ color: "rgba(226,232,240,0.35)" }} />
                       </button>
                       <button
                         onClick={() => deleteMutation.mutate({ id: m.id })}
@@ -2839,23 +2918,23 @@ function HolidaySyncPanel() {
   const hasStale = statusList?.some(s => s.isStale);
 
   return (
-    <div className="p-6 space-y-5">
+    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 标题行 */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold mb-1 flex items-center gap-2"
             style={{ color: "var(--bloomberg-text-primary)" }}>
-            <Globe className="w-4 h-4" style={{ color: "var(--bloomberg-gold)" }} />
+            <Globe className="w-4 h-4" style={{ color: "#34d399" }} />
             节假日数据同步状态
           </h3>
-          <p className="text-xs" style={{ color: "oklch(42% 0 0)" }}>
+          <p className="text-xs" style={{ color: "rgba(226,232,240,0.38)" }}>
             数据来源：Nager.Date API（港/英/德/法），每次启动服务器时自动预热。A股和美股使用实时 API 判断，无需手动同步。
           </p>
         </div>
         <Button
           size="sm"
           className="text-xs h-7 px-3 flex items-center gap-1.5"
-          style={{ background: "var(--bloomberg-gold)", color: "oklch(10% 0 0)" }}
+          style={{ background: "#34d399", color: "#030407", border: "none" }}
           disabled={refreshMutation.isPending}
           onClick={() => refreshMutation.mutate({})}>
           {refreshMutation.isPending
@@ -2877,7 +2956,7 @@ function HolidaySyncPanel() {
       {/* 状态表格 */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8 gap-2"
-          style={{ color: "var(--bloomberg-text-tertiary)" }}>
+          style={{ color: "rgba(226,232,240,0.35)" }}>
           <Loader2 className="w-4 h-4 animate-spin" />
           <span className="text-xs">加载中…</span>
         </div>
@@ -2906,7 +2985,7 @@ function HolidaySyncPanel() {
               </div>
 
               {/* 右侧：状态徽章 + 单独同步按钮 */}
-              <div className="flex items-center gap-2">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                   style={{
                     background: item.isStale ? "oklch(0.72 0.18 50 / 0.15)" : "oklch(0.72 0.18 142 / 0.15)",
@@ -2933,14 +3012,14 @@ function HolidaySyncPanel() {
 
       {/* 说明卡片 */}
       <div className="rounded-xl px-4 py-3 space-y-1"
-        style={{ background: "oklch(100% 0 0 / 0.03)", border: "1px solid var(--bloomberg-border)" }}>
+        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="text-xs font-semibold" style={{ color: "var(--bloomberg-text-secondary)" }}>
           数据说明
         </div>
-        <div className="text-xs space-y-0.5" style={{ color: "oklch(40% 0 0)" }}>
-          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>A股（CN）</strong>：通过 Baostock 官方 API 实时查询交易日历，无需手动维护</div>
-          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>美股（US）</strong>：通过 Polygon.io 实时查询市场开闭市状态，5 分钟缓存</div>
-          <div>• <strong style={{ color: "var(--bloomberg-text-tertiary)" }}>港/英/德/法</strong>：通过 Nager.Date API 获取法定节假日表，24 小时缓存，服务器启动时自动预热</div>
+        <div className="text-xs space-y-0.5" style={{ color: "rgba(226,232,240,0.35)" }}>
+          <div>• <strong style={{ color: "rgba(226,232,240,0.35)" }}>A股（CN）</strong>：通过 Baostock 官方 API 实时查询交易日历，无需手动维护</div>
+          <div>• <strong style={{ color: "rgba(226,232,240,0.35)" }}>美股（US）</strong>：通过 Polygon.io 实时查询市场开闭市状态，5 分钟缓存</div>
+          <div>• <strong style={{ color: "rgba(226,232,240,0.35)" }}>港/英/德/法</strong>：通过 Nager.Date API 获取法定节假日表，24 小时缓存，服务器启动时自动预热</div>
         </div>
       </div>
     </div>

@@ -3064,3 +3064,10 @@
 - [x] DB：rpaConfigs 表新增 gptModel 字段（默认 gpt-5.4）
 - [x] 后端 routers.ts：getConfig 返回 gptModel，setConfig 写入 gptModel
 - [x] 设置页面：AI 模型 Tab 新增 GPT 模型选择器（四个选项 + 说明）
+
+## 设置页面重设计 — Bloomberg Terminal 风格 95% 相似度
+- [x] 分析 ResearchWorkspaceVNext 设计规范（颜色/字体/边框/组件）
+- [x] 在研究工作台页面加入设置入口按钮（顶栏右侧）
+- [x] 设置页面完整重写：顶栏、左侧 Tab 导航、内容区全部对齐工作台风格
+- [x] 所有卡片容器、section 标题、按鈕样式统一为 Terminal 风格
+- [x] TSC 0 errors 验证

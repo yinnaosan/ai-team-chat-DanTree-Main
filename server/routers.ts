@@ -3533,7 +3533,7 @@ export const appRouter = router({
           size: input.size,
           s3Url,
           fileCategory,
-          extractedText: extractedText ? extractedText.slice(0, 200) + "..." : null,
+          extractedText: extractedText ?? null,
         };
       }),
   }),

@@ -15,7 +15,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import {
   Loader2, Send, Sparkles, User, Users, ArrowRight, MoreHorizontal,
-  CheckCircle2, Zap, AlertCircle, Calendar, BarChart3, Target,
+  Paperclip, FileText, CheckCircle2, AlertCircle, X,
+  Zap, Calendar, BarChart3, Target,
   ExternalLink, Shield, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { SessionRail, type SessionItem } from "@/components/SessionRail";
@@ -158,6 +159,7 @@ function DiscussionPanel({
   entity, sessionTitle, stance, readinessState, alertCount,
   messages, isStreaming, input, onInputChange, onSend, onQuickPrompt,
   scrollContainerRef, bottomRef, onScroll,
+  onAttachFile, pendingFile, isUploading, onClearFile,
 }: {
   entity?: string;
   sessionTitle?: string;
@@ -173,10 +175,15 @@ function DiscussionPanel({
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   bottomRef?: React.RefObject<HTMLDivElement | null>;
   onScroll?: () => void;
+  onAttachFile?: (file: File) => void;
+  pendingFile?: { fileName: string; fileType: string } | null;
+  isUploading?: boolean;
+  onClearFile?: () => void;
 }) {
   const internalBottomRef = useRef<HTMLDivElement>(null);
   const resolvedBottomRef = bottomRef ?? internalBottomRef;
   const [inputFocused, setInputFocused] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Only use internal scroll if no external ref provided
   useEffect(() => {
     if (!scrollContainerRef) {
@@ -292,6 +299,95 @@ function DiscussionPanel({
           {messages.map((m, idx) => {
             const isLatest = idx === messages.length - 1 && m.role === "assistant";
             const isUser = m.role === "user";
+            // FileCard message
+            if ((m as any).fileCard) {
+              const fc = (m as any).fileCard as import("@/hooks/useDiscussion").FileCardData;
+              const isProcessing = fc.status === "processing";
+              const isReady = fc.status === "ready";
+              const isError = fc.status === "error";
+              return (
+                <div key={m.id} style={{ margin: "6px 10px" }}>
+                  <div style={{
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.04)",
+                    border: isProcessing
+                      ? "1px solid rgba(255,255,255,0.12)"
+                      : isReady
+                        ? "1px solid rgba(52,211,153,0.28)"
+                        : "1px solid rgba(248,113,113,0.28)",
+                    borderLeft: isProcessing
+                      ? "3px solid rgba(255,255,255,0.18)"
+                      : isReady
+                        ? "3px solid rgba(52,211,153,0.75)"
+                        : "3px solid rgba(248,113,113,0.75)",
+                    padding: "11px 14px",
+                    display: "flex", flexDirection: "column", gap: 8,
+                  }}>
+                    {/* Card header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 7, flexShrink: 0,
+                        background: isReady ? "rgba(52,211,153,0.12)" : isError ? "rgba(248,113,113,0.12)" : "rgba(255,255,255,0.06)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <FileText size={15} color={isReady ? "rgba(52,211,153,0.80)" : isError ? "rgba(248,113,113,0.80)" : "rgba(255,255,255,0.40)"} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(237,237,239,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {fc.fileName}
+                        </div>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>
+                          {(fc.sizeBytes / 1024).toFixed(1)} KB · {fc.fileType.split("/")[1]?.toUpperCase() ?? "FILE"}
+                        </div>
+                      </div>
+                      {/* Status badge */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                        {isProcessing && (
+                          <>
+                            <Loader2 size={11} color="rgba(255,255,255,0.40)" style={{ animation: "spin 1s linear infinite" }} />
+                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.40)" }}>解析中</span>
+                          </>
+                        )}
+                        {isReady && (
+                          <>
+                            <CheckCircle2 size={11} color="rgba(52,211,153,0.80)" />
+                            <span style={{ fontSize: 10, color: "rgba(52,211,153,0.70)" }}>就绪</span>
+                          </>
+                        )}
+                        {isError && (
+                          <>
+                            <AlertCircle size={11} color="rgba(248,113,113,0.80)" />
+                            <span style={{ fontSize: 10, color: "rgba(248,113,113,0.70)" }}>失败</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {/* Summary */}
+                    {isReady && fc.summary && (
+                      <div style={{
+                        fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.65,
+                        paddingLeft: 41, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8,
+                      }}>
+                        {fc.summary}
+                      </div>
+                    )}
+                    {isReady && (
+                      <div style={{ paddingLeft: 41 }}>
+                        <span style={{
+                          fontSize: 10, color: "rgba(52,211,153,0.65)",
+                          background: "rgba(52,211,153,0.08)",
+                          border: "1px solid rgba(52,211,153,0.18)",
+                          borderRadius: 4, padding: "2px 7px",
+                        }}>文件已注入上下文，可继续提问</span>
+                      </div>
+                    )}
+                    {isError && fc.error && (
+                      <div style={{ paddingLeft: 41, fontSize: 11, color: "rgba(248,113,113,0.70)" }}>{fc.error}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -400,6 +496,38 @@ function DiscussionPanel({
 
       {/* Input — 执行稿精确参数：紧凑、清晰、无廉价感 */}
       <div style={{ padding: "6px 12px 8px", flexShrink: 0 }}>
+        {/* Pending file badge */}
+        {pendingFile && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "5px 10px", marginBottom: 5,
+            background: "rgba(52,211,153,0.07)",
+            border: "1px solid rgba(52,211,153,0.20)",
+            borderRadius: 7,
+          }}>
+            <FileText size={11} color="rgba(52,211,153,0.70)" />
+            <span style={{ fontSize: 11, color: "rgba(52,211,153,0.80)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {pendingFile.fileName} 已注入上下文
+            </span>
+            {onClearFile && (
+              <button onClick={onClearFile} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>
+                <X size={10} color="rgba(255,255,255,0.35)" />
+              </button>
+            )}
+          </div>
+        )}
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.txt,.csv,.md,text/plain,text/csv,application/pdf,text/markdown"
+          style={{ display: "none" }}
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file && onAttachFile) onAttachFile(file);
+            e.target.value = "";
+          }}
+        />
         <div style={{
           position: "relative", borderRadius: 10,
           background: "rgba(255,255,255,0.04)",
@@ -407,6 +535,25 @@ function DiscussionPanel({
           boxShadow: inputFocused ? "0 0 0 3px rgba(52,211,153,0.08), 0 0 12px rgba(52,211,153,0.12)" : "0 1px 4px rgba(0,0,0,0.30)",
           transition: "border-color 0.18s, box-shadow 0.18s",
         }}>
+          {/* 📎 Attach button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            title="上传文件 (PDF / TXT / CSV)"
+            style={{
+              position: "absolute", left: 9, bottom: 8,
+              width: 28, height: 28, borderRadius: 7, border: "none",
+              background: "transparent",
+              cursor: isUploading ? "wait" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              opacity: isUploading ? 0.5 : 1,
+              transition: "opacity 0.15s",
+            }}
+          >
+            {isUploading
+              ? <Loader2 size={13} color="rgba(255,255,255,0.40)" style={{ animation: "spin 1s linear infinite" }} />
+              : <Paperclip size={13} color="rgba(255,255,255,0.35)" />}
+          </button>
           <textarea
             value={input}
             onChange={e => onInputChange(e.target.value)}
@@ -418,7 +565,7 @@ function DiscussionPanel({
             style={{
               width: "100%", background: "transparent",
               border: "none", outline: "none",
-              padding: "10px 44px 10px 14px",
+              padding: "10px 44px 10px 42px",
               fontSize: 13, color: "rgba(237,237,239,0.90)",
               resize: "none", lineHeight: 1.55,
               fontFamily: "'Inter', system-ui, sans-serif", boxSizing: "border-box",
@@ -794,7 +941,9 @@ export default function ResearchWorkspacePage() {
   const discussion = useDiscussion(activeConvId);
   const { input, setInput, sending, isTyping, visibleMessages, lastAssistantMessage,
     scrollContainerRef: discussionScrollRef, bottomRef: discussionBottomRef,
-    handleScroll: discussionHandleScroll, sendMessage: discussionSendMessage } = discussion;
+    handleScroll: discussionHandleScroll, sendMessage: discussionSendMessage,
+    attachFile: discussionAttachFile, pendingFileContext, isUploading: discussionUploading,
+    clearFile: discussionClearFile } = discussion;
 
   // currentTicker 优先从 WorkspaceContext 取，fallback 到消息推导
   const wsEntity = currentSession?.focusKey ?? "";
@@ -1437,6 +1586,10 @@ export default function ResearchWorkspacePage() {
             scrollContainerRef={discussionScrollRef}
             bottomRef={discussionBottomRef}
             onScroll={discussionHandleScroll}
+            onAttachFile={discussionAttachFile}
+            pendingFile={pendingFileContext ? { fileName: pendingFileContext.fileName, fileType: pendingFileContext.fileType } : null}
+            isUploading={discussionUploading}
+            onClearFile={discussionClearFile}
           />
 
           {/* Col 4: Insights Rail — NOW/MONITOR/RELATED/KEY LEVELS */}

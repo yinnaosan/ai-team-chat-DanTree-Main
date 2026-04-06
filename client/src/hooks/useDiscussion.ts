@@ -6,7 +6,7 @@
  * - 消息列表管理（optimistic + server sync）
  * - 滚动行为控制（默认到底部 / jump 按钮状态）
  * - 发送 + streaming 状态
- * - File ingestion 基础接口（接口层，不做重解析）
+ * - File ingestion v1：上传 → FileCard message（processing→ready）
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
@@ -16,12 +16,34 @@ import { toast } from "sonner";
 // Unified Message Type
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface FileCardData {
+  /** Card type discriminator */
+  type: "file_card";
+  fileName: string;
+  fileType: string;
+  sizeBytes: number;
+  /** processing | ready | error */
+  status: "processing" | "ready" | "error";
+  /** Short LLM summary (filled when ready) */
+  summary?: string;
+  /** Key points extracted from file (filled when ready) */
+  keyPoints?: string[];
+  /** S3 URL for direct access */
+  s3Url?: string;
+  /** Attachment ID in DB */
+  attachmentId?: number;
+  /** Error message if status=error */
+  error?: string;
+}
+
 export interface DiscussionMessage {
   id: number;
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: Date;
   taskId?: number | null;
+  /** If present, this message IS a file card */
+  fileCard?: FileCardData;
   metadata?: {
     answerObject?: {
       verdict: string;
@@ -46,13 +68,12 @@ export interface DiscussionMessage {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// File Ingestion Interface
+// File Ingestion Interface (legacy — kept for compat)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface FileIngestionRequest {
   file: File;
   conversationId: number;
-  /** How to use this file in context */
   intent?: "analyze" | "reference" | "summarize";
 }
 
@@ -60,41 +81,8 @@ export interface FileIngestionResult {
   fileName: string;
   fileType: string;
   sizeBytes: number;
-  /** Text extracted for context injection */
   extractedText?: string;
-  /** Error if extraction failed */
   error?: string;
-}
-
-/**
- * ingestFile — basic file ingestion interface.
- * Extracts text content for context injection into the next message.
- * Does NOT implement a full re-parsing system — just text extraction.
- */
-export async function ingestFile(req: FileIngestionRequest): Promise<FileIngestionResult> {
-  const { file } = req;
-  const result: FileIngestionResult = {
-    fileName: file.name,
-    fileType: file.type,
-    sizeBytes: file.size,
-  };
-
-  try {
-    if (file.type.startsWith("text/") || file.name.endsWith(".md") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
-      result.extractedText = await file.text();
-    } else if (file.type === "application/json") {
-      const raw = await file.text();
-      result.extractedText = raw.slice(0, 8000); // cap at 8k chars for context
-    } else {
-      // PDF, DOCX etc — signal to caller that server-side extraction is needed
-      result.extractedText = undefined;
-      result.error = `${file.type} 需要服务端解析（当前仅支持文本文件）`;
-    }
-  } catch (e) {
-    result.error = "文件读取失败";
-  }
-
-  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,10 +96,14 @@ export function useDiscussion(conversationId: number | null) {
   const [isTyping, setIsTyping] = useState(false);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [pendingFileContext, setPendingFileContext] = useState<FileIngestionResult | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevConvIdRef = useRef<number | null>(null);
+
+  // ── tRPC mutations ─────────────────────────────────────────────────────────
+  const uploadMutation = trpc.file.upload.useMutation();
 
   // ── Server sync ────────────────────────────────────────────────────────────
   const { data: rawMessages, refetch: refetchMessages } =
@@ -138,7 +130,6 @@ export function useDiscussion(conversationId: number | null) {
     onError: (err) => {
       setSending(false);
       setIsTyping(false);
-      // Remove optimistic message on error
       setMessages(prev => prev.filter(m => !m.isOptimistic));
       toast.error(`发送失败：${err.message}`);
     },
@@ -171,12 +162,10 @@ export function useDiscussion(conversationId: number | null) {
 
   // ── Scroll behavior ────────────────────────────────────────────────────────
 
-  /** Scroll to bottom (smooth or instant) */
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     bottomRef.current?.scrollIntoView({ behavior });
   }, []);
 
-  /** Auto-scroll when new messages arrive */
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -187,7 +176,6 @@ export function useDiscussion(conversationId: number | null) {
     }
   }, [messages.length, scrollToBottom]);
 
-  /** Track scroll position for jump button */
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -202,7 +190,6 @@ export function useDiscussion(conversationId: number | null) {
     if (!raw || sending || !conversationId) return;
     if (!text) setInput("");
 
-    // Build content — prepend file context if pending
     let content = raw;
     let fileContextMeta: DiscussionMessage["metadata"] = null;
     if (pendingFileContext) {
@@ -219,11 +206,10 @@ export function useDiscussion(conversationId: number | null) {
       setPendingFileContext(null);
     }
 
-    // Optimistic message
     const optimistic: DiscussionMessage = {
       id: Date.now(),
       role: "user",
-      content: raw, // show original text, not file-prepended
+      content: raw,
       createdAt: new Date(),
       metadata: fileContextMeta,
       isOptimistic: true,
@@ -236,18 +222,127 @@ export function useDiscussion(conversationId: number | null) {
     submitMutation.mutate({ title: content, conversationId });
   }, [input, sending, conversationId, pendingFileContext, submitMutation, scrollToBottom]);
 
-  // ── File ingestion ─────────────────────────────────────────────────────────
+  // ── File ingestion v1 ──────────────────────────────────────────────────────
+  // Uploads file to S3 via trpc.file.upload, inserts FileCard message
+  // with processing → ready state flow.
 
   const attachFile = useCallback(async (file: File) => {
-    if (!conversationId) return;
-    const result = await ingestFile({ file, conversationId });
-    setPendingFileContext(result);
-    if (result.error) {
-      toast.warning(result.error);
-    } else {
-      toast.success(`已加载 ${result.fileName}`);
+    if (!conversationId || isUploading) return;
+
+    // Validate type
+    const allowed = ["application/pdf", "text/plain", "text/csv", "text/markdown"];
+    const isAllowed = allowed.includes(file.type) || file.name.endsWith(".txt") || file.name.endsWith(".csv") || file.name.endsWith(".md");
+    if (!isAllowed) {
+      toast.error("仅支持 PDF、TXT、CSV 文件");
+      return;
     }
-  }, [conversationId]);
+
+    // 16MB limit
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("文件大小不能超过 16MB");
+      return;
+    }
+
+    setIsUploading(true);
+
+    // Insert processing FileCard message immediately (optimistic)
+    const cardId = Date.now();
+    const processingCard: DiscussionMessage = {
+      id: cardId,
+      role: "user",
+      content: `[文件上传] ${file.name}`,
+      createdAt: new Date(),
+      isOptimistic: true,
+      fileCard: {
+        type: "file_card",
+        fileName: file.name,
+        fileType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        status: "processing",
+      },
+    };
+    setMessages(prev => [...prev, processingCard]);
+    scrollToBottom("smooth");
+
+    try {
+      // Read file as base64
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Strip data URL prefix (data:...;base64,)
+          resolve(result.split(",")[1] ?? result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Upload to S3 via tRPC
+      const uploadResult = await uploadMutation.mutateAsync({
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        base64Data,
+        conversationId,
+      });
+
+      // Build summary from extracted text preview
+      const extractedPreview = uploadResult.extractedText
+        ? uploadResult.extractedText.replace(/\[文件内容：[^\]]+\]\n?/, "").slice(0, 200)
+        : undefined;
+
+      // Update FileCard to ready
+      setMessages(prev => prev.map(m =>
+        m.id === cardId
+          ? {
+              ...m,
+              isOptimistic: false,
+              fileCard: {
+                type: "file_card",
+                fileName: file.name,
+                fileType: file.type,
+                sizeBytes: file.size,
+                status: "ready",
+                summary: extractedPreview ? `${extractedPreview}...` : "文件已就绪，可继续提问",
+                s3Url: uploadResult.s3Url,
+                attachmentId: uploadResult.attachmentId,
+              },
+            }
+          : m
+      ));
+
+      // Set pending file context for next message
+      setPendingFileContext({
+        fileName: file.name,
+        fileType: file.type,
+        sizeBytes: file.size,
+        extractedText: uploadResult.extractedText ?? undefined,
+      });
+
+      toast.success(`${file.name} 已就绪，可继续提问`);
+    } catch (e: any) {
+      // Update FileCard to error
+      setMessages(prev => prev.map(m =>
+        m.id === cardId
+          ? {
+              ...m,
+              isOptimistic: false,
+              fileCard: {
+                type: "file_card",
+                fileName: file.name,
+                fileType: file.type,
+                sizeBytes: file.size,
+                status: "error",
+                error: e?.message ?? "上传失败",
+              },
+            }
+          : m
+      ));
+      toast.error(`上传失败：${e?.message ?? "未知错误"}`);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [conversationId, isUploading, uploadMutation, scrollToBottom]);
 
   const clearFile = useCallback(() => {
     setPendingFileContext(null);
@@ -278,6 +373,7 @@ export function useDiscussion(conversationId: number | null) {
     isTyping,
     showJumpToBottom,
     pendingFileContext,
+    isUploading,
     // Refs
     scrollContainerRef,
     bottomRef,

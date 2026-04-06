@@ -30,6 +30,7 @@ import { MemoryReasoningBadge } from "@/components/MemoryReasoningBadge";
 import { HistoryRevalidationBadge } from "@/components/HistoryRevalidationBadge";
 import { EvidenceWarningBadge } from "@/components/EvidenceWarningBadge";
 import { HypothesisCards } from "@/components/HypothesisCards";
+import { ManusOrb } from "@/components/ManusOrb";
 import {
   Bot, Brain, User, Settings, Send, Plus, Menu, X,
   Wifi, WifiOff, ChevronDown, LogOut, Shield, Loader2,
@@ -1203,9 +1204,8 @@ function TypingIndicator({ phase }: { phase?: string }) {
   const activeIdx = phase ? (phaseMap[phase] ?? 0) : 0;
   return (
     <div className="flex gap-4 items-start py-3">
-      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
-        style={{ background: "oklch(0.20 0.02 25)", border: "1.5px solid oklch(0.65 0.18 25 / 0.3)", color: "oklch(0.65 0.18 25)" }}>
-        AI
+      <div className="shrink-0 mt-0.5">
+        <ManusOrb isActive={true} size={32} />
       </div>
       <div className="flex flex-col gap-2">
         <span className="text-sm font-semibold" style={{ color: "oklch(0.65 0.18 25)" }}>投资研究助手</span>

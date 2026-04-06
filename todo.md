@@ -3041,3 +3041,18 @@
 - [ ] 悬浮光晕效果（多层 box-shadow glow）
 - [ ] 集成到 ResearchWorkspaceVNext Discussion 区域（发送中状态显示）
 - [ ] TSC 验证
+
+## File Ingestion v1（Discussion 文件上传）
+- [ ] 后端：chat.ingestFile tRPC procedure（S3 上传 + 文本提取 + LLM summary）
+- [ ] 前端：DiscussionPanel 📎 上传按钮
+- [ ] 前端：FileCard 组件（processing → ready 状态流）
+- [ ] useDiscussion.ts：attachFile 升级为插入 FileCard message
+- [ ] 后续对话能力：fileContext 注入到 sendMessage
+- [ ] TSC 验证 + 回归测试
+
+## File Ingestion v1
+- [ ] 后端：chat.ingestFile tRPC procedure
+- [ ] 前端：DiscussionPanel 上传按钮
+- [ ] 前端：FileCard 组件 processing->ready
+- [ ] useDiscussion.ts：attachFile 升级
+- [ ] fileContext 注入 sendMessage

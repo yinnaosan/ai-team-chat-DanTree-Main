@@ -3076,3 +3076,11 @@
 - [x] 移除「节假日数据」 Tab（导航项 + 内容区）
 - [x] 移除「监控」 Tab（导航项 + 内容区）
 - [x] 移除「逻辑」 Tab（导航项 + 内容区）
+## 模型路由审计与重接线（P0）
+- [x] 审计 llm.ts / model_router.ts / llmProviders.ts 当前调用现状
+- [x] 主流程收敛到 modelRouter.generate()
+- [x] 研发态：所有 GPT 任务由 Claude 代跑（ANTHROPIC_API_KEY 可用）
+- [x] 发布态：保留 GPT 路由口，DANTREE_MODE=production 切换
+- [x] 真实 AI 请求验证（claude-sonnet-4-5-20250929，5.7s，PASS）
+- [x] TSC 0 errors
+- [x] 输出完整审计报告

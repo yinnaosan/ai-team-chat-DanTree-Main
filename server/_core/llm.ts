@@ -1,4 +1,5 @@
 import { ENV } from "./env";
+import { modelRouter, type RouterInput } from "../model_router";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -266,8 +267,6 @@ const normalizeResponseFormat = ({
 };
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
-
   const {
     messages,
     tools,
@@ -279,44 +278,60 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     response_format,
   } = params;
 
-  // 当用户配置了自己的 OpenAI Key 时使用 gpt-5.4（2026-03 最新旗舰，API 核实可用），否则使用平台默认模型
-  const useOpenAI = !!process.env.OPENAI_API_KEY;
-  const defaultModel = useOpenAI ? "gpt-5.4" : "gemini-2.5-flash";
+  // ── 路由策略 ──────────────────────────────────────────────────────────────
+  // 研发态（DANTREE_MODE 未设置 / != "production"）：
+  //   → 委托 modelRouter.generate()，由 ANTHROPIC_API_KEY 驱动 Claude Sonnet
+  //   → 沙盒可用，不走 api.openai.com
+  // 发布态（DANTREE_MODE=production）：
+  //   → 走原始 OpenAI 直连路径（gpt-5.4）
+  // ─────────────────────────────────────────────────────────────────────────
+  const isDev = (process.env.DANTREE_MODE ?? "") !== "production";
 
+  if (isDev) {
+    // 研发态：委托 modelRouter（Claude Sonnet 4.6，沙盒可用）
+    // 将 invokeLLM 的 Message 类型适配为 RouterInput 的 LLMMessage（只保留 role + content 字符串）
+    const routerMessages = messages.map((m) => ({
+      role: (typeof m.role === "string" ? m.role : "user") as "system" | "user" | "assistant",
+      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    }));
+    const normalizedResponseFormat = normalizeResponseFormat({
+      responseFormat, response_format, outputSchema, output_schema,
+    });
+    const routerInput: RouterInput = {
+      messages: routerMessages,
+      ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
+    };
+
+    const routerResult = await modelRouter.generate(routerInput, "default");
+    // 将 modelRouter 响应适配为 InvokeResult 格式
+    return {
+      id: `router-${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: routerResult.model,
+      choices: [{
+        index: 0,
+        message: { role: "assistant", content: routerResult.content },
+        finish_reason: "stop",
+      }],
+      usage: routerResult.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    } as unknown as InvokeResult;
+  }
+
+  // 发布态：直连 OpenAI gpt-5.4
+  assertApiKey();
   const payload: Record<string, unknown> = {
-    model: defaultModel,
+    model: "gpt-5.4",
     messages: messages.map(normalizeMessage),
   };
-
-  if (tools && tools.length > 0) {
-    payload.tools = tools;
-  }
-
-  const normalizedToolChoice = normalizeToolChoice(
-    toolChoice || tool_choice,
-    tools
-  );
-  if (normalizedToolChoice) {
-    payload.tool_choice = normalizedToolChoice;
-  }
-
-  // max_tokens: gpt-4.1 支持更长输出，统一用 16384 安全值
-  payload.max_tokens = 16384;
-  // thinking 参数仅平台内置模型支持，OpenAI 不支持
-  if (!useOpenAI) {
-    payload.thinking = { budget_tokens: 128 };
-  }
-
+  if (tools && tools.length > 0) payload.tools = tools;
+  const normalizedToolChoice = normalizeToolChoice(toolChoice || tool_choice, tools);
+  if (normalizedToolChoice) payload.tool_choice = normalizedToolChoice;
+  payload.max_tokens = 8192;
   const normalizedResponseFormat = normalizeResponseFormat({
-    responseFormat,
-    response_format,
-    outputSchema,
-    output_schema,
+    responseFormat, response_format, outputSchema, output_schema,
   });
-
-  if (normalizedResponseFormat) {
-    payload.response_format = normalizedResponseFormat;
-  }
+  if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
 
   const response = await fetch(resolveApiUrl(), {
     method: "POST",
@@ -325,7 +340,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       authorization: `Bearer ${ENV.forgeApiKey}`,
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(180000), // 180秒超时，防止 Manus LLM 卡住
+    signal: AbortSignal.timeout(180000),
   });
 
   if (!response.ok) {

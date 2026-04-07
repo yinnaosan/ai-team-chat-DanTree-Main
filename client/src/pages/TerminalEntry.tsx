@@ -1,19 +1,13 @@
 /**
  * TerminalEntry.tsx — DanTree 登录入口页 (/ 路由)
  *
- * 设计来源：ui.zip（HeroSection + LoginSection）
- * 认证方式：Manus OAuth（通过 getLoginUrl() 跳转）
- *
  * 行为规则：
- * - 所有用户（包括已登录）访问 / 时，始终先看到登录页
- * - 未登录：点击「Continue with Manus」→ OAuth 跳转
- * - 已登录：LoginSection 显示「进入终端」按钮，点击后跳转 /research
- * - 不再自动跳转，用户必须主动操作
+ * - 已登录用户：访问 / 时自动跳转 /research（0次点击）
+ * - 未登录/新用户：看到登录页 → 点「Start Analysis」→ OAuth → 登录后跳转 /research（1次点击）
  */
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { trpc } from "@/lib/trpc";
 import { HeroSection } from "@/components/login/HeroSection";
 import { LoginSection } from "@/components/login/LoginSection";
 
@@ -22,26 +16,26 @@ export default function TerminalEntry() {
   const { user, loading } = useAuth();
   const loginSectionRef = useRef<HTMLDivElement>(null);
 
-  // 已登录用户预加载访问权限（不自动跳转，只用于按钮逻辑）
-  const { data: accessData } = trpc.access.check.useQuery(undefined, {
-    enabled: !!user,
-  });
+  // 已登录用户自动跳转到工作台，无需任何点击
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/research");
+    }
+  }, [loading, user, navigate]);
 
   const scrollToLogin = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 已登录用户点击「进入终端」时的处理
-  const handleEnterTerminal = () => {
-    if (accessData?.hasAccess) {
-      navigate("/research");
-    } else if (accessData && !accessData.hasAccess) {
-      navigate("/access");
-    } else {
-      // accessData 还在加载，稍后重试
-      navigate("/research");
-    }
-  };
+  // 加载中时显示空白（避免闪烁）
+  if (loading) {
+    return <div style={{ background: "#09090b", height: "100vh" }} />;
+  }
+
+  // 已登录时不渲染（useEffect 会跳转）
+  if (user) {
+    return <div style={{ background: "#09090b", height: "100vh" }} />;
+  }
 
   return (
     <div style={{ background: "#09090b", overflowY: "auto", height: "100vh" }}>
@@ -50,10 +44,7 @@ export default function TerminalEntry() {
 
       {/* Screen 2: "The full picture, always in reach" + login card */}
       <div ref={loginSectionRef}>
-        <LoginSection
-          isLoggedIn={!loading && !!user}
-          onEnterTerminal={handleEnterTerminal}
-        />
+        <LoginSection />
       </div>
     </div>
   );

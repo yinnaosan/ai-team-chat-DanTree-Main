@@ -40,6 +40,8 @@ export interface DecisionHeaderProps {
   activeSection?: unknown;
   // ─── Real props ───
   entity?: string;
+  /** 当前标的的公司中文名（如果有） */
+  cnName?: string;
   stance?: "bullish" | "bearish" | "neutral" | "mixed" | "unavailable";
   confidence?: number | null;
   changeMarker?: "stable" | "strengthening" | "weakening" | "reversal" | "unknown";
@@ -87,12 +89,13 @@ const MARKER_LABEL: Record<string, { label: string; color: string }> = {
 
 interface EntityComboboxProps {
   entity?: string;
+  cnName?: string;
   candidates: EntityCandidate[];
   onSelect: (candidate: EntityCandidate) => void;
   onNew: (ticker: string) => void;
 }
 
-function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxProps) {
+function EntityCombobox({ entity, cnName, candidates, onSelect, onNew }: EntityComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -188,7 +191,7 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
           {entity ? (
             <>
               <div style={{
-                width: 24, height: 24, borderRadius: 5,
+                width: 26, height: 26, borderRadius: 5,
                 background: "rgba(52,211,153,0.16)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
@@ -197,10 +200,33 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
                   {entity[0]}
                 </span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(237,237,239,0.94)", letterSpacing: "0.03em", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
-                {entity}
-              </span>
-              <ChevronDown size={11} color="rgba(255,255,255,0.28)" />
+              {/* 公司名 + 代码双行显示 */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, minWidth: 0 }}>
+                {cnName && (
+                  <span style={{
+                    fontSize: 13, fontWeight: 600,
+                    color: "rgba(237,237,239,0.94)",
+                    letterSpacing: "0.01em",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                    maxWidth: 140,
+                  }}>
+                    {cnName}
+                  </span>
+                )}
+                <span style={{
+                  fontSize: cnName ? 11 : 13,
+                  fontWeight: cnName ? 500 : 700,
+                  color: cnName ? "rgba(52,211,153,0.80)" : "rgba(237,237,239,0.94)",
+                  letterSpacing: "0.04em",
+                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                }}>
+                  {entity}
+                </span>
+              </div>
+              <ChevronDown size={11} color="rgba(255,255,255,0.28)" style={{ flexShrink: 0 }} />
             </>
           ) : (
             <>
@@ -471,7 +497,7 @@ function LogoutButton() {
 // ─── DecisionHeader ───────────────────────────────────────────────────────────────────
 
 export function DecisionHeader({
-  entity, stance = "unavailable", confidence = null,
+  entity, cnName, stance = "unavailable", confidence = null,
   changeMarker = "unknown", alertCount = 0,
   highestAlertSeverity = null, gateState = "fallback",
   lastUpdated,
@@ -524,6 +550,7 @@ export function DecisionHeader({
         {/* P1-3: 内联 Combobox 替换原 prompt() 按钮 */}
         <EntityCombobox
           entity={entity}
+          cnName={cnName}
           candidates={entityCandidates}
           onSelect={handleSelect}
           onNew={handleNew}

@@ -551,6 +551,7 @@ export default function ResearchWorkspacePage() {
   const convMessages = discussion.messages;
 
   const [currentTicker, setCurrentTicker] = useState("");
+  const [currentCnName, setCurrentCnName] = useState("");
   const prevTickerRef = useRef("");
 
   useEffect(() => {
@@ -571,6 +572,17 @@ export default function ResearchWorkspacePage() {
     const t = extractTicker(convMessages);
     if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setCurrentTicker(t); }
   }, [convMessages]);
+  // 切换 session 时，从 sessionItems 中同步更新 currentTicker / currentCnName
+  useEffect(() => {
+    if (activeConvId == null) return;
+    const item = sessionItems.find(s => s.id === String(activeConvId));
+    if (item && item.entity && item.entity !== "—") {
+      setCurrentTicker(item.entity);
+      prevTickerRef.current = item.entity;
+      // title 就是公司名（已经去除代码）
+      setCurrentCnName(item.title !== item.entity ? item.title : "");
+    }
+  }, [activeConvId]); // 故意不依赖 sessionItems，只在切换时触发一次
 
   // Fix A: route exclusively through discussion.sendMessage()
   // Removed stale paths: setSending / setIsTyping / setConvMessages / submitMutation
@@ -587,9 +599,10 @@ export default function ResearchWorkspacePage() {
   const toSessionItem = useCallback((c: typeof session.sessions[0]) => {
     // 从 title 中提取股票代码（如 AAPL、BTC、600690.SS）
     const rawTitle = c.title ?? `对话 #${c.id}`;
-    // 尝试匹配带后缀的代码（如 600690.SS）或纯大写代码（如 AAPL）
-    const tkMatch = rawTitle.match(/\b(\d{5,6}\.[A-Z]{2}|[A-Z]{1,5}(?:\.[A-Z]{1,2})?|BTC|ETH)\b/);
-    const tk = tkMatch?.[0];
+    // 匹配带后缀代码（600690.SS / 0700.HK）或纯大写代码（AAPL / BTC）
+    // 中文字符后没有 \b，使用分隔符前置匹配：空格、·、•、・、-，或字符串开头
+    const tkMatch = rawTitle.match(/(?:^|[\s·•・\-]+)(\d{4,6}\.[A-Z]{1,3}|[A-Z]{1,5}(?:\.[A-Z]{1,3})?)(?=[\s·•・\-]|$)/);
+    const tk = tkMatch?.[1];
     // 推断市场标签
     let market: string | undefined;
     if (tk) {
@@ -598,12 +611,16 @@ export default function ResearchWorkspacePage() {
       else if (tk.endsWith(".HK")) market = "HK";
       else if (tk.endsWith(".T")) market = "JP";
       else if (tk.endsWith(".KS")) market = "KR";
-      else if (tk === "BTC" || tk === "ETH") market = "CRYPTO";
+      else if (tk === "BTC" || tk === "ETH" || tk === "SOL" || tk === "BNB") market = "CRYPTO";
       else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
     }
-    // 标题去掉代码部分，只保留公司名（去掉 " · CODE"、" CODE"、"·CODE" 后缀）
+    // 标题去掉代码部分，只保留公司名
+    // 先去掉代码，再去掉末尾残留的分隔符（· / • / ・ / - / 空格）
     const displayTitle = tk
-      ? rawTitle.replace(new RegExp(`\\s*[·•・\\-]?\\s*${tk.replace(/\./g, '\\.')}\\s*$`), "").trim() || rawTitle
+      ? rawTitle
+          .replace(new RegExp(`[\\s·•・\\-]*${tk.replace(/\./g, '\\.')}[\\s]*$`), "")
+          .replace(/[\s·•・\-]+$/, "")
+          .trim() || rawTitle
       : rawTitle;
     const t = rawTitle.toLowerCase();
     const type: SessionItem["type"] =
@@ -678,6 +695,7 @@ export default function ResearchWorkspacePage() {
         {/* ── Global Top Bar / Decision Control Strip ── */}
         <DecisionHeader
           entity={currentTicker || undefined}
+          cnName={currentCnName || undefined}
           stance={stance}
           confidence={
             answerObject?.confidence === "high" ? 80 :
@@ -687,11 +705,23 @@ export default function ResearchWorkspacePage() {
           gateState={answerObject ? "pass" : "fallback"}
           changeMarker="stable"
           lastUpdated={lastAssistantMessage ? fmtTime(lastAssistantMessage.createdAt) : undefined}
+          onSelectEntity={(candidate) => {
+            setCurrentTicker(candidate.ticker);
+            setCurrentCnName(candidate.cnName || candidate.title || "");
+            session.createSession();
+            handleSubmit(`深度分析 ${candidate.ticker}`);
+          }}
+          onNewEntity={(ticker) => {
+            setCurrentTicker(ticker);
+            setCurrentCnName("");
+            handleSubmit(`深度分析 ${ticker}`);
+          }}
           onEntitySearch={() => {
             const ticker = prompt("输入股票代码（如 AAPL、NVDA）:");
             if (ticker?.trim()) {
               const t = ticker.trim().toUpperCase();
               setCurrentTicker(t);
+              setCurrentCnName("");
               handleSubmit(`深度分析 ${t}`);
             }
           }}

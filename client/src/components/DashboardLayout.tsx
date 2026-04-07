@@ -197,7 +197,7 @@ function DashboardLayoutContent({
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <img
-                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
                     alt="DanTree"
                     className="w-5 h-5 rounded object-cover shrink-0"
                   />
@@ -211,7 +211,7 @@ function DashboardLayoutContent({
               {isCollapsed && (
                 <div className="flex items-center justify-center w-full">
                   <img
-                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
                     alt="DanTree"
                     className="w-5 h-5 rounded object-cover"
                   />

@@ -130,7 +130,7 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
               <div className="mb-8 flex items-center gap-4 group cursor-pointer">
                 <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-[#27272a] bg-[#18181b] transition-all duration-300 group-hover:border-[#22c55e]/50 group-hover:shadow-lg group-hover:shadow-[#22c55e]/20">
                   <img
-                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_160bec03.png"
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
                     alt="DanTree Logo"
                     className="h-full w-full object-cover"
                   />

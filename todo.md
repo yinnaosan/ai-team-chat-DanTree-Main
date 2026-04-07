@@ -3155,3 +3155,12 @@
 - [x] 前端：Settings.tsx access tab 完整重写为新密钥管理 UI
 - [x] 前端：AdminPanel.tsx 完整重写为新密钥管理 UI
 - [x] 旧 access_codes / user_access 系统完全停用
+
+## Logo 全站替换
+
+- [x] 上传真实 DanTree Logo（截图提供的图标）到 CDN
+- [x] DashboardLayout.tsx：替换导航栏 Logo（绿叶图标）
+- [x] LoginSection.tsx：替换登录页 Logo
+- [x] ChatRoom.tsx：替换聊天页 Logo
+- [x] KeyActivationModal.tsx：替换弹窗 Logo
+- [x] 所有其他出现 Logo 的位置统一替换

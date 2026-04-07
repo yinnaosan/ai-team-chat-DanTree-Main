@@ -39,6 +39,7 @@ import {
   revokeAccessKey,
   activateAccessKey,
   checkUserActivated,
+  getUserBoundKeyExpiry,
   getRecentMemory,
   getRelevantMemory,
   saveMemoryContext,
@@ -111,6 +112,7 @@ import { getPortfolioOptimizationAnalysis, checkPortfolioOptimizerHealth } from 
 import { buildLawsContextBlock, getAllLawsSummary } from "./hackerLawsKnowledge";
 import { runBacktest as runFactorBacktest, BACKTEST_FACTORS } from "./backtestEngine";
 import { buildQuantContextBlock } from "./quantFactorKnowledge";
+import { notifyOwner } from "./_core/notification";
 import { fetchAllCnFinanceNews, formatCnNewsToMarkdown, isCnFinanceNewsRelevant, checkCnFinanceNewsHealth } from "./cnFinanceNewsApi";
 import { buildEnhancedNewsBlock, buildTrendRadarAnalysisPrompt, buildSourceAttribution, filterLowQualityNews, detectCrossSourceResonance, type NewsItem as TRNewsItem } from "./trendRadarEnhancer";
 import { fetchXueqiuData, formatXueqiuDataAsMarkdown, isXueqiuRelevant, toXueqiuSymbol, checkXueqiuHealth } from "./xueqiuApi";
@@ -3363,9 +3365,16 @@ export const appRouter = router({
     // 检查当前用户是否已激活（Owner 永远返回 true）
     check: protectedProcedure.query(async ({ ctx }) => {
       const isOwner = ctx.user.openId === ENV.ownerOpenId;
-      if (isOwner) return { hasAccess: true, isOwner: true };
+      if (isOwner) return { hasAccess: true, isOwner: true, expiredAt: null as Date | null };
       const activated = await checkUserActivated(ctx.user.id);
-      return { hasAccess: activated, isOwner: false };
+      if (activated) return { hasAccess: true, isOwner: false, expiredAt: null as Date | null };
+      // 未激活：检查是否有过期密钥（用于展示过期日期）
+      const expiry = await getUserBoundKeyExpiry(ctx.user.id);
+      return {
+        hasAccess: false,
+        isOwner: false,
+        expiredAt: (expiry?.expired && expiry.expiresAt) ? expiry.expiresAt : null as Date | null,
+      };
     }),
 
     // 用户激活密钥（一次激活，永久绑定该邮箱账号）
@@ -3400,6 +3409,29 @@ export const appRouter = router({
         await revokeAccessKey(input.keyId);
         return { success: true };
       }),
+    // Owner：检查即将到期密钥，并通过 notifyOwner 推送提醒
+    checkExpiringKeys: ownerProcedure.mutation(async () => {
+      const allKeys = await listAccessKeys();
+      const now = Date.now();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const expiring = allKeys.filter((k) => {
+        if (k.revoked) return false;
+        if (!k.expiresAt) return false;
+        const msLeft = new Date(k.expiresAt).getTime() - now;
+        return msLeft > 0 && msLeft <= sevenDaysMs;
+      });
+      if (expiring.length === 0) return { notified: 0 };
+      const lines = expiring.map((k) => {
+        const exp = new Date(k.expiresAt!).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+        const bound = k.boundEmail ? `绑定邮筱: ${k.boundEmail}` : "未激活";
+        return `• ${k.label ?? "无标签"} | ${bound} | 到期: ${exp}`;
+      });
+      await notifyOwner({
+        title: `⚠️ DanTree 密钥即将到期（${expiring.length} 个）`,
+        content: `以下密钥将在 7 天内到期，请及时续期或重新生成：\n\n${lines.join("\n")}`,
+      });
+      return { notified: expiring.length };
+    }),
   }),
 
   // --- 会话管理 -------------------------------------------------------------

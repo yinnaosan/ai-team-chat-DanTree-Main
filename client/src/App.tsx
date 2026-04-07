@@ -82,6 +82,7 @@ function AccessGuard() {
 
   return (
     <KeyActivationModal
+      expiredAt={accessData?.expiredAt ?? null}
       onActivated={() => {
         // 激活成功后刷新 access.check，弹窗消失
         utils.access.check.invalidate();

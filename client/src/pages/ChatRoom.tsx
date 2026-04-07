@@ -1817,7 +1817,7 @@ export default function ChatRoom() {
           <div className="flex items-center gap-2.5">
             {/* Logo mark */}
             <img
-              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png"
+              src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
               alt="DanTree"
               className="w-7 h-7 rounded-xl object-cover shrink-0"
             />
@@ -2225,7 +2225,7 @@ export default function ChatRoom() {
                   {/* Logo + brand */}
                   <div className="mb-8 text-center">
                     <img
-                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-128_c42a5873.png"
+                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
                       alt="DanTree"
                       className="w-14 h-14 rounded-2xl object-cover mx-auto mb-4"
                     />

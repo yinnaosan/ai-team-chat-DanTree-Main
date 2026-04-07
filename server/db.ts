@@ -1227,3 +1227,23 @@ export async function checkUserActivated(userId: number): Promise<boolean> {
     .limit(1);
   return result.length > 0;
 }
+
+/**
+ * 获取用户绑定的密钥过期日期（包括已过期的，用于展示过期提示）
+ */
+export async function getUserBoundKeyExpiry(userId: number): Promise<{ expiresAt: Date | null; expired: boolean } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select({ expiresAt: accessKeys.expiresAt, revoked: accessKeys.revoked })
+    .from(accessKeys)
+    .where(and(
+      eq(accessKeys.boundUserId, userId),
+      eq(accessKeys.revoked, false)
+    ))
+    .orderBy(accessKeys.expiresAt)
+    .limit(1);
+  if (result.length === 0) return null;
+  const expiresAt = result[0].expiresAt;
+  const expired = expiresAt ? expiresAt < new Date() : false;
+  return { expiresAt: expiresAt ?? null, expired };
+}

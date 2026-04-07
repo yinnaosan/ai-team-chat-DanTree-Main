@@ -495,7 +495,11 @@ export function DecisionHeader({
       {/* ── Left: Brand + Entity Combobox ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <Leaf size={14} color="rgba(52,211,153,0.85)" />
+          <img
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo_88164382.png"
+            alt="DanTree"
+            style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+          />
           <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.82)", letterSpacing: "0.06em", fontFamily: "'Inter', system-ui, sans-serif" }}>
             DanTree
           </span>

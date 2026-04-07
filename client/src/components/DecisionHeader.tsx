@@ -127,7 +127,8 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
     const q = query.trim();
     const qUpper = q.toUpperCase();
     // 本地候选过滤：支持代码/英文名/中文名匹配
-    const localFiltered = !q ? candidates : candidates.filter(c =>
+    // 空 query 时不显示历史候选，必须输入内容才触发联想
+    const localFiltered = !q ? [] : candidates.filter(c =>
       c.ticker.toUpperCase().includes(qUpper) ||
       c.title.toUpperCase().includes(qUpper) ||
       (c.cnName && c.cnName.includes(q))

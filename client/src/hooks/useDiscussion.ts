@@ -124,12 +124,14 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
         const data = JSON.parse(e.data);
 
         if (data.type === "chunk" && data.content) {
+          // 关键修复：后端 emitTaskChunk 发送的是全量内容（accumulated），不是增量
+          // 必须用「替换」而非「累加」，否则内容会重复叠加导致乱码
           setMessages(prev => {
             const last = prev[prev.length - 1];
             if (last?.role === "assistant" && last.isStreaming) {
               return [
                 ...prev.slice(0, -1),
-                { ...last, content: last.content + data.content },
+                { ...last, content: data.content },
               ];
             }
             return [

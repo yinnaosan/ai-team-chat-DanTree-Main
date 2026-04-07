@@ -1010,13 +1010,16 @@ export default function ResearchWorkspacePage() {
   // are now managed internally by useDiscussion — removed from VNext state
 
   useEffect(() => {
-    if (!activeConvId && allConversations?.length) {
-      const sorted = [...allConversations].sort((a, b) =>
-        new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-      );
-      setActiveConvId(sorted[0].id);
+    // 修复：只有当前 session 明确有绑定的 conversationId 时才允许 fallback
+    // 如果当前 session 没有 conversationId（新 session），不得把其他 session 的旧对话塑进来
+    if (!activeConvId && allConversations?.length && currentSession?.conversationId) {
+      // 只允许加载当前 session 绑定的对话
+      const sessionConv = allConversations.find(c => c.id === currentSession.conversationId);
+      if (sessionConv) {
+        setActiveConvId(sessionConv.id);
+      }
     }
-  }, [allConversations, activeConvId]);
+  }, [allConversations, activeConvId, currentSession?.conversationId]);
 
   // BUG-004 fix: Session 切换时同步 activeConvId + 清空 input
   // currentSession 变化时，必须将 activeConvId 同步为该 session 的 conversationId

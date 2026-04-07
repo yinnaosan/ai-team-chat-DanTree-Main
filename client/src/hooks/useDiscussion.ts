@@ -95,6 +95,8 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
   const bottomRef = useRef<HTMLDivElement>(null);
   const prevConvIdRef = useRef<number | null>(null);
   const sseRef = useRef<EventSource | null>(null);
+  // 记录发起 SSE 时绑定的 conversationId，用于 chunk 到达时校验是否属于当前会话
+  const sseConvIdRef = useRef<number | null>(null);
 
   // ── tRPC ──────────────────────────────────────────────────────────────────
   const uploadMutation = trpc.file.upload.useMutation();
@@ -110,11 +112,13 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
 
   // ── SSE ───────────────────────────────────────────────────────────────────
 
-  const startSSE = useCallback((taskId: number) => {
+  const startSSE = useCallback((taskId: number, boundConvId?: number | null) => {
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
     }
+    // 绑定此次 SSE 对应的 conversationId
+    sseConvIdRef.current = boundConvId ?? null;
 
     const es = new EventSource(`/api/task-stream/${taskId}`, { withCredentials: true });
     sseRef.current = es;
@@ -124,7 +128,12 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
         const data = JSON.parse(e.data);
 
         if (data.type === "chunk" && data.content) {
-          // 关键修复：后端 emitTaskChunk 发送的是全量内容（accumulated），不是增量
+          // 会话隔离校验：如果此 SSE 绑定的 conversationId 与当前活跃会话不匹配，丢弃 chunk
+          // conversationId 是 hook 参数（当前活跃会话），sseConvIdRef 是发起时绑定的旧会话
+          if (sseConvIdRef.current !== null && sseConvIdRef.current !== conversationId) {
+            return; // 丢弃：此 chunk 属于已切换走的旧会话
+          }
+          // 后端 emitTaskChunk 发送的是全量内容（accumulated），不是增量
           // 必须用「替换」而非「累加」，否则内容会重复叠加导致乱码
           setMessages(prev => {
             const last = prev[prev.length - 1];
@@ -189,7 +198,7 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
   const submitMutation = trpc.chat.submitTask.useMutation({
     onSuccess: (data) => {
       if ((data as any)?.taskId) {
-        startSSE((data as any).taskId);
+        startSSE((data as any).taskId, conversationId);
       } else {
         setSending(false);
         setIsTyping(false);
@@ -219,10 +228,10 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
     if (sending) return;
     const latest = runningTasks[0];
     if (!latest?.id) return;
-    // 恢复 SSE 连接
+    // 恢复 SSE 连接（绑定当前 conversationId）
     setSending(true);
     setIsTyping(true);
-    startSSE(latest.id);
+    startSSE(latest.id, conversationId);
   }, [runningTasks, sending, startSSE]);
 
    // ── Server sync ────────────────────────────────────────────────────────────
@@ -230,11 +239,9 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
     if (!rawMessages) return;
     const hasStreaming = messages.some(m => m.isStreaming);
     if (hasStreaming) return;
-    // BUG-003 fix: 不再依赖 prevConvIdRef 判断，直接比较 rawMessages 与当前非乐观消息数量
-    // 如果数据相同则跳过（避免重复渲染）
-    const serverCount = rawMessages.length;
-    const localCount = messages.filter(m => !m.isOptimistic).length;
-    if (serverCount === localCount && serverCount > 0) return;
+    // 任务隔离修复：移除 serverCount===localCount 跳过条件
+    // 原条件在新 session 消息数量恰好等于旧 session 时会跳过更新，导致旧消息残留
+    // React 会自动 diff，相同内容不会造成多余渲染
     const mapped: DiscussionMessage[] = (rawMessages as any[]).map(m => ({
       id: m.id,
       role: m.role as DiscussionMessage["role"],

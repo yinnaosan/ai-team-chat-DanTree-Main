@@ -3209,3 +3209,10 @@
 - [ ] 灰色加号：完全移除（UI + 事件绑定）
 - [ ] entity session 单标的限制：再选新标的时新建 session
 - [ ] 连锁影响验证：title/focusKey/placeholder/sorting/history search
+
+## 任务隔离 + 输出收束修复（2026-04-07）
+- [ ] 任务隔离：SSE chunk 校验 task_id/conversation_id，切换时丢弃旧流
+- [ ] 任务隔离：切换 session 时重置 activeTaskRef、停止旧 SSE 连接
+- [ ] 任务隔离：visibleMessages 严格按 activeConvId 过滤，不混入其他 conversation
+- [ ] 输出收束：output parser 清洗 %CHART%/%END_CHART%/JSON/模板残留
+- [ ] 输出收束：Discussion 只渲染 cleaned text，不渲染原始模型输出

@@ -26,7 +26,25 @@ import { MarketAlertManager } from "@/components/MarketStatus";
 import { useWorkspaceViewModel } from "@/hooks/useWorkspaceViewModel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { ManusOrb } from "@/components/ManusOrb";
+import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
+import { Streamdown } from "streamdown";
 import { useDiscussion } from "@/hooks/useDiscussion";
+
+// ── 输出收束：解析 %%FOLLOWUP%% 标记，清洗内部标记 ─────────────────────────────
+function parseFollowupsVNext(content: string): { cleanContent: string; followups: string[] } {
+  const followups: string[] = [];
+  const stripped = content
+    .replace(/%%DELIVERABLE%%[\s\S]*?%%END_DELIVERABLE%%/g, "")
+    .replace(/%%DISCUSSION%%[\s\S]*?%%END_DISCUSSION%%/g, "")
+    .replace(/%%DELIVERABLE%%[\s\S]*/g, "")
+    .replace(/%%DISCUSSION%%[\s\S]*/g, "");
+  const cleanContent = stripped.replace(/%%FOLLOWUP%%([\s\S]*?)%%END%%/g, (_, q) => {
+    const trimmed = q.trim();
+    if (trimmed) followups.push(trimmed);
+    return "";
+  }).trim();
+  return { cleanContent, followups };
+}
 import type { AlertItem } from "@/components/AlertBlock";
 import type { HistoryEntry } from "@/components/HistoryBlock";
 import type { SnapshotEntry } from "@/hooks/useWorkspaceViewModel";
@@ -433,13 +451,56 @@ function DiscussionPanel({
 
                 {/* Body */}
                 <div style={{ paddingLeft: 27 }}>
-                  <p style={{
-                    fontSize: 13, lineHeight: 1.80,
-                    color: isUser ? "rgba(237,237,239,0.88)" : "rgba(237,237,239,0.78)",
-                    margin: 0,
-                  }}>
-                    {m.content}
-                  </p>
+                  {/* 输出收束：用户消息直接显示，助手消息经过 parseFollowupsVNext + parseChartBlocks 清洗 */}
+                  {isUser ? (
+                    <p style={{
+                      fontSize: 13, lineHeight: 1.80,
+                      color: "rgba(237,237,239,0.88)",
+                      margin: 0, whiteSpace: "pre-wrap",
+                    }}>
+                      {m.content}
+                    </p>
+                  ) : (() => {
+                    const { cleanContent, followups } = parseFollowupsVNext(m.content);
+                    const blocks = parseChartBlocks(cleanContent);
+                    return (
+                      <div style={{ fontSize: 13, lineHeight: 1.80, color: "rgba(237,237,239,0.78)" }}>
+                        {blocks.map((block, bi) => {
+                          if (block.type === "text") {
+                            return block.text.trim() ? (
+                              <Streamdown key={bi}>{block.text}</Streamdown>
+                            ) : null;
+                          }
+                          if (block.type === "chart") {
+                            return <InlineChart key={bi} raw={block.raw} />;
+                          }
+                          if (block.type === "pyimage") {
+                            return <PyImageChart key={bi} base64={block.base64} />;
+                          }
+                          return null;
+                        })}
+                        {followups.length > 0 && (
+                          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {followups.map((fq, fi) => (
+                              <button
+                                key={fi}
+                                onClick={() => onQuickPrompt(fq)}
+                                style={{
+                                  fontSize: 11, padding: "4px 10px", borderRadius: 6,
+                                  background: "rgba(52,211,153,0.07)",
+                                  border: "1px solid rgba(52,211,153,0.22)",
+                                  color: "rgba(52,211,153,0.80)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {fq}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Key points — reasoning evidence cards */}
                   {m.keyPoints && m.keyPoints.length > 0 && (

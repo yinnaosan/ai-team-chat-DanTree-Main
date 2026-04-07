@@ -201,7 +201,7 @@ function DiscussionPanel({
 
   // Dynamic placeholder
   const placeholder = entity
-    ? `讨论 ${entity} 的 Thesis、Timing 或 Risk...`
+    ? `今天研究点什么？`
     : "输入标的开始分析，或继续已有会话";
 
   return (
@@ -268,7 +268,7 @@ function DiscussionPanel({
               textAlign: "center", lineHeight: 1.7, margin: 0,
             }}>
               {entity
-                ? `开始讨论 ${entity} 的 Thesis、Timing 或 Risk`
+                ? `今天研究点什么？`
                 : "输入标的开始分析，或继续已有会话"}
             </p>
             {/* Quick prompts — empty state */}

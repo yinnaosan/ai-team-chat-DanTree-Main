@@ -3216,3 +3216,14 @@
 - [ ] 任务隔离：visibleMessages 严格按 activeConvId 过滤，不混入其他 conversation
 - [ ] 输出收束：output parser 清洗 %CHART%/%END_CHART%/JSON/模板残留
 - [ ] 输出收束：Discussion 只渲染 cleaned text，不渲染原始模型输出
+
+## SessionRail 拖拽排序 + CN_NAME_MAP 词条库扩充
+- [x] 数据库：conversations 表添加 displayOrder 字段（int, default 0）
+- [x] 后端 db.ts：添加 reorderConversations 函数（批量更新 displayOrder）
+- [x] 后端 routers.ts：添加 conversation.reorder procedure（传入有序 id 数组）
+- [x] 前端 useSessionManager：添加 reorderSessions + renameSession action，支持乐观更新
+- [x] 前端 useSessionManager：grouped 排序逻辑支持 displayOrder（本地乐观顺序优先）
+- [x] 前端 SessionRail：集成 @dnd-kit/core + @dnd-kit/sortable，非置顶区域支持拖拽排序
+- [x] 前端 SessionRail：拖拽手柄（GripVertical）悬停时显示，DragOverlay 跟随鼠标
+- [x] 前端 ResearchWorkspace：传入 onReorder + 完整 actions（含 onRename）
+- [x] CN_NAME_MAP 词条库大幅扩充（覆盖美股/港股/A股/加密/ETF/宏观指数等更多中文词条）

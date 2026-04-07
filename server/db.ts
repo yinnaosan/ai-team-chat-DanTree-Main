@@ -133,6 +133,19 @@ export async function setConversationFavorited(convId: number, userId: number, f
   await db.update(conversations).set({ isFavorited: favorited }).where(and(eq(conversations.id, convId), eq(conversations.userId, userId)));
 }
 
+/** 批量更新会话拖拽排序（传入有序的 id 数组，按索引分配 displayOrder） */
+export async function reorderConversations(userId: number, orderedIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      db.update(conversations)
+        .set({ displayOrder: index })
+        .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+    )
+  );
+}
+
 // ─── Message helpers ─────────────────────────────────────────────────────────
 
 export async function insertMessage(msg: InsertMessage) {

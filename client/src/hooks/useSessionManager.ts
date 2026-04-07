@@ -4,6 +4,7 @@
  * Session 管理 hook：
  * - Session 列表（pinned 优先排序）
  * - CRUD：create / delete / pin / favorite / rename
+ * - 拖拽排序：reorderSessions（非置顶区域）
  * - currentSession 同步（绑定 activeConvId）
  * - 与 trpc 路由对齐，不引入新 schema
  */
@@ -20,6 +21,7 @@ export interface SessionData {
   title: string | null;
   isPinned: boolean;
   isFavorited: boolean;
+  displayOrder: number;
   lastMessageAt: Date;
   createdAt: Date;
   groupId?: number | null;
@@ -39,6 +41,8 @@ export interface SessionGroup {
 
 export function useSessionManager(enabled: boolean) {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  // 本地乐观排序状态（拖拽时立即更新 UI，不等服务器响应）
+  const [localOrder, setLocalOrder] = useState<number[] | null>(null);
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: rawSessions, refetch } = trpc.chat.listConversations.useQuery(
@@ -50,13 +54,14 @@ export function useSessionManager(enabled: boolean) {
   const createMutation = trpc.chat.createConversation.useMutation({
     onSuccess: (conv) => {
       setActiveSessionId(conv.id);
+      setLocalOrder(null); // 新建后重置本地排序
       refetch();
     },
     onError: () => toast.error("创建会话失败"),
   });
 
   const pinMutation = trpc.conversation.pin.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => { setLocalOrder(null); refetch(); },
     onError: () => toast.error("操作失败"),
   });
 
@@ -67,13 +72,26 @@ export function useSessionManager(enabled: boolean) {
 
   const deleteMutation = trpc.conversation.delete.useMutation({
     onSuccess: (_, variables) => {
+      setLocalOrder(prev => prev ? prev.filter(id => id !== variables.conversationId) : null);
       refetch();
-      // If deleted the active session, clear it
       if (variables.conversationId === activeSessionId) {
         setActiveSessionId(null);
       }
     },
     onError: () => toast.error("删除失败"),
+  });
+
+  const renameMutation = trpc.conversation.rename.useMutation({
+    onSuccess: () => refetch(),
+    onError: () => toast.error("改名失败"),
+  });
+
+  const reorderMutation = trpc.conversation.reorder.useMutation({
+    onError: () => {
+      toast.error("排序保存失败");
+      setLocalOrder(null); // 失败时回退到服务器顺序
+      refetch();
+    },
   });
 
   // ── Derived: sorted + grouped ──────────────────────────────────────────────
@@ -84,6 +102,7 @@ export function useSessionManager(enabled: boolean) {
       title: s.title,
       isPinned: s.isPinned,
       isFavorited: s.isFavorited,
+      displayOrder: s.displayOrder ?? 0,
       lastMessageAt: new Date(s.lastMessageAt),
       createdAt: new Date(s.createdAt),
       groupId: s.groupId ?? null,
@@ -91,17 +110,35 @@ export function useSessionManager(enabled: boolean) {
     }));
   }, [rawSessions]);
 
-  // Pinned first, then favorited, then recent by lastMessageAt
+  // Pinned first, then non-pinned sorted by displayOrder (if custom) else lastMessageAt
   const grouped: SessionGroup = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) =>
-      b.lastMessageAt.getTime() - a.lastMessageAt.getTime()
-    );
+    const pinned = sessions.filter(s => s.isPinned)
+      .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+
+    let nonPinned = sessions.filter(s => !s.isPinned);
+
+    if (localOrder) {
+      // 乐观排序：按 localOrder 数组顺序排列
+      const orderMap = new Map(localOrder.map((id, i) => [id, i]));
+      nonPinned = [...nonPinned].sort((a, b) => {
+        const ai = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+        const bi = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+        return ai - bi;
+      });
+    } else {
+      // 服务器排序：有 displayOrder 时按 displayOrder，否则按 lastMessageAt
+      const hasCustomOrder = nonPinned.some(s => s.displayOrder !== 0);
+      nonPinned = hasCustomOrder
+        ? [...nonPinned].sort((a, b) => a.displayOrder - b.displayOrder)
+        : [...nonPinned].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+    }
+
     return {
-      pinned:    sorted.filter(s => s.isPinned),
-      favorited: sorted.filter(s => !s.isPinned && s.isFavorited),
-      recent:    sorted.filter(s => !s.isPinned && !s.isFavorited),
+      pinned,
+      favorited: nonPinned.filter(s => s.isFavorited),
+      recent:    nonPinned.filter(s => !s.isFavorited),
     };
-  }, [sessions]);
+  }, [sessions, localOrder]);
 
   const currentSession = useMemo(
     () => sessions.find(s => s.id === activeSessionId) ?? null,
@@ -129,6 +166,19 @@ export function useSessionManager(enabled: boolean) {
     deleteMutation.mutate({ conversationId: id });
   }, [deleteMutation]);
 
+  const renameSession = useCallback((id: number, title: string) => {
+    renameMutation.mutate({ conversationId: id, title });
+  }, [renameMutation]);
+
+  /**
+   * 拖拽排序：传入非置顶区域的有序 id 数组
+   * 立即更新本地状态（乐观更新），同时持久化到服务器
+   */
+  const reorderSessions = useCallback((orderedIds: number[]) => {
+    setLocalOrder(orderedIds);
+    reorderMutation.mutate({ orderedIds });
+  }, [reorderMutation]);
+
   const autoSelectLatest = useCallback(() => {
     if (activeSessionId == null && sessions.length > 0) {
       const latest = [...sessions].sort((a, b) =>
@@ -150,6 +200,8 @@ export function useSessionManager(enabled: boolean) {
     pinSession,
     favoriteSession,
     deleteSession,
+    renameSession,
+    reorderSessions,
     autoSelectLatest,
     refetch,
     // Loading state

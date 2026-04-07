@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `displayOrder` int DEFAULT 0 NOT NULL;

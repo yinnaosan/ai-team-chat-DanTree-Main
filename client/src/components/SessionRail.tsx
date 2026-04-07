@@ -1,13 +1,30 @@
 /**
- * SessionRail.tsx — DanTree Workspace 最终视觉母版 v2
+ * SessionRail.tsx — DanTree Workspace 最终视觉母版 v3
  *
  * 专业 Research Session Control Rail
- * 不是聊天会话栏——是研究会话状态导航
- * 有层级感、状态感、克制感
- * v2: 加入悬停操作菜单（置顶/收藏/改名/删除）
+ * v3: 加入 @dnd-kit 拖拽排序（非置顶区域）
  */
-import React, { useState, useRef, useEffect } from "react";
-import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star, Trash2, Pencil, MoreHorizontal, PinOff, StarOff } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star, Trash2, Pencil, MoreHorizontal, PinOff, StarOff, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export interface SessionItem {
   id: string;
@@ -46,6 +63,8 @@ interface SessionRailProps {
   highlightId?: string | null;
   /** 卡片操作回调 */
   actions?: SessionActions;
+  /** 拖拽排序回调（非置顶区域，传入新的有序 id 数组） */
+  onReorder?: (orderedIds: string[]) => void;
 }
 
 const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research: Lightbulb };
@@ -63,10 +82,12 @@ const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
 };
 
 export function SessionRail({
-  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity, highlightId, actions,
+  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession,
+  activeEntity, highlightId, actions, onReorder,
 }: SessionRailProps) {
   const handleNewGeneral = onNewGeneralSession ?? onNewSession;
   const [query, setQuery] = useState("");
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const filtered = query.trim()
     ? sessions.filter(s =>
@@ -77,6 +98,37 @@ export function SessionRail({
 
   const pinned = filtered.filter(s => s.pinned);
   const recent = filtered.filter(s => !s.pinned);
+
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6, // 移动 6px 才触发拖拽，避免误触点击
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = recent.findIndex(s => s.id === String(active.id));
+    const newIndex = recent.findIndex(s => s.id === String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newOrder = arrayMove(recent, oldIndex, newIndex);
+    onReorder?.(newOrder.map(s => s.id));
+  }, [recent, onReorder]);
+
+  const activeDragItem = activeDragId ? recent.find(s => s.id === activeDragId) : null;
 
   return (
     <aside style={{
@@ -147,7 +199,7 @@ export function SessionRail({
           </div>
         )}
 
-        {/* Pinned */}
+        {/* Pinned — 不参与拖拽 */}
         {pinned.length > 0 && (
           <div style={{ marginBottom: 6 }}>
             <SectionLabel icon={Pin} label="已置顶" />
@@ -159,25 +211,54 @@ export function SessionRail({
                 isHighlighted={s.id === highlightId}
                 onClick={() => onSelectSession?.(s.id)}
                 actions={actions}
+                draggable={false}
               />
             ))}
           </div>
         )}
 
-        {/* Recent — 分组标签已关闭，直接列表显示 */}
+        {/* Recent — 支持拖拽排序 */}
         {recent.length > 0 && (
-          <div>
-            {recent.map(s => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                isActive={s.id === activeSessionId}
-                isHighlighted={s.id === highlightId}
-                onClick={() => onSelectSession?.(s.id)}
-                actions={actions}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={recent.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div>
+                {recent.map(s => (
+                  <SortableSessionCard
+                    key={s.id}
+                    session={s}
+                    isActive={s.id === activeSessionId}
+                    isHighlighted={s.id === highlightId}
+                    onClick={() => onSelectSession?.(s.id)}
+                    actions={actions}
+                    isDragging={s.id === activeDragId}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+
+            {/* Drag overlay — 拖拽时跟随鼠标的幽灵卡片 */}
+            <DragOverlay dropAnimation={null}>
+              {activeDragItem ? (
+                <SessionCard
+                  session={activeDragItem}
+                  isActive={activeDragItem.id === activeSessionId}
+                  isHighlighted={false}
+                  onClick={() => {}}
+                  actions={undefined}
+                  draggable={false}
+                  isOverlay
+                />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </div>
     </aside>
@@ -195,14 +276,53 @@ function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: strin
   );
 }
 
+/** 可排序的 SessionCard 包装器 */
+function SortableSessionCard(props: {
+  session: SessionItem;
+  isActive: boolean;
+  isHighlighted?: boolean;
+  onClick: () => void;
+  actions?: SessionActions;
+  isDragging?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: props.session.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isSortableDragging ? 0.35 : 1,
+    position: "relative",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SessionCard
+        {...props}
+        draggable
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
 function SessionCard({
-  session, isActive, isHighlighted, onClick, actions,
+  session, isActive, isHighlighted, onClick, actions, draggable, dragHandleProps, isOverlay,
 }: {
   session: SessionItem;
   isActive: boolean;
   isHighlighted?: boolean;
   onClick: () => void;
   actions?: SessionActions;
+  draggable?: boolean;
+  dragHandleProps?: Record<string, any>;
+  isOverlay?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -267,6 +387,23 @@ function SessionCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); if (!menuOpen) setMenuOpen(false); }}
     >
+      {/* 拖拽手柄（仅非置顶卡片显示，悬停时出现） */}
+      {draggable && (hovered || isOverlay) && !renaming && (
+        <div
+          {...dragHandleProps}
+          style={{
+            position: "absolute", left: -2, top: "50%", transform: "translateY(-50%)",
+            width: 16, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "grab", zIndex: 10, opacity: 0.45,
+            touchAction: "none",
+          }}
+          title="拖拽排序"
+          onClick={e => e.stopPropagation()}
+        >
+          <GripVertical size={11} color="rgba(255,255,255,0.60)" />
+        </div>
+      )}
+
       <button
         onClick={renaming ? undefined : onClick}
         style={{
@@ -280,11 +417,14 @@ function SessionCard({
             : isActive
             ? "rgba(52,211,153,0.16)"
             : hovered ? "rgba(255,255,255,0.065)" : "transparent",
-          boxShadow: flash
+          boxShadow: isOverlay
+            ? "0 8px 32px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.40)"
+            : flash
             ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
             : isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
           transition: "background 0.15s, box-shadow 0.15s",
           paddingRight: hovered ? 32 : 10,
+          paddingLeft: draggable && hovered ? 18 : 10,
         }}
       >
         {/* Type badge */}
@@ -298,26 +438,24 @@ function SessionCard({
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
             {renaming ? (
               <input
                 ref={renameRef}
                 value={renameValue}
                 onChange={e => setRenameValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") { e.preventDefault(); handleRenameConfirm(); }
-                  if (e.key === "Escape") { setRenaming(false); }
-                  e.stopPropagation();
-                }}
                 onBlur={handleRenameConfirm}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleRenameConfirm();
+                  if (e.key === "Escape") setRenaming(false);
+                }}
                 onClick={e => e.stopPropagation()}
                 style={{
                   flex: 1, fontSize: 11, fontWeight: 500,
                   background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(52,211,153,0.40)",
-                  borderRadius: 4, padding: "1px 5px",
+                  border: "1px solid rgba(52,211,153,0.40)", borderRadius: 4,
                   color: "rgba(237,237,239,0.92)", outline: "none",
-                  minWidth: 0,
+                  padding: "1px 5px",
                 }}
               />
             ) : (

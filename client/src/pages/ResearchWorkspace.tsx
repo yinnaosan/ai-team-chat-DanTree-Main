@@ -583,26 +583,31 @@ export default function ResearchWorkspacePage() {
   const answerObject = lastAssistantMessage?.metadata?.answerObject;
   const stance = stanceFrom(answerObject?.verdict);
 
-  // Session items
-  const sessionItems = useMemo<SessionItem[]>(() =>
-    [...session.sessions].sort((a, b) =>
-      new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-    ).map(c => {
-      const tk = c.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/)?.[0];
-      const t = (c.title ?? "").toLowerCase();
-      const type: SessionItem["type"] =
-        t.includes("risk") || t.includes("风险") ? "risk" :
-        t.includes("timing") || t.includes("时机") ? "timing" :
-        t.includes("thesis") || t.includes("论点") ? "thesis" : "research";
-      const dir = stance === "unavailable" ? "neutral" : stance;
-      return {
-        id: String(c.id), entity: tk ?? "—",
-        title: c.title ?? `对话 #${c.id}`,
-        type, time: timeAgo(new Date(c.lastMessageAt)),
-        pinned: c.isPinned, active: c.id === activeConvId,
-        direction: dir as "bullish" | "bearish" | "neutral",
-      };
-    }), [session.sessions, activeConvId, stance]);
+  // Session items — 使用 grouped 排序（支持拖拽后的 displayOrder）
+  const toSessionItem = useCallback((c: typeof session.sessions[0]) => {
+    const tk = c.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/)?.[0];
+    const t = (c.title ?? "").toLowerCase();
+    const type: SessionItem["type"] =
+      t.includes("risk") || t.includes("风险") ? "risk" :
+      t.includes("timing") || t.includes("时机") ? "timing" :
+      t.includes("thesis") || t.includes("论点") ? "thesis" : "research";
+    const dir = stance === "unavailable" ? "neutral" : stance;
+    return {
+      id: String(c.id), entity: tk ?? "—",
+      title: c.title ?? `对话 #${c.id}`,
+      type, time: timeAgo(new Date(c.lastMessageAt)),
+      pinned: c.isPinned, active: c.id === activeConvId,
+      direction: dir as "bullish" | "bearish" | "neutral",
+    };
+  }, [activeConvId, stance]);
+
+  const sessionItems = useMemo<SessionItem[]>(() => {
+    const { pinned, recent } = session.grouped;
+    return [
+      ...pinned.map(toSessionItem),
+      ...recent.map(toSessionItem),
+    ];
+  }, [session.grouped, toSessionItem]);
 
 
 
@@ -682,6 +687,13 @@ export default function ResearchWorkspacePage() {
             onSelectSession={(id) => { session.selectSession(Number(id)); setInput(""); }}
             onNewSession={() => session.createSession()}
             activeEntity={currentTicker || undefined}
+            onReorder={(orderedIds) => session.reorderSessions(orderedIds.map(Number))}
+            actions={{
+              onPin: (id, pinned) => session.pinSession(Number(id), pinned),
+              onFavorite: (id, favorited) => session.favoriteSession(Number(id), favorited),
+              onRename: (id, title) => session.renameSession(Number(id), title),
+              onDelete: (id) => session.deleteSession(Number(id)),
+            }}
           />
 
           {/* Col 2: Main Decision Canvas */}

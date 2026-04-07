@@ -572,18 +572,6 @@ export default function ResearchWorkspacePage() {
     const t = extractTicker(convMessages);
     if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setCurrentTicker(t); }
   }, [convMessages]);
-  // 切换 session 时，从 sessionItems 中同步更新 currentTicker / currentCnName
-  useEffect(() => {
-    if (activeConvId == null) return;
-    const item = sessionItems.find(s => s.id === String(activeConvId));
-    if (item && item.entity && item.entity !== "—") {
-      setCurrentTicker(item.entity);
-      prevTickerRef.current = item.entity;
-      // title 就是公司名（已经去除代码）
-      setCurrentCnName(item.title !== item.entity ? item.title : "");
-    }
-  }, [activeConvId]); // 故意不依赖 sessionItems，只在切换时触发一次
-
   // Fix A: route exclusively through discussion.sendMessage()
   // Removed stale paths: setSending / setIsTyping / setConvMessages / submitMutation
   const handleSubmit = useCallback((text?: string) => {
@@ -597,15 +585,46 @@ export default function ResearchWorkspacePage() {
 
   // Session items — 使用 grouped 排序（支持拖拽后的 displayOrder）
   const toSessionItem = useCallback((c: typeof session.sessions[0]) => {
-    // 从 title 中提取股票代码（如 AAPL、BTC、600690.SS）
     const rawTitle = c.title ?? `对话 #${c.id}`;
-    // 匹配带后缀代码（600690.SS / 0700.HK）或纯大写代码（AAPL / BTC）
-    // 中文字符后没有 \b，使用分隔符前置匹配：空格、·、•、・、-，或字符串开头
-    const tkMatch = rawTitle.match(/(?:^|[\s·•・\-]+)(\d{4,6}\.[A-Z]{1,3}|[A-Z]{1,5}(?:\.[A-Z]{1,3})?)(?=[\s·•・\-]|$)/);
-    const tk = tkMatch?.[1];
-    // 推断市场标签
-    let market: string | undefined;
-    if (tk) {
+
+    // ── 解析 "公司名 · 代码 · 市场" 格式（onSelectEntity 写入的标准格式）──
+    // 分割符为 " · "（含空格的中点），最多 3 段
+    const parts = rawTitle.split(" · ").map(s => s.trim());
+
+    let displayTitle = rawTitle; // 第一行：公司名
+    let tk: string | undefined;  // 股票代码
+    let market: string | undefined; // 市场标签
+
+    const KNOWN_MARKETS = new Set(["US", "HK", "SH", "SZ", "CN", "JP", "KR", "CRYPTO", "ETF"]);
+    const TICKER_RE = /^(\d{4,6}\.[A-Z]{1,3}|[A-Z]{1,5}(?:\.[A-Z]{1,3})?)$/;
+
+    if (parts.length >= 2) {
+      // parts[0] = 公司名, parts[1] = 代码, parts[2] = 市场（可选）
+      const maybeTicker = parts[1];
+      const maybeMarket = parts[2];
+      if (TICKER_RE.test(maybeTicker)) {
+        displayTitle = parts[0]; // 只取公司名
+        tk = maybeTicker;
+        if (maybeMarket && KNOWN_MARKETS.has(maybeMarket)) {
+          market = maybeMarket;
+        }
+      }
+    }
+
+    // 兜底：旧格式 title（如 "深度分析 AAPL"）用正则提取代码
+    if (!tk) {
+      const tkMatch = rawTitle.match(/(?:^|[\s·•・\-]+)(\d{4,6}\.[A-Z]{1,3}|[A-Z]{1,5}(?:\.[A-Z]{1,3})?)(?=[\s·•・\-]|$)/);
+      tk = tkMatch?.[1];
+      if (tk) {
+        const matchIdx = tkMatch!.index ?? 0;
+        if (matchIdx > 0) {
+          displayTitle = rawTitle.slice(0, matchIdx).replace(/[\s·•・\-]+$/, "").trim() || rawTitle;
+        }
+      }
+    }
+
+    // 兜底：从代码推断市场
+    if (tk && !market) {
       if (tk.endsWith(".SS")) market = "SH";
       else if (tk.endsWith(".SZ")) market = "SZ";
       else if (tk.endsWith(".HK")) market = "HK";
@@ -614,16 +633,7 @@ export default function ResearchWorkspacePage() {
       else if (tk === "BTC" || tk === "ETH" || tk === "SOL" || tk === "BNB") market = "CRYPTO";
       else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
     }
-    // 标题去掉代码部分，只保留公司名
-    // 策略：截断到代码首次出现的位置（含前导分隔符），去掉后面所有内容
-    // 例：阿里巴巴·BABA·US → 阿里巴巴，海尔智家 · 600690.SS → 海尔智家
-    let displayTitle = rawTitle;
-    if (tk && tkMatch) {
-      const matchIdx = tkMatch.index ?? 0;
-      if (matchIdx > 0) {
-        displayTitle = rawTitle.slice(0, matchIdx).replace(/[\s·•・\-]+$/, "").trim() || rawTitle;
-      }
-    }
+
     const t = rawTitle.toLowerCase();
     const type: SessionItem["type"] =
       t.includes("risk") || t.includes("风险") ? "risk" :
@@ -647,6 +657,18 @@ export default function ResearchWorkspacePage() {
       ...recent.map(toSessionItem),
     ];
   }, [session.grouped, toSessionItem]);
+
+  // 切换 session 时，从 sessionItems 中同步更新 currentTicker / currentCnName
+  useEffect(() => {
+    if (activeConvId == null) return;
+    const item = sessionItems.find(s => s.id === String(activeConvId));
+    if (item && item.entity && item.entity !== "—") {
+      setCurrentTicker(item.entity);
+      prevTickerRef.current = item.entity;
+      // title 是公司名（已解析去除代码），直接用作 cnName
+      setCurrentCnName(item.title !== item.entity ? item.title : "");
+    }
+  }, [activeConvId, sessionItems]);
 
 
 
@@ -709,8 +731,25 @@ export default function ResearchWorkspacePage() {
           lastUpdated={lastAssistantMessage ? fmtTime(lastAssistantMessage.createdAt) : undefined}
           onSelectEntity={(candidate) => {
             setCurrentTicker(candidate.ticker);
-            setCurrentCnName(candidate.cnName || candidate.title || "");
-            session.createSession();
+            const cnName = candidate.cnName || candidate.title || "";
+            setCurrentCnName(cnName);
+            // 推断市场标签（与 EntityCombobox 逻辑一致）
+            const getMarketLabel = (c: typeof candidate): string => {
+              if (c.market) return c.market;
+              if (c.ticker.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(c.ticker)) return "HK";
+              if (c.ticker.endsWith(".SS")) return "SH";
+              if (c.ticker.endsWith(".SZ")) return "SZ";
+              if (c.ticker.endsWith(".T")) return "JP";
+              if (c.ticker.endsWith(".KS")) return "KR";
+              if (/^[A-Z]{1,5}$/.test(c.ticker)) return "US";
+              return "";
+            };
+            const market = getMarketLabel(candidate);
+            // title 格式："公司名 · 代码 · 市场" 或 "公司名 · 代码"（无市场时）
+            const sessionTitle = cnName
+              ? (market ? `${cnName} · ${candidate.ticker} · ${market}` : `${cnName} · ${candidate.ticker}`)
+              : candidate.ticker;
+            session.createSession(sessionTitle);
             handleSubmit(`深度分析 ${candidate.ticker}`);
           }}
           onNewEntity={(ticker) => {

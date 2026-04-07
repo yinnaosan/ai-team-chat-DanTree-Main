@@ -131,10 +131,9 @@ export function SessionRail({
           </div>
         )}
 
-        {/* Recent */}
+        {/* Recent — 分组标签已关闭，直接列表显示 */}
         {recent.length > 0 && (
           <div>
-            <SectionLabel icon={Clock} label="最近" />
             {recent.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} onClick={() => onSelectSession?.(s.id)} />)}
           </div>
         )}

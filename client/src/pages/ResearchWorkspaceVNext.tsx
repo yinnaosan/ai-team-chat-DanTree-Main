@@ -1446,27 +1446,54 @@ export default function ResearchWorkspacePage() {
             };
           })}
           onSelectEntity={(candidate) => {
-            // 如果是外部搜索结果（id 以 __ext__ 开头）或找不到对应 session，必须新建 entity session
-            const session = sessionList.find(s => s.id === candidate.id);
-            if (session) {
-              // 已有 session：直接切换（不改写当前 session）
-              setSession(session);
-            } else if (candidate.id.startsWith('__ext__') || !session) {
-              // 外部搜索结果或无匹配 session：新建 entity session（单标的限制）
-              createSession({
-                title: candidate.ticker,
-                focusKey: candidate.ticker,
-                sessionType: 'entity',
-              }).then(newSession => {
-                if (newSession) setSession(newSession);
-              });
+            // 问题1：先按 id 查找已有 session
+            const sessionById = sessionList.find(s => s.id === candidate.id);
+            if (sessionById) {
+              setSession(sessionById);
+              return;
             }
+            // 问题3：再按 focusKey 查找重复标的（同一代码已存在 session）
+            const ticker = candidate.ticker;
+            const existingByTicker = sessionList.find(
+              s => s.focusKey && s.focusKey.toUpperCase() === ticker.toUpperCase()
+            );
+            if (existingByTicker) {
+              // 直接定位到已有 session，不新建
+              setSession(existingByTicker);
+              return;
+            }
+            // 新标的：新建 entity session，标题格式 = "公司名 · 代码 · 市场"
+            const displayName = candidate.cnName || candidate.title || ticker;
+            const marketSuffix = candidate.market ? ` · ${candidate.market}` : "";
+            const sessionTitle = displayName !== ticker
+              ? `${displayName} · ${ticker}${marketSuffix}`
+              : `${ticker}${marketSuffix}`;
+            createSession({
+              title: sessionTitle,
+              focusKey: ticker,
+              sessionType: 'entity',
+            }).then(newSession => {
+              if (newSession) setSession(newSession);
+            });
           }}
           onNewEntity={async (ticker) => {
-            // Fix 4-5: 先创建 session（title=ticker, focusKey=ticker），再触发分析
-            // createSession 内部会调用 setCurrentSession，驱动 Header/Canvas/Insights/Discussion 全页同步
+            // 问题3：先检查是否已有相同 focusKey 的 session
+            const existingForNew = sessionList.find(
+              s => s.focusKey && s.focusKey.toUpperCase() === ticker.toUpperCase()
+            );
+            if (existingForNew) {
+              setSession(existingForNew);
+              return;
+            }
+            // 新标的：构建标题（从 sessionList 反查同一 focusKey 的历史信息）
+            // onNewEntity 没有 cnName/market 信息，直接用 ticker 作标题
+            const displayName = ticker;
+            const marketSuffix = "";
+            const sessionTitle = displayName !== ticker
+              ? `${displayName} · ${ticker}${marketSuffix}`
+              : `${ticker}${marketSuffix}`;
             const newSession = await createSession({
-              title: ticker,
+              title: sessionTitle,
               focusKey: ticker,
               sessionType: "entity",
             });

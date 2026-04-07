@@ -7012,6 +7012,16 @@ except Exception as e:
         await toggleFavoriteWorkspaceSession(input.sessionId, ctx.user.id, input.favorite);
         return { success: true as const };
       }),
+
+    // Delete a session
+    deleteSession: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const { deleteWorkspaceSession } = await import("./db");
+        await deleteWorkspaceSession(input.sessionId, ctx.user.id);
+        return { success: true as const };
+      }),
+
     // BUG-002 fix: link a conversation to a workspace session
     linkConversation: protectedProcedure
       .input(z.object({ sessionId: z.string().uuid(), conversationId: z.number().int().positive() }))

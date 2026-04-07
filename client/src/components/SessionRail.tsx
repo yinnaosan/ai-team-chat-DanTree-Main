@@ -1,12 +1,13 @@
 /**
- * SessionRail.tsx — DanTree Workspace 最终视觉母版 v1
+ * SessionRail.tsx — DanTree Workspace 最终视觉母版 v2
  *
  * 专业 Research Session Control Rail
  * 不是聊天会话栏——是研究会话状态导航
  * 有层级感、状态感、克制感
+ * v2: 加入悬停操作菜单（置顶/收藏/改名/删除）
  */
-import React, { useState } from "react";
-import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, TrendingUp, TrendingDown } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star, Trash2, Pencil, MoreHorizontal, PinOff, StarOff } from "lucide-react";
 
 export interface SessionItem {
   id: string;
@@ -16,9 +17,17 @@ export interface SessionItem {
   type?: "thesis" | "timing" | "risk" | "research";
   time: string;
   pinned?: boolean;
+  favorite?: boolean;
   active?: boolean;
   direction?: "bullish" | "bearish" | "neutral";
   hasAlert?: boolean;
+}
+
+export interface SessionActions {
+  onPin?: (id: string, pinned: boolean) => void;
+  onFavorite?: (id: string, favorite: boolean) => void;
+  onRename?: (id: string, newTitle: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 interface SessionRailProps {
@@ -35,10 +44,11 @@ interface SessionRailProps {
   activeEntity?: string;
   /** 重复标的跳转时，短暂闪烁高亮对应卡片 */
   highlightId?: string | null;
+  /** 卡片操作回调 */
+  actions?: SessionActions;
 }
 
 const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research: Lightbulb };
-const TYPE_LABEL = { thesis: "Thesis", timing: "Timing", risk: "Risk", research: "研究" };
 
 // 市场徽章颜色映射
 const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
@@ -53,9 +63,8 @@ const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
 };
 
 export function SessionRail({
-  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity, highlightId,
+  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity, highlightId, actions,
 }: SessionRailProps) {
-  // 绿色加号优先使用 onNewGeneralSession，向后兼容 onNewSession
   const handleNewGeneral = onNewGeneralSession ?? onNewSession;
   const [query, setQuery] = useState("");
 
@@ -78,7 +87,7 @@ export function SessionRail({
       borderRight: "1px solid rgba(255,255,255,0.12)",
     }}>
 
-      {/* Column Header — 灰色加号已移除（产品逻辑：只保留绿色加号创建 general session） */}
+      {/* Column Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 14px 11px",
@@ -141,15 +150,33 @@ export function SessionRail({
         {/* Pinned */}
         {pinned.length > 0 && (
           <div style={{ marginBottom: 6 }}>
-            <SectionLabel icon={Pin} label="已固定" />
-            {pinned.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} isHighlighted={s.id === highlightId} onClick={() => onSelectSession?.(s.id)} />)}
+            <SectionLabel icon={Pin} label="已置顶" />
+            {pinned.map(s => (
+              <SessionCard
+                key={s.id}
+                session={s}
+                isActive={s.id === activeSessionId}
+                isHighlighted={s.id === highlightId}
+                onClick={() => onSelectSession?.(s.id)}
+                actions={actions}
+              />
+            ))}
           </div>
         )}
 
         {/* Recent — 分组标签已关闭，直接列表显示 */}
         {recent.length > 0 && (
           <div>
-            {recent.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} isHighlighted={s.id === highlightId} onClick={() => onSelectSession?.(s.id)} />)}
+            {recent.map(s => (
+              <SessionCard
+                key={s.id}
+                session={s}
+                isActive={s.id === activeSessionId}
+                isHighlighted={s.id === highlightId}
+                onClick={() => onSelectSession?.(s.id)}
+                actions={actions}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -168,89 +195,262 @@ function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: strin
   );
 }
 
-function SessionCard({ session, isActive, isHighlighted, onClick }: { session: SessionItem; isActive: boolean; isHighlighted?: boolean; onClick: () => void }) {
+function SessionCard({
+  session, isActive, isHighlighted, onClick, actions,
+}: {
+  session: SessionItem;
+  isActive: boolean;
+  isHighlighted?: boolean;
+  onClick: () => void;
+  actions?: SessionActions;
+}) {
   const [hovered, setHovered] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(session.title);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const renameRef = useRef<HTMLInputElement>(null);
+
   // 闪烁动画
-  React.useEffect(() => {
+  useEffect(() => {
     if (isHighlighted) {
       setFlash(true);
       const t = setTimeout(() => setFlash(false), 800);
       return () => clearTimeout(t);
     }
   }, [isHighlighted]);
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  // 改名时自动聚焦
+  useEffect(() => {
+    if (renaming) {
+      setRenameValue(session.title);
+      setTimeout(() => renameRef.current?.select(), 50);
+    }
+  }, [renaming, session.title]);
+
   const TypeIcon = TYPE_ICON[session.type ?? "research"] ?? Lightbulb;
-  const typeLabel = TYPE_LABEL[session.type ?? "research"];
 
   const dirColor = session.direction === "bullish" ? "#34d399"
     : session.direction === "bearish" ? "#f87171"
     : "rgba(255,255,255,0.30)";
 
+  const handleRenameConfirm = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== session.title) {
+      actions?.onRename?.(session.id, trimmed);
+    }
+    setRenaming(false);
+  };
+
+  const handleMenuAction = (e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    action();
+  };
+
+  return (
+    <div
+      style={{ position: "relative" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); if (!menuOpen) setMenuOpen(false); }}
+    >
+      <button
+        onClick={renaming ? undefined : onClick}
+        style={{
+          width: "100%", textAlign: "left",
+          display: "flex", alignItems: "flex-start", gap: 8,
+          padding: "8px 10px", borderRadius: 7, marginBottom: 2,
+          cursor: renaming ? "default" : "pointer", border: "none",
+          borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
+          background: flash
+            ? "rgba(52,211,153,0.30)"
+            : isActive
+            ? "rgba(52,211,153,0.16)"
+            : hovered ? "rgba(255,255,255,0.065)" : "transparent",
+          boxShadow: flash
+            ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
+            : isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
+          transition: "background 0.15s, box-shadow 0.15s",
+          paddingRight: hovered ? 32 : 10,
+        }}
+      >
+        {/* Type badge */}
+        <div style={{
+          width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
+          background: isActive ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <TypeIcon size={12} color={isActive ? "#34d399" : "rgba(255,255,255,0.32)"} />
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+            {renaming ? (
+              <input
+                ref={renameRef}
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); handleRenameConfirm(); }
+                  if (e.key === "Escape") { setRenaming(false); }
+                  e.stopPropagation();
+                }}
+                onBlur={handleRenameConfirm}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  flex: 1, fontSize: 11, fontWeight: 500,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(52,211,153,0.40)",
+                  borderRadius: 4, padding: "1px 5px",
+                  color: "rgba(237,237,239,0.92)", outline: "none",
+                  minWidth: 0,
+                }}
+              />
+            ) : (
+              <span style={{
+                fontSize: 11, fontWeight: isActive ? 600 : 400,
+                color: isActive ? "rgba(237,237,239,0.92)" : "rgba(255,255,255,0.60)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+              }}>
+                {session.title}
+              </span>
+            )}
+            {session.hasAlert && !renaming && (
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+            )}
+            {session.favorite && !renaming && (
+              <Star size={8} color="#fbbf24" fill="#fbbf24" style={{ flexShrink: 0 }} />
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            {/* 市场徽章 */}
+            {session.market && MARKET_BADGE_COLOR[session.market] ? (
+              <span style={{
+                fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                background: MARKET_BADGE_COLOR[session.market].bg,
+                color: MARKET_BADGE_COLOR[session.market].text,
+                letterSpacing: "0.04em", flexShrink: 0,
+              }}>
+                {session.market}
+              </span>
+            ) : null}
+            <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
+              {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
+            </span>
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginLeft: "auto", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+              {session.time}
+            </span>
+          </div>
+        </div>
+      </button>
+
+      {/* ⋯ 操作按钮（悬停时显示） */}
+      {(hovered || menuOpen) && !renaming && (
+        <button
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+          style={{
+            position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+            width: 22, height: 22, borderRadius: 5, border: "none",
+            background: menuOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.12s",
+          }}
+        >
+          <MoreHorizontal size={12} color="rgba(255,255,255,0.60)" />
+        </button>
+      )}
+
+      {/* 操作菜单 */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          style={{
+            position: "absolute", right: 4, top: "calc(100% - 4px)", zIndex: 100,
+            background: "rgba(18,20,26,0.98)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 8, padding: "4px 0",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.40)",
+            minWidth: 148,
+            backdropFilter: "blur(16px)",
+          }}
+        >
+          {/* 置顶 / 取消置顶 */}
+          <MenuAction
+            icon={session.pinned ? PinOff : Pin}
+            label={session.pinned ? "取消置顶" : "置顶"}
+            onClick={e => handleMenuAction(e, () => actions?.onPin?.(session.id, !session.pinned))}
+          />
+          {/* 收藏 / 取消收藏 */}
+          <MenuAction
+            icon={session.favorite ? StarOff : Star}
+            label={session.favorite ? "取消收藏" : "收藏"}
+            color={session.favorite ? undefined : "#fbbf24"}
+            onClick={e => handleMenuAction(e, () => actions?.onFavorite?.(session.id, !session.favorite))}
+          />
+          {/* 改名 */}
+          <MenuAction
+            icon={Pencil}
+            label="改名"
+            onClick={e => handleMenuAction(e, () => setRenaming(true))}
+          />
+          {/* 分隔线 */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "3px 0" }} />
+          {/* 删除 */}
+          <MenuAction
+            icon={Trash2}
+            label="删除"
+            color="#f87171"
+            onClick={e => handleMenuAction(e, () => {
+              if (confirm(`确认删除会话「${session.title}」？此操作不可撤销。`)) {
+                actions?.onDelete?.(session.id);
+              }
+            })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuAction({
+  icon: Icon, label, color, onClick,
+}: {
+  icon: React.FC<any>;
+  label: string;
+  color?: string;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: "100%", textAlign: "left",
-        display: "flex", alignItems: "flex-start", gap: 8,
-        padding: "8px 10px", borderRadius: 7, marginBottom: 2,
-        cursor: "pointer", border: "none",
-        borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
-        background: flash
-          ? "rgba(52,211,153,0.30)"
-          : isActive
-          ? "rgba(52,211,153,0.16)"
-          : hovered ? "rgba(255,255,255,0.065)" : "transparent",
-        boxShadow: flash
-          ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
-          : isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
-        transition: "background 0.15s, box-shadow 0.15s",
+        width: "100%", display: "flex", alignItems: "center", gap: 8,
+        padding: "6px 12px", border: "none", cursor: "pointer",
+        background: hovered ? "rgba(255,255,255,0.07)" : "transparent",
+        color: color ?? "rgba(255,255,255,0.72)",
+        fontSize: 12, fontWeight: 400, textAlign: "left",
+        transition: "background 0.10s",
       }}
     >
-      {/* Type badge */}
-      <div style={{
-        width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
-        background: isActive ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <TypeIcon size={12} color={isActive ? "#34d399" : "rgba(255,255,255,0.32)"} />
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-          <span style={{
-            fontSize: 11, fontWeight: isActive ? 600 : 400,
-            color: isActive ? "rgba(237,237,239,0.92)" : "rgba(255,255,255,0.60)",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
-          }}>
-            {session.title}
-          </span>
-          {session.hasAlert && (
-            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {/* 市场徽章 + 代码 */}
-          {session.market && MARKET_BADGE_COLOR[session.market] ? (
-            <span style={{
-              fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
-              background: MARKET_BADGE_COLOR[session.market].bg,
-              color: MARKET_BADGE_COLOR[session.market].text,
-              letterSpacing: "0.04em", flexShrink: 0,
-            }}>
-              {session.market}
-            </span>
-          ) : null}
-          <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
-            {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
-          </span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginLeft: "auto", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
-            {session.time}
-          </span>
-        </div>
-      </div>
+      <Icon size={13} color={color ?? "rgba(255,255,255,0.50)"} />
+      {label}
     </button>
   );
 }

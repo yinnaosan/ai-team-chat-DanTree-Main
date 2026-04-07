@@ -1143,7 +1143,15 @@ export async function toggleFavoriteWorkspaceSession(id: string, userId: number,
     .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
 }
 
-// ─── Access Keys helpers（新密钥系统，替代旧 access_codes/user_access）─────────────
+export async function deleteWorkspaceSession(id: string, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(workspaceSessions)
+    .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
+}
+
+// ─── Access Keys helpers（新密鑰系统，替代旧 access_codes/user_access）─────────────────
 import { createHash } from "crypto";
 
 function hashKey(rawKey: string): string {

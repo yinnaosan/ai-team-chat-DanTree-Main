@@ -1060,6 +1060,41 @@ export default function ResearchWorkspacePage() {
   );
 
   const utils = trpc.useUtils();
+
+  // Session 操作 mutations
+  const pinMutation = trpc.workspace.togglePin.useMutation({
+    onSuccess: () => utils.workspace.listSessions.invalidate(),
+  });
+  const favoriteMutation = trpc.workspace.toggleFavorite.useMutation({
+    onSuccess: () => utils.workspace.listSessions.invalidate(),
+  });
+  const renameMutation = trpc.workspace.updateTitle.useMutation({
+    onSuccess: () => utils.workspace.listSessions.invalidate(),
+  });
+  const deleteMutation = trpc.workspace.deleteSession.useMutation({
+    onSuccess: (_, variables) => {
+      utils.workspace.listSessions.invalidate();
+      // 如果删除的是当前 session，切换到第一个可用 session
+      if (currentSession?.id === variables.sessionId) {
+        const remaining = sessionList.filter(s => s.id !== variables.sessionId);
+        if (remaining.length > 0) {
+          setSession(remaining[0]);
+          setActiveConvId(remaining[0].conversationId ?? null);
+        } else {
+          // 无剩余 session，仅清空 activeConvId
+          setActiveConvId(null);
+        }
+      }
+    },
+  });
+
+  const sessionActions = {
+    onPin: (id: string, pinned: boolean) => pinMutation.mutate({ sessionId: id, pinned }),
+    onFavorite: (id: string, favorite: boolean) => favoriteMutation.mutate({ sessionId: id, favorite }),
+    onRename: (id: string, newTitle: string) => renameMutation.mutate({ sessionId: id, title: newTitle }),
+    onDelete: (id: string) => deleteMutation.mutate({ sessionId: id }),
+  };
+
   const linkConvMutation = trpc.workspace.linkConversation.useMutation({
     onSuccess: async (_, variables) => {
       // BUG-004 fix: invalidate listSessions so currentSession.conversationId is updated
@@ -1195,6 +1230,7 @@ export default function ResearchWorkspacePage() {
           type,
           time: timeAgo(new Date(s.lastActiveAt)),
           pinned: s.pinned,
+          favorite: s.favorite,
           active: s.id === currentSession?.id,
           direction: dir as "bullish" | "bearish" | "neutral",
           hasAlert: avm.alertCount > 0,
@@ -1557,6 +1593,7 @@ export default function ResearchWorkspacePage() {
               createSession({ title: "新研究", focusKey: null, sessionType: "general" });
             }}
             activeEntity={currentTicker || undefined}
+            actions={sessionActions}
           />
 
           {/* Col 2: Main Decision Canvas */}

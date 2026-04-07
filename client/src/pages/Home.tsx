@@ -21,8 +21,6 @@ import {
   Smartphone, Download,
 } from "lucide-react";
 import { getMarketStatus, type MarketType } from "@/components/MarketStatus";
-import { HeroSection } from "@/components/login/HeroSection";
-import { LoginSection } from "@/components/login/LoginSection";
 
 // ─── Ticker Strip ─────────────────────────────────────────────────────────────
 const MOCK_TICKERS = [
@@ -223,34 +221,18 @@ export default function Home() {
   const { isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
-  const loginSectionRef = useRef<HTMLDivElement>(null);
-
-  const scrollToLogin = () => {
-    loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   useEffect(() => {
     if (!loading && isAuthenticated && accessData?.hasAccess) navigate("/research");
     else if (!loading && isAuthenticated && accessData && !accessData.hasAccess) navigate("/access");
+    else if (!loading && !isAuthenticated) navigate("/");
   }, [loading, isAuthenticated, accessData, navigate]);
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "oklch(8.5% 0.008 240)" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <Loader2 style={{ width: 24, height: 24, color: "oklch(65% 0.18 255)" }} className="animate-spin" />
-          <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.12em", color: "oklch(35% 0.006 240)" }}>INITIALIZING...</span>
-        </div>
-      </div>
-    );
-  }
   return (
-    <div style={{ background: "#09090b", overflowY: "auto", height: "100vh" }}>
-      {/* Section 1: Hero */}
-      <HeroSection onScrollDown={scrollToLogin} />
-      {/* Section 2: Login */}
-      <div ref={loginSectionRef}>
-        <LoginSection />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#09090b" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <Loader2 style={{ width: 24, height: 24, color: "#22c55e" }} className="animate-spin" />
+        <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.12em", color: "#3f3f46" }}>REDIRECTING...</span>
       </div>
     </div>
   );

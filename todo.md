@@ -3164,3 +3164,10 @@
 - [x] ChatRoom.tsx：替换聊天页 Logo
 - [x] KeyActivationModal.tsx：替换弹窗 Logo
 - [x] 所有其他出现 Logo 的位置统一替换
+
+## Session 切换 Discussion 未同步修复
+
+- [x] 排查 onSelectSession 后 activeConvId 未正确置 null 的问题
+- [x] 修复：切换无 conversationId 的 session 时 activeConvId 应置 null，而非保留旧值
+- [x] BUG-003: useDiscussion 切换时立即清空 messages，修复 server sync 跳过逻辑
+- [x] TSC 0 errors 验证通过

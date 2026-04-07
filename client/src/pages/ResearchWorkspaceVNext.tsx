@@ -1354,8 +1354,9 @@ export default function ResearchWorkspacePage() {
                 if (wsSession.conversationId) {
                   setActiveConvId(wsSession.conversationId);
                 } else {
-                  // 该 session 还没有绑定 conversation，保持当前 activeConvId
-                  // 发送第一条消息时 createConvMutation 会自动创建并绑定
+                  // BUG-003 fix: 切换无 conversationId 的 session 时置 null
+                  // Discussion 会立即清空，不再显示上一个 session 的消息
+                  setActiveConvId(null);
                 }
               } else {
                 setActiveConvId(Number(id));

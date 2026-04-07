@@ -202,17 +202,16 @@ export function useDiscussion(conversationId: number | null) {
     },
   });
 
-  // ── Server sync ────────────────────────────────────────────────────────────
-
+   // ── Server sync ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!rawMessages) return;
     const hasStreaming = messages.some(m => m.isStreaming);
     if (hasStreaming) return;
-    if (
-      conversationId === prevConvIdRef.current &&
-      rawMessages.length === messages.filter(m => !m.isOptimistic).length
-    ) return;
-    prevConvIdRef.current = conversationId;
+    // BUG-003 fix: 不再依赖 prevConvIdRef 判断，直接比较 rawMessages 与当前非乐观消息数量
+    // 如果数据相同则跳过（避免重复渲染）
+    const serverCount = rawMessages.length;
+    const localCount = messages.filter(m => !m.isOptimistic).length;
+    if (serverCount === localCount && serverCount > 0) return;
     const mapped: DiscussionMessage[] = (rawMessages as any[]).map(m => ({
       id: m.id,
       role: m.role as DiscussionMessage["role"],
@@ -226,13 +225,19 @@ export function useDiscussion(conversationId: number | null) {
 
   useEffect(() => {
     if (conversationId !== prevConvIdRef.current) {
+      // BUG-003 fix: 切换 session 时立即清空消息列表，避免旧消息短暂显示
+      setMessages([]);
       setInput("");
       setPendingFileContext(null);
       setShowJumpToBottom(false);
+      setSending(false);
+      setIsTyping(false);
       if (sseRef.current) {
         sseRef.current.close();
         sseRef.current = null;
       }
+      // 更新 prevConvIdRef 以避免 server sync useEffect 跳过新数据
+      prevConvIdRef.current = conversationId;
     }
   }, [conversationId]);
 

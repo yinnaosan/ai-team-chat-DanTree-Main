@@ -615,13 +615,15 @@ export default function ResearchWorkspacePage() {
       else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
     }
     // 标题去掉代码部分，只保留公司名
-    // 先去掉代码，再去掉末尾残留的分隔符（· / • / ・ / - / 空格）
-    const displayTitle = tk
-      ? rawTitle
-          .replace(new RegExp(`[\\s·•・\\-]*${tk.replace(/\./g, '\\.')}[\\s]*$`), "")
-          .replace(/[\s·•・\-]+$/, "")
-          .trim() || rawTitle
-      : rawTitle;
+    // 策略：截断到代码首次出现的位置（含前导分隔符），去掉后面所有内容
+    // 例：阿里巴巴·BABA·US → 阿里巴巴，海尔智家 · 600690.SS → 海尔智家
+    let displayTitle = rawTitle;
+    if (tk && tkMatch) {
+      const matchIdx = tkMatch.index ?? 0;
+      if (matchIdx > 0) {
+        displayTitle = rawTitle.slice(0, matchIdx).replace(/[\s·•・\-]+$/, "").trim() || rawTitle;
+      }
+    }
     const t = rawTitle.toLowerCase();
     const type: SessionItem["type"] =
       t.includes("risk") || t.includes("风险") ? "risk" :

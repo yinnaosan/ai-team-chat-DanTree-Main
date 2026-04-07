@@ -87,9 +87,13 @@ export function useSessionManager(enabled: boolean) {
   });
 
   const reorderMutation = trpc.conversation.reorder.useMutation({
+    onSuccess: () => {
+      // 排序成功后从服务器重新加载，确认持久化成功再清除乐观状态
+      refetch().then(() => setLocalOrder(null));
+    },
     onError: () => {
       toast.error("排序保存失败");
-      setLocalOrder(null); // 失败时回退到服务器顺序
+      setLocalOrder(null);
       refetch();
     },
   });
@@ -126,11 +130,12 @@ export function useSessionManager(enabled: boolean) {
         return ai - bi;
       });
     } else {
-      // 服务器排序：有 displayOrder 时按 displayOrder，否则按 lastMessageAt
-      const hasCustomOrder = nonPinned.some(s => s.displayOrder !== 0);
-      nonPinned = hasCustomOrder
-        ? [...nonPinned].sort((a, b) => a.displayOrder - b.displayOrder)
-        : [...nonPinned].sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+      // 服务器排序：始终按 displayOrder 升序（拖拽后持久化的顺序）
+      // displayOrder 初始值均为 0，相同时按 lastMessageAt 降序作为次级排序
+      nonPinned = [...nonPinned].sort((a, b) => {
+        if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+        return b.lastMessageAt.getTime() - a.lastMessageAt.getTime();
+      });
     }
 
     return {

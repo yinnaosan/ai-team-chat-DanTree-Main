@@ -264,12 +264,6 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
                   Get Started
                   <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </button>
-                <button
-                  onClick={onScrollDown}
-                  className="rounded-lg border border-[#27272a] px-6 py-3 text-[15px] font-medium text-white transition-all hover:border-[#3f3f46] hover:bg-[#18181b]"
-                >
-                  Sign In
-                </button>
               </div>
 
               <div className="animate-fadeInUp delay-500 flex items-center gap-6 pt-4 opacity-0">

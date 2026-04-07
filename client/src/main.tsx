@@ -15,8 +15,11 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (typeof window === "undefined") return;
 
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
   if (!isUnauthorized) return;
+
+  // 登录页不自动跳转，用户必须主动点击登录按钮才触发 OAuth
+  const loginPaths = ["/", "/terminal-entry"];
+  if (loginPaths.includes(window.location.pathname)) return;
 
   window.location.href = getLoginUrl();
 };

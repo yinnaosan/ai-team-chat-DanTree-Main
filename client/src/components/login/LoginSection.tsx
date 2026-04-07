@@ -264,11 +264,10 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                       className="group relative w-full overflow-hidden rounded-xl bg-[#22c55e] py-4 text-[15px] font-semibold text-[#09090b] transition-all duration-300 hover:bg-[#16a34a] hover:shadow-xl hover:shadow-[#22c55e]/30 mb-4"
                     >
                       <span className="relative z-10 flex items-center justify-center gap-3">
-                        {/* Manus icon */}
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                         </svg>
-                        Continue with Manus
+                        Start Analysis
                       </span>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </button>

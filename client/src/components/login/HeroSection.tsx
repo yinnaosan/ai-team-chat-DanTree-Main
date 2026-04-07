@@ -16,14 +16,14 @@ const FALLBACK_TICKERS = [
   { symbol: "GS",   price: "489.30", change: "+1.02", up: true },
 ]
 
-const analysisTabs = ["Equity Research", "Risk Analysis", "Portfolio", "Market Signals"]
+const analysisTabs = ["Thesis", "Risk", "Tracking", "Discussion"]
 
 const dataMatrix = [
-  { ticker: "NVDA",  signal: "Strong Buy", confidence: "94.2%", risk: "Medium", momentum: "+12.4%", status: "bullish" },
-  { ticker: "AAPL",  signal: "Hold",       confidence: "78.5%", risk: "Low",    momentum: "+3.2%",  status: "neutral" },
-  { ticker: "TSLA",  signal: "Sell",       confidence: "82.1%", risk: "High",   momentum: "-5.8%",  status: "bearish" },
-  { ticker: "MSFT",  signal: "Buy",        confidence: "89.3%", risk: "Low",    momentum: "+7.1%",  status: "bullish" },
-  { ticker: "GOOGL", signal: "Buy",        confidence: "85.7%", risk: "Medium", momentum: "+4.5%",  status: "bullish" },
+  { ticker: "NVDA",  signal: "Bullish",      confidence: "94.2%", risk: "Medium", momentum: "+12.4%", status: "bullish" },
+  { ticker: "AAPL",  signal: "Stable",       confidence: "78.5%", risk: "Low",    momentum: "+3.2%",  status: "neutral" },
+  { ticker: "TSLA",  signal: "Fragile",      confidence: "82.1%", risk: "High",   momentum: "-5.8%",  status: "bearish" },
+  { ticker: "MSFT",  signal: "Constructive", confidence: "89.3%", risk: "Low",    momentum: "+7.1%",  status: "bullish" },
+  { ticker: "GOOGL", signal: "Positive",     confidence: "85.7%", risk: "Medium", momentum: "+4.5%",  status: "bullish" },
 ]
 
 export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
@@ -227,27 +227,26 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             <div className="space-y-8">
               <div className="animate-fadeInUp inline-flex items-center gap-2 rounded-full border border-[#22c55e]/20 bg-[#22c55e]/10 px-4 py-1.5 text-[13px] text-[#22c55e] opacity-0">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-                AI-Powered Investment Research
+                AI-Native Decision Workspace
               </div>
 
               <h1 className="animate-fadeInUp delay-100 text-4xl font-bold tracking-tight text-white opacity-0 sm:text-5xl lg:text-6xl">
-                Institutional
+                See the business,
                 <br />
                 <span className="bg-gradient-to-r from-[#22c55e] via-[#4ade80] to-[#86efac] bg-clip-text text-transparent">
-                  Research Intelligence
+                  not just the price
                 </span>
               </h1>
 
               <p className="animate-fadeInUp delay-200 max-w-lg text-lg leading-relaxed text-[#a1a1aa] opacity-0">
-                Purpose-built AI trusted by leading asset managers for high-stakes investment decisions.
-                Neural precision meets frontier models.
+                DanTree helps investors follow companies over time, understand what changed, and update the thesis with clarity. Turn filings, research, market data, and ongoing discussion into a stronger decision process.
               </p>
 
               <div className="animate-fadeInUp delay-300 flex gap-10 opacity-0">
                 {[
-                  { value: "$2.4T+", label: "Assets Analyzed" },
-                  { value: "97.4%", label: "Accuracy Rate" },
-                  { value: "50+",   label: "Data Sources" },
+                  { value: "Ongoing",      label: "Coverage" },
+                  { value: "Thesis",       label: "Tracking" },
+                  { value: "Multi-Source", label: "Research" },
                 ].map((stat, i) => (
                   <div key={i}>
                     <div className="text-2xl font-bold text-white">{stat.value}</div>
@@ -291,11 +290,11 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
                       <div className="h-3 w-3 rounded-full bg-[#f59e0b]/80" />
                       <div className="h-3 w-3 rounded-full bg-[#22c55e]/80" />
                     </div>
-                    <span className="text-[13px] font-medium text-white/70">DanTree Analysis</span>
+                    <span className="text-[13px] font-medium text-white/70">DanTree Workspace</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
-                    <span className="text-[11px] text-[#22c55e]">Live</span>
+                    <span className="text-[11px] text-[#22c55e]">Active</span>
                   </div>
                 </div>
 
@@ -317,7 +316,7 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
                 {/* Data Matrix */}
                 <div className="p-4">
                   <div className="mb-2 grid grid-cols-5 gap-3 text-[10px] font-medium uppercase tracking-wider text-[#52525b]">
-                    <div>Ticker</div><div>Signal</div><div>Confidence</div><div>Risk</div><div>Momentum</div>
+                    <div>Ticker</div><div>Stance</div><div>Confidence</div><div>Risk</div><div>Change</div>
                   </div>
                   <div className="space-y-1.5">
                     {dataMatrix.map((row, i) => (
@@ -346,9 +345,9 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
                         </svg>
                       </div>
                       <div>
-                        <div className="text-[12px] font-medium text-[#22c55e]">Key Insight</div>
+                        <div className="text-[12px] font-medium text-[#22c55e]">Research Insight</div>
                         <div className="text-[12px] text-[#a1a1aa]">
-                          NVDA showing strong accumulation pattern. RSI divergence suggests continued upside.
+                          DanTree keeps the research live: what changed, why it matters, and whether the thesis is strengthening, weakening, or still intact.
                         </div>
                       </div>
                     </div>

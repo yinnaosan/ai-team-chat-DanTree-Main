@@ -3,12 +3,12 @@ import { Sparkles, TrendingUp, Shield, Zap, BarChart3 } from "lucide-react"
 import { getLoginUrl } from "@/const"
 
 const dataSources = [
-  { name: "Bloomberg", type: "Market Data", delay: 0 },
-  { name: "Reuters", type: "News Feed", delay: 100 },
-  { name: "SEC Filings", type: "Regulatory", delay: 200 },
-  { name: "FactSet", type: "Analytics", delay: 300 },
-  { name: "S&P Capital IQ", type: "Intelligence", delay: 400 },
-  { name: "PitchBook", type: "Private Markets", delay: 500 },
+  { name: "Filings", type: "Primary Sources", delay: 0 },
+  { name: "Research", type: "External Views", delay: 100 },
+  { name: "Market Data", type: "Price Context", delay: 200 },
+  { name: "Discussion", type: "Ongoing Work", delay: 300 },
+  { name: "Risk", type: "Thesis Review", delay: 400 },
+  { name: "Tracking", type: "Change Log", delay: 500 },
 ]
 
 interface LoginSectionProps {
@@ -137,30 +137,30 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                 </div>
                 <div>
                   <h2 className="text-2xl font-semibold text-white tracking-tight">DanTree</h2>
-                  <p className="text-[13px] text-[#71717a]">Investment Research Assistant</p>
+                  <p className="text-[13px] text-[#71717a]">AI-Native Investment Decision Workspace</p>
                 </div>
               </div>
 
               <h1 className={`mb-6 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl transition-all duration-1000 delay-200 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
-                The full picture,
+                Track the company,
                 <br />
                 <span className="bg-gradient-to-r from-[#22c55e] via-[#4ade80] to-[#22c55e] bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-                  always in reach
+                  update the thesis
                 </span>
               </h1>
 
               <p className={`max-w-lg text-base leading-relaxed text-[#a1a1aa] transition-all duration-1000 delay-300 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
-                Neural networks meet frontier AI models. Your private documents, public filings, and market data — analyzed in seconds.
+                Bring filings, research, market data, and ongoing discussion into one continuous workspace. Understand the business, follow change over time, and make higher-quality decisions.
               </p>
             </div>
 
             {/* Feature pills */}
             <div className={`mb-10 flex flex-wrap gap-3 transition-all duration-1000 delay-400 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
               {[
-                { icon: TrendingUp, text: "Real-time Analysis" },
-                { icon: Shield, text: "Bank-grade Security" },
-                { icon: Zap, text: "2.4s Response" },
-                { icon: BarChart3, text: "50+ Data Sources" },
+                { icon: TrendingUp, text: "Thesis Tracking" },
+                { icon: Shield, text: "Risk-Aware Workflow" },
+                { icon: Zap, text: "Structured Discussion" },
+                { icon: BarChart3, text: "Deep Research" },
               ].map((feature, i) => (
                 <div key={i} className="group flex items-center gap-2 rounded-full border border-[#27272a] bg-[#18181b]/60 px-4 py-2 backdrop-blur-sm transition-all duration-300 hover:border-[#22c55e]/50 hover:bg-[#22c55e]/10 cursor-pointer">
                   <feature.icon className="h-4 w-4 text-[#22c55e] transition-transform duration-300 group-hover:scale-110" />
@@ -171,7 +171,7 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
 
             {/* Data Sources Grid */}
             <div className={`mb-10 transition-all duration-1000 delay-500 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
-              <div className="mb-4 text-[11px] font-medium uppercase tracking-wider text-[#52525b]">Connected Data Sources</div>
+              <div className="mb-4 text-[11px] font-medium uppercase tracking-wider text-[#52525b]">Connected Research Inputs</div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {dataSources.map((source, i) => (
                   <div
@@ -197,9 +197,9 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
             {/* Stats Row */}
             <div className={`flex flex-wrap gap-10 lg:gap-14 transition-all duration-1000 delay-600 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
               {[
-                { value: "$30T", label: "Data Analyzed", suffix: "+" },
-                { value: "200K", label: "Daily Queries", suffix: "+" },
-                { value: "99.7%", label: "Accuracy Rate", suffix: "" },
+                { value: "Continuous", label: "Coverage", suffix: "" },
+                { value: "Structured", label: "Reasoning", suffix: "" },
+                { value: "Research", label: "Workflow", suffix: "" },
               ].map((stat, i) => (
                 <div key={i} className="group cursor-pointer">
                   <div className="flex items-baseline gap-1">
@@ -240,8 +240,8 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                   {/* Card Header */}
                   <div className="mb-8 flex items-center justify-between">
                     <div>
-                      <h3 className="text-2xl font-semibold text-white">Welcome back</h3>
-                      <p className="mt-1 text-[13px] text-[#71717a]">Sign in to your workspace</p>
+                      <h3 className="text-2xl font-semibold text-white">Welcome to DanTree</h3>
+                      <p className="mt-1 text-[13px] text-[#71717a]">Sign in to continue your research workspace</p>
                     </div>
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/10 transition-all duration-300 hover:bg-[#22c55e]/20 hover:scale-105">
                       <Sparkles className="h-6 w-6 text-[#22c55e]" />
@@ -258,7 +258,7 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M4 12h16M12 4l8 8-8 8"/>
                         </svg>
-                        Enter Terminal
+                        Enter Workspace
                       </span>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </button>
@@ -271,7 +271,7 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                         </svg>
-                        Start Analysis
+                        Start Research
                       </span>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </button>
@@ -280,16 +280,16 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
                   {/* Divider */}
                   <div className="my-6 flex items-center gap-4">
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#27272a] to-transparent" />
-                    <span className="text-[11px] text-[#52525b]">secure single sign-on</span>
+                    <span className="text-[11px] text-[#52525b]">secure workspace access</span>
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#27272a] to-transparent" />
                   </div>
 
                   {/* Info block */}
                   <div className="rounded-xl border border-[#1c1c21] bg-[#18181b]/50 p-4 space-y-3">
                     {[
-                      { icon: "🔒", text: "Your credentials are never stored on our servers" },
-                      { icon: "⚡", text: "Instant access to all research tools after sign-in" },
-                      { icon: "🛡️", text: "Protected by enterprise-grade security" },
+                      { icon: "🔒", text: "Secure sign-in for your research workspace" },
+                      { icon: "⚡", text: "Continue tracking companies, files, and thesis in one place" },
+                      { icon: "🛡️", text: "Built for disciplined research and decision support" },
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-3">
                         <span className="text-base leading-none mt-0.5">{item.icon}</span>
@@ -300,7 +300,7 @@ export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSecti
 
                   {/* Request access */}
                   <p className="mt-6 text-center text-[13px] text-[#52525b]">
-                    {"Don't have an account? "}
+                    {"New to DanTree? "}
                     <button
                       onClick={handleLogin}
                       className="font-medium text-white transition-all duration-300 hover:text-[#22c55e]"

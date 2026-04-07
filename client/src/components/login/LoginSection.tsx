@@ -11,7 +11,12 @@ const dataSources = [
   { name: "PitchBook", type: "Private Markets", delay: 500 },
 ]
 
-export function LoginSection() {
+interface LoginSectionProps {
+  isLoggedIn?: boolean;
+  onEnterTerminal?: () => void;
+}
+
+export function LoginSection({ isLoggedIn = false, onEnterTerminal }: LoginSectionProps = {}) {
   const [isVisible, setIsVisible] = useState(false)
   const [hoveredSource, setHoveredSource] = useState<number | null>(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
@@ -239,20 +244,35 @@ export function LoginSection() {
                     </div>
                   </div>
 
-                  {/* Primary OAuth Button — Manus */}
-                  <button
-                    onClick={handleLogin}
-                    className="group relative w-full overflow-hidden rounded-xl bg-[#22c55e] py-4 text-[15px] font-semibold text-[#09090b] transition-all duration-300 hover:bg-[#16a34a] hover:shadow-xl hover:shadow-[#22c55e]/30 mb-4"
-                  >
-                    <span className="relative z-10 flex items-center justify-center gap-3">
-                      {/* Manus icon */}
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                      </svg>
-                      Continue with Manus
-                    </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                  </button>
+                  {/* Primary CTA Button */}
+                  {isLoggedIn ? (
+                    <button
+                      onClick={onEnterTerminal}
+                      className="group relative w-full overflow-hidden rounded-xl bg-[#22c55e] py-4 text-[15px] font-semibold text-[#09090b] transition-all duration-300 hover:bg-[#16a34a] hover:shadow-xl hover:shadow-[#22c55e]/30 mb-4"
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-3">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 12h16M12 4l8 8-8 8"/>
+                        </svg>
+                        Enter Terminal
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleLogin}
+                      className="group relative w-full overflow-hidden rounded-xl bg-[#22c55e] py-4 text-[15px] font-semibold text-[#09090b] transition-all duration-300 hover:bg-[#16a34a] hover:shadow-xl hover:shadow-[#22c55e]/30 mb-4"
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-3">
+                        {/* Manus icon */}
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                        </svg>
+                        Continue with Manus
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    </button>
+                  )}
 
                   {/* Divider */}
                   <div className="my-6 flex items-center gap-4">

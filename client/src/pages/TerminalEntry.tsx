@@ -3,9 +3,14 @@
  *
  * 设计来源：ui.zip（HeroSection + LoginSection）
  * 认证方式：Manus OAuth（通过 getLoginUrl() 跳转）
- * 已登录用户：自动重定向到 /research
+ *
+ * 行为规则：
+ * - 所有用户（包括已登录）访问 / 时，始终先看到登录页
+ * - 未登录：点击「Continue with Manus」→ OAuth 跳转
+ * - 已登录：LoginSection 显示「进入终端」按钮，点击后跳转 /research
+ * - 不再自动跳转，用户必须主动操作
  */
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -17,78 +22,38 @@ export default function TerminalEntry() {
   const { user, loading } = useAuth();
   const loginSectionRef = useRef<HTMLDivElement>(null);
 
-  // 已登录用户检查访问权限后重定向
+  // 已登录用户预加载访问权限（不自动跳转，只用于按钮逻辑）
   const { data: accessData } = trpc.access.check.useQuery(undefined, {
     enabled: !!user,
   });
-
-  useEffect(() => {
-    if (loading) return;
-    if (user && accessData?.hasAccess) {
-      navigate("/research");
-    } else if (user && accessData && !accessData.hasAccess) {
-      navigate("/access");
-    }
-  }, [loading, user, accessData, navigate]);
 
   const scrollToLogin = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 已登录但 accessData 还在加载时，显示极简加载状态
-  if (loading || (user && !accessData)) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          background: "#09090b",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              border: "2px solid #22c55e",
-              borderTopColor: "transparent",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: "'IBM Plex Mono', monospace",
-              letterSpacing: "0.12em",
-              color: "#3f3f46",
-            }}
-          >
-            INITIALIZING...
-          </span>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
+  // 已登录用户点击「进入终端」时的处理
+  const handleEnterTerminal = () => {
+    if (accessData?.hasAccess) {
+      navigate("/research");
+    } else if (accessData && !accessData.hasAccess) {
+      navigate("/access");
+    } else {
+      // accessData 还在加载，稍后重试
+      navigate("/research");
+    }
+  };
 
   return (
     <div style={{ background: "#09090b", overflowY: "auto", height: "100vh" }}>
       {/* Screen 1: Neural network hero + "Institutional Research Intelligence" */}
       <HeroSection onScrollDown={scrollToLogin} />
 
-      {/* Screen 2: "The full picture, always in reach" + Manus OAuth login card */}
+      {/* Screen 2: "The full picture, always in reach" + login card */}
       <div ref={loginSectionRef}>
-        <LoginSection />
+        <LoginSection
+          isLoggedIn={!loading && !!user}
+          onEnterTerminal={handleEnterTerminal}
+        />
       </div>
     </div>
   );

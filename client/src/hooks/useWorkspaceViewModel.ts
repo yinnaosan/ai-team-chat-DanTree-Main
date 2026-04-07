@@ -180,7 +180,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   // ── Layer 1: Independent queries ──────────────────────────────────────────
   const { data: sourceStats } = trpc.market.getSourceSelectionStats.useQuery(
     { entity },
-    { refetchInterval: 60_000, staleTime: 30_000 }
+    { refetchInterval: 60_000, staleTime: 30_000, enabled: !!entity }
   );
 
   const { data: gateStats } = trpc.market.getOutputGateStats.useQuery(
@@ -190,13 +190,13 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
 
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(
     { entity, timeframe: "mid" },
-    { refetchInterval: 60_000, staleTime: 30_000 }
+    { refetchInterval: 60_000, staleTime: 30_000, enabled: !!entity }
   );
 
   // ── Layer 1b: Entity snapshots (for lastSnapshotAt + P1-2 multi-snapshot) ──
   const { data: entitySnapshots } = trpc.market.getEntitySnapshots.useQuery(
     { entityKey: entity, limit: 5 },
-    { staleTime: 60_000 }
+    { staleTime: 60_000, enabled: !!entity }
   );
 
   // ── Layer 2: Alert (depends on gate + semantic) ───────────────────────────
@@ -210,7 +210,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
 
   const { data: entityAlerts } = trpc.market.evaluateEntityAlerts.useQuery(
     { entity, gateResult: alertGateInput, sourceResult: null },
-    { staleTime: 60_000 }
+    { staleTime: 60_000, enabled: !!entity }
   );
 
   // ── Layer 3: Thesis (depends on semantic + gate + alerts) ─────────────────
@@ -224,7 +224,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
         alert_summary: entityAlerts ?? null,
       }
     },
-    { staleTime: 60_000 }
+    { staleTime: 60_000, enabled: !!entity }
   );
 
   // ── Layer 4: Timing (depends on thesis + alerts + gate + semantic) ────────
@@ -239,7 +239,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
         experienceOutput: null,
       }
     },
-    { staleTime: 60_000 }
+    { staleTime: 60_000, enabled: !!entity }
   );
 
   // ── Layer 5: Session History (mutation to avoid 414) ─────────────────────

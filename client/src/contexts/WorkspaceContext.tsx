@@ -202,9 +202,10 @@ export function useWorkspace(): WorkspaceContextValue {
 
 /**
  * Returns the active focus key (entity ticker / basket key).
- * Falls back to "AAPL" when no session is active.
+ * Returns empty string for general sessions (no ticker binding) or when no session is active.
+ * Callers should guard with `enabled: !!entity` to skip queries when empty.
  */
 export function useActiveFocusKey(): string {
   const ctx = useContext(WorkspaceContext);
-  return ctx?.currentSession?.focusKey ?? "AAPL";
+  return ctx?.currentSession?.focusKey ?? "";
 }

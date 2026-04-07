@@ -28,7 +28,12 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
-    console.error("[API Query Error]", error);
+    // 登录页的 UNAUTHORIZED 是正常的未登录状态，不打印错误
+    const isLoginPage = ["/", "/terminal-entry"].includes(window.location.pathname);
+    const isUnauthed = error instanceof TRPCClientError && error.message === UNAUTHED_ERR_MSG;
+    if (!(isLoginPage && isUnauthed)) {
+      console.error("[API Query Error]", error);
+    }
   }
 });
 

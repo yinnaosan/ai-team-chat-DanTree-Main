@@ -2,10 +2,11 @@
  * TerminalEntry.tsx — DanTree 登录入口页 (/ 路由)
  *
  * 行为规则：
- * - 已登录用户：访问 / 时自动跳转 /research（0次点击）
- * - 未登录/新用户：看到登录页 → 点「Start Analysis」→ OAuth → 登录后跳转 /research（1次点击）
+ * - 所有用户访问 / 时，始终看到登录页，不自动跳转
+ * - 未登录用户：点「Start Analysis」→ Manus OAuth → 登录后跳转 /research
+ * - 已登录用户：点「Enter Terminal」→ 跳转 /research
  */
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { HeroSection } from "@/components/login/HeroSection";
@@ -16,35 +17,22 @@ export default function TerminalEntry() {
   const { user, loading } = useAuth();
   const loginSectionRef = useRef<HTMLDivElement>(null);
 
-  // 已登录用户自动跳转到工作台，无需任何点击
-  useEffect(() => {
-    if (!loading && user) {
-      navigate("/research");
-    }
-  }, [loading, user, navigate]);
-
   const scrollToLogin = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 加载中时显示空白（避免闪烁）
-  if (loading) {
-    return <div style={{ background: "#09090b", height: "100vh" }} />;
-  }
-
-  // 已登录时不渲染（useEffect 会跳转）
-  if (user) {
-    return <div style={{ background: "#09090b", height: "100vh" }} />;
-  }
+  const handleEnterTerminal = () => {
+    navigate("/research");
+  };
 
   return (
     <div style={{ background: "#09090b", overflowY: "auto", height: "100vh" }}>
-      {/* Screen 1: Neural network hero + "Institutional Research Intelligence" */}
       <HeroSection onScrollDown={scrollToLogin} />
-
-      {/* Screen 2: "The full picture, always in reach" + login card */}
       <div ref={loginSectionRef}>
-        <LoginSection />
+        <LoginSection
+          isLoggedIn={!loading && !!user}
+          onEnterTerminal={handleEnterTerminal}
+        />
       </div>
     </div>
   );

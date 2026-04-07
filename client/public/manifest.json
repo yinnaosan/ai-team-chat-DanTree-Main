@@ -1,34 +1,44 @@
 {
   "name": "DanTree",
   "short_name": "DanTree",
-  "description": "AI 驱动的投资分析协作平台，Manus + GPT 双引擎协同",
+  "description": "AI-powered institutional investment research platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#1a1a1a",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "zh-CN",
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-32_fce1c750.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-64_1679ca8f.png",
       "sizes": "64x64",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-128_c42a5873.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-128_d32bbf8a.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-192_8547d1ff.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-192_3e8ba69e.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-512_04817d0d.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-256_f8c0d1b5.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-512_93d5d108.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -36,13 +46,13 @@
   ],
   "shortcuts": [
     {
-      "name": "新建任务",
-      "short_name": "新任务",
-      "description": "创建新的分析任务",
-      "url": "/chat",
+      "name": "Research",
+      "short_name": "Research",
+      "description": "Open investment research workspace",
+      "url": "/research",
       "icons": [
         {
-          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/logo-64_4554290f.png",
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663340309886/Sfk3bwgkEZLNATmH8kTpez/dantree-logo-64_1679ca8f.png",
           "sizes": "64x64"
         }
       ]

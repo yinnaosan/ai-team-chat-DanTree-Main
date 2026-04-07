@@ -12,7 +12,7 @@ import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
   Leaf, TrendingUp, TrendingDown, Minus, Zap, AlertTriangle,
-  Activity, Clock, Search, ChevronDown, Settings, LogOut,
+  Activity, Clock, Search, ChevronDown, Settings, LogOut, Monitor,
 } from "lucide-react";
 import {
   Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup,
@@ -362,6 +362,63 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
   );
 }
 
+// ─── PWAInstallButton ───────────────────────────────────────────────────────────────────
+function PWAInstallButton() {
+  const [deferredPrompt, setDeferredPrompt] = React.useState<Event & { prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
+  const [installed, setInstalled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as Event & { prompt: () => void; userChoice: Promise<{ outcome: string }> });
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setInstalled(true));
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  if (installed) return null;
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setInstalled(true);
+      setDeferredPrompt(null);
+    } else {
+      // Fallback: show instruction toast for browsers that don't support beforeinstallprompt
+      alert('在浏览器菜单中选择「添加到主屏幕」或「安装应用」即可将 DanTree 安装到桌面。');
+    }
+  };
+
+  return (
+    <button
+      title="安装到桌面"
+      onClick={handleInstall}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 30, height: 30, borderRadius: 7, cursor: 'pointer',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.14)',
+        color: 'rgba(255,255,255,0.50)',
+        transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(52,211,153,0.50)';
+        (e.currentTarget as HTMLButtonElement).style.color = '#34d399';
+        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(52,211,153,0.06)';
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)';
+        (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.50)';
+        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)';
+      }}
+    >
+      <Monitor size={13} />
+    </button>
+  );
+}
+
 // ─── LogoutButton ───────────────────────────────────────────────────────────────────
 function LogoutButton() {
   const [, navigate] = useLocation();
@@ -588,6 +645,8 @@ export function DecisionHeader({
             <Settings size={13} />
           </button>
         </Link>
+        {/* PWA 安装到桌面按钮 */}
+        <PWAInstallButton />
         {/* 退出按鈕 */}
         <LogoutButton />
       </div>

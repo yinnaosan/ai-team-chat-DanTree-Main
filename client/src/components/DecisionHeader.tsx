@@ -380,15 +380,11 @@ function PWAInstallButton() {
   if (installed) return null;
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') setInstalled(true);
-      setDeferredPrompt(null);
-    } else {
-      // Fallback: show instruction toast for browsers that don't support beforeinstallprompt
-      alert('在浏览器菜单中选择「添加到主屏幕」或「安装应用」即可将 DanTree 安装到桌面。');
-    }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
+    setDeferredPrompt(null);
   };
 
   return (

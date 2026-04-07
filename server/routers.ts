@@ -6826,8 +6826,8 @@ except Exception as e:
     createSession: protectedProcedure
       .input(z.object({
         title: z.string().min(1).max(100),
-        sessionType: z.enum(["entity", "basket", "theme", "compare", "explore"]).default("entity"),
-        focusKey: z.string().min(1).max(100),
+        sessionType: z.enum(["entity", "basket", "theme", "compare", "explore", "general"]).default("entity"),
+        focusKey: z.string().max(100).default(""),
         focusType: z.enum(["ticker", "basket", "theme", "pair", "free"]).default("ticker"),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -6836,7 +6836,7 @@ except Exception as e:
           userId: ctx.user.id,
           title: input.title,
           sessionType: input.sessionType,
-          focusKey: input.focusKey.toUpperCase(),
+          focusKey: input.focusKey ? input.focusKey.toUpperCase() : "",
           focusType: input.focusType,
           pinned: false,
           favorite: false,

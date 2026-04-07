@@ -27,7 +27,10 @@ interface SessionRailProps {
   sessions?: SessionItem[];
   activeSessionId?: string;
   onSelectSession?: (id: string) => void;
+  /** @deprecated 旧接口兼容，勿新增使用 */
   onNewSession?: () => void;
+  /** 绿色加号：创建空白 general session（无 focusKey） */
+  onNewGeneralSession?: () => void;
   activeEntity?: string;
 }
 
@@ -35,8 +38,10 @@ const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research
 const TYPE_LABEL = { thesis: "Thesis", timing: "Timing", risk: "Risk", research: "研究" };
 
 export function SessionRail({
-  sessions = [], activeSessionId, onSelectSession, onNewSession, activeEntity,
+  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity,
 }: SessionRailProps) {
+  // 绿色加号优先使用 onNewGeneralSession，向后兼容 onNewSession
+  const handleNewGeneral = onNewGeneralSession ?? onNewSession;
   const [query, setQuery] = useState("");
 
   const filtered = query.trim()
@@ -58,7 +63,7 @@ export function SessionRail({
       borderRight: "1px solid rgba(255,255,255,0.12)",
     }}>
 
-      {/* Column Header */}
+      {/* Column Header — 灰色加号已移除（产品逻辑：只保留绿色加号创建 general session） */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 14px 11px",
@@ -69,17 +74,6 @@ export function SessionRail({
         <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
           研究会话
         </span>
-        <button
-          onClick={onNewSession}
-          style={{
-            width: 22, height: 22, borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(255,255,255,0.50)", fontSize: 14, lineHeight: 1,
-          }}
-        >
-          +
-        </button>
       </div>
 
       {/* Search + New */}
@@ -102,8 +96,8 @@ export function SessionRail({
             />
           </div>
           <button
-            onClick={onNewSession}
-            title="新建会话"
+            onClick={handleNewGeneral}
+            title="新建空白研究（General Session）"
             style={{
               width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(52,211,153,0.20)",
               background: "rgba(52,211,153,0.08)", cursor: "pointer",

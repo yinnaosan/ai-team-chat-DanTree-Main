@@ -3201,3 +3201,11 @@
 - [x] 前端: 页面加载时查询 running tasks，自动恢复 SSE 连接
 - [x] 前端: submitMutation 传入 sessionId
 - [x] TSC 0 errors 验证通过
+
+## 会话创建逻辑统一修复（2026-04-07）
+- [ ] 左侧搜索框：只搜历史 session，不创建新会话，不调用 entity/stock API
+- [ ] 绿色加号：只创建 blank general session（focusKey=null）
+- [ ] 顶部标的快捷入口：永远创建新的 entity session，不改写当前 session
+- [ ] 灰色加号：完全移除（UI + 事件绑定）
+- [ ] entity session 单标的限制：再选新标的时新建 session
+- [ ] 连锁影响验证：title/focusKey/placeholder/sorting/history search

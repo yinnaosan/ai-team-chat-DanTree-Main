@@ -11,7 +11,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type WorkspaceSessionType = "entity" | "basket" | "theme" | "compare" | "explore";
+export type WorkspaceSessionType = "entity" | "basket" | "theme" | "compare" | "explore" | "general";
 export type WorkspaceFocusType = "ticker" | "basket" | "theme" | "pair" | "free";
 
 export interface WorkspaceSession {
@@ -40,7 +40,8 @@ export interface WorkspaceContextValue {
   createSession: (params: {
     title: string;
     sessionType?: WorkspaceSessionType;
-    focusKey: string;
+    /** focusKey: ticker or basket key. Pass empty string or null for general sessions. */
+    focusKey?: string | null;
     focusType?: WorkspaceFocusType;
   }) => Promise<WorkspaceSession | null>;
   /** Switch to an existing session */
@@ -123,15 +124,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const createSession = useCallback(async (params: {
     title: string;
     sessionType?: WorkspaceSessionType;
-    focusKey: string;
+    /** focusKey: ticker or basket key. Pass empty string or null for general sessions. */
+    focusKey?: string | null;
     focusType?: WorkspaceFocusType;
   }): Promise<WorkspaceSession | null> => {
     try {
       const result = await createSessionMutation.mutateAsync({
         title: params.title,
         sessionType: params.sessionType ?? "entity",
-        focusKey: params.focusKey,
-        focusType: params.focusType ?? "ticker",
+        focusKey: params.focusKey ?? "",
+        focusType: params.focusType ?? (params.focusKey ? "ticker" : "free"),
       });
       const newSession = result.session as WorkspaceSession;
       setCurrentSession(newSession);

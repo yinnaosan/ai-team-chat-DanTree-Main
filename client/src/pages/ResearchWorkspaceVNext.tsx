@@ -1330,12 +1330,20 @@ export default function ResearchWorkspacePage() {
             sessionType: s.sessionType,
           }))}
           onSelectEntity={(candidate) => {
-            // 切换到已有 session（全页同步：WorkspaceContext 驱动 Header/Canvas/Insights/History）
+            // 如果是外部搜索结果（id 以 __ext__ 开头）或找不到对应 session，必须新建 entity session
             const session = sessionList.find(s => s.id === candidate.id);
             if (session) {
+              // 已有 session：直接切换（不改写当前 session）
               setSession(session);
-            } else {
-              setManualTicker(candidate.ticker);
+            } else if (candidate.id.startsWith('__ext__') || !session) {
+              // 外部搜索结果或无匹配 session：新建 entity session（单标的限制）
+              createSession({
+                title: candidate.ticker,
+                focusKey: candidate.ticker,
+                sessionType: 'entity',
+              }).then(newSession => {
+                if (newSession) setSession(newSession);
+              });
             }
           }}
           onNewEntity={async (ticker) => {
@@ -1383,10 +1391,9 @@ export default function ResearchWorkspacePage() {
                 // visibleMessages 由 useDiscussion(activeConvId) 自动重置
               }
             }}
-            onNewSession={() => {
-              // 创建新 workspace session（以当前 ticker 为 focusKey）
-              const ticker = currentTicker || "AAPL";
-              createSession({ title: `${ticker} 研究`, focusKey: ticker, sessionType: "entity" });
+            onNewGeneralSession={() => {
+              // 绿色加号：创建空白 general session（无 focusKey，无标的绑定）
+              createSession({ title: "新研究", focusKey: null, sessionType: "general" });
             }}
             activeEntity={currentTicker || undefined}
           />

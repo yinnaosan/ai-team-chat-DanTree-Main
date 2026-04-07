@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
+import { trpc } from "@/lib/trpc"
 
-// Stock ticker (mock data — will be replaced with real API before launch)
-const tickers = [
+// Fallback ticker data（实时 API 加载前或失败时显示）
+const FALLBACK_TICKERS = [
   { symbol: "AAPL", price: "178.42", change: "+1.23", up: true },
   { symbol: "GOOGL", price: "141.80", change: "+0.87", up: true },
   { symbol: "MSFT", price: "378.91", change: "+1.56", up: true },
@@ -30,6 +31,16 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
   const [activeTab, setActiveTab] = useState(0)
   const mousePosRef = useRef({ x: 0, y: 0 })
   const smoothMouseRef = useRef({ x: 0, y: 0 })
+
+  // 实时行情（公开接口，无需登录）
+  // retry: false + throwOnError: false 确保失败时只用 fallback，不触发全局错误处理器
+  const { data: liveTickers } = trpc.market.getPublicTickers.useQuery(undefined, {
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: false,
+    throwOnError: false,
+  })
+  const tickers = (liveTickers && liveTickers.length > 0) ? liveTickers : FALLBACK_TICKERS
 
   // Neural network background
   useEffect(() => {
@@ -192,20 +203,19 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
       <div className="pointer-events-none absolute left-0 top-0 h-full w-1/4 bg-gradient-to-r from-[#09090b]/50 to-transparent" />
       <div className="pointer-events-none absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-[#09090b]/50 to-transparent" />
 
-      {/* Stock Ticker */}
-      <div className="relative z-10 border-b border-[#1c1c21] bg-[#0c0c0f]/90 backdrop-blur-md">
-        <div className="overflow-hidden">
-          <div className="animate-ticker flex py-2.5">
-            {[...tickers, ...tickers].map((t, i) => (
-              <div key={i} className="mx-6 flex items-center gap-3 text-[13px]">
-                <span className="font-medium text-white/80">{t.symbol}</span>
-                <span className="font-mono text-white/50">${t.price}</span>
-                <span className={`font-mono ${t.up ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
-                  {t.up ? "↑" : "↓"} {t.change}%
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* ── Ticker Bar（单条，实时数据）── */}
+      <div className="relative z-10 border-b border-[#1c1c21] bg-[#0c0c0f]/90 backdrop-blur-md overflow-hidden">
+        <div className="animate-ticker flex py-2.5" style={{ width: "max-content" }}>
+          {/* 复制一份实现无缝循环（视觉上是一条连续滚动的 ticker，不是两条） */}
+          {[...tickers, ...tickers].map((t, i) => (
+            <div key={i} className="mx-6 flex items-center gap-3 text-[13px] flex-shrink-0">
+              <span className="font-medium text-white/80">{t.symbol}</span>
+              <span className="font-mono text-white/50">${t.price}</span>
+              <span className={`font-mono ${t.up ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                {t.up ? "↑" : "↓"} {t.change}%
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

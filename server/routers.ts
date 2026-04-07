@@ -4808,6 +4808,24 @@ export const appRouter = router({
       }),
   }),
   market: router({
+    // 公开接口：登录页 ticker 滚动条实时行情（无需登录）
+    getPublicTickers: publicProcedure.query(async () => {
+      const symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "JPM", "BRK.B", "GS"];
+      try {
+        const { getQuote } = await import("./finnhubApi");
+        const results = await Promise.allSettled(symbols.map(sym => getQuote(sym)));
+        return symbols.map((sym, i) => {
+          const r = results[i];
+          if (r.status === "fulfilled" && r.value?.c) {
+            const pct = r.value.dp ?? 0;
+            return { symbol: sym, price: r.value.c.toFixed(2), change: pct.toFixed(2), up: pct >= 0 };
+          }
+          return null;
+        }).filter(Boolean) as { symbol: string; price: string; change: string; up: boolean }[];
+      } catch {
+        return [];
+      }
+    }),
     // 获取单只股票的实时行情（价格、涨跌幅、PE 等）
     getQuote: protectedProcedure
       .input(z.object({ symbol: z.string().min(1).max(20) }))

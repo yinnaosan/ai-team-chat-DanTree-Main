@@ -21,6 +21,8 @@ import {
   Smartphone, Download,
 } from "lucide-react";
 import { getMarketStatus, type MarketType } from "@/components/MarketStatus";
+import { HeroSection } from "@/components/login/HeroSection";
+import { LoginSection } from "@/components/login/LoginSection";
 
 // ─── Ticker Strip ─────────────────────────────────────────────────────────────
 const MOCK_TICKERS = [
@@ -221,18 +223,10 @@ export default function Home() {
   const { isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
   const { data: accessData } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
+  const loginSectionRef = useRef<HTMLDivElement>(null);
 
-  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
-  useEffect(() => {
-    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    (installPrompt as any).prompt();
-    const { outcome } = await (installPrompt as any).userChoice;
-    if (outcome === "accepted") setInstallPrompt(null);
+  const scrollToLogin = () => {
+    loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -250,179 +244,14 @@ export default function Home() {
       </div>
     );
   }
-
   return (
-    <div style={{ minHeight: "100vh", background: "oklch(8.5% 0.008 240)", display: "flex", flexDirection: "column", overflow: "hidden auto" }}>
-      {/* Ticker strip */}
-      <TickerStrip />
-
-      {/* Top nav */}
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 32px", borderBottom: "1px solid oklch(100% 0 0 / 0.05)", flexShrink: 0, background: "oklch(4.5% 0.008 240 / 0.95)", backdropFilter: "blur(20px)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "oklch(78% 0.18 75 / 0.15)", border: "1px solid oklch(78% 0.18 75 / 0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Terminal style={{ width: 14, height: 14, color: "oklch(65% 0.18 255)" }} />
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.02em", color: "oklch(88% 0.004 240)", fontFamily: "'Space Grotesk', sans-serif" }}>DanTree Terminal</span>
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 7px", borderRadius: 4, background: "oklch(78% 0.18 75 / 0.1)", border: "1px solid oklch(78% 0.18 75 / 0.25)", color: "oklch(65% 0.18 255)", fontFamily: "'IBM Plex Mono', monospace" }}>v3.0</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {installPrompt && (
-            <button onClick={handleInstall} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)", color: "oklch(60% 0.007 240)", cursor: "pointer" }}>
-              <Smartphone style={{ width: 13, height: 13 }} />安装到桌面
-            </button>
-          )}
-          <button onClick={() => window.location.href = getLoginUrl()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "oklch(65% 0.18 255)", color: "oklch(10% 0.015 240)", border: "none", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", boxShadow: "0 0 32px oklch(78% 0.18 75 / 0.25)" }}>
-            <Terminal style={{ width: 14, height: 14 }} />进入终端<ArrowRight style={{ width: 14, height: 14 }} />
-          </button>
-        </div>
-      </nav>
-
-      {/* Hero section */}
-      <section style={{ position: "relative", padding: "60px 32px 40px", maxWidth: 1100, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 48, overflow: "hidden" }}>
-        {/* Background grid */}
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(oklch(100% 0 0 / 0.03) 1px, transparent 1px), linear-gradient(90deg, oklch(100% 0 0 / 0.03) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", top: "20%", left: "30%", width: "60%", height: "60%", background: "radial-gradient(ellipse at center, oklch(78% 0.18 75 / 0.06), transparent 70%)", pointerEvents: "none" }} />
-
-        {/* Left: Text */}
-        <div style={{ flex: 1, position: "relative", zIndex: 10 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 6, background: "oklch(78% 0.18 75 / 0.08)", border: "1px solid oklch(78% 0.18 75 / 0.2)", marginBottom: 20 }}>
-            <div className="animate-pulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(65% 0.18 255)" }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "oklch(65% 0.18 255)", fontFamily: "'IBM Plex Mono', monospace" }}>AI FINANCIAL TERMINAL v3.0 · PRIVATE BETA</span>
-          </div>
-          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, letterSpacing: "-0.04em", fontSize: "clamp(42px, 6vw, 72px)", color: "oklch(91% 0.004 240)", lineHeight: 1.05, marginBottom: 20 }}>
-            DanTree Terminal<br />
-            <span style={{ color: "oklch(65% 0.18 255)", textShadow: "0 0 60px oklch(78% 0.18 75 / 0.5)" }}>重新定义</span>{" "}的投研终端
-          </h1>
-          <p style={{ fontSize: "clamp(13px, 1.4vw, 16px)", color: "oklch(50% 0.007 240)", maxWidth: 480, lineHeight: 1.75, marginBottom: 32 }}>
-            多 Agent 协作分析引擎，实时接入 <strong style={{ color: "oklch(65% 0.18 255)" }}>40+</strong> 专业数据源，
-            自动生成具有反驳论点的投资研究报告。专为 A 股、港股、美股投资者设计。
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-            <button onClick={() => window.location.href = getLoginUrl()} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 26px", borderRadius: 12, fontSize: 14, fontWeight: 800, background: "oklch(65% 0.18 255)", color: "oklch(10% 0.015 240)", border: "none", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", boxShadow: "0 0 50px oklch(78% 0.18 75 / 0.35), 0 8px 24px oklch(0% 0 0 / 0.5)" }}>
-              <Terminal style={{ width: 15, height: 15 }} />立即进入终端<ArrowRight style={{ width: 15, height: 15 }} />
-            </button>
-            <button onClick={() => window.location.href = getLoginUrl()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "13px 20px", borderRadius: 12, fontSize: 13, fontWeight: 600, background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.1)", color: "oklch(58% 0.007 240)", cursor: "pointer" }}>
-              了解更多 <ChevronRight style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {ENTRY_CHIPS.map((chip) => {
-              const Icon = chip.icon;
-              return (
-                <button key={chip.label} onClick={() => window.location.href = getLoginUrl()} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, fontSize: 11, fontWeight: 500, background: "oklch(100% 0 0 / 0.04)", border: "1px solid oklch(100% 0 0 / 0.08)", color: "oklch(48% 0.007 240)", cursor: "pointer" }}>
-                  <Icon style={{ width: 11, height: 11 }} />{chip.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: Robot + Market Status */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, flexShrink: 0, position: "relative", zIndex: 10 }}>
-          <AIRobot />
-          <div style={{ width: 320, padding: "16px", borderRadius: 14, background: "oklch(100% 0 0 / 0.03)", border: "1px solid oklch(100% 0 0 / 0.09)", backdropFilter: "blur(16px)", boxShadow: "0 8px 32px oklch(0% 0 0 / 0.4)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", color: "oklch(45% 0.006 240)", fontFamily: "'IBM Plex Mono', monospace" }}>GLOBAL MARKETS</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div className="animate-pulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(68% 0.18 145)" }} />
-                <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(68% 0.18 145)", fontWeight: 700 }}>LIVE</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {MARKET_LIST.map(m => <MarketStatusRow key={m.type} type={m.type} label={m.label} flag={m.flag} />)}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features grid */}
-      <section style={{ padding: "0 32px 56px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ display: "inline-block", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", padding: "4px 12px", borderRadius: 6, color: "oklch(42% 0.006 240)", background: "oklch(100% 0 0 / 0.03)", border: "1px solid oklch(100% 0 0 / 0.06)", fontFamily: "'IBM Plex Mono', monospace", marginBottom: 10 }}>CORE FEATURES</div>
-          <h2 style={{ fontSize: "clamp(22px, 2.8vw, 32px)", fontWeight: 800, letterSpacing: "-0.03em", color: "oklch(86% 0.004 240)", fontFamily: "'Space Grotesk', sans-serif", margin: 0 }}>专业级投资研究工具集</h2>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-          {FEATURES.map((f) => {
-            const Icon = f.icon;
-            return (
-              <div key={f.title} style={{ padding: 18, borderRadius: 14, background: "oklch(100% 0 0 / 0.025)", border: "1px solid oklch(100% 0 0 / 0.07)", backdropFilter: "blur(12px)", transition: "all 0.25s", cursor: "default" }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = "oklch(100% 0 0 / 0.045)"; el.style.borderColor = f.border; el.style.boxShadow = `0 0 24px ${f.accent}18`; }}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "oklch(100% 0 0 / 0.025)"; el.style.borderColor = "oklch(100% 0 0 / 0.07)"; el.style.boxShadow = "none"; }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: f.bg, border: `1px solid ${f.border}` }}>
-                    <Icon style={{ color: f.accent, width: 17, height: 17 }} />
-                  </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", padding: "3px 7px", borderRadius: 4, background: f.bg, color: f.accent, border: `1px solid ${f.border}`, fontFamily: "'IBM Plex Mono', monospace" }}>{f.tag}</span>
-                </div>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: "oklch(86% 0.004 240)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: 7, letterSpacing: "-0.01em" }}>{f.title}</h3>
-                <p style={{ fontSize: 11, lineHeight: 1.65, color: "oklch(44% 0.006 240)", margin: 0 }}>{f.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Install banner */}
-      {installPrompt && (
-        <section style={{ padding: "0 32px 20px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderRadius: 12, background: "oklch(78% 0.18 75 / 0.06)", border: "1px solid oklch(78% 0.18 75 / 0.2)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Smartphone style={{ width: 18, height: 18, color: "oklch(65% 0.18 255)" }} />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "oklch(82% 0.004 240)", margin: 0 }}>安装 DanTree Terminal 到桌面</p>
-                <p style={{ fontSize: 11, color: "oklch(48% 0.007 240)", margin: 0 }}>离线可用 · 快速启动 · 全屏体验</p>
-              </div>
-            </div>
-            <button onClick={handleInstall} style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "oklch(65% 0.18 255)", color: "oklch(10% 0.015 240)", border: "none", cursor: "pointer" }}>
-              <Download style={{ width: 13, height: 13 }} />立即安装
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* Status + CTA */}
-      <section style={{ padding: "0 32px 56px", maxWidth: 1100, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ padding: "14px 18px", borderRadius: 12, background: "oklch(100% 0 0 / 0.025)", border: "1px solid oklch(100% 0 0 / 0.07)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "oklch(42% 0.006 240)", fontFamily: "'IBM Plex Mono', monospace" }}>SYSTEM STATUS</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div className="animate-pulse" style={{ width: 5, height: 5, borderRadius: "50%", background: "oklch(68% 0.18 145)" }} />
-              <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(68% 0.18 145)", letterSpacing: "0.06em" }}>ALL SYSTEMS OPERATIONAL</span>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-            {["数据引擎", "AI 分析", "记忆系统", "新闻 API"].map((label) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "oklch(68% 0.18 145)", flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: "oklch(58% 0.007 240)" }}>{label}</div>
-                  <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(68% 0.18 145)" }}>OPERATIONAL</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ position: "relative", overflow: "hidden", padding: "36px 28px", borderRadius: 18, textAlign: "center", background: "oklch(78% 0.18 75 / 0.06)", border: "1px solid oklch(78% 0.18 75 / 0.2)" }}>
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 80% at 50% 50%, oklch(78% 0.18 75 / 0.06), transparent)", pointerEvents: "none" }} />
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <h2 style={{ fontSize: "clamp(18px, 2.2vw, 26px)", fontWeight: 800, letterSpacing: "-0.03em", color: "oklch(88% 0.004 240)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: 8 }}>准备好进入专业级 AI 投资终端了吗？</h2>
-            <p style={{ fontSize: 13, color: "oklch(48% 0.007 240)", marginBottom: 20 }}>私有协作平台 · 仅限授权用户 · 数据仅供参考，不构成投资建议</p>
-            <button onClick={() => window.location.href = getLoginUrl()} style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "12px 26px", borderRadius: 12, fontSize: 14, fontWeight: 800, background: "oklch(65% 0.18 255)", color: "oklch(10% 0.015 240)", border: "none", cursor: "pointer", fontFamily: "'Space Grotesk', sans-serif", boxShadow: "0 0 40px oklch(78% 0.18 75 / 0.3)" }}>
-              <Terminal style={{ width: 15, height: 15 }} />申请访问权限<ArrowRight style={{ width: 15, height: 15 }} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer style={{ padding: "12px 32px", borderTop: "1px solid oklch(100% 0 0 / 0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10, color: "oklch(26% 0.006 240)" }}>
-          <Lock style={{ width: 11, height: 11 }} />
-          <span>私有协作平台 · 仅限授权用户 · 数据仅供参考，不构成投资建议</span>
-        </div>
-        <div style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "oklch(26% 0.006 240)" }}>v3.0.0</div>
-      </footer>
+    <div style={{ background: "#09090b", overflowY: "auto", height: "100vh" }}>
+      {/* Section 1: Hero */}
+      <HeroSection onScrollDown={scrollToLogin} />
+      {/* Section 2: Login */}
+      <div ref={loginSectionRef}>
+        <LoginSection />
+      </div>
     </div>
   );
 }

@@ -3099,3 +3099,21 @@
 - [x] 运行 5 个验收测试（21/21 PASS）
 - [x] TSC 0 errors
 - [x] Checkpoint + 反馈包
+
+## 登录页替换（ui.zip 指定页面）
+- [ ] 在 index.css 补入 scroll-container / scroll-section / animate-ticker / animate-fadeInUp 等动画 CSS
+- [ ] 新建 HeroSection.tsx（神经网络背景 + ticker bar + 左文右表格布局）
+- [ ] 新建 LoginSection.tsx（粒子背景 + 左内容右登录表单，接入 Manus OAuth）
+- [ ] 新建 NewLoginPage.tsx（组合两个 Section，scroll-snap 布局）
+- [ ] App.tsx 路由 "/" 改为 NewLoginPage
+- [ ] 文案替换为 DanTree 方向（主标题/副标题/标签/数字）
+- [ ] ticker bar 说明（mock 数据 or 真实 API）
+- [ ] 登录区接入 getLoginUrl() Manus OAuth
+- [ ] TSC 0 errors
+
+## 登录页替换（ui.zip 指定页面）
+- [x] 在 index.css 追加登录页所需 CSS 动画（scroll-container / animate-ticker / animate-gradient）
+- [x] 新建 HeroSection.tsx（神经网络动画 + 左侧内容 + 数据矩阵预览）
+- [x] 新建 LoginSection.tsx（OAuth 按钮 + 数据源 + 安全徽章）
+- [x] 替换 Home.tsx：双 Section 滚动页，保留 auth 重定向逻辑
+- [x] TSC 0 errors

@@ -3239,3 +3239,72 @@
   .te-panels-row { grid-template-columns: 1fr; }
   .te-hero-title { font-size: 28px; }
 }
+
+/* ========================================
+   Login Page — Scroll Snap + Animations
+   ======================================== */
+
+.scroll-container {
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+.scroll-section {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker { animation: ticker-scroll 40s linear infinite; }
+
+@keyframes fadeInUpLogin {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp { animation: fadeInUpLogin 0.8s ease-out forwards; }
+
+@keyframes slideInRightLogin {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slideInRight { animation: slideInRightLogin 0.8s ease-out forwards; }
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animate-gradient { animation: gradientShift 3s ease infinite; }
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(39,39,42,0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39,39,42,0.5) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50%       { box-shadow: 0 0 20px 5px rgba(34,197,94,0.2); }
+}
+.animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+
+@keyframes scrollHint {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50%       { transform: translateY(6px); opacity: 0.5; }
+}
+.animate-scrollHint { animation: scrollHint 1.5s ease-in-out infinite; }

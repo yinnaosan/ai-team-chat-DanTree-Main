@@ -3117,3 +3117,41 @@
 - [x] 新建 LoginSection.tsx（OAuth 按钮 + 数据源 + 安全徽章）
 - [x] 替换 Home.tsx：双 Section 滚动页，保留 auth 重定向逻辑
 - [x] TSC 0 errors
+
+## 访问密钥激活系统（一次激活，永久使用，密钥绑定邮箱）
+- [ ] 数据库：access_keys 表（id, key_hash, bound_email, expires_at, created_at, revoked, label）
+- [ ] 数据库：users 表新增 activated_at 字段（记录密钥激活时间）
+- [ ] 后端：owner.generateAccessKey 接口（生成密钥 + 设置有效期）
+- [ ] 后端：owner.listAccessKeys 接口（查看所有密钥状态）
+- [ ] 后端：owner.revokeAccessKey 接口（撤销密钥）
+- [ ] 后端：access.activateKey 接口（用户激活密钥，绑定邮箱，防重复绑定）
+- [ ] 后端：protectedProcedure 中间件检查用户是否已激活（Owner 免检）
+- [ ] 前端：登录后未激活用户显示密钥激活页面（KeyActivation）
+- [ ] 前端：设置页 Owner 密钥管理面板（生成/查看/撤销）
+- [ ] 前端：已激活用户跳过激活页直接进入工作台
+
+## 旧 access_codes/user_access 系统完全停用，切换到 access_keys
+- [ ] db.ts：新增 accessKeys 的 db helpers（createAccessKey / listAccessKeys / revokeAccessKey / getAccessKeyByHash / activateAccessKey）
+- [ ] db.ts：移除旧 createAccessCode / verifyAccessCode / incrementCodeUsage / getUserAccess / grantUserAccess / revokeUserAccess 的调用依赖
+- [ ] routers.ts：requireAccess 改为查 access_keys.bound_user_id + expires_at + revoked
+- [ ] routers.ts：access.check 改用新逻辑（查 access_keys 是否有绑定该 userId 且未过期未撤销的记录）
+- [ ] routers.ts：access.activateKey（用户输入密钥激活，绑定邮箱+userId，防重复绑定）
+- [ ] routers.ts：owner.generateAccessKey（生成密钥，设有效期，返回明文）
+- [ ] routers.ts：owner.listAccessKeys（查看所有密钥状态）
+- [ ] routers.ts：owner.revokeAccessKey（撤销密钥）
+- [ ] routers.ts：移除旧 access.verify / access.generateCode / access.listCodes / access.revokeCode / access.revokeUser
+
+## 访问密钥激活系统（新版，替换旧 access_codes）
+
+- [x] 数据库：access_keys 表（id, key, label, boundEmail, revoked, expiresAt, createdAt）
+- [x] 后端：access.activateKey — 密钥激活，绑定邮箱，一次激活永久有效
+- [x] 后端：access.check — 检查当前用户是否已激活且密钥未过期
+- [x] 后端：access.generateKey — Owner 生成新密钥（含有效期）
+- [x] 后端：access.listKeys — Owner 查看所有密钥
+- [x] 后端：access.revokeKey — Owner 撤销密钥
+- [x] 前端：App.tsx 全局 AccessGuard — 登录后未激活弹出不可关闭弹窗
+- [x] 前端：KeyActivationModal — 强制弹窗，无 X/ESC/点击外部关闭，激活成功后消失
+- [x] 前端：密钥过期后 refetchOnWindowFocus 重新检测，自动弹出弹窗
+- [x] 前端：Settings.tsx access tab 完整重写为新密钥管理 UI
+- [x] 前端：AdminPanel.tsx 完整重写为新密钥管理 UI
+- [x] 旧 access_codes / user_access 系统完全停用

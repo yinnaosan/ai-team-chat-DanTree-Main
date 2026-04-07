@@ -14,11 +14,10 @@ import {
 export default function AdminPanel() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const [label, setLabel] = useState("");
-  const [maxUses, setMaxUses] = useState<number>(1);
-  const [expiresInDays, setExpiresInDays] = useState<number | undefined>(undefined);
+  const [keyLabel, setKeyLabel] = useState("");
+  const [keyExpireDays, setKeyExpireDays] = useState<number>(365);
   const [generating, setGenerating] = useState(false);
-  const [newCode, setNewCode] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -27,7 +26,7 @@ export default function AdminPanel() {
     enabled: isAuthenticated,
   });
 
-  const { data: codes = [], isLoading: codesLoading } = trpc.access.listCodes.useQuery(undefined, {
+  const { data: keys = [], isLoading: keysLoading } = trpc.access.listKeys.useQuery(undefined, {
     enabled: !!accessData?.isOwner,
   });
 
@@ -36,37 +35,36 @@ export default function AdminPanel() {
     { enabled: !!accessData?.isOwner }
   );
 
-  const generateMutation = trpc.access.generateCode.useMutation({
-    onSuccess: (data) => {
-      setNewCode(data.code);
-      setLabel("");
-      setMaxUses(1);
-      setExpiresInDays(undefined);
-      utils.access.listCodes.invalidate();
-      toast.success("访问密码已生成！");
+  const generateMutation = trpc.access.generateKey.useMutation({
+    onSuccess: (data: { key: string; expiresAt: Date }) => {
+      setNewKey(data.key);
+      setKeyLabel("");
+      setKeyExpireDays(365);
+      utils.access.listKeys.invalidate();
+      toast.success("密钥已生成！请立即复制保存");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: { message?: string }) => toast.error(err.message ?? "生成失败"),
   });
 
-  const revokeMutation = trpc.access.revokeCode.useMutation({
+  const revokeMutation = trpc.access.revokeKey.useMutation({
     onSuccess: () => {
-      utils.access.listCodes.invalidate();
-      toast.success("密码已撤销");
+      utils.access.listKeys.invalidate();
+      toast.success("密钥已撤销");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: { message?: string }) => toast.error(err.message ?? "撤销失败"),
   });
 
   const handleGenerate = () => {
     setGenerating(true);
     generateMutation.mutate(
-      { label: label || undefined, maxUses, expiresInDays },
+      { label: keyLabel || undefined, expiresInDays: keyExpireDays },
       { onSettled: () => setGenerating(false) }
     );
   };
 
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success("密码已复制到剪贴板");
+  const copyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast.success("已复制到剪贴板");
   };
 
   // 非Owner用户重定向
@@ -102,37 +100,27 @@ export default function AdminPanel() {
         <div className="bg-card border border-border rounded-2xl p-5">
           <h2 className="font-semibold text-foreground flex items-center gap-2 mb-4">
             <Plus className="w-4 h-4 text-blue-400" />
-            生成访问密码
+            生成访问密钥
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">备注（可选）</label>
+              <label className="text-xs text-muted-foreground mb-1 block">备注标签（可选）</label>
               <Input
-                placeholder="例：给张三"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
+                placeholder="例：用户A"
+                value={keyLabel}
+                onChange={(e) => setKeyLabel(e.target.value)}
                 className="bg-background border-border h-9 text-sm"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">最多使用次数（-1=无限）</label>
-              <Input
-                type="number"
-                min={-1}
-                value={maxUses}
-                onChange={(e) => setMaxUses(Number(e.target.value))}
-                className="bg-background border-border h-9 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">有效天数（留空=永久）</label>
+              <label className="text-xs text-muted-foreground mb-1 block">有效天数（默认 365 天）</label>
               <Input
                 type="number"
                 min={1}
-                placeholder="例：30"
-                value={expiresInDays ?? ""}
-                onChange={(e) => setExpiresInDays(e.target.value ? Number(e.target.value) : undefined)}
+                placeholder="365"
+                value={keyExpireDays}
+                onChange={(e) => setKeyExpireDays(Number(e.target.value) || 365)}
                 className="bg-background border-border h-9 text-sm"
               />
             </div>
@@ -149,23 +137,23 @@ export default function AdminPanel() {
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <KeyRound className="w-3 h-3" />生成密码
+                <KeyRound className="w-3 h-3" />生成密钥
               </span>
             )}
           </Button>
 
-          {/* 新生成的密码展示 */}
-          {newCode && (
+          {/* 新生成的密钥展示（仅此一次） */}
+          {newKey && (
             <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-between">
-              <div>
-                <p className="text-xs text-green-400 mb-1">新密码已生成</p>
-                <code className="text-green-300 font-mono text-base font-bold tracking-widest">{newCode}</code>
+              <div className="min-w-0">
+                <p className="text-xs text-green-400 mb-1">新密钥已生成（仅显示一次，请立即复制）</p>
+                <code className="text-green-300 font-mono text-sm font-bold break-all">{newKey}</code>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => copyCode(newCode)}
-                className="text-green-400 hover:text-green-300"
+                onClick={() => copyKey(newKey)}
+                className="text-green-400 hover:text-green-300 shrink-0"
               >
                 <Copy className="w-4 h-4" />
               </Button>
@@ -177,70 +165,61 @@ export default function AdminPanel() {
         <div className="bg-card border border-border rounded-2xl p-5">
           <h2 className="font-semibold text-foreground flex items-center gap-2 mb-4">
             <Users className="w-4 h-4 text-purple-400" />
-            访问密码列表
+            访问密钥列表
           </h2>
 
-          {codesLoading ? (
+          {keysLoading ? (
             <p className="text-muted-foreground text-sm">加载中...</p>
-          ) : codes.length === 0 ? (
-            <p className="text-muted-foreground text-sm">暂无访问密码，请先生成</p>
+          ) : keys.length === 0 ? (
+            <p className="text-muted-foreground text-sm">暂无密钥，请先生成</p>
           ) : (
             <div className="space-y-2">
-              {codes.map((c) => (
-                <div
-                  key={c.id}
-                  className={`flex items-center justify-between p-3 rounded-xl border ${
-                    c.isActive
-                      ? "bg-background border-border"
-                      : "bg-muted/30 border-border/50 opacity-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <code className="font-mono text-sm text-foreground font-semibold">{c.code}</code>
-                    {c.label && (
-                      <span className="text-xs text-muted-foreground truncate">— {c.label}</span>
-                    )}
-                    {c.isActive ? (
-                      <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">有效</Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">已撤销</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      {c.maxUses === -1 ? (
-                        <><Infinity className="w-3 h-3" />无限</>
-                      ) : (
-                        <>{c.usedCount}/{c.maxUses} 次</>
+              {keys.map((k: any) => {
+                const isExpired = k.expiresAt && new Date(k.expiresAt) < new Date();
+                const isActive = !k.revoked && !isExpired;
+                return (
+                  <div
+                    key={k.id}
+                    className={`flex items-center justify-between p-3 rounded-xl border ${
+                      isActive ? "bg-background border-border" : "bg-muted/30 border-border/50 opacity-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-medium text-sm text-foreground truncate">{k.label || `密钥 #${k.id}`}</span>
+                      {k.boundEmail && (
+                        <span className="text-xs text-muted-foreground truncate">— {k.boundEmail}</span>
                       )}
-                    </span>
-                    {c.expiresAt && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(c.expiresAt).toLocaleDateString("zh-CN")}
-                      </span>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => copyCode(c.code)}
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                    {c.isActive && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => revokeMutation.mutate({ codeId: c.id })}
-                        className="h-7 w-7 text-muted-foreground hover:text-red-400"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    )}
+                      {k.revoked ? (
+                        <Badge variant="secondary" className="text-xs">已撤销</Badge>
+                      ) : isExpired ? (
+                        <Badge variant="secondary" className="text-xs">已过期</Badge>
+                      ) : k.boundEmail ? (
+                        <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">已激活</Badge>
+                      ) : (
+                        <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">未激活</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {k.expiresAt && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(k.expiresAt).toLocaleDateString("zh-CN")}
+                        </span>
+                      )}
+                      {isActive && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => revokeMutation.mutate({ keyId: k.id })}
+                          className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

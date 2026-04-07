@@ -848,3 +848,20 @@ export const workspaceSessions = mysqlTable("workspace_sessions", {
 });
 export type WorkspaceSession = typeof workspaceSessions.$inferSelect;
 export type InsertWorkspaceSession = typeof workspaceSessions.$inferInsert;
+
+// access_keys: 访问密钥表
+// Owner 在设置页生成密钥，访客登录后输入密钥激活账号。
+// 密钥与邮箱一对一绑定，不可重复激活其他账号，有效期内不限次数使用。
+export const accessKeys = mysqlTable("access_keys", {
+  id:          int("id").autoincrement().primaryKey(),
+  keyHash:     varchar("key_hash", { length: 128 }).notNull().unique(), // SHA-256(rawKey)
+  label:       varchar("label", { length: 128 }),                       // Owner 备注标签
+  boundEmail:  varchar("bound_email", { length: 320 }),                 // 激活后绑定的邮箱
+  boundUserId: int("bound_user_id"),                                    // 激活后绑定的 userId
+  expiresAt:   timestamp("expires_at").notNull(),                       // 密钥有效期
+  revoked:     boolean("revoked").default(false).notNull(),             // 是否已撤销
+  activatedAt: timestamp("activated_at"),                               // 激活时间
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+});
+export type AccessKey = typeof accessKeys.$inferSelect;
+export type InsertAccessKey = typeof accessKeys.$inferInsert;

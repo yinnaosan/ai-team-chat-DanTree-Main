@@ -6,6 +6,7 @@ import {
   InsertMessage, InsertTask, InsertDbConnection, InsertConversation, InsertAttachment,
   InsertConversationGroup, entitySnapshots, InsertEntitySnapshot,
   workspaceSessions, InsertWorkspaceSession, WorkspaceSession,
+  accessKeys, AccessKey,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1121,4 +1122,108 @@ export async function toggleFavoriteWorkspaceSession(id: string, userId: number,
     .update(workspaceSessions)
     .set({ favorite, updatedAt: now })
     .where(and(eq(workspaceSessions.id, id), eq(workspaceSessions.userId, userId)));
+}
+
+// ─── Access Keys helpers（新密钥系统，替代旧 access_codes/user_access）─────────────
+import { createHash } from "crypto";
+
+function hashKey(rawKey: string): string {
+  return createHash("sha256").update(rawKey).digest("hex");
+}
+
+/** Owner 生成新密钥，返回明文（仅此一次可见） */
+export async function createAccessKey(data: {
+  rawKey: string;
+  label?: string;
+  expiresAt: Date;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(accessKeys).values({
+    keyHash: hashKey(data.rawKey),
+    label: data.label ?? null,
+    expiresAt: data.expiresAt,
+  });
+}
+
+/** 列出所有密钥（Owner 管理面板用） */
+export async function listAccessKeys(): Promise<AccessKey[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(accessKeys).orderBy(desc(accessKeys.createdAt));
+}
+
+/** 撤销密钥 */
+export async function revokeAccessKey(keyId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(accessKeys).set({ revoked: true }).where(eq(accessKeys.id, keyId));
+}
+
+/** 根据明文密钥查找记录（用于激活） */
+export async function getAccessKeyByRaw(rawKey: string): Promise<AccessKey | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(accessKeys)
+    .where(eq(accessKeys.keyHash, hashKey(rawKey)))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+/**
+ * 激活密钥：将密钥绑定到指定用户（邮箱 + userId）。
+ * 规则：
+ *   1. 密钥必须存在、未撤销、未过期
+ *   2. 密钥尚未绑定任何账号（boundUserId 为 null）
+ *   3. 该用户尚未绑定其他密钥
+ * 返回激活结果，失败时返回错误原因。
+ */
+export async function activateAccessKey(
+  rawKey: string,
+  userId: number,
+  email: string | null | undefined
+): Promise<{ success: true } | { success: false; reason: string }> {
+  const db = await getDb();
+  if (!db) return { success: false, reason: "数据库不可用" };
+
+  const record = await getAccessKeyByRaw(rawKey);
+  if (!record) return { success: false, reason: "密钥无效" };
+  if (record.revoked) return { success: false, reason: "密钥已被撤销" };
+  if (record.expiresAt < new Date()) return { success: false, reason: "密钥已过期" };
+  if (record.boundUserId !== null && record.boundUserId !== undefined) {
+    // 已绑定其他账号
+    if (record.boundUserId !== userId) return { success: false, reason: "该密钥已绑定其他账号，无法重复激活" };
+    // 已绑定当前账号 → 幂等成功
+    return { success: true };
+  }
+
+  // 检查该用户是否已有激活的密钥
+  const existing = await db.select().from(accessKeys)
+    .where(and(eq(accessKeys.boundUserId, userId), eq(accessKeys.revoked, false)))
+    .limit(1);
+  if (existing.length > 0) return { success: true }; // 已激活，幂等
+
+  // 绑定
+  await db.update(accessKeys)
+    .set({ boundUserId: userId, boundEmail: email ?? null, activatedAt: new Date() })
+    .where(eq(accessKeys.id, record.id));
+
+  return { success: true };
+}
+
+/**
+ * 检查用户是否已激活（有未撤销、未过期、绑定该 userId 的密钥）
+ */
+export async function checkUserActivated(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const now = new Date();
+  const result = await db.select({ id: accessKeys.id }).from(accessKeys)
+    .where(and(
+      eq(accessKeys.boundUserId, userId),
+      eq(accessKeys.revoked, false),
+      gte(accessKeys.expiresAt, now)
+    ))
+    .limit(1);
+  return result.length > 0;
 }

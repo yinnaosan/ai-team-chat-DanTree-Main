@@ -810,32 +810,30 @@ export default function Settings() {
   const { data: accessCheck, isLoading: accessCheckLoading } = trpc.access.check.useQuery(undefined, { enabled: isAuthenticated });
   const isOwner = accessCheck?.isOwner ?? false;
 
-  // listCodes 是 ownerProcedure，必须等 isOwner 确认后才能调用
-  const { data: accessCodes = [], refetch: refetchCodes } = trpc.access.listCodes.useQuery(
+  // listKeys 是 ownerProcedure，必须等 isOwner 确认后才能调用
+  const { data: accessKeys = [], refetch: refetchKeys } = trpc.access.listKeys.useQuery(
     undefined,
     { enabled: isAuthenticated && isOwner }
   );
 
-  const [codeLabel, setCodeLabel] = useState("");
-  const [codeMaxUses, setCodeMaxUses] = useState("1");
-  const [codeExpireDays, setCodeExpireDays] = useState("");
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [keyLabel, setKeyLabel] = useState("");
+  const [keyExpireDays, setKeyExpireDays] = useState("365");
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
-  const generateCodeMutation = trpc.access.generateCode.useMutation({
-    onSuccess: (data) => {
-      setGeneratedCode(data.code);
-      setCodeLabel("");
-      setCodeMaxUses("1");
-      setCodeExpireDays("");
-      refetchCodes();
-      toast.success("访客密码已生成");
+  const generateKeyMutation = trpc.access.generateKey.useMutation({
+    onSuccess: (data: { key: string; expiresAt: Date }) => {
+      setGeneratedKey(data.key);
+      setKeyLabel("");
+      setKeyExpireDays("365");
+      refetchKeys();
+      toast.success("密钥已生成，请立即复制保存");
     },
-    onError: (err) => toast.error("生成失败", { description: err.message }),
+    onError: (err: { message?: string }) => toast.error("生成失败", { description: err.message }),
   });
 
-  const revokeCodeMutation = trpc.access.revokeCode.useMutation({
-    onSuccess: () => { toast.success("密码已撤销"); refetchCodes(); },
-    onError: (err) => toast.error("撤销失败", { description: err.message }),
+  const revokeKeyMutation = trpc.access.revokeKey.useMutation({
+    onSuccess: () => { toast.success("密钥已撤销"); refetchKeys(); },
+    onError: (err: { message?: string }) => toast.error("撤销失败", { description: err.message }),
   });
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
@@ -1936,44 +1934,31 @@ export default function Settings() {
         {/* ── Tab: 关于 ── */}
         {activeTab === "access" && isOwner && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* 生成新密码 */}
+            {/* 生成新密钥 */}
             <div style={{ padding: "16px 18px", borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: 12 }}>
               <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(226,232,240,0.88)" }}>
                 <Plus className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
-                生成访客密码
+                生成访问密钥
               </h2>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
                   <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>备注标签（可选）</Label>
                   <Input
-                    placeholder="如：朋友A"
-                    value={codeLabel}
-                    onChange={(e) => setCodeLabel(e.target.value)}
-                    className="h-8 text-sm"
-                    style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)" }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>使用次数（-1=无限）</Label>
-                  <Input
-                    type="number"
-                    min="-1"
-                    max="2147483647"
-                    placeholder="1"
-                    value={codeMaxUses}
-                    onChange={(e) => setCodeMaxUses(e.target.value)}
+                    placeholder="如：用户A"
+                    value={keyLabel}
+                    onChange={(e) => setKeyLabel(e.target.value)}
                     className="h-8 text-sm"
                     style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)" }}
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>有效天数（留空=永久）</Label>
+                  <Label className="text-xs mb-1 block" style={{ color: "oklch(0.60 0.01 270)" }}>有效天数（默认 365 天）</Label>
                   <Input
                     type="number"
                     min="1"
-                    placeholder="永久有效"
-                    value={codeExpireDays}
-                    onChange={(e) => setCodeExpireDays(e.target.value)}
+                    placeholder="365"
+                    value={keyExpireDays}
+                    onChange={(e) => setKeyExpireDays(e.target.value)}
                     className="h-8 text-sm"
                     style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(100% 0 0 / 0.1)", color: "var(--bloomberg-text-primary)" }}
                   />
@@ -1982,30 +1967,29 @@ export default function Settings() {
               <Button
                 className="w-full h-8 text-sm font-medium"
                 style={{ background: "oklch(60% 0.15 250)", color: "white" }}
-                disabled={generateCodeMutation.isPending}
-                onClick={() => generateCodeMutation.mutate({
-                  label: codeLabel || undefined,
-                  maxUses: parseInt(codeMaxUses) || 1,
-                  expiresInDays: codeExpireDays ? parseInt(codeExpireDays) : undefined,
+                disabled={generateKeyMutation.isPending}
+                onClick={() => generateKeyMutation.mutate({
+                  label: keyLabel || undefined,
+                  expiresInDays: keyExpireDays ? parseInt(keyExpireDays) : 365,
                 })}
               >
-                {generateCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                生成密码
+                {generateKeyMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                生成密钥
               </Button>
 
-              {/* 显示刚生成的密码 */}
-              {generatedCode && (
+              {/* 显示刚生成的密钥（仅此一次） */}
+              {generatedKey && (
                 <div className="p-3 rounded-lg flex items-center justify-between gap-2"
                   style={{ background: "oklch(0.72 0.18 155 / 0.12)", border: "1px solid oklch(0.72 0.18 155 / 0.4)" }}>
-                  <div>
-                    <div className="text-xs mb-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>新密码（请立即复制）</div>
-                    <div className="font-mono text-base font-bold tracking-widest" style={{ color: "oklch(68% 0.18 155)" }}>{generatedCode}</div>
+                  <div className="min-w-0">
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(226,232,240,0.38)" }}>新密钥（仅显示一次，请立即复制）</div>
+                    <div className="font-mono text-sm font-bold break-all" style={{ color: "oklch(68% 0.18 155)" }}>{generatedKey}</div>
                   </div>
                   <Button
                     size="icon"
                     variant="ghost"
                     className="shrink-0"
-                    onClick={() => { navigator.clipboard.writeText(generatedCode); toast.success("已复制到剪贴板"); }}
+                    onClick={() => { navigator.clipboard.writeText(generatedKey); toast.success("已复制到剪贴板"); }}
                   >
                     <Copy className="w-4 h-4" style={{ color: "oklch(68% 0.18 155)" }} />
                   </Button>
@@ -2013,62 +1997,66 @@ export default function Settings() {
               )}
             </div>
 
-            {/* 密码列表 */}
+            {/* 密钥列表 */}
             <div className="p-4 rounded-2xl space-y-2"
               style={{ background: "rgba(255,255,255,0.025)", border: "1px solid oklch(100% 0 0 / 0.1)" }}>
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(226,232,240,0.88)" }}>
                   <Shield className="w-4 h-4" style={{ color: "oklch(60% 0.15 250)" }} />
-                  已生成密码 ({accessCodes.length})
+                  已生成密钥 ({accessKeys.length})
                 </h2>
-                <Button size="icon" variant="ghost" onClick={() => refetchCodes()} className="w-6 h-6">
+                <Button size="icon" variant="ghost" onClick={() => refetchKeys()} className="w-6 h-6">
                   <RefreshCw className="w-3 h-3" style={{ color: "rgba(226,232,240,0.38)" }} />
                 </Button>
               </div>
-              {accessCodes.length === 0 ? (
-                <div className="text-xs text-center py-4" style={{ color: "oklch(0.40 0.008 264)" }}>暂无密码，点击上方「生成密码」创建</div>
+              {accessKeys.length === 0 ? (
+                <div className="text-xs text-center py-4" style={{ color: "oklch(0.40 0.008 264)" }}>暂无密钥，点击上方「生成密钥」创建</div>
               ) : (
                 <div className="space-y-2">
-                  {accessCodes.map((c: any) => (
-                    <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg"
-                      style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(0.13 0.006 264)" }}>
-                      <div className="min-w-0">
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span className="font-mono text-sm font-semibold" style={{ color: c.isRevoked ? "oklch(0.40 0.01 270)" : "var(--bloomberg-text-primary)" }}>{c.code}</span>
-                          {c.isRevoked && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 25 / 0.2)", color: "oklch(0.60 0.12 25)" }}>已撤销</span>}
-                          {!c.isRevoked && c.usedCount >= c.maxUses && c.maxUses !== -1 && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 60 / 0.2)", color: "oklch(0.65 0.12 60)" }}>已用完</span>}
+                  {accessKeys.map((k: any) => {
+                    const isExpired = k.expiresAt && new Date(k.expiresAt) < new Date();
+                    const isActive = !k.revoked && !isExpired;
+                    return (
+                      <div key={k.id} className="flex items-center justify-between p-2.5 rounded-lg"
+                        style={{ background: "var(--bloomberg-surface-0)", border: "1px solid oklch(0.13 0.006 264)" }}>
+                        <div className="min-w-0 flex-1">
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span className="font-mono text-xs font-semibold" style={{ color: isActive ? "var(--bloomberg-text-primary)" : "oklch(0.40 0.01 270)" }}>
+                              {k.label || `密钥 #${k.id}`}
+                            </span>
+                            {k.revoked && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 25 / 0.2)", color: "oklch(0.60 0.12 25)" }}>已撤销</span>}
+                            {!k.revoked && isExpired && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.35 0.12 60 / 0.2)", color: "oklch(0.65 0.12 60)" }}>已过期</span>}
+                            {isActive && !k.boundEmail && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.60 0.15 250 / 0.15)", color: "oklch(0.72 0.18 250)" }}>未激活</span>}
+                            {isActive && k.boundEmail && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "oklch(0.72 0.18 155 / 0.15)", color: "oklch(0.68 0.18 155)" }}>已激活</span>}
+                          </div>
+                          <div className="text-xs mt-0.5" style={{ color: "var(--bloomberg-text-dim)" }}>
+                            {k.boundEmail && <span className="mr-2">绑定: {k.boundEmail}</span>}
+                            {k.expiresAt && <span>到期: {new Date(k.expiresAt).toLocaleDateString()}</span>}
+                          </div>
                         </div>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--bloomberg-text-dim)" }}>
-                          {c.label && <span className="mr-2">{c.label}</span>}
-                          已用 {c.usedCount}/{c.maxUses === -1 ? "∞" : c.maxUses} 次
-                          {c.expiresAt && <span className="ml-2">· 到期 {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isActive && !k.revoked && (
+                            <Button size="icon" variant="ghost" className="w-7 h-7"
+                              disabled={revokeKeyMutation.isPending}
+                              onClick={() => revokeKeyMutation.mutate({ keyId: k.id })}>
+                              <UserX className="w-3.5 h-3.5" style={{ color: "oklch(0.60 0.12 25)" }} />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button size="icon" variant="ghost" className="w-7 h-7"
-                          onClick={() => { navigator.clipboard.writeText(c.code); toast.success("已复制密码"); }}>
-                          <Copy className="w-3.5 h-3.5" style={{ color: "rgba(226,232,240,0.38)" }} />
-                        </Button>
-                        {!c.isRevoked && (
-                          <Button size="icon" variant="ghost" className="w-7 h-7"
-                            disabled={revokeCodeMutation.isPending}
-                            onClick={() => revokeCodeMutation.mutate({ codeId: c.id })}>
-                            <UserX className="w-3.5 h-3.5" style={{ color: "oklch(0.60 0.12 25)" }} />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
             {/* 说明 */}
             <div className="p-3 rounded-2xl text-xs" style={{ background: "oklch(0.72 0.18 250 / 0.08)", border: "1px solid oklch(0.63 0.20 258 / 0.15)", color: "oklch(0.60 0.01 270)" }}>
-              <p className="font-medium mb-1" style={{ color: "oklch(60% 0.15 250)" }}>使用说明</p>
-              <p>· 将密码发给访客，访客登录后输入密码即可访问</p>
-              <p>· 使用次数为 1 时，密码使用后立即失效（防止分享）</p>
-              <p>· 点击撤销可立即禁止该密码的后续使用</p>
+              <p className="font-medium mb-1" style={{ color: "oklch(60% 0.15 250)" }}>密钥说明</p>
+              <p>· 密钥与邮箱账号一对一绑定，不可重复激活其他账号</p>
+              <p>· 一次激活，有效期内无限次使用，无需重复输入</p>
+              <p>· 密钥过期后用户需要新密钥重新激活</p>
+              <p>· 点击撤销可立即禁止该密钥的后续使用</p>
             </div>
           </div>
         )}

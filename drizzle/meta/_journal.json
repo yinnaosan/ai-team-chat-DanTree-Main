@@ -281,6 +281,13 @@
       "when": 1775476324443,
       "tag": "0039_glossy_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1775540083491,
+      "tag": "0040_supreme_wasp",
+      "breakpoints": true
     }
   ]
 }

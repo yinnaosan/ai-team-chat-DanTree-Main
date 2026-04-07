@@ -20,6 +20,9 @@ import PortfolioDashboard from "./pages/PortfolioDashboard";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import { CommandPalette, useCommandPalette } from "./components/CommandPalette";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import { KeyActivationModal } from "./components/KeyActivationModal";
+import { useAuth } from "./_core/hooks/useAuth";
+import { trpc } from "./lib/trpc";
 
 function Router() {
   return (
@@ -63,6 +66,30 @@ function GlobalCommandPalette() {
   );
 }
 
+function AccessGuard() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const utils = trpc.useUtils();
+
+  const { data: accessData, isLoading: accessLoading } = trpc.access.check.useQuery(undefined, {
+    enabled: isAuthenticated,
+    // 每次窗口聚焦时重新检查（密钥可能已过期）
+    refetchOnWindowFocus: true,
+  });
+
+  // 未登录 / Owner / 已激活 → 不显示弹窗
+  if (!isAuthenticated || authLoading || accessLoading) return null;
+  if (accessData?.isOwner || accessData?.hasAccess) return null;
+
+  return (
+    <KeyActivationModal
+      onActivated={() => {
+        // 激活成功后刷新 access.check，弹窗消失
+        utils.access.check.invalidate();
+      }}
+    />
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -71,6 +98,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            <AccessGuard />
             <PWAInstallBanner />
             <GlobalCommandPalette />
           </TooltipProvider>

@@ -410,13 +410,13 @@ export default function AccessGate() {
     }
   }, [authLoading, accessLoading, accessData, navigate]);
 
-  const verifyMutation = trpc.access.verify.useMutation({
+  const activateMutation = trpc.access.activateKey.useMutation({
     onSuccess: () => {
-      toast.success("验证成功！欢迎进入 AI 协作平台");
+      toast.success("密钥激活成功！欢迎进入 DanTree");
       navigate("/research");
     },
-    onError: (err) => {
-      toast.error(err.message || "密码无效，请重试");
+    onError: (err: { message?: string }) => {
+      toast.error(err.message || "密钥无效，请重试");
       setCode("");
     },
   });
@@ -425,7 +425,7 @@ export default function AccessGate() {
     e.preventDefault();
     if (!code.trim()) return;
     setSubmitting(true);
-    verifyMutation.mutate({ code: code.trim() }, {
+    activateMutation.mutate({ key: code.trim() }, {
       onSettled: () => setSubmitting(false),
     });
   };

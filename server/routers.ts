@@ -34,14 +34,11 @@ import {
   getRpaConfig,
   getOwnerRpaConfig,
   upsertRpaConfig,
-  createAccessCode,
-  listAccessCodes,
-  revokeAccessCode,
-  verifyAccessCode,
-  incrementCodeUsage,
-  getUserAccess,
-  grantUserAccess,
-  revokeUserAccess,
+  createAccessKey,
+  listAccessKeys,
+  revokeAccessKey,
+  activateAccessKey,
+  checkUserActivated,
   getRecentMemory,
   getRelevantMemory,
   saveMemoryContext,
@@ -170,10 +167,10 @@ import { computeOutputGating, buildGatingInstruction } from "./outputGatingContr
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
 async function requireAccess(userId: number, openId: string) {
-  if (openId === ENV.ownerOpenId) return;
-  const access = await getUserAccess(userId);
-  if (!access) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "请先输入访问密码" });
+  if (openId === ENV.ownerOpenId) return; // Owner 免检
+  const activated = await checkUserActivated(userId);
+  if (!activated) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "请先激活访问密钥" });
   }
 }
 
@@ -3361,53 +3358,46 @@ export const appRouter = router({
     }),
   }),
 
-  // --- 访问控制 -------------------------------------------------------------
+  // --- 访问控制（新 access_keys 系统）-----------------------------------------
   access: router({
+    // 检查当前用户是否已激活（Owner 永远返回 true）
     check: protectedProcedure.query(async ({ ctx }) => {
       const isOwner = ctx.user.openId === ENV.ownerOpenId;
       if (isOwner) return { hasAccess: true, isOwner: true };
-      const access = await getUserAccess(ctx.user.id);
-      return { hasAccess: !!access, isOwner: false };
+      const activated = await checkUserActivated(ctx.user.id);
+      return { hasAccess: activated, isOwner: false };
     }),
 
-    verify: protectedProcedure
-      .input(z.object({ code: z.string().min(1).max(64) }))
+    // 用户激活密钥（一次激活，永久绑定该邮箱账号）
+    activateKey: protectedProcedure
+      .input(z.object({ key: z.string().min(1).max(256) }))
       .mutation(async ({ ctx, input }) => {
-        const record = await verifyAccessCode(input.code);
-        if (!record) throw new TRPCError({ code: "FORBIDDEN", message: "密码无效或已过期" });
-        await grantUserAccess(ctx.user.id, record.id);
-        await incrementCodeUsage(record.id);
+        const result = await activateAccessKey(input.key, ctx.user.id, ctx.user.email);
+        if (!result.success) throw new TRPCError({ code: "FORBIDDEN", message: result.reason });
         return { success: true };
       }),
 
-    generateCode: ownerProcedure
+    // Owner：生成新密钥（返回明文，仅此一次）
+    generateKey: ownerProcedure
       .input(z.object({
         label: z.string().max(128).optional(),
-        maxUses: z.number().min(-1).default(1),
-        expiresInDays: z.number().min(1).optional(),
+        expiresInDays: z.number().min(1).default(365),
       }))
       .mutation(async ({ input }) => {
-        const code = nanoid(12);
-        const expiresAt = input.expiresInDays
-          ? new Date(Date.now() + input.expiresInDays * 86400000)
-          : undefined;
-        await createAccessCode({ code, label: input.label, maxUses: input.maxUses, expiresAt });
-        return { code };
+        const rawKey = nanoid(32); // 32 字符随机密钥
+        const expiresAt = new Date(Date.now() + input.expiresInDays * 86400000);
+        await createAccessKey({ rawKey, label: input.label, expiresAt });
+        return { key: rawKey, expiresAt };
       }),
 
-    listCodes: ownerProcedure.query(async () => listAccessCodes()),
+    // Owner：列出所有密钥
+    listKeys: ownerProcedure.query(async () => listAccessKeys()),
 
-    revokeCode: ownerProcedure
-      .input(z.object({ codeId: z.number() }))
+    // Owner：撤销密钥
+    revokeKey: ownerProcedure
+      .input(z.object({ keyId: z.number() }))
       .mutation(async ({ input }) => {
-        await revokeAccessCode(input.codeId);
-        return { success: true };
-      }),
-
-    revokeUser: ownerProcedure
-      .input(z.object({ userId: z.number() }))
-      .mutation(async ({ input }) => {
-        await revokeUserAccess(input.userId);
+        await revokeAccessKey(input.keyId);
         return { success: true };
       }),
   }),

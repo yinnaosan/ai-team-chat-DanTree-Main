@@ -22,11 +22,14 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 // ─── Compat type exports (旧 ResearchWorkspace.tsx 依赖) ─────────────────────
 export type ScrollToSection = "thesis" | "timing" | "alert" | "history";
 
-/** 候选 ticker 条目（来自 WorkspaceContext sessionList） */
+/** 候选 ticker 条目（来自 WorkspaceContext sessionList 或搜索结果） */
 export interface EntityCandidate {
   id: string;
-  ticker: string;
-  title: string;
+  ticker: string;       // 股票代码（如 AAPL, 700.HK, 600519.SS）
+  title: string;        // 公司英文名
+  cnName?: string;      // 公司中文名（如果有）
+  market?: string;      // 市场标签：US / HK / CN / CRYPTO / JP / KR
+  exchange?: string;    // 交易所：NASDAQ / NYSE / HKEX / SSE / SZSE
   sessionType?: string;
 }
 
@@ -121,28 +124,32 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
 
   // 合并本地候选 + 外部搜索结果
   const filtered = useMemo(() => {
-    const q = query.trim().toUpperCase();
-    // 本地候选过滤
+    const q = query.trim();
+    const qUpper = q.toUpperCase();
+    // 本地候选过滤：支持代码/英文名/中文名匹配
     const localFiltered = !q ? candidates : candidates.filter(c =>
-      c.ticker.toUpperCase().includes(q) ||
-      c.title.toUpperCase().includes(q)
+      c.ticker.toUpperCase().includes(qUpper) ||
+      c.title.toUpperCase().includes(qUpper) ||
+      (c.cnName && c.cnName.includes(q))
     );
-    // 外部搜索结果（去重：已在本地候选中的不重复显示）
+    // 外部搜索结果：保留完整元数据（包括 market/exchange/cnName）
     const localTickers = new Set(localFiltered.map(c => c.ticker.toUpperCase()));
-    const externalResults: EntityCandidate[] = (Array.isArray(searchData) ? searchData : []).filter(
-      (r: { symbol: string; name?: string; cnName?: string }) => !localTickers.has(r.symbol.toUpperCase())
-    ).map((r: { symbol: string; name?: string; cnName?: string }) => ({
+    const externalResults: EntityCandidate[] = (
+      Array.isArray(searchData) ? searchData : []
+    ).filter(
+      (r: { symbol: string; name?: string; cnName?: string; market?: string; exchange?: string }) =>
+        !localTickers.has(r.symbol.toUpperCase())
+    ).map((r: { symbol: string; name?: string; cnName?: string; market?: string; exchange?: string }) => ({
       id: `__ext__${r.symbol}`,
       ticker: r.symbol,
-      title: r.cnName || r.name || r.symbol,
+      title: r.name || r.cnName || r.symbol,
+      cnName: r.cnName,
+      market: r.market,
+      exchange: r.exchange,
       sessionType: "entity" as const,
     }));
     return [...localFiltered, ...externalResults];
   }, [candidates, query, searchData]);
-
-  // 判断当前输入是否是新 ticker（不在候选列表中）
-  const isNewTicker = query.trim().length > 0 &&
-    !candidates.some(c => c.ticker.toUpperCase() === query.trim().toUpperCase());
 
   const handleSelect = (candidate: EntityCandidate) => {
     onSelect(candidate);
@@ -150,20 +157,16 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
     setQuery("");
   };
 
-  const handleNewTicker = () => {
-    const t = query.trim().toUpperCase();
-    if (t) {
-      onNew(t);
-      setOpen(false);
-      setQuery("");
-    }
-  };
-
-  // Esc 关闭
+  // Esc 关闭；当输入框有内容且不在候选列表时，Enter 不提交原始字符，必须从列表选择
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       setOpen(false);
       setQuery("");
+    }
+    // 禁止 Enter 直接提交原始输入：必须从候选列表选择
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
 
@@ -236,10 +239,7 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
               ref={inputRef}
               value={query}
               onChange={e => handleQueryChange(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Escape") { setOpen(false); setQuery(""); }
-                if (e.key === "Enter" && isNewTicker) handleNewTicker();
-              }}
+              onKeyDown={handleKeyDown}
               placeholder="输入股票代码或名称..."
               style={{
                 flex: 1, background: "transparent", border: "none", outline: "none",
@@ -251,93 +251,105 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
           </div>
 
           <CommandList style={{ maxHeight: 240, overflowY: "auto" }}>
-            {/* 候选列表 */}
+            {/* 候选列表：市场徽章 + 代码 + 公司名 */}
             {filtered.length > 0 && (
               <CommandGroup>
-                {filtered.map(c => (
-                  <CommandItem
-                    key={c.id}
-                    value={c.ticker}
-                    onSelect={() => handleSelect(c)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 12px", cursor: "pointer",
-                      borderRadius: 0,
-                    }}
-                    className="hover:bg-[rgba(52,211,153,0.07)] data-[selected=true]:bg-[rgba(52,211,153,0.07)]"
-                  >
-                    <div style={{
-                      width: 22, height: 22, borderRadius: 5, flexShrink: 0,
-                      background: c.ticker === entity ? "rgba(52,211,153,0.20)" : "rgba(255,255,255,0.06)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 800,
-                        color: c.ticker === entity ? "#34d399" : "rgba(255,255,255,0.55)",
-                      }}>
-                        {c.ticker[0]}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: 12, fontWeight: 700,
-                        color: c.ticker === entity ? "#34d399" : "rgba(237,237,239,0.9)",
-                        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-                        letterSpacing: "0.03em",
-                      }}>
-                        {c.ticker}
+                {filtered.map(c => {
+                  // 市场标签颜色映射
+                  const MARKET_COLORS: Record<string, { bg: string; color: string }> = {
+                    US:     { bg: "rgba(59,130,246,0.18)",  color: "#60a5fa" },
+                    HK:     { bg: "rgba(251,146,60,0.18)",  color: "#fb923c" },
+                    CN:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+                    SH:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+                    SZ:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+                    JP:     { bg: "rgba(168,85,247,0.18)",  color: "#c084fc" },
+                    KR:     { bg: "rgba(20,184,166,0.18)",  color: "#2dd4bf" },
+                    CRYPTO: { bg: "rgba(234,179,8,0.18)",   color: "#facc15" },
+                    ETF:    { bg: "rgba(52,211,153,0.18)",  color: "#34d399" },
+                  };
+                  // 推断市场标签
+                  const getMarketLabel = (c: EntityCandidate): string => {
+                    if (c.market) return c.market;
+                    if (c.ticker.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(c.ticker)) return "HK";
+                    if (c.ticker.endsWith(".SS")) return "SH";
+                    if (c.ticker.endsWith(".SZ")) return "SZ";
+                    if (c.ticker.endsWith(".T")) return "JP";
+                    if (c.ticker.endsWith(".KS")) return "KR";
+                    if (/^[A-Z]{1,5}$/.test(c.ticker)) return "US";
+                    return "";
+                  };
+                  const marketLabel = getMarketLabel(c);
+                  const mc = MARKET_COLORS[marketLabel] ?? { bg: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" };
+                  const isActive = c.ticker === entity;
+                  // 显示名称：中文名优先，其次英文名
+                  const displayName = c.cnName || c.title;
+                  return (
+                    <CommandItem
+                      key={c.id}
+                      value={`${c.ticker} ${c.cnName ?? ""} ${c.title}`}
+                      onSelect={() => handleSelect(c)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "9px 12px", cursor: "pointer",
+                        borderRadius: 0,
+                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      }}
+                      className="hover:bg-[rgba(52,211,153,0.07)] data-[selected=true]:bg-[rgba(52,211,153,0.07)]"
+                    >
+                      {/* 市场徽章 */}
+                      {marketLabel ? (
+                        <div style={{
+                          minWidth: 28, height: 18, borderRadius: 4, flexShrink: 0,
+                          background: mc.bg,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          padding: "0 5px",
+                        }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: mc.color, letterSpacing: "0.04em", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+                            {marketLabel}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+                          background: isActive ? "rgba(52,211,153,0.20)" : "rgba(255,255,255,0.06)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: isActive ? "#34d399" : "rgba(255,255,255,0.55)" }}>
+                            {c.ticker[0]}
+                          </span>
+                        </div>
+                      )}
+                      {/* 主信息区 */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* 第一行：公司名（中文优先） */}
+                        <div style={{
+                          fontSize: 12, fontWeight: 600,
+                          color: isActive ? "#34d399" : "rgba(237,237,239,0.92)",
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {displayName}
+                        </div>
+                        {/* 第二行：股票代码 */}
+                        <div style={{
+                          fontSize: 10, fontWeight: 700,
+                          color: isActive ? "rgba(52,211,153,0.75)" : "rgba(255,255,255,0.38)",
+                          fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                          letterSpacing: "0.06em",
+                        }}>
+                          {c.ticker}
+                        </div>
                       </div>
-                      <div style={{
-                        fontSize: 10, color: "rgba(255,255,255,0.35)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {c.title}
-                      </div>
-                    </div>
-                    {c.ticker === entity && (
-                      <div style={{
-                        width: 5, height: 5, borderRadius: "50%",
-                        background: "#34d399", flexShrink: 0,
-                      }} />
-                    )}
-                  </CommandItem>
-                ))}
+                      {isActive && (
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", flexShrink: 0 }} />
+                      )}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             )}
 
-            {/* 新 ticker 快捷入口 */}
-            {isNewTicker && (
-              <CommandGroup>
-                <CommandItem
-                  value={`__new__${query}`}
-                  onSelect={handleNewTicker}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "8px 12px", cursor: "pointer",
-                  }}
-                  className="hover:bg-[rgba(52,211,153,0.07)] data-[selected=true]:bg-[rgba(52,211,153,0.07)]"
-                >
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 5, flexShrink: 0,
-                    background: "rgba(52,211,153,0.12)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Search size={10} color="#34d399" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
-                      分析 {query.trim().toUpperCase()}
-                    </div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-                      新建研究会话
-                    </div>
-                  </div>
-                </CommandItem>
-              </CommandGroup>
-            )}
-
-            {/* 空态 */}
-            {filtered.length === 0 && !isNewTicker && (
+            {/* 空态：搜索中显示加载，无结果时提示用户继续输入 */}
+            {filtered.length === 0 && (
               <CommandEmpty>
                 <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
                   暂无匹配的研究标的

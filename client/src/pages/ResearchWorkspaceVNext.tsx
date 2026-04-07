@@ -1427,12 +1427,24 @@ export default function ResearchWorkspacePage() {
               ? new Date(hvm.lastSnapshotAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
               : lastAssistant ? fmtTime(lastAssistant.createdAt) : undefined
           }
-          entityCandidates={sessionList.map((s): EntityCandidate => ({
-            id: s.id,
-            ticker: s.focusKey || "—",
-            title: s.title,
-            sessionType: s.sessionType,
-          }))}
+          entityCandidates={sessionList.map((s): EntityCandidate => {
+            // 本地 session 候选：推断 market 标签以便展示徽章
+            const tk = s.focusKey || "";
+            let market: string | undefined;
+            if (tk.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(tk)) market = "HK";
+            else if (tk.endsWith(".SS")) market = "SH";
+            else if (tk.endsWith(".SZ")) market = "SZ";
+            else if (tk.endsWith(".T")) market = "JP";
+            else if (tk.endsWith(".KS")) market = "KR";
+            else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
+            return {
+              id: s.id,
+              ticker: tk || "—",
+              title: s.title,
+              market,
+              sessionType: s.sessionType,
+            };
+          })}
           onSelectEntity={(candidate) => {
             // 如果是外部搜索结果（id 以 __ext__ 开头）或找不到对应 session，必须新建 entity session
             const session = sessionList.find(s => s.id === candidate.id);

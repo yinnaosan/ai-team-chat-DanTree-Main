@@ -82,7 +82,7 @@ export interface FileIngestionResult {
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useDiscussion(conversationId: number | null) {
+export function useDiscussion(conversationId: number | null, sessionId?: string | null) {
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -299,7 +299,7 @@ export function useDiscussion(conversationId: number | null) {
     setIsTyping(true);
     scrollToBottom("smooth");
 
-    submitMutation.mutate({ title: content, conversationId });
+    submitMutation.mutate({ title: content, conversationId, sessionId: sessionId ?? undefined });
   }, [input, sending, conversationId, pendingFileContext, submitMutation, scrollToBottom]);
 
   // ── File ingestion ─────────────────────────────────────────────────────────

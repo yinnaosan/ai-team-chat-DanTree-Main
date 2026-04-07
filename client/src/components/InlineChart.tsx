@@ -1425,34 +1425,72 @@ export function PyImageChart({ base64 }: { base64: string }) {
 }
 
 /**
- * 解析消息内容，将 %%CHART%%...%%END_CHART%% 和 %%PYIMAGE%%...%%END_PYIMAGE%% 替换为图表组件
+ * 解析消息内容，将图表标记和 JSON 块提取为结构化组件
+ *
+ * 支持格式：
+ * 1. %%CHART%%...%%END_CHART%%  — 标准双百分号格式
+ * 2. %CHART%...%END_CHART%     — 单百分号格式（LLM 偶尔输出）
+ * 3. %%PYIMAGE%%...%%END_PYIMAGE%% — matplotlib base64 图像
+ * 4. ```json\n{"type":...}\n``` — 代码块包裹的 JSON（尝试解析为图表）
+ *
+ * P0 修复：避免 JSON/CHART 混入文本导致输出杂乱
  */
 export function parseChartBlocks(
   content: string
 ): Array<{ type: "text"; text: string } | { type: "chart"; raw: string } | { type: "pyimage"; base64: string }> {
   const parts: Array<{ type: "text"; text: string } | { type: "chart"; raw: string } | { type: "pyimage"; base64: string }> = [];
-  // 合并匹配两种标记
-  const regex = /%%CHART%%([\s\S]*?)%%END_CHART%%|%%PYIMAGE%%([\s\S]*?)%%END_PYIMAGE%%/g;
+
+  // 合并匹配所有已知格式：
+  // 1. %%CHART%%...%%END_CHART%% (双百分号)
+  // 2. %CHART%...%END_CHART%    (单百分号，LLM 偶尔输出)
+  // 3. %%PYIMAGE%%...%%END_PYIMAGE%%
+  // 4. ```json\n{"type":...}\n``` (代码块包裹的 JSON)
+  const regex = /%%CHART%%([\s\S]*?)%%END_CHART%%|%CHART%([\s\S]*?)%END_CHART%|%%PYIMAGE%%([\s\S]*?)%%END_PYIMAGE%%|```json\n(\{"type":[\s\S]*?\})\n```/g;
+
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-
   while ((match = regex.exec(content)) !== null) {
     if (match.index > lastIndex) {
-      parts.push({ type: "text", text: content.slice(lastIndex, match.index) });
+      const textSlice = content.slice(lastIndex, match.index);
+      // 过滤纯空白段落（避免在图表间插入多余空行）
+      if (textSlice.trim()) {
+        parts.push({ type: "text", text: textSlice });
+      }
     }
     if (match[1] !== undefined) {
       // %%CHART%% 格式
-      parts.push({ type: "chart", raw: match[1] });
+      parts.push({ type: "chart", raw: match[1].trim() });
     } else if (match[2] !== undefined) {
+      // %CHART% 单百分号格式
+      parts.push({ type: "chart", raw: match[2].trim() });
+    } else if (match[3] !== undefined) {
       // %%PYIMAGE%% 格式（matplotlib base64 图像）
-      parts.push({ type: "pyimage", base64: match[2].trim() });
+      parts.push({ type: "pyimage", base64: match[3].trim() });
+    } else if (match[4] !== undefined) {
+      // ```json {"type":...} ``` 格式——尝试解析为图表
+      const jsonStr = match[4].trim();
+      try {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && typeof parsed.type === "string" && Array.isArray(parsed.data)) {
+          parts.push({ type: "chart", raw: jsonStr });
+        } else {
+          // 不是图表 JSON，保持原始文本
+          parts.push({ type: "text", text: match[0] });
+        }
+      } catch {
+        parts.push({ type: "text", text: match[0] });
+      }
     }
     lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < content.length) {
-    parts.push({ type: "text", text: content.slice(lastIndex) });
+    const remaining = content.slice(lastIndex);
+    if (remaining.trim()) {
+      parts.push({ type: "text", text: remaining });
+    }
   }
 
+  // 如果没有任何匹配，返回原始内容
   return parts.length > 0 ? parts : [{ type: "text", text: content }];
 }

@@ -12,6 +12,10 @@
  * - "chunk"   : { msgId, content }                      流式内容增量（每 300ms 批量）
  * - "done"    : { msgId, content }                      任务完成，最终内容
  * - "error"   : { message }                             任务失败
+ *
+ * 超时机制（P0 防卡）：
+ * - 每个 SSE 连接有 300s 最大生命周期（防止任务卡死时前端永久 loading）
+ * - 超时后发送 error 事件，前端显示可读错误信息
  */
 
 import { EventEmitter } from "events";
@@ -21,6 +25,9 @@ import { Router as createRouter } from "express";
 // ── 广播总线 ──────────────────────────────────────────────────────────────────
 const bus = new EventEmitter();
 bus.setMaxListeners(200); // 支持最多 200 个并发 SSE 连接
+
+// ── 超时配置 ──────────────────────────────────────────────────────────────────
+const SSE_MAX_LIFETIME_MS = 300_000; // 300s 最大生命周期（防止任务卡死）
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 export type TaskStreamEvent =
@@ -90,7 +97,11 @@ taskStreamRouter.get("/api/task-stream/:taskId", (req: Request, res: Response) =
 
   // 发送 SSE 格式数据
   const send = (event: TaskStreamEvent) => {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      // 连接已关闭，忽略写入错误
+    }
   };
 
   // 订阅广播总线
@@ -106,11 +117,24 @@ taskStreamRouter.get("/api/task-stream/:taskId", (req: Request, res: Response) =
   bus.on(channel, listener);
 
   // 清理函数
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
     clearInterval(heartbeat);
+    clearTimeout(maxLifetimeTimer);
     bus.off(channel, listener);
-    res.end();
+    try { res.end(); } catch { /* ignore */ }
   };
+
+  // ── P0 防卡：最大生命周期 300s ────────────────────────────────────────────
+  const maxLifetimeTimer = setTimeout(() => {
+    send({
+      type: "error",
+      message: "分析超时（已超过 5 分钟），请刷新页面后重试。如问题持续，请联系支持团队。",
+    });
+    cleanup();
+  }, SSE_MAX_LIFETIME_MS);
 
   // 客户端断开时清理
   req.on("close", cleanup);

@@ -938,7 +938,7 @@ export default function ResearchWorkspacePage() {
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
 
   // ── Discussion System v1 ───────────────────────────────────────────────────
-  const discussion = useDiscussion(activeConvId);
+  const discussion = useDiscussion(activeConvId, currentSession?.id ?? null);
   const { input, setInput, sending, isTyping, visibleMessages, lastAssistantMessage,
     scrollContainerRef: discussionScrollRef, bottomRef: discussionBottomRef,
     handleScroll: discussionHandleScroll, sendMessage: discussionSendMessage,

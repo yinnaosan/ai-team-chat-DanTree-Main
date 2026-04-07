@@ -257,6 +257,25 @@ export async function getTaskById(taskId: number) {
   return result[0];
 }
 
+/**
+ * 查询指定 session 下仍在运行中的任务（用于页面刷新后恢复）
+ * running = status NOT IN ('completed', 'failed')
+ */
+export async function getRunningTasksBySession(sessionId: string, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks)
+    .where(
+      and(
+        eq(tasks.sessionId, sessionId),
+        eq(tasks.userId, userId),
+        sql`${tasks.status} NOT IN ('completed', 'failed')`
+      )
+    )
+    .orderBy(desc(tasks.createdAt))
+    .limit(10);
+}
+
 // ─── Attachment helpers ───────────────────────────────────────────────────────
 
 export async function insertAttachment(data: InsertAttachment) {

@@ -81,6 +81,8 @@ export const tasks = mysqlTable("tasks", {
   isPinned: boolean("isPinned").default(false).notNull(),     // 是否置顶
   isFavorited: boolean("isFavorited").default(false).notNull(), // 是否收藏
   analysisMode: mysqlEnum("analysisMode", ["quick", "standard", "deep"]).default("standard").notNull(), // 分析深度模式
+  sessionId: varchar("sessionId", { length: 64 }),  // 关联 WorkspaceSession（可选，用于任务恢复）
+  inputData: text("inputData"),                     // 原始输入存储（用于任务恢复显示）
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

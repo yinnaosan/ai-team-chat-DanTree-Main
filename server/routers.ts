@@ -60,6 +60,7 @@ import {
   deleteMemoryContext,
   deleteMemoryContextBatch,
   updateMemoryContext,
+  getRunningTasksBySession,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -3682,6 +3683,7 @@ export const appRouter = router({
         conversationId: z.number().optional(),
         attachmentIds: z.array(z.number()).optional(), // 已上传的附件ID列表
         analysisMode: z.enum(["quick", "standard", "deep"]).default("standard"),
+        sessionId: z.string().uuid().optional(), // WorkspaceSession ID（用于任务持久化恢复）
       }))
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
@@ -3708,7 +3710,7 @@ export const appRouter = router({
           content: input.title,
         });
 
-        // 创建任务记录
+        // 创建任务记录（含 sessionId + inputData 用于页面刷新后恢复）
         const result = await createTask({
           userId,
           conversationId,
@@ -3716,6 +3718,8 @@ export const appRouter = router({
           description,
           status: "pending",
           analysisMode: input.analysisMode,
+          sessionId: input.sessionId ?? null,
+          inputData: input.title, // 存储原始输入，供恢复时显示
         });
         const taskId = (result as any)[0]?.insertId as number;
         if (!taskId) throw new Error("Failed to create task");
@@ -3761,6 +3765,13 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         return getTaskById(input.taskId);
+      }),
+    // 查询指定 session 下仍在运行中的任务（用于页面刷新后恢复 SSE 连接）
+    getRunningTasksBySession: protectedProcedure
+      .input(z.object({ sessionId: z.string().uuid() }))
+      .query(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        return getRunningTasksBySession(input.sessionId, ctx.user.id);
       }),
 
     pinTask: protectedProcedure

@@ -288,6 +288,13 @@
       "when": 1775540083491,
       "tag": "0040_supreme_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1775547552140,
+      "tag": "0041_bumpy_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }

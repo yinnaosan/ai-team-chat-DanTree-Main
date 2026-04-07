@@ -3179,3 +3179,25 @@
 - [x] 修复： WorkspaceContext.sessionList 更新时同步 currentSession.conversationId
 - [x] 修复： linkConvMutation.onSuccess 后 invalidate listSessions
 - [x] TSC 0 errors 验证通过
+
+## P0 系统修复（任务持久化 + 输出结构化 + 防卡）
+
+- [ ] DB: 新增 analysis_tasks 表（task_id, status, input, result, session_id, created_at）
+- [ ] 后端: task 创建/更新/查询 tRPC 接口
+- [ ] 后端: 60s timeout fallback + 防卡错误处理
+- [ ] 后端: parseStructuredOutput 解析器（提取 %CHART%/JSON）
+- [ ] 前端: 页面加载自动恢复 running 任务
+- [ ] 前端: 输出层使用解析器渲染（text/charts 分离）
+- [ ] TSC 验证
+
+## P0 系统修复完成（2026-04-07）
+- [x] DB: tasks 表新增 sessionId + inputData 字段（迁移已执行）
+- [x] 后端: submitTask 接受 sessionId 参数，写入 DB
+- [x] 后端: 新增 getRunningTasksBySession tRPC 查询
+- [x] 后端: SSE 300s 最大生命周期 timeout（防卡死）
+- [x] 后端: runCollaborationFlow 错误 catch → emitTaskError → DB status=failed
+- [x] 输出解析器: parseChartBlocks 支持 %%CHART%%、%CHART%%、%%PYIMAGE%%、```json 四种格式
+- [x] 前端: useDiscussion 接受 sessionId 参数
+- [x] 前端: 页面加载时查询 running tasks，自动恢复 SSE 连接
+- [x] 前端: submitMutation 传入 sessionId
+- [x] TSC 0 errors 验证通过

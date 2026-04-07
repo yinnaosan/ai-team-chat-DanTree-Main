@@ -29,6 +29,9 @@ import { ManusOrb } from "@/components/ManusOrb";
 import { InlineChart, parseChartBlocks, PyImageChart } from "@/components/InlineChart";
 import { Streamdown } from "streamdown";
 import { useDiscussion } from "@/hooks/useDiscussion";
+import { useWorkspaceOutput } from "@/hooks/useWorkspaceOutput";
+import { DiscussionPanelVNext } from "@/components/workspace/DiscussionPanelVNext";
+import { InsightsRailVNext } from "@/components/workspace/InsightsRailVNext";
 
 // ── 输出收束：解析 %%FOLLOWUP%% 标记，清洗内部标记 ─────────────────────────────
 function parseFollowupsVNext(content: string): { cleanContent: string; followups: string[] } {
@@ -1206,6 +1209,13 @@ export default function ResearchWorkspacePage() {
   const lastAssistant = lastAssistantMessage;
   const answerObject = lastAssistant?.metadata?.answerObject;
 
+  // ── WorkspaceOutput Refactor v1 — Layer 1 hook ────────────────────────────
+  const workspaceOutput = useWorkspaceOutput({
+    latestAssistantContent: lastAssistant?.content ?? null,
+    answerObject: answerObject ?? null,
+    entity: currentTicker || undefined,
+  });
+
   // ── useWorkspaceViewModel: 真实市场决策数据层 ─────────────────────────────
   const vm = useWorkspaceViewModel();
   const { headerViewModel: hvm, thesisViewModel: tvm, timingViewModel: tivm, alertViewModel: avm, historyViewModel: hivm, isLoading: vmLoading } = vm;
@@ -1269,6 +1279,20 @@ export default function ResearchWorkspacePage() {
         ?? (m.role === "assistant" ? m.metadata?.answerObject?.bull_case?.slice(0, 3) : undefined),
       suggestedNext: m.metadata?.answerObject?.suggested_next,
     })), [visibleMessages]);
+
+  // ── WorkspaceOutput insights mapping (v1 adapter → InsightsRailVNext props) ──
+  const woNowItems = workspaceOutput.insights.now.map(item => ({
+    type: (item.sentiment === "positive" ? "positive" : item.sentiment === "warning" ? "warning" : "neutral") as "positive" | "warning" | "neutral" | "calendar",
+    title: item.text,
+    detail: item.sub ?? "",
+  }));
+  const woMonitorItems = workspaceOutput.insights.monitor.map(item => ({
+    type: (item.urgency === "high" ? "warning" : "neutral") as "positive" | "warning" | "neutral" | "calendar",
+    title: item.trigger,
+    detail: item.context ?? "",
+  }));
+  const woQuickFacts = workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }));
+  const woNews = workspaceOutput.insights.news.map(n => ({ headline: n.headline, source: n.source, sentiment: n.sentiment }));
 
   // S3-B: Insights 真实数据接入
   // ── AnalystData: 优先真实 Finnhub 数据，fallback undefined 静默降级 ──
@@ -1822,36 +1846,25 @@ export default function ResearchWorkspacePage() {
             </div>
           </main>
 
-          {/* Col 3: Discussion — 高级副驾驶推理区，接入 WorkspaceContext 上下文 */}
-          <DiscussionPanel
+          {/* Col 3: Discussion — WorkspaceOutputRefactor v1 接入 DiscussionPanelVNext */}
+          <DiscussionPanelVNext
             entity={currentTicker || undefined}
-            sessionTitle={currentSession?.title ?? undefined}
-            stance={hvm.stance ?? stance ?? null}
-            readinessState={tivm.readinessState ?? null}
-            alertCount={avm.alertCount ?? 0}
             messages={discussionMsgs}
             isStreaming={sending || isTyping}
-            input={input}
-            onInputChange={setInput}
-            onSend={() => handleSubmit()}
-            onQuickPrompt={(text) => handleSubmit(text)}
-            scrollContainerRef={discussionScrollRef}
-            bottomRef={discussionBottomRef}
-            onScroll={discussionHandleScroll}
-            onAttachFile={discussionAttachFile}
-            pendingFile={pendingFileContext ? { fileName: pendingFileContext.fileName, fileType: pendingFileContext.fileType } : null}
-            isUploading={discussionUploading}
-            onClearFile={discussionClearFile}
+            onSendMessage={(text) => handleSubmit(text)}
+            latestAssistantViewModel={workspaceOutput.discussion}
+            onFollowup={(text) => handleSubmit(text)}
           />
 
-          {/* Col 4: Insights Rail — NOW/MONITOR/RELATED/KEY LEVELS */}
-          <InsightsRail
+          {/* Col 4: Insights Rail — WorkspaceOutputRefactor v1 接入 InsightsRailVNext */}
+          <InsightsRailVNext
             entity={currentTicker || undefined}
-            quoteData={mappedQuote}
-            analystData={analystData}
-            nowItems={nowItems}
-            monitorItems={monitorItems}
-            relatedTickers={relatedTickers}
+            nowItems={nowItems.length > 0 ? nowItems.map(i => ({ type: (i.icon === CheckCircle2 ? "positive" : i.icon === AlertCircle ? "warning" : "neutral") as "positive" | "warning" | "neutral" | "calendar", title: i.text, detail: i.sub })) : woNowItems}
+            monitorItems={monitorItems.length > 0 ? monitorItems.map(i => ({ type: "warning" as const, title: i.text, detail: i.sub })) : woMonitorItems}
+            relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
+            liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}
+            quickFacts={woQuickFacts}
+            news={woNews}
           />
 
         </div>

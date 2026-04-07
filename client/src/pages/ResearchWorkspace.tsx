@@ -585,8 +585,27 @@ export default function ResearchWorkspacePage() {
 
   // Session items — 使用 grouped 排序（支持拖拽后的 displayOrder）
   const toSessionItem = useCallback((c: typeof session.sessions[0]) => {
-    const tk = c.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/)?.[0];
-    const t = (c.title ?? "").toLowerCase();
+    // 从 title 中提取股票代码（如 AAPL、BTC、600690.SS）
+    const rawTitle = c.title ?? `对话 #${c.id}`;
+    // 尝试匹配带后缀的代码（如 600690.SS）或纯大写代码（如 AAPL）
+    const tkMatch = rawTitle.match(/\b(\d{5,6}\.[A-Z]{2}|[A-Z]{1,5}(?:\.[A-Z]{1,2})?|BTC|ETH)\b/);
+    const tk = tkMatch?.[0];
+    // 推断市场标签
+    let market: string | undefined;
+    if (tk) {
+      if (tk.endsWith(".SS")) market = "SH";
+      else if (tk.endsWith(".SZ")) market = "SZ";
+      else if (tk.endsWith(".HK")) market = "HK";
+      else if (tk.endsWith(".T")) market = "JP";
+      else if (tk.endsWith(".KS")) market = "KR";
+      else if (tk === "BTC" || tk === "ETH") market = "CRYPTO";
+      else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
+    }
+    // 标题去掉代码部分，只保留公司名（去掉 " · CODE"、" CODE"、"·CODE" 后缀）
+    const displayTitle = tk
+      ? rawTitle.replace(new RegExp(`\\s*[·•・\\-]?\\s*${tk.replace(/\./g, '\\.')}\\s*$`), "").trim() || rawTitle
+      : rawTitle;
+    const t = rawTitle.toLowerCase();
     const type: SessionItem["type"] =
       t.includes("risk") || t.includes("风险") ? "risk" :
       t.includes("timing") || t.includes("时机") ? "timing" :
@@ -594,7 +613,8 @@ export default function ResearchWorkspacePage() {
     const dir = stance === "unavailable" ? "neutral" : stance;
     return {
       id: String(c.id), entity: tk ?? "—",
-      title: c.title ?? `对话 #${c.id}`,
+      title: displayTitle,
+      market,
       type, time: timeAgo(new Date(c.lastMessageAt)),
       pinned: c.isPinned, active: c.id === activeConvId,
       direction: dir as "bullish" | "bearish" | "neutral",

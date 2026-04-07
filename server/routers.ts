@@ -5885,9 +5885,18 @@ except Exception as e:
         // 中文搜索：直接从映射表返回
         if (hasChinese) {
           const matches: typeof CN_NAME_MAP[string] = [];
+          // 模糊匹配策略：
+          // 1. key 包含 q（子字符串匹配）
+          // 2. q 包含 key（查询比键长）
+          // 3. q 中所有有意义字符（非常用词）都出现在 key 中（顺序不限）
+          const NOISE_CHARS = new Set(['的', '集', '股', '公', '司', '有', '限', '中', '国', '业', '局', '部', '废']);
+          const qChars = q.split('').filter(ch => !NOISE_CHARS.has(ch));
           for (const [key, vals] of Object.entries(CN_NAME_MAP)) {
-            // 支持部分字匹配：查询包含key中任意字符，或key包含查询
-            if (key.includes(q) || q.includes(key) || (q.length >= 2 && key.split('').some(ch => q.includes(ch) && ch !== '的' && ch !== '集' && ch !== '股' && ch !== '公'))) {
+            const isMatch =
+              key.includes(q) ||
+              q.includes(key) ||
+              (qChars.length >= 2 && qChars.every(ch => key.includes(ch)));
+            if (isMatch) {
               matches.push(...vals);
             }
           }

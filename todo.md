@@ -3227,3 +3227,10 @@
 - [x] 前端 SessionRail：拖拽手柄（GripVertical）悬停时显示，DragOverlay 跟随鼠标
 - [x] 前端 ResearchWorkspace：传入 onReorder + 完整 actions（含 onRename）
 - [x] CN_NAME_MAP 词条库大幅扩充（覆盖美股/港股/A股/加密/ETF/宏观指数等更多中文词条）
+
+## SessionRail 卡片格式修复 + 模糊搜索
+- [x] SessionRail 卡片：标题行不再重复显示代码（标题只保留公司名，代码/缩写只在徽章行显示一次）
+- [x] SessionRail 卡片：字体放大（公司名 14px、代码/缩写徽章 12px、时间 11px）
+- [x] 快捷搜索框：展示格式与任务栏统一（公司名 14px + 代码 12px，不重复）
+- [x] 快捷搜索框：字体放大，代码/缩写可读性提升
+- [x] 搜索匹配升级为模糊匹配（子字符串 + 有意义字符全匹配）

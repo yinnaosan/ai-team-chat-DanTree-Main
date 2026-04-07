@@ -300,22 +300,22 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
                       {/* 市场徽章 */}
                       {marketLabel ? (
                         <div style={{
-                          minWidth: 28, height: 18, borderRadius: 4, flexShrink: 0,
+                          minWidth: 32, height: 20, borderRadius: 4, flexShrink: 0,
                           background: mc.bg,
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          padding: "0 5px",
+                          padding: "0 6px",
                         }}>
-                          <span style={{ fontSize: 9, fontWeight: 800, color: mc.color, letterSpacing: "0.04em", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: mc.color, letterSpacing: "0.04em", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                             {marketLabel}
                           </span>
                         </div>
                       ) : (
                         <div style={{
-                          width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+                          width: 26, height: 26, borderRadius: 5, flexShrink: 0,
                           background: isActive ? "rgba(52,211,153,0.20)" : "rgba(255,255,255,0.06)",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: isActive ? "#34d399" : "rgba(255,255,255,0.55)" }}>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: isActive ? "#34d399" : "rgba(255,255,255,0.55)" }}>
                             {c.ticker[0]}
                           </span>
                         </div>
@@ -324,16 +324,17 @@ function EntityCombobox({ entity, candidates, onSelect, onNew }: EntityComboboxP
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {/* 第一行：公司名（中文优先） */}
                         <div style={{
-                          fontSize: 12, fontWeight: 600,
-                          color: isActive ? "#34d399" : "rgba(237,237,239,0.92)",
+                          fontSize: 14, fontWeight: 600,
+                          color: isActive ? "#34d399" : "rgba(237,237,239,0.94)",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          marginBottom: 2,
                         }}>
                           {displayName}
                         </div>
-                        {/* 第二行：股票代码 */}
+                        {/* 第二行：股票代码（放大，只显示一次） */}
                         <div style={{
-                          fontSize: 10, fontWeight: 700,
-                          color: isActive ? "rgba(52,211,153,0.75)" : "rgba(255,255,255,0.38)",
+                          fontSize: 12, fontWeight: 700,
+                          color: isActive ? "rgba(52,211,153,0.85)" : "rgba(255,255,255,0.50)",
                           fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
                           letterSpacing: "0.06em",
                         }}>

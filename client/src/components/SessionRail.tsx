@@ -1,8 +1,8 @@
 /**
- * SessionRail.tsx — DanTree Workspace 最终视觉母版 v3
+ * SessionRail.tsx — DanTree Workspace 最终视觉母版 v4
  *
  * 专业 Research Session Control Rail
- * v3: 加入 @dnd-kit 拖拽排序（非置顶区域）
+ * v4: 修复标题重复代码 + 字体放大 + 拖拽排序
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star, Trash2, Pencil, MoreHorizontal, PinOff, StarOff, GripVertical } from "lucide-react";
@@ -163,7 +163,7 @@ export function SessionRail({
               placeholder="搜索..."
               style={{
                 width: "100%", height: 28, paddingLeft: 28, paddingRight: 8,
-                fontSize: 11, lineHeight: 1,
+                fontSize: 12, lineHeight: 1,
                 background: "rgba(255,255,255,0.04)",
                 border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
                 color: "rgba(255,255,255,0.80)", outline: "none",
@@ -381,6 +381,9 @@ function SessionCard({
     action();
   };
 
+  // 市场徽章颜色
+  const badgeColor = session.market ? MARKET_BADGE_COLOR[session.market] : null;
+
   return (
     <div
       style={{ position: "relative" }}
@@ -409,7 +412,7 @@ function SessionCard({
         style={{
           width: "100%", textAlign: "left",
           display: "flex", alignItems: "flex-start", gap: 8,
-          padding: "8px 10px", borderRadius: 7, marginBottom: 2,
+          padding: "9px 10px", borderRadius: 7, marginBottom: 2,
           cursor: renaming ? "default" : "pointer", border: "none",
           borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
           background: flash
@@ -429,16 +432,17 @@ function SessionCard({
       >
         {/* Type badge */}
         <div style={{
-          width: 24, height: 24, borderRadius: 6, flexShrink: 0, marginTop: 1,
+          width: 26, height: 26, borderRadius: 6, flexShrink: 0, marginTop: 1,
           background: isActive ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <TypeIcon size={12} color={isActive ? "#34d399" : "rgba(255,255,255,0.32)"} />
+          <TypeIcon size={13} color={isActive ? "#34d399" : "rgba(255,255,255,0.32)"} />
         </div>
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+          {/* 第一行：公司名（不含代码） */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
             {renaming ? (
               <input
                 ref={renameRef}
@@ -451,7 +455,7 @@ function SessionCard({
                 }}
                 onClick={e => e.stopPropagation()}
                 style={{
-                  flex: 1, fontSize: 11, fontWeight: 500,
+                  flex: 1, fontSize: 13, fontWeight: 500,
                   background: "rgba(255,255,255,0.08)",
                   border: "1px solid rgba(52,211,153,0.40)", borderRadius: 4,
                   color: "rgba(237,237,239,0.92)", outline: "none",
@@ -460,36 +464,63 @@ function SessionCard({
               />
             ) : (
               <span style={{
-                fontSize: 11, fontWeight: isActive ? 600 : 400,
-                color: isActive ? "rgba(237,237,239,0.92)" : "rgba(255,255,255,0.60)",
+                fontSize: 14, fontWeight: isActive ? 600 : 500,
+                color: isActive ? "rgba(237,237,239,0.96)" : "rgba(255,255,255,0.72)",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+                lineHeight: 1.3,
               }}>
                 {session.title}
               </span>
             )}
             {session.hasAlert && !renaming && (
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
             )}
             {session.favorite && !renaming && (
-              <Star size={8} color="#fbbf24" fill="#fbbf24" style={{ flexShrink: 0 }} />
+              <Star size={9} color="#fbbf24" fill="#fbbf24" style={{ flexShrink: 0 }} />
             )}
           </div>
+
+          {/* 第二行：市场徽章 + 代码（只显示一次）+ 时间 */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             {/* 市场徽章 */}
-            {session.market && MARKET_BADGE_COLOR[session.market] ? (
+            {badgeColor ? (
               <span style={{
-                fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
-                background: MARKET_BADGE_COLOR[session.market].bg,
-                color: MARKET_BADGE_COLOR[session.market].text,
+                fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                background: badgeColor.bg,
+                color: badgeColor.text,
                 letterSpacing: "0.04em", flexShrink: 0,
+                fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
               }}>
                 {session.market}
               </span>
             ) : null}
-            <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
-              {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
-            </span>
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginLeft: "auto", fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+
+            {/* 代码（entity）— 只在这里显示一次，不在标题行重复 */}
+            {session.entity && session.entity !== "—" && (
+              <span style={{
+                fontSize: 12, fontWeight: 700,
+                color: isActive ? "rgba(52,211,153,0.85)" : "rgba(255,255,255,0.50)",
+                fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                letterSpacing: "0.04em",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                flex: 1,
+              }}>
+                {session.entity}
+              </span>
+            )}
+
+            {/* 方向（仅在无代码时显示） */}
+            {(!session.entity || session.entity === "—") && session.direction && session.direction !== "neutral" && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: dirColor, flex: 1 }}>
+                {session.direction === "bullish" ? "看多" : "看空"}
+              </span>
+            )}
+
+            {/* 时间 */}
+            <span style={{
+              fontSize: 11, color: "rgba(255,255,255,0.28)", marginLeft: "auto", flexShrink: 0,
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+            }}>
               {session.time}
             </span>
           </div>

@@ -1009,6 +1009,19 @@ export default function ResearchWorkspacePage() {
   // currentTicker 优先从 WorkspaceContext 取，fallback 到消息推导
   const wsEntity = currentSession?.focusKey ?? "";
   const [manualTicker, setManualTicker] = useState("");
+  const [highlightSessionId, setHighlightSessionId] = useState<string | null>(null);
+
+  // 从 focusKey 推断市场
+  const inferMarketFromKey = (focusKey: string): string => {
+    if (!focusKey) return "";
+    if (focusKey.endsWith(".HK") || /^\d{4,5}\.HK$/.test(focusKey)) return "HK";
+    if (focusKey.endsWith(".SS") || focusKey.endsWith(".SH")) return "SH";
+    if (focusKey.endsWith(".SZ")) return "SZ";
+    if (focusKey.endsWith(".T")) return "JP";
+    if (focusKey.endsWith(".KS")) return "KR";
+    if (["BTC","ETH","SOL","BNB","XRP","ADA","DOGE","AVAX"].includes(focusKey.toUpperCase())) return "CRYPTO";
+    return "US"; // 默认美股
+  };
   const currentTicker = wsEntity || manualTicker;
 
   const prevConvIdRef = useRef<number | null>(null);
@@ -1178,6 +1191,7 @@ export default function ResearchWorkspacePage() {
           id: s.id,
           entity: s.focusKey,
           title: s.title,
+          market: inferMarketFromKey(s.focusKey),
           type,
           time: timeAgo(new Date(s.lastActiveAt)),
           pinned: s.pinned,
@@ -1460,6 +1474,9 @@ export default function ResearchWorkspacePage() {
             if (existingByTicker) {
               // 直接定位到已有 session，不新建
               setSession(existingByTicker);
+              // 闪烁高亮对应卡片
+              setHighlightSessionId(existingByTicker.id);
+              setTimeout(() => setHighlightSessionId(null), 1000);
               return;
             }
             // 新标的：新建 entity session，标题格式 = "公司名 · 代码 · 市场"
@@ -1512,6 +1529,7 @@ export default function ResearchWorkspacePage() {
           {/* Col 1: Session Rail — 接入 WorkspaceContext 真实会话 */}
           <SessionRail
             sessions={sessionItems}
+            highlightId={highlightSessionId}
             activeSessionId={
               currentSession?.id ??
               (activeConvId != null ? String(activeConvId) : undefined)

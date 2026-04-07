@@ -12,6 +12,7 @@ export interface SessionItem {
   id: string;
   entity: string;
   title: string;
+  market?: string; // US / HK / SH / SZ / CN / JP / KR / CRYPTO
   type?: "thesis" | "timing" | "risk" | "research";
   time: string;
   pinned?: boolean;
@@ -32,13 +33,27 @@ interface SessionRailProps {
   /** 绿色加号：创建空白 general session（无 focusKey） */
   onNewGeneralSession?: () => void;
   activeEntity?: string;
+  /** 重复标的跳转时，短暂闪烁高亮对应卡片 */
+  highlightId?: string | null;
 }
 
 const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research: Lightbulb };
 const TYPE_LABEL = { thesis: "Thesis", timing: "Timing", risk: "Risk", research: "研究" };
 
+// 市场徽章颜色映射
+const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
+  US:     { bg: "rgba(59,130,246,0.25)",  text: "#93c5fd" },
+  HK:     { bg: "rgba(249,115,22,0.25)",  text: "#fdba74" },
+  SH:     { bg: "rgba(239,68,68,0.25)",   text: "#fca5a5" },
+  SZ:     { bg: "rgba(239,68,68,0.25)",   text: "#fca5a5" },
+  CN:     { bg: "rgba(239,68,68,0.25)",   text: "#fca5a5" },
+  JP:     { bg: "rgba(168,85,247,0.25)",  text: "#d8b4fe" },
+  KR:     { bg: "rgba(20,184,166,0.25)",  text: "#5eead4" },
+  CRYPTO: { bg: "rgba(234,179,8,0.25)",   text: "#fde047" },
+};
+
 export function SessionRail({
-  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity,
+  sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession, activeEntity, highlightId,
 }: SessionRailProps) {
   // 绿色加号优先使用 onNewGeneralSession，向后兼容 onNewSession
   const handleNewGeneral = onNewGeneralSession ?? onNewSession;
@@ -127,14 +142,14 @@ export function SessionRail({
         {pinned.length > 0 && (
           <div style={{ marginBottom: 6 }}>
             <SectionLabel icon={Pin} label="已固定" />
-            {pinned.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} onClick={() => onSelectSession?.(s.id)} />)}
+            {pinned.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} isHighlighted={s.id === highlightId} onClick={() => onSelectSession?.(s.id)} />)}
           </div>
         )}
 
         {/* Recent — 分组标签已关闭，直接列表显示 */}
         {recent.length > 0 && (
           <div>
-            {recent.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} onClick={() => onSelectSession?.(s.id)} />)}
+            {recent.map(s => <SessionCard key={s.id} session={s} isActive={s.id === activeSessionId} isHighlighted={s.id === highlightId} onClick={() => onSelectSession?.(s.id)} />)}
           </div>
         )}
       </div>
@@ -153,8 +168,17 @@ function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: strin
   );
 }
 
-function SessionCard({ session, isActive, onClick }: { session: SessionItem; isActive: boolean; onClick: () => void }) {
+function SessionCard({ session, isActive, isHighlighted, onClick }: { session: SessionItem; isActive: boolean; isHighlighted?: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const [flash, setFlash] = useState(false);
+  // 闪烁动画
+  React.useEffect(() => {
+    if (isHighlighted) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 800);
+      return () => clearTimeout(t);
+    }
+  }, [isHighlighted]);
   const TypeIcon = TYPE_ICON[session.type ?? "research"] ?? Lightbulb;
   const typeLabel = TYPE_LABEL[session.type ?? "research"];
 
@@ -173,11 +197,15 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
         padding: "8px 10px", borderRadius: 7, marginBottom: 2,
         cursor: "pointer", border: "none",
         borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
-        background: isActive
+        background: flash
+          ? "rgba(52,211,153,0.30)"
+          : isActive
           ? "rgba(52,211,153,0.16)"
           : hovered ? "rgba(255,255,255,0.065)" : "transparent",
-        boxShadow: isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
-        transition: "background 0.12s, box-shadow 0.12s",
+        boxShadow: flash
+          ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
+          : isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
+        transition: "background 0.15s, box-shadow 0.15s",
       }}
     >
       {/* Type badge */}
@@ -204,6 +232,17 @@ function SessionCard({ session, isActive, onClick }: { session: SessionItem; isA
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {/* 市场徽章 + 代码 */}
+          {session.market && MARKET_BADGE_COLOR[session.market] ? (
+            <span style={{
+              fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+              background: MARKET_BADGE_COLOR[session.market].bg,
+              color: MARKET_BADGE_COLOR[session.market].text,
+              letterSpacing: "0.04em", flexShrink: 0,
+            }}>
+              {session.market}
+            </span>
+          ) : null}
           <span style={{ fontSize: 9, fontWeight: 600, color: dirColor }}>
             {session.direction === "bullish" ? "看多" : session.direction === "bearish" ? "看空" : session.entity}
           </span>

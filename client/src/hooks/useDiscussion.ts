@@ -201,6 +201,27 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
       toast.error(`发送失败：${err.message}`);
     },
   });
+  // ── P0 任务恢复：页面加载时查询 running tasks ────────────────────────────────
+  const { data: runningTasks } = trpc.chat.getRunningTasksBySession.useQuery(
+    { sessionId: sessionId! },
+    {
+      enabled: !!sessionId && !sending,
+      refetchInterval: false,
+      staleTime: 10_000,
+    }
+  );
+  // 恢复 SSE：如果有 running task 且当前没有 SSE 连接，自动重连
+  useEffect(() => {
+    if (!runningTasks || runningTasks.length === 0) return;
+    if (sseRef.current) return; // 已有连接，不重复
+    if (sending) return;
+    const latest = runningTasks[0];
+    if (!latest?.id) return;
+    // 恢复 SSE 连接
+    setSending(true);
+    setIsTyping(true);
+    startSSE(latest.id);
+  }, [runningTasks, sending, startSSE]);
 
    // ── Server sync ────────────────────────────────────────────────────────────
   useEffect(() => {

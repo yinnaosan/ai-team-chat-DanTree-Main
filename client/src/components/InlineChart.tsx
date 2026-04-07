@@ -1445,7 +1445,15 @@ export function parseChartBlocks(
   // 2. %CHART%...%END_CHART%    (单百分号，LLM 偶尔输出)
   // 3. %%PYIMAGE%%...%%END_PYIMAGE%%
   // 4. ```json\n{"type":...}\n``` (代码块包裹的 JSON)
-  const regex = /%%CHART%%([\s\S]*?)%%END_CHART%%|%CHART%([\s\S]*?)%END_CHART%|%%PYIMAGE%%([\s\S]*?)%%END_PYIMAGE%%|```json\n(\{"type":[\s\S]*?\})\n```/g;
+  // 使用 RegExp 构造函数避免反引号被 Babel 误解析为模板字符串
+  const BT = String.fromCharCode(96); // backtick char, avoids Babel template-string confusion
+  const regex = new RegExp(
+    '%%CHART%%([\\s\\S]*?)%%END_CHART%%' +
+    '|%CHART%([\\s\\S]*?)%END_CHART%' +
+    '|%%PYIMAGE%%([\\s\\S]*?)%%END_PYIMAGE%%' +
+    '|' + BT + BT + BT + 'json\\n(\\{"type":[\\s\\S]*?\\})\\n' + BT + BT + BT,
+    'g'
+  );
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;

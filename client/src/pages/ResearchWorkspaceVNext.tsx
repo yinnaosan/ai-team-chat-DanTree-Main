@@ -1060,9 +1060,11 @@ export default function ResearchWorkspacePage() {
     onSuccess: (conv) => {
       setActiveConvId(conv.id);
       refetchConvs();
-      // BUG-002: 新建 conversation 后立即绑定到当前 workspace session
-      if (currentSession?.id) {
-        linkConvMutation.mutate({ sessionId: currentSession.id, conversationId: conv.id });
+      // 使用 currentSessionRef.current 确保获取最新 session（避免 closure 捕获旧值）
+      // 场景：onNewEntity 先 createSession 更新了 currentSession，再触发 createConvMutation
+      const latestSession = currentSessionRef.current;
+      if (latestSession?.id) {
+        linkConvMutation.mutate({ sessionId: latestSession.id, conversationId: conv.id });
       }
     },
   });
@@ -1086,6 +1088,9 @@ export default function ResearchWorkspacePage() {
   // currentSession 变化时，必须将 activeConvId 同步为该 session 的 conversationId
   // 这是 Discussion 切换的唯一可靠来源，不能依赖 onSelectSession 回调中的手动调用
   const prevSessionIdRef = useRef<string | null>(null);
+  // currentSessionRef: 始终持有最新 currentSession，供 mutation onSuccess 等 closure 使用
+  const currentSessionRef = useRef(currentSession);
+  useEffect(() => { currentSessionRef.current = currentSession; }, [currentSession]);
   useEffect(() => {
     const sid = currentSession?.id ?? null;
     if (sid !== prevSessionIdRef.current) {
@@ -1108,9 +1113,47 @@ export default function ResearchWorkspacePage() {
     if (t && t !== prevTickerRef.current) { prevTickerRef.current = t; setManualTicker(t); }
   }, [visibleMessages, wsEntity]);
 
+  // ── ensureConversation: 若当前 session 无 conversation，先创建再发送 ──────────
+  // 这是修复所有 4 条触发链的核心：
+  // A. 手动输入发送链  B. 快捷问题按钮链  C. entity 自动首发链  D. 提交绑定链
+  // 根因：sendMessage 在 conversationId 为 null 时 early return，但系统从未自动创建 conversation
+  const pendingSubmitRef = useRef<string | null>(null);
+
+  // 监听 activeConvId 变化：若有 pending 消息等待发送，立即发出
+  useEffect(() => {
+    if (activeConvId && pendingSubmitRef.current !== null) {
+      const pending = pendingSubmitRef.current;
+      pendingSubmitRef.current = null;
+      // 延迟一帧确保 useDiscussion 已接收到新的 conversationId
+      setTimeout(() => discussionSendMessage(pending), 50);
+    }
+  }, [activeConvId, discussionSendMessage]);
+
   const handleSubmit = useCallback((text?: string) => {
-    discussionSendMessage(text);
-  }, [discussionSendMessage]);
+    const raw = (text ?? input).trim();
+    if (!raw) return;
+
+    // 使用 currentSessionRef.current 而非 activeConvId 状态判断：
+    // 原因：onNewEntity 中 createSession 完成后同步调用 handleSubmit，
+    // 此时 React 状态批处理可能尚未将 activeConvId 更新为 null，
+    // 导致错误地走入旧 session 的 conversation 发送路径。
+    // 正确做法：直接查询最新 session 的 conversationId，不依赖异步状态。
+    const latestConvId = currentSessionRef.current?.conversationId ?? activeConvId;
+
+    if (latestConvId) {
+      // 已有 conversation，直接发送
+      discussionSendMessage(text);
+    } else {
+      // 无 conversation：先创建，成功后通过 pendingSubmitRef 触发发送
+      // createConvMutation.onSuccess 会 setActiveConvId，上方 useEffect 监听后发送
+      pendingSubmitRef.current = raw;
+      const latestSession = currentSessionRef.current;
+      const title = latestSession?.focusKey
+        ? `${latestSession.focusKey} 研究`
+        : raw.slice(0, 40);
+      createConvMutation.mutate({ title });
+    }
+  }, [activeConvId, input, discussionSendMessage, createConvMutation]);
 
   const lastAssistant = lastAssistantMessage;
   const answerObject = lastAssistant?.metadata?.answerObject;

@@ -985,7 +985,15 @@ export default function ResearchWorkspacePage() {
     { enabled: peerSymbolsInput.length > 0, refetchInterval: 60000 }
   );
 
-  const linkConvMutation = trpc.workspace.linkConversation.useMutation();
+  const utils = trpc.useUtils();
+  const linkConvMutation = trpc.workspace.linkConversation.useMutation({
+    onSuccess: async (_, variables) => {
+      // BUG-004 fix: invalidate listSessions so currentSession.conversationId is updated
+      await utils.workspace.listSessions.invalidate();
+      // Also immediately set activeConvId so Discussion switches without waiting for refetch
+      setActiveConvId(variables.conversationId);
+    },
+  });
 
   const createConvMutation = trpc.chat.createConversation.useMutation({
     onSuccess: (conv) => {
@@ -1010,15 +1018,24 @@ export default function ResearchWorkspacePage() {
     }
   }, [allConversations, activeConvId]);
 
-  // Session 切换时同步 Discussion 上下文：清空 input
+  // BUG-004 fix: Session 切换时同步 activeConvId + 清空 input
+  // currentSession 变化时，必须将 activeConvId 同步为该 session 的 conversationId
+  // 这是 Discussion 切换的唯一可靠来源，不能依赖 onSelectSession 回调中的手动调用
   const prevSessionIdRef = useRef<string | null>(null);
   useEffect(() => {
     const sid = currentSession?.id ?? null;
     if (sid !== prevSessionIdRef.current) {
       prevSessionIdRef.current = sid;
-      setInput(""); // 切换 session 时清空输入框，避免上一个 session 的未发送内容残留
+      setInput(""); // 切换 session 时清空输入框
+      // 关键修复：同步 activeConvId
+      if (currentSession?.conversationId) {
+        setActiveConvId(currentSession.conversationId);
+      } else {
+        // 新 session 无对话，置 null 让 Discussion 立即清空
+        setActiveConvId(null);
+      }
     }
-  }, [currentSession?.id]);
+  }, [currentSession?.id, currentSession?.conversationId]);
 
   // 从消息推导 ticker（仅在 workspace 无 entity 时生效）
   useEffect(() => {

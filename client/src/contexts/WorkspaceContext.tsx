@@ -79,13 +79,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const sessionList = (sessionsData?.sessions ?? []) as WorkspaceSession[];
 
-  // On first load: auto-activate the most recently active session
+  // BUG-004 fix: sync currentSession with latest server data whenever sessionList updates
+  // This ensures conversationId and other fields stay fresh after linkConversation mutations
   useEffect(() => {
-    if (!currentSession && sessionList.length > 0) {
-      // First item is already sorted: pinned first, then by lastActiveAt desc
+    if (sessionList.length === 0) return;
+    if (!currentSession) {
+      // First load: auto-activate the most recently active session
       setCurrentSession(sessionList[0]);
+    } else {
+      // Already have a session: update it with the latest server data (e.g. conversationId)
+      const fresh = sessionList.find(s => s.id === currentSession.id);
+      if (fresh && (
+        fresh.conversationId !== currentSession.conversationId ||
+        fresh.title !== currentSession.title ||
+        fresh.updatedAt !== currentSession.updatedAt
+      )) {
+        setCurrentSession(fresh);
+      }
     }
-  }, [sessionList, currentSession]);
+  }, [sessionList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mutations
   const createSessionMutation = trpc.workspace.createSession.useMutation({

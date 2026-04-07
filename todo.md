@@ -3171,3 +3171,11 @@
 - [x] 修复：切换无 conversationId 的 session 时 activeConvId 应置 null，而非保留旧值
 - [x] BUG-003: useDiscussion 切换时立即清空 messages，修复 server sync 跳过逻辑
 - [x] TSC 0 errors 验证通过
+
+## Session 切换 Discussion 彻底修复（BUG-004）
+
+- [x] 排查 WorkspaceSession 与 allConversations 两套数据源笮争条件
+- [x] 修复：切换 session 时强制同步 activeConvId，Discussion 立即切换
+- [x] 修复： WorkspaceContext.sessionList 更新时同步 currentSession.conversationId
+- [x] 修复： linkConvMutation.onSuccess 后 invalidate listSessions
+- [x] TSC 0 errors 验证通过

@@ -507,15 +507,16 @@ export default function ResearchWorkspacePage() {
   }, [sessionList, allConversations, activeConvId, stance, currentSession?.id, hvm.stance, avm.alertCount, parseSessionTitle]);
 
   // Discussion messages — driven by useDiscussion.visibleMessages
-  const discussionMsgs = useMemo<DiscussionMsg[]>(() =>
+  // STRICT: assistant content is ONLY used by adapter, never rendered raw
+  const discussionMsgs = useMemo<import("@/components/workspace/DiscussionPanelVNext").DiscussionMessage[]>(() =>
     visibleMessages.slice(-40).map(m => ({
       id: String(m.id),
       role: m.role as "user" | "assistant",
+      // User messages: keep raw content for display
+      // Assistant messages: content passed to adapter only, never rendered directly
       content: m.content,
       timestamp: fmtTime(m.createdAt),
-      keyPoints: m.metadata?.answerObject?.key_points
-        ?? (m.role === "assistant" ? m.metadata?.answerObject?.bull_case?.slice(0, 3) : undefined),
-      suggestedNext: m.metadata?.answerObject?.suggested_next,
+      answerObject: m.metadata?.answerObject ?? undefined,
     })), [visibleMessages]);
 
   // ── WorkspaceOutput insights mapping (v1 adapter → InsightsRailVNext props) ──
@@ -531,6 +532,11 @@ export default function ResearchWorkspacePage() {
   }));
   const woQuickFacts = workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }));
   const woNews = workspaceOutput.insights.news.map(n => ({ headline: n.headline, source: n.source, sentiment: n.sentiment }));
+  const woKeyLevels = workspaceOutput.insights.keyLevels.map(l => ({
+    label: l.label,
+    value: l.value,
+    type: (l.color === "green" ? "target" : l.color === "red" ? "stop" : "support") as "entry" | "support" | "resistance" | "stop" | "target" | "current",
+  }));
 
   // S3-B: Insights 真实数据接入
   // ── AnalystData: 优先真实 Finnhub 数据，fallback undefined 静默降级 ──
@@ -692,7 +698,11 @@ export default function ResearchWorkspacePage() {
               focusKey: ticker,
               sessionType: 'entity',
             }).then(newSession => {
-              if (newSession) setSession(newSession);
+              if (newSession) {
+                setSession(newSession);
+                // FIX-5: Auto-trigger analysis when selecting a NEW entity
+                handleSubmit(`深度分析 ${ticker}`);
+              }
             });
           }}
           onNewEntity={async (ticker) => {
@@ -1006,6 +1016,7 @@ export default function ResearchWorkspacePage() {
             nowItems={woNowItems}
             monitorItems={woMonitorItems}
             relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
+            keyLevels={woKeyLevels}
             liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}
             quickFacts={woQuickFacts}
             news={woNews}

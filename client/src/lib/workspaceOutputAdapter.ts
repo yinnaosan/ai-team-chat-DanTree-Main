@@ -185,7 +185,8 @@ function buildDiscussionViewModel(
     blocks,
     entity,
     isStructured: blocks.length > 1,
-    rawFallback: blocks.length === 0 ? cleanContent : undefined,
+    // STRICT: rawFallback is NEVER set. Adapter failure → empty blocks → error state in UI.
+    rawFallback: undefined,
   };
 }
 

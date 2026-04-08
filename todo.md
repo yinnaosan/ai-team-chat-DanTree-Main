@@ -3255,3 +3255,12 @@
 - [x] 前端 SessionRail：批量删除/收藏/置顶按钮 + 调用后端 batch procedures
 - [x] 前端：替换所有浏览器原生 confirm() 为应用内 Dialog 弹窗（shadcn AlertDialog）
 - [x] 前端：删除确认弹窗改为应用内 AlertDialog
+
+## 强制数据管道接管 — FINAL FIX (2026-04-08)
+- [x] FIX-1: useWorkspaceOutput 添加强制验证 console.log（blocks.length, followups.length, isStructured）
+- [x] FIX-2: DiscussionPanelVNext 禁止 m.content / msg.content / cleanedContent，唯一允许 workspaceOutput.discussion.blocks
+- [x] FIX-3: followups 作为独立 UI block 渲染（clickable），不允许出现在文本中
+- [x] FIX-4: InsightsRailVNext NOW/MONITOR/QUICK FACTS/NEWS 全部来自 workspaceOutput.insights.*，禁止 hardcoded/fallback
+- [x] FIX-5: entity 选择后自动触发分析任务（createSession → dispatch initialTask）
+- [x] FIX-6: 全局搜索删除 msg.content / cleanedContent / fallback render 双数据链残留
+- [x] FIX-7: 验收截图 — Discussion 分段、无 %%FOLLOWUP%%、followups 是 UI 组件、Right Rail 真实数据、entity 自动分析、console blocks > 0

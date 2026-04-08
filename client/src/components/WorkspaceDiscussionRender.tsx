@@ -168,9 +168,24 @@ interface WorkspaceDiscussionRenderProps {
 }
 
 export function WorkspaceDiscussionRender({ viewModel, onFollowup }: WorkspaceDiscussionRenderProps) {
-  // STRICT: no rawFallback. If adapter fails → empty state, never raw dump.
+  // STRICT: no rawFallback. If adapter fails → error state, NEVER raw dump.
   if (viewModel.blocks.length === 0) {
-    return null;
+    // Show "无法解析输出" instead of raw content or empty
+    return (
+      <div style={{ padding: "16px 18px" }}>
+        <div style={{
+          padding: "12px 14px", borderRadius: 8,
+          background: "rgba(251,191,36,0.06)",
+          border: "1px solid rgba(251,191,36,0.12)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <AlertCircle size={14} color="rgba(251,191,36,0.60)" />
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+            无法解析输出 — 等待分析完成
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -183,27 +198,34 @@ export function WorkspaceDiscussionRender({ viewModel, onFollowup }: WorkspaceDi
           case "chart":     return <ChartBlockRender key={i} block={block} />;
           case "image_chart": return <ChartBlockRender key={i} block={block} />;
           case "followups": return (
-            <div key={i} onClick={e => {
-              const btn = (e.target as HTMLElement).closest("[data-followup]");
-              const q = btn?.getAttribute("data-followup");
-              if (q && onFollowup) onFollowup(q);
-            }}>
-              {block.followups?.map((q, qi) => (
-                <div
-                  key={qi}
-                  data-followup={q}
-                  style={{
-                    display: "flex", alignItems: "flex-start", gap: 8,
-                    padding: "7px 10px", borderRadius: 6, marginBottom: 4,
-                    background: "rgba(16,185,129,0.04)",
-                    border: "1px solid rgba(16,185,129,0.09)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <ArrowRight size={10} color="rgba(16,185,129,0.45)" style={{ marginTop: 2, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: "rgba(16,185,129,0.58)", lineHeight: 1.55 }}>{q}</span>
-                </div>
-              ))}
+            <div key={i} style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.22)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 7 }}>
+                继续探讨
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {block.followups?.map((q, qi) => (
+                  <button
+                    key={qi}
+                    onClick={() => onFollowup?.(q)}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 8,
+                      padding: "8px 12px", borderRadius: 8,
+                      background: "rgba(16,185,129,0.05)",
+                      border: "1px solid rgba(16,185,129,0.12)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      width: "100%",
+                      transition: "background 0.15s, border-color 0.15s",
+                      fontFamily: "inherit",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(16,185,129,0.10)"; e.currentTarget.style.borderColor = "rgba(16,185,129,0.22)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(16,185,129,0.05)"; e.currentTarget.style.borderColor = "rgba(16,185,129,0.12)"; }}
+                  >
+                    <ArrowRight size={11} color="rgba(16,185,129,0.55)" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "rgba(16,185,129,0.70)", lineHeight: 1.6 }}>{q}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           );
           default: return null;

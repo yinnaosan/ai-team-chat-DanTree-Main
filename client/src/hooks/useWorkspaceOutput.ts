@@ -68,15 +68,26 @@ export function useWorkspaceOutput(input: WorkspaceOutputInput): WorkspaceOutput
       entity,
     });
 
-    // DEBUG: verify adapter is producing structured output
-    console.log("[useWorkspaceOutput] latestAssistantContent length:", latestAssistantContent?.length ?? 0);
-    console.log("[useWorkspaceOutput] workspaceOutput.discussion.blocks:", result.discussion.blocks.length, result.discussion.blocks.map(b => b.type));
-    console.log("[useWorkspaceOutput] workspaceOutput.discussion.isStructured:", result.discussion.isStructured);
-    console.log("[useWorkspaceOutput] workspaceOutput.insights.now:", result.insights.now.length);
-    console.log("[useWorkspaceOutput] workspaceOutput.insights.monitor:", result.insights.monitor.length);
-    console.log("[useWorkspaceOutput] workspaceOutput.insights.quickFacts:", result.insights.quickFacts.length);
-    console.log("[useWorkspaceOutput] workspaceOutput.insights.news:", result.insights.news.length);
-    console.log("[useWorkspaceOutput] _meta:", result._meta);
+    // ═══ FORCED VALIDATION — blocks.length > 0 && isStructured === true ═══
+    const followupsBlock = result.discussion.blocks.find(b => b.type === "followups");
+    const followupsCount = followupsBlock?.followups?.length ?? 0;
+    console.log(
+      "[useWorkspaceOutput] ══ FORCED VALIDATION ══\n" +
+      `  contentLength: ${latestAssistantContent?.length ?? 0}\n` +
+      `  blocks.length: ${result.discussion.blocks.length}\n` +
+      `  blockTypes: [${result.discussion.blocks.map(b => b.type).join(", ")}]\n` +
+      `  isStructured: ${result.discussion.isStructured}\n` +
+      `  followups.length: ${followupsCount}\n` +
+      `  insights.now: ${result.insights.now.length}\n` +
+      `  insights.monitor: ${result.insights.monitor.length}\n` +
+      `  insights.quickFacts: ${result.insights.quickFacts.length}\n` +
+      `  insights.news: ${result.insights.news.length}\n` +
+      `  _meta: ${JSON.stringify(result._meta)}`
+    );
+    // ASSERT: adapter MUST produce structured output
+    if (result.discussion.blocks.length === 0 && (latestAssistantContent?.length ?? 0) > 50) {
+      console.error("[useWorkspaceOutput] ❌ ADAPTER FAILED: blocks.length === 0 despite content > 50 chars");
+    }
 
     return result;
   }, [input.latestAssistantContent, input.answerObject, input.entity]);

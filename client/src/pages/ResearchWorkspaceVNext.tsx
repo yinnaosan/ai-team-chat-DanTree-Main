@@ -33,6 +33,7 @@ import { InsightsRailVNext } from "@/components/workspace/InsightsRailVNext";
 import type { AlertItem } from "@/components/AlertBlock";
 import type { HistoryEntry } from "@/components/HistoryBlock";
 import type { SnapshotEntry } from "@/hooks/useWorkspaceViewModel";
+import { detectMarketType } from "@/lib/marketUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -673,15 +674,20 @@ export default function ResearchWorkspacePage() {
               : lastAssistant ? fmtTime(lastAssistant.createdAt) : undefined
           }
           entityCandidates={sessionList.map((s): EntityCandidate => {
-            // 本地 session 候选：推断 market 标签以便展示徽章
+            // 本地 session 候选：用 detectMarketType 统一推断 market，避免把 CRYPTO 误判为 US
             const tk = s.focusKey || "";
             let market: string | undefined;
-            if (tk.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(tk)) market = "HK";
-            else if (tk.endsWith(".SS")) market = "SH";
-            else if (tk.endsWith(".SZ")) market = "SZ";
-            else if (tk.endsWith(".T")) market = "JP";
-            else if (tk.endsWith(".KS")) market = "KR";
-            else if (/^[A-Z]{1,5}$/.test(tk)) market = "US";
+            if (tk) {
+              const mt = detectMarketType(tk);
+              switch (mt) {
+                case "crypto": market = "CRYPTO"; break;
+                case "cn":     market = "CN"; break;
+                case "hk":     market = "HK"; break;
+                case "uk":     market = "UK"; break;
+                case "eu":     market = "EU"; break;
+                case "us":     market = "US"; break;
+              }
+            }
             return {
               id: s.id,
               ticker: tk || "—",

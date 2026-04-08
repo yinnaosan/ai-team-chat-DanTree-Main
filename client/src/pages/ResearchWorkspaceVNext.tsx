@@ -400,6 +400,24 @@ export default function ResearchWorkspacePage() {
     }
   }, [activeConvId, discussionSendMessage]);
 
+  // ── pendingEntityPromptRef: 修复 entity 切换后首次分析发到旧 session 的 bug ──
+  // 问题根因：createSession().then(() => { setSession(newSession); handleSubmit(...) })
+  // 此时 currentSessionRef.current 还是旧 session（React 状态批处理未完成），
+  // handleSubmit 拿到的是旧 conversationId，消息被发到旧 session。
+  // 修复：将 prompt 存入 pendingEntityPromptRef，在 currentSession?.id 变化的
+  // useEffect 中（新 session 已激活）再触发 handleSubmit，确保发到正确的 session。
+  const pendingEntityPromptRef = useRef<string | null>(null);
+  // 监听 currentSession.id 变化：若有 entity prompt 等待发送，在新 session 激活后触发
+  useEffect(() => {
+    if (pendingEntityPromptRef.current !== null) {
+      const prompt = pendingEntityPromptRef.current;
+      pendingEntityPromptRef.current = null;
+      // 延迟两帧，确保 activeConvId 已同步（BUG-004 fix 的 useEffect 先跑）
+      setTimeout(() => handleSubmit(prompt), 100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSession?.id]);
+
   const handleSubmit = useCallback((text?: string) => {
     const raw = (text ?? input).trim();
     if (!raw) return;
@@ -693,6 +711,9 @@ export default function ResearchWorkspacePage() {
             const sessionTitle = displayName !== ticker
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
+            // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
+            // 这样当 currentSession?.id 变化的 useEffect 跑时，新 session 已经是当前 session
+            pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             createSession({
               title: sessionTitle,
               focusKey: ticker,
@@ -700,8 +721,11 @@ export default function ResearchWorkspacePage() {
             }).then(newSession => {
               if (newSession) {
                 setSession(newSession);
-                // FIX-5: Auto-trigger analysis when selecting a NEW entity
-                handleSubmit(`深度分析 ${ticker}`);
+                // pendingEntityPromptRef 已设好，不再直接调用 handleSubmit
+                // 当 currentSession?.id 变化时，上方 useEffect 会自动触发
+              } else {
+                // 创建失败，清除 pending prompt
+                pendingEntityPromptRef.current = null;
               }
             });
           }}
@@ -721,6 +745,8 @@ export default function ResearchWorkspacePage() {
             const sessionTitle = displayName !== ticker
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
+            // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
+            pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             const newSession = await createSession({
               title: sessionTitle,
               focusKey: ticker,
@@ -728,10 +754,11 @@ export default function ResearchWorkspacePage() {
             });
             if (newSession) {
               setSession(newSession);
+              // pendingEntityPromptRef 已设好，不再直接调用 handleSubmit
             } else {
               setManualTicker(ticker);
+              pendingEntityPromptRef.current = null; // 创建失败，清除 pending
             }
-            handleSubmit(`深度分析 ${ticker}`);
           }}
         />
 

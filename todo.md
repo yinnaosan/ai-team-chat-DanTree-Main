@@ -3264,3 +3264,8 @@
 - [x] FIX-5: entity 选择后自动触发分析任务（createSession → dispatch initialTask）
 - [x] FIX-6: 全局搜索删除 msg.content / cleanedContent / fallback render 双数据链残留
 - [x] FIX-7: 验收截图 — Discussion 分段、无 %%FOLLOWUP%%、followups 是 UI 组件、Right Rail 真实数据、entity 自动分析、console blocks > 0
+
+## 面板联动修复 — adapter heuristic 增强 (2026-04-08)
+- [x] FIX-8: 增强 buildInsightsViewModel heuristic — 从全文内容提取 NOW/MONITOR/QUICK FACTS/NEWS（不依赖精确 heading）
+- [x] FIX-9: 增强 buildDiscussionViewModel — 当无 answerObject 时确保 thesis block 正确提取
+- [x] FIX-10: 验证修复后 insights.now > 0, insights.monitor > 0, insights.quickFacts > 0

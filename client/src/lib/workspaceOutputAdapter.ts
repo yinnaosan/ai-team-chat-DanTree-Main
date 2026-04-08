@@ -71,6 +71,17 @@ function extractSections(text: string): Map<string, string> {
   return sections;
 }
 
+/**
+ * Split content by `---` separators into paragraphs.
+ * GPT often uses `---` instead of markdown headings.
+ */
+function extractParagraphs(text: string): string[] {
+  return text
+    .split(/\n---+\n/)
+    .map(p => p.trim())
+    .filter(p => p.length > 30);
+}
+
 /** Extract bullet points from a text block */
 function extractBullets(text: string): string[] {
   return text
@@ -82,7 +93,7 @@ function extractBullets(text: string): string[] {
 /** Heuristic: find ticker-like tokens (1-5 uppercase letters) in text */
 function extractTickers(text: string, exclude?: string): string[] {
   const matches = text.match(/\b([A-Z]{1,5})\b/g) ?? [];
-  const common = new Set(["AI", "US", "GDP", "EPS", "PE", "YOY", "QOQ", "IPO", "ETF", "FED", "CPI", "PCE", "NFP", "AND", "THE", "FOR", "NOT", "BUT"]);
+  const common = new Set(["AI", "US", "GDP", "EPS", "PE", "YOY", "QOQ", "IPO", "ETF", "FED", "CPI", "PCE", "NFP", "AND", "THE", "FOR", "NOT", "BUT", "CEO", "CFO", "FCF", "RSI", "DCF", "FMP", "SEC"]);
   return Array.from(new Set(matches))
     .filter(t => !common.has(t) && t !== exclude)
     .slice(0, 6);
@@ -105,6 +116,32 @@ function extractPct(text: string): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * Extract sentences containing specific keywords from full text.
+ * Works with both heading-based and paragraph-based content.
+ */
+function extractSentencesWithKeywords(text: string, keywords: string[]): string[] {
+  // Split into sentences (Chinese + English)
+  const sentences = text.split(/[。！？\n]/).map(s => s.trim()).filter(s => s.length > 15);
+  const results: string[] = [];
+  const lower = keywords.map(k => k.toLowerCase());
+  
+  for (const sentence of sentences) {
+    const sl = sentence.toLowerCase();
+    if (lower.some(k => sl.includes(k))) {
+      // Clean up markdown formatting
+      const clean = sentence
+        .replace(/\*\*/g, "")
+        .replace(/^[-*•]\s*/, "")
+        .trim();
+      if (clean.length > 15 && clean.length < 200) {
+        results.push(clean);
+      }
+    }
+  }
+  return results;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Discussion adapter
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,10 +155,12 @@ function buildDiscussionViewModel(
 ): DiscussionViewModel {
   const blocks: DiscussionBlock[] = [];
   const sections = extractSections(cleanContent);
+  const paragraphs = extractParagraphs(cleanContent);
 
   // 1. Thesis block — from answerObject.verdict or first paragraph
   const thesisText = answerObject?.verdict
     ?? Array.from(sections.entries()).find(([k]) => k.includes("thesis") || k.includes("核心") || k.includes("判断"))?.[1]
+    ?? paragraphs[0]?.split("\n")[0]?.replace(/\*\*/g, "").trim()
     ?? cleanContent.split("\n\n")[0]?.trim();
 
   if (thesisText?.length > 20) {
@@ -135,7 +174,7 @@ function buildDiscussionViewModel(
       : answerObject?.key_points?.length
         ? answerObject.key_points
         : extractBullets(
-            Array.from(sections.entries()).find(([k]) => k.includes("推理") || k.includes("reason") || k.includes("分析"))?.[1] ?? ""
+            Array.from(sections.entries()).find(([k]) => k.includes("推理") || k.includes("reason") || k.includes("分析") || k.includes("关键"))?.[1] ?? ""
           );
 
   if (reasoningItems.length > 0) {
@@ -145,13 +184,14 @@ function buildDiscussionViewModel(
     });
   }
 
-  // 3. Narrative blocks — remaining text sections (excluding already-used ones)
-  const usedKeys = ["thesis", "核心", "判断", "推理", "reason", "分析"];
+  // 3. Narrative blocks — from sections or paragraphs (skip thesis + reasoning)
+  const usedKeys = ["thesis", "核心", "判断", "推理", "reason", "分析", "关键"];
   let narrativeAdded = 0;
+  
+  // Try sections first
   for (const [key, body] of Array.from(sections.entries())) {
     if (narrativeAdded >= 3) break;
     if (usedKeys.some(k => key.includes(k))) continue;
-    // Skip sections better suited for insights
     if (["related", "相关", "监控", "watch", "levels", "价位", "new", "新闻", "catalyst", "催化"].some(k => key.includes(k))) continue;
     if (body.length > 40) {
       blocks.push({ type: "narrative", content: body.slice(0, 800) });
@@ -159,7 +199,20 @@ function buildDiscussionViewModel(
     }
   }
 
-  // If no sections found, use paragraphs from cleanContent (skip first = thesis)
+  // If sections didn't yield enough, use paragraphs (skip first = thesis)
+  if (narrativeAdded === 0 && paragraphs.length > 1) {
+    for (let i = 1; i < paragraphs.length && narrativeAdded < 3; i++) {
+      const para = paragraphs[i].trim();
+      // Skip chart-like paragraphs
+      if (para.includes("%%CHART%%") || para.includes("%%PYIMAGE%%")) continue;
+      if (para.length > 40) {
+        blocks.push({ type: "narrative", content: para.slice(0, 800) });
+        narrativeAdded++;
+      }
+    }
+  }
+
+  // Fallback: split by double newlines
   if (blocks.length <= 1 && cleanContent.length > 200) {
     const paras = cleanContent.split("\n\n").filter(p => p.trim().length > 40).slice(1, 4);
     for (const para of paras) {
@@ -191,7 +244,7 @@ function buildDiscussionViewModel(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Insights adapter
+// Insights adapter — ENHANCED heuristic (works with any GPT output format)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildInsightsViewModel(
@@ -203,34 +256,62 @@ function buildInsightsViewModel(
   const insights = emptyInsightsViewModel();
 
   // ── NOW: positive signals ──────────────────────────────────────────────────
+  // Priority 1: answerObject.bull_case
+  // Priority 2: heading-based extraction
+  // Priority 3: ENHANCED — full-text keyword extraction for positive signals
+  const bullSection = Array.from(sections.entries()).find(([k]) =>
+    k.includes("多头") || k.includes("bull") || k.includes("支撑") || k.includes("驱动")
+  )?.[1] ?? "";
+
   const bullItems: string[] = answerObject?.bull_case?.length
     ? answerObject.bull_case
-    : extractBullets(
-        Array.from(sections.entries()).find(([k]) => k.includes("多头") || k.includes("bull") || k.includes("支撑") || k.includes("驱动"))?.[1] ?? ""
-      );
+    : bullSection
+      ? extractBullets(bullSection)
+      : extractSentencesWithKeywords(content, [
+          "利好", "驱动", "增长", "扩张", "加速", "支撑", "积极",
+          "强劲", "利多", "上行", "突破", "创新高",
+          "bullish", "positive", "growth", "catalyst", "upside"
+        ]).slice(0, 4);
 
   insights.now = bullItems.slice(0, 3).map(text => ({
-    text: text.slice(0, 80),
-    sub: "多头证据",
+    text: text.replace(/\*\*/g, "").slice(0, 100),
+    sub: answerObject?.bull_case?.length ? "多头证据" : "正面信号",
     sentiment: "positive" as const,
   }));
 
   // ── MONITOR: risks / triggers ──────────────────────────────────────────────
-  const riskItems = answerObject?.risks?.length
-    ? answerObject.risks.map((r: any) => ({
-        trigger: r.description?.slice(0, 60) ?? "",
-        context: `风险 · ${r.magnitude ?? "medium"}`,
-        urgency: (r.magnitude === "high" ? "high" : r.magnitude === "low" ? "low" : "medium") as InsightMonitorItem["urgency"],
-      }))
-    : extractBullets(
-        Array.from(sections.entries()).find(([k]) => k.includes("风险") || k.includes("risk") || k.includes("监控") || k.includes("watch"))?.[1] ?? ""
-      ).slice(0, 3).map(text => ({
-        trigger: text.slice(0, 60),
-        context: "监控项",
-        urgency: "medium" as const,
-      }));
+  // Priority 1: answerObject.risks
+  // Priority 2: heading-based extraction
+  // Priority 3: ENHANCED — full-text keyword extraction for risk signals
+  const riskSection = Array.from(sections.entries()).find(([k]) =>
+    k.includes("风险") || k.includes("risk") || k.includes("监控") || k.includes("watch")
+  )?.[1] ?? "";
 
-  insights.monitor = riskItems.slice(0, 3);
+  if (answerObject?.risks?.length) {
+    insights.monitor = answerObject.risks.slice(0, 3).map((r: any) => ({
+      trigger: r.description?.slice(0, 60) ?? "",
+      context: `风险 · ${r.magnitude ?? "medium"}`,
+      urgency: (r.magnitude === "high" ? "high" : r.magnitude === "low" ? "low" : "medium") as InsightMonitorItem["urgency"],
+    }));
+  } else if (riskSection) {
+    insights.monitor = extractBullets(riskSection).slice(0, 3).map(text => ({
+      trigger: text.slice(0, 60),
+      context: "监控项",
+      urgency: "medium" as const,
+    }));
+  } else {
+    // ENHANCED: extract risk signals from full text
+    const riskSentences = extractSentencesWithKeywords(content, [
+      "风险", "担忧", "下跌", "威胁", "警戒", "回落", "不确定",
+      "卖出", "减持", "高估", "泡沫", "过热", "地缘政治",
+      "risk", "concern", "threat", "downside", "overvalued", "sell"
+    ]);
+    insights.monitor = riskSentences.slice(0, 3).map(text => ({
+      trigger: text.replace(/\*\*/g, "").slice(0, 80),
+      context: "风险信号",
+      urgency: "medium" as const,
+    }));
+  }
 
   // ── RELATED: ticker heuristics ─────────────────────────────────────────────
   const relatedSection = Array.from(sections.entries()).find(([k]) =>
@@ -245,6 +326,7 @@ function buildInsightsViewModel(
 
   // ── QUICK FACTS: key numbers ───────────────────────────────────────────────
   const facts: InsightQuickFact[] = [];
+  
   if (answerObject?.confidence) {
     facts.push({
       label: "AI 置信度",
@@ -252,12 +334,41 @@ function buildInsightsViewModel(
       sub: answerObject.verdict?.slice(0, 20),
     });
   }
-  // Heuristic: find "XX%" patterns near keywords
-  const pctMatches = Array.from(content.matchAll(/(\w[\w\s]{0,20}?)\s+([+-]?\d+(?:\.\d+)?%)/g)).slice(0, 3);
-  for (const m of pctMatches) {
-    const label = m[1].trim().slice(-20);
-    facts.push({ label, value: m[2] });
+
+  // ENHANCED: Extract key financial metrics from content
+  // Pattern: "指标名=数值" or "指标名：数值" or "指标名 数值"
+  const metricPatterns: Array<{ regex: RegExp; label: string }> = [
+    { regex: /EV\/Sales[=:：]\s*([\d.]+)x/i, label: "EV/Sales" },
+    { regex: /P\/E[=:：\s]+([\d.]+)/i, label: "P/E" },
+    { regex: /净利率[=:：\s]*([\d.]+%)/i, label: "净利率" },
+    { regex: /流动比率[=:：\s]*([\d.]+)x/i, label: "流动比率" },
+    { regex: /RSI\(?\d*\)?\s*[=:：]\s*([\d.]+)/i, label: "RSI" },
+    { regex: /FCF转化率[=:：\s]*([\d.]+)/i, label: "FCF转化率" },
+    { regex: /自由现金流[^$]*\$([\d,.]+[BMK]?)/i, label: "自由现金流" },
+    { regex: /52周[^$]*\$([\d,.]+)[^$]*\$([\d,.]+)/i, label: "52周区间" },
+  ];
+
+  for (const { regex, label } of metricPatterns) {
+    if (facts.length >= 4) break;
+    const m = content.match(regex);
+    if (m) {
+      const value = label === "52周区间" ? `$${m[1]}-$${m[2]}` : m[1].includes("%") ? m[1] : `${m[1]}`;
+      facts.push({ label, value });
+    }
   }
+
+  // Fallback: find "XX%" patterns near keywords
+  if (facts.length < 2) {
+    const pctMatches = Array.from(content.matchAll(/(\w[\w\s]{0,20}?)\s+([+-]?\d+(?:\.\d+)?%)/g)).slice(0, 3);
+    for (const m of pctMatches) {
+      if (facts.length >= 4) break;
+      const label = m[1].trim().replace(/\*\*/g, "").slice(-20);
+      if (label.length > 2) {
+        facts.push({ label, value: m[2] });
+      }
+    }
+  }
+
   insights.quickFacts = facts.slice(0, 4);
 
   // ── KEY LEVELS ─────────────────────────────────────────────────────────────
@@ -271,27 +382,85 @@ function buildInsightsViewModel(
     ["止损", "red"], ["stop loss", "red"],
     ["支撑", "neutral"], ["support", "neutral"],
     ["阻力", "neutral"], ["resistance", "neutral"],
+    ["安全边际", "green"], ["参考带", "neutral"],
+    ["介入区间", "green"], ["entry", "green"],
   ];
+  
+  const searchText = levelsSection || content;
   for (const [label, color] of levelPatterns) {
-    const lines = (levelsSection || content).split("\n").filter((l: string) => l.toLowerCase().includes(label));
+    const lines = searchText.split("\n").filter((l: string) => l.toLowerCase().includes(label));
     for (const line of lines.slice(0, 1)) {
-      const price = line.match(/\$[\d,]+(?:\.\d+)?/);
-      if (price) {
-        levels.push({ label, value: price[0], color });
+      // Match $NNN or $NNN-$NNN patterns
+      const priceRange = line.match(/\$([\d,]+(?:\.\d+)?)\s*[-–~]\s*\$([\d,]+(?:\.\d+)?)/);
+      const singlePrice = line.match(/\$([\d,]+(?:\.\d+)?)/);
+      if (priceRange) {
+        levels.push({ label, value: `$${priceRange[1]}-$${priceRange[2]}`, color });
+        break;
+      } else if (singlePrice) {
+        levels.push({ label, value: `$${singlePrice[1]}`, color });
         break;
       }
     }
   }
+  
+  // ENHANCED: Also extract current price as a key level
+  if (entity) {
+    const currentPriceMatch = content.match(new RegExp(`当前价[^$]*\\$(\\d[\\d,.]+)`, "i"));
+    if (currentPriceMatch && !levels.some(l => l.label === "当前价")) {
+      levels.push({ label: "当前价", value: `$${currentPriceMatch[1]}`, color: "neutral" });
+    }
+  }
+  
   insights.keyLevels = levels.slice(0, 5);
 
   // ── NEWS: headlines from content ───────────────────────────────────────────
+  // Priority 1: heading-based extraction
+  // Priority 2: ENHANCED — extract news references from full text
   const newsSection = Array.from(sections.entries()).find(([k]) =>
     k.includes("新闻") || k.includes("news") || k.includes("近期") || k.includes("recent")
   )?.[1] ?? "";
 
-  insights.news = extractBullets(newsSection).slice(0, 3).map(headline => ({
-    headline: headline.slice(0, 80),
-  }));
+  if (newsSection) {
+    insights.news = extractBullets(newsSection).slice(0, 3).map(headline => ({
+      headline: headline.slice(0, 80),
+    }));
+  } else {
+    // ENHANCED: Extract news-like sentences from full text
+    // Look for patterns like "来源：XXX" or "据XXX报道" or "NewsAPI" references
+    const newsSentences = extractSentencesWithKeywords(content, [
+      "来源：", "据", "报道", "表示", "宣布", "消息",
+      "NewsAPI", "Marketaux", "Polygon.io", "Motley Fool",
+      "摩根", "高盛", "花旗", "美银", "瑞银",
+    ]);
+    
+    // Deduplicate and clean
+    const seen = new Set<string>();
+    const newsItems: Array<{ headline: string; source?: string; sentiment?: "positive" | "negative" | "neutral" | undefined }> = [];
+    
+    for (const sentence of newsSentences) {
+      if (newsItems.length >= 3) break;
+      const key = sentence.slice(0, 30);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      
+      // Try to extract source
+      const sourceMatch = sentence.match(/来源[：:]\s*([^，,）)]+)/);
+      const source = sourceMatch?.[1]?.trim();
+      
+      // Determine sentiment
+      const hasPositive = /利好|增长|扩张|积极|上涨|突破/.test(sentence);
+      const hasNegative = /风险|下跌|担忧|威胁|回落/.test(sentence);
+      const sentiment = hasPositive ? "positive" as const : hasNegative ? "negative" as const : undefined;
+      
+      newsItems.push({
+        headline: sentence.replace(/\*\*/g, "").replace(/（来源[：:].*?）/g, "").trim().slice(0, 80),
+        source,
+        sentiment,
+      });
+    }
+    
+    insights.news = newsItems;
+  }
 
   return insights;
 }

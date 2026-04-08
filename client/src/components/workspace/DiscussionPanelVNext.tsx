@@ -13,7 +13,8 @@
  * - 宽敞 padding，有呼吸感
  */
 import React, { useRef, useEffect, useState } from "react";
-import { Send, Sparkles, User, ArrowRight, MoreHorizontal, Loader2 } from "lucide-react";
+import { Send, Sparkles, User, ArrowRight, MoreHorizontal } from "lucide-react";
+import { ManusOrb } from "@/components/ManusOrb";
 import { WorkspaceDiscussionRender } from "@/components/WorkspaceDiscussionRender";
 import type { DiscussionViewModel } from "@/lib/WorkspaceOutputModel";
 
@@ -188,14 +189,12 @@ export function DiscussionPanelVNext({
               );
             })}
 
-            {/* Streaming indicator */}
+            {/* Streaming indicator — ManusOrb 悬浮小球 */}
             {isStreaming && (
               <div style={{ padding: "14px 18px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                  <div style={{ width: 20, height: 20, borderRadius: 5, background: "rgba(16,185,129,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Sparkles size={10} color="rgba(16,185,129,0.65)" />
-                  </div>
-                  <Loader2 size={11} color="rgba(255,255,255,0.20)" className="animate-spin" />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <ManusOrb isActive size={32} />
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em" }}>分析中...</span>
                 </div>
               </div>
             )}

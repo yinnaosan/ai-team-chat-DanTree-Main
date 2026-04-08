@@ -430,12 +430,30 @@ export default function ResearchWorkspacePage() {
   // useEffect 中（新 session 已激活）再触发 handleSubmit，确保发到正确的 session。
   const pendingEntityPromptRef = useRef<string | null>(null);
   // 监听 currentSession.id 变化：若有 entity prompt 等待发送，在新 session 激活后触发
+  // BUG-A 修复：新 session 刚建立时 conversationId=null，但 currentSessionRef.current 可能还持旧 session 的 conversationId
+  // 修复方案：强制走“无 conversation”路径（先建立 conversation 再发送），不依赖 currentSessionRef.current.conversationId
   useEffect(() => {
     if (pendingEntityPromptRef.current !== null) {
       const prompt = pendingEntityPromptRef.current;
       pendingEntityPromptRef.current = null;
-      // 延迟两帧，确保 activeConvId 已同步（BUG-004 fix 的 useEffect 先跑）
-      setTimeout(() => handleSubmit(prompt), 100);
+      // 延迟确保 session 切换的 useEffect 已运行（activeConvId 已置 null）
+      setTimeout(() => {
+        // 强制走“创建 conversation”路径：新 session 必然没有 conversation
+        // 不能依赖 currentSessionRef.current.conversationId（可能是旧 session 的已绑定对话）
+        const latestSession = currentSessionRef.current;
+        if (!latestSession) return;
+        // 如果新 session 已经有 conversationId（极少情况），直接发送
+        if (latestSession.conversationId) {
+          discussionSendMessage(prompt);
+          return;
+        }
+        // 常规情况：新 session 无 conversation，先建立再发送
+        pendingSubmitRef.current = prompt;
+        const title = latestSession.focusKey
+          ? `${latestSession.focusKey} 研究`
+          : prompt.slice(0, 40);
+        createConvMutation.mutate({ title });
+      }, 150);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSession?.id]);
@@ -744,7 +762,8 @@ export default function ResearchWorkspacePage() {
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
             // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
-            // 这样当 currentSession?.id 变化的 useEffect 跑时，新 session 已经是当前 session
+            // createSession 内部已调用 setCurrentSession(newSession)，不需要再调用 setSession
+            // 调用 setSession 会再次触发 currentSession?.id 变化 useEffect，导致重复处理
             pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             createSession({
               title: sessionTitle,
@@ -752,9 +771,10 @@ export default function ResearchWorkspacePage() {
               sessionType: 'entity',
             }).then(newSession => {
               if (newSession) {
-                setSession(newSession);
-                // pendingEntityPromptRef 已设好，不再直接调用 handleSubmit
-                // 当 currentSession?.id 变化时，上方 useEffect 会自动触发
+                // 不再调用 setSession：createSession 内部已设好 currentSession
+                // setSession 会触发二次 currentSession?.id 变化，导致 pendingEntityPromptRef 被清空后再次触发（null）
+                // 但为了触发 utils.market.invalidate()，使用 fire-and-forget 方式
+                utils.market.invalidate();
               } else {
                 // 创建失败，清除 pending prompt
                 pendingEntityPromptRef.current = null;
@@ -778,6 +798,7 @@ export default function ResearchWorkspacePage() {
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
             // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
+            // createSession 内部已调用 setCurrentSession(newSession)，不需要再调用 setSession
             pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             const newSession = await createSession({
               title: sessionTitle,
@@ -785,8 +806,9 @@ export default function ResearchWorkspacePage() {
               sessionType: "entity",
             });
             if (newSession) {
-              setSession(newSession);
-              // pendingEntityPromptRef 已设好，不再直接调用 handleSubmit
+              // 不再调用 setSession：createSession 内部已设好 currentSession
+              // 只需触发 market 数据重载
+              utils.market.invalidate();
             } else {
               setManualTicker(ticker);
               pendingEntityPromptRef.current = null; // 创建失败，清除 pending

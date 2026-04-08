@@ -3327,3 +3327,7 @@
 - [ ] FIX 2: AlertBlock mapSeverity 模糊匹配
 - [ ] FIX 3: InsightsRail 可读性（line-clamp + hover + opacity）
 - [ ] FIX 4: Discussion 防堆积（max-height + paragraph spacing）
+
+## 新建 Session 卡死 Bug 修复
+- [x] BUG-A: 新建 entity session 后首次分析发到旧 session 的 conversationId（pendingEntityPromptRef 触发时 latestConvId 非 null 导致走错路径）- [x] BUG-B: pendingEntityPromptRef useEffect 在 currentSession.id 变化时触发，但此时 currentSessionRef.current.conversationId 仍是旧 session 的値值
+- [x] 修复方案：pendingEntityPromptRef 触发时强制走“无 conversation”路径（先创建 conversation 再发送），不依赖 currentSessionRef.current.conversationId

@@ -111,7 +111,7 @@ export function InsightsRailVNext({
 
   return (
     <aside style={{
-      width: 256, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      width: 300, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
       background: "#0b0e13",
       borderLeft: "1px solid rgba(255,255,255,0.05)",
     }}>

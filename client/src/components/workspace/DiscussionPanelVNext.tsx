@@ -82,7 +82,7 @@ export function DiscussionPanelVNext({
 
   return (
     <aside style={{
-      width: 340, flexShrink: 0, height: "100%",
+      flex: 1, minWidth: 280, height: "100%",
       display: "flex", flexDirection: "column",
       background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)",
       borderLeft: "1px solid rgba(255,255,255,0.04)",

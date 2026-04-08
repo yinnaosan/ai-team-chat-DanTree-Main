@@ -351,10 +351,10 @@ export default function ResearchWorkspacePage() {
 
   const createConvMutation = trpc.chat.createConversation.useMutation({
     onSuccess: (conv) => {
+      // [DT-DEBUG][CONV_BIND] onSuccess: conversation created
+      console.log(JSON.stringify({ tag: "[DT-DEBUG][CONV_BIND]", ts: Date.now(), event: "conv_created", convId: conv.id, sessionId: currentSessionRef.current?.id ?? null, sessionFocusKey: currentSessionRef.current?.focusKey ?? null, pendingPrompt: pendingSubmitRef.current?.slice(0, 80) ?? null }));
       setActiveConvId(conv.id);
       refetchConvs();
-      // 使用 currentSessionRef.current 确保获取最新 session（避免 closure 捕获旧值）
-      // 场景：onNewEntity 先 createSession 更新了 currentSession，再触发 createConvMutation
       const latestSession = currentSessionRef.current;
       if (latestSession?.id) {
         linkConvMutation.mutate({ sessionId: latestSession.id, conversationId: conv.id });
@@ -436,18 +436,15 @@ export default function ResearchWorkspacePage() {
     if (pendingEntityPromptRef.current !== null) {
       const prompt = pendingEntityPromptRef.current;
       pendingEntityPromptRef.current = null;
-      // 延迟确保 session 切换的 useEffect 已运行（activeConvId 已置 null）
       setTimeout(() => {
-        // 强制走“创建 conversation”路径：新 session 必然没有 conversation
-        // 不能依赖 currentSessionRef.current.conversationId（可能是旧 session 的已绑定对话）
         const latestSession = currentSessionRef.current;
+        // [DT-DEBUG][AUTO_TRIGGER]
+        console.log(JSON.stringify({ tag: "[DT-DEBUG][AUTO_TRIGGER]", ts: Date.now(), prompt, sessionId: latestSession?.id ?? null, sessionFocusKey: latestSession?.focusKey ?? null, sessionConvId: latestSession?.conversationId ?? null, activeConvId, path: latestSession?.conversationId ? "existing_conv" : "create_conv" }));
         if (!latestSession) return;
-        // 如果新 session 已经有 conversationId（极少情况），直接发送
         if (latestSession.conversationId) {
           discussionSendMessage(prompt);
           return;
         }
-        // 常规情况：新 session 无 conversation，先建立再发送
         pendingSubmitRef.current = prompt;
         const title = latestSession.focusKey
           ? `${latestSession.focusKey} 研究`
@@ -461,20 +458,12 @@ export default function ResearchWorkspacePage() {
   const handleSubmit = useCallback((text?: string) => {
     const raw = (text ?? input).trim();
     if (!raw) return;
-
-    // 使用 currentSessionRef.current 而非 activeConvId 状态判断：
-    // 原因：onNewEntity 中 createSession 完成后同步调用 handleSubmit，
-    // 此时 React 状态批处理可能尚未将 activeConvId 更新为 null，
-    // 导致错误地走入旧 session 的 conversation 发送路径。
-    // 正确做法：直接查询最新 session 的 conversationId，不依赖异步状态。
     const latestConvId = currentSessionRef.current?.conversationId ?? activeConvId;
-
+    // [DT-DEBUG][CONV_BIND]
+    console.log(JSON.stringify({ tag: "[DT-DEBUG][CONV_BIND]", ts: Date.now(), raw: raw.slice(0, 80), sessionId: currentSessionRef.current?.id ?? null, sessionConvId: currentSessionRef.current?.conversationId ?? null, activeConvId, latestConvId, path: latestConvId ? "send_direct" : "create_conv" }));
     if (latestConvId) {
-      // 已有 conversation，直接发送
       discussionSendMessage(text);
     } else {
-      // 无 conversation：先创建，成功后通过 pendingSubmitRef 触发发送
-      // createConvMutation.onSuccess 会 setActiveConvId，上方 useEffect 监听后发送
       pendingSubmitRef.current = raw;
       const latestSession = currentSessionRef.current;
       const title = latestSession?.focusKey
@@ -500,6 +489,53 @@ export default function ResearchWorkspacePage() {
 
   // stance: 优先用 vm 真实数据，fallback 到 answerObject 推导
   const stance = (hvm.stance as "bullish" | "bearish" | "neutral" | "unavailable" | null) ?? stanceFrom(answerObject?.verdict);
+
+  // [DT-DEBUG][UI_SOURCE] 暴露前端消费层数据来源
+  // 使用 useEffect 避免在 render 中重复打印（只在数据变化时输出）
+  const _dtDebugAO = answerObject;
+  const _dtDebugTvmAvail = tvm.available;
+  const _dtDebugAvmAvail = avm.available;
+  const _dtDebugTivmAvail = tivm.available;
+  const _dtDebugWoBlocks = workspaceOutput.discussion.blocks.length;
+  useEffect(() => {
+    console.log(JSON.stringify({
+      tag: "[DT-DEBUG][UI_SOURCE]",
+      ts: Date.now(),
+      ticker: currentTicker,
+      sessionId: currentSession?.id ?? null,
+      convId: activeConvId,
+      // Layer 5a: answerObject
+      answerObject_exists: !!_dtDebugAO,
+      answerObject_verdict: (_dtDebugAO as any)?.verdict ?? null,
+      answerObject_confidence: (_dtDebugAO as any)?.confidence ?? null,
+      answerObject_degraded: (_dtDebugAO as any)?.degraded ?? null,
+      answerObject_bull_case_0: (_dtDebugAO as any)?.bull_case?.[0]?.slice(0, 60) ?? null,
+      answerObject_risks_count: (_dtDebugAO as any)?.risks?.length ?? 0,
+      // Layer 5b: TVM (useWorkspaceViewModel)
+      tvm_available: _dtDebugTvmAvail,
+      tvm_stateSummary: (tvm as any).stateSummaryText?.slice(0, 80) ?? null,
+      tvm_evidenceState: (tvm as any).evidenceState ?? null,
+      tvm_gateState: (tvm as any).gateState ?? null,
+      // Layer 5c: AVM
+      avm_available: _dtDebugAvmAvail,
+      avm_alertCount: (avm as any).alertCount ?? 0,
+      avm_highestSeverity: (avm as any).highestSeverity ?? null,
+      // Layer 5d: TIVM
+      tivm_available: _dtDebugTivmAvail,
+      tivm_actionBias: (tivm as any).actionBias ?? null,
+      tivm_readinessState: (tivm as any).readinessState ?? null,
+      // Layer 5e: WorkspaceOutput (Discussion + InsightsRail)
+      workspaceOutput_blocks_count: _dtDebugWoBlocks,
+      workspaceOutput_source: _dtDebugAO ? "answerObject" : (lastAssistant?.content ? "assistant_content" : "empty"),
+      // DecisionSpine source map
+      decisionSpine_thesis_source: _dtDebugAO && !(_dtDebugAO as any)?.degraded ? "answerObject.verdict" : (_dtDebugTvmAvail ? "tvm.stateSummaryText" : "none"),
+      decisionSpine_alerts_source: _dtDebugAvmAvail ? "avm.keyAlerts" : (_dtDebugAO ? "answerObject.risks" : "none"),
+      decisionSpine_timing_source: _dtDebugTivmAvail ? "tivm" : (_dtDebugAO ? "answerObject.verdict_fallback" : "none"),
+      discussion_source: "workspaceOutput.discussion (adaptToWorkspaceOutput)",
+      insightsRail_source: "workspaceOutput.insights (adaptToWorkspaceOutput)",
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_dtDebugAO, _dtDebugTvmAvail, _dtDebugAvmAvail, _dtDebugTivmAvail, _dtDebugWoBlocks, currentTicker, currentSession?.id, activeConvId]);
 
   // ── Session items: 优先用 WorkspaceContext sessionList，fallback 到 allConversations ──
   // ── 统一 title 解析："公司名 · 代码 · 市场" → { displayTitle, entity, market } ──
@@ -761,9 +797,9 @@ export default function ResearchWorkspacePage() {
             const sessionTitle = displayName !== ticker
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
+            // [DT-DEBUG][ENTITY_SELECT]
+            console.log(JSON.stringify({ tag: "[DT-DEBUG][ENTITY_SELECT]", ts: Date.now(), ticker, displayName, sessionTitle, market: candidate.market ?? null, currentSessionId: currentSession?.id ?? null, currentConvId: currentSession?.conversationId ?? null }));
             // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
-            // createSession 内部已调用 setCurrentSession(newSession)，不需要再调用 setSession
-            // 调用 setSession 会再次触发 currentSession?.id 变化 useEffect，导致重复处理
             pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             createSession({
               title: sessionTitle,
@@ -771,12 +807,11 @@ export default function ResearchWorkspacePage() {
               sessionType: 'entity',
             }).then(newSession => {
               if (newSession) {
-                // 不再调用 setSession：createSession 内部已设好 currentSession
-                // setSession 会触发二次 currentSession?.id 变化，导致 pendingEntityPromptRef 被清空后再次触发（null）
-                // 但为了触发 utils.market.invalidate()，使用 fire-and-forget 方式
+                // [DT-DEBUG][SESSION_CREATED]
+                console.log(JSON.stringify({ tag: "[DT-DEBUG][SESSION_CREATED]", ts: Date.now(), ticker, newSessionId: newSession.id, newSessionFocusKey: newSession.focusKey, newSessionConvId: newSession.conversationId ?? null, sessionType: newSession.sessionType }));
                 utils.market.invalidate();
               } else {
-                // 创建失败，清除 pending prompt
+                console.warn("[DT-DEBUG][SESSION_CREATED] FAILED for ticker:", ticker);
                 pendingEntityPromptRef.current = null;
               }
             });
@@ -790,15 +825,14 @@ export default function ResearchWorkspacePage() {
               setSession(existingForNew);
               return;
             }
-            // 新标的：构建标题（从 sessionList 反查同一 focusKey 的历史信息）
-            // onNewEntity 没有 cnName/market 信息，直接用 ticker 作标题
+            // 新标的：构建标题
             const displayName = ticker;
             const marketSuffix = "";
             const sessionTitle = displayName !== ticker
               ? `${displayName} · ${ticker}${marketSuffix}`
               : `${ticker}${marketSuffix}`;
-            // 修复竞争条件：先存入 pendingEntityPromptRef，再创建 session
-            // createSession 内部已调用 setCurrentSession(newSession)，不需要再调用 setSession
+            // [DT-DEBUG][ENTITY_SELECT] onNewEntity path
+            console.log(JSON.stringify({ tag: "[DT-DEBUG][ENTITY_SELECT]", ts: Date.now(), path: "onNewEntity", ticker, sessionTitle, currentSessionId: currentSession?.id ?? null, currentConvId: currentSession?.conversationId ?? null }));
             pendingEntityPromptRef.current = `深度分析 ${ticker}`;
             const newSession = await createSession({
               title: sessionTitle,
@@ -806,12 +840,13 @@ export default function ResearchWorkspacePage() {
               sessionType: "entity",
             });
             if (newSession) {
-              // 不再调用 setSession：createSession 内部已设好 currentSession
-              // 只需触发 market 数据重载
+              // [DT-DEBUG][SESSION_CREATED] onNewEntity path
+              console.log(JSON.stringify({ tag: "[DT-DEBUG][SESSION_CREATED]", ts: Date.now(), path: "onNewEntity", ticker, newSessionId: newSession.id, newSessionFocusKey: newSession.focusKey, newSessionConvId: newSession.conversationId ?? null }));
               utils.market.invalidate();
             } else {
+              console.warn("[DT-DEBUG][SESSION_CREATED] FAILED onNewEntity for ticker:", ticker);
               setManualTicker(ticker);
-              pendingEntityPromptRef.current = null; // 创建失败，清除 pending
+              pendingEntityPromptRef.current = null;
             }
           }}
         />

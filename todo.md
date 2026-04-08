@@ -3331,3 +3331,31 @@
 ## 新建 Session 卡死 Bug 修复
 - [x] BUG-A: 新建 entity session 后首次分析发到旧 session 的 conversationId（pendingEntityPromptRef 触发时 latestConvId 非 null 导致走错路径）- [x] BUG-B: pendingEntityPromptRef useEffect 在 currentSession.id 变化时触发，但此时 currentSessionRef.current.conversationId 仍是旧 session 的値值
 - [x] 修复方案：pendingEntityPromptRef 触发时强制走“无 conversation”路径（先创建 conversation 再发送），不依赖 currentSessionRef.current.conversationId
+
+## DanTree Full Debug Exposure Pack v1
+- [ ] Layer 1: 前端 onSelectEntity/onNewEntity 注入 [DT-DEBUG][ENTITY_SELECT] + [SESSION_CREATED] + [AUTO_TRIGGER]
+- [ ] Layer 2: 前端 handleSubmit / createConvMutation.onSuccess 注入 [DT-DEBUG][CONV_BIND]
+- [ ] Layer 3: 后端 routers.ts submitTask 注入 [DT-DEBUG][MODEL_PATH]
+- [ ] Layer 4: 后端 finalReply / deliverable 注入 [DT-DEBUG][FINAL_REPLY] + [DELIVERABLE_PARSE] + [ANSWER_OBJECT]
+- [ ] Layer 5: 前端 ResearchWorkspaceVNext 注入 [DT-DEBUG][UI_SOURCE]
+- [ ] 触发完整 TSLA 分析并收集所有日志
+- [ ] 整理 finalReply 原文 + answerObject JSON + UI source map + 截图
+
+## Task 1: Data API Failure Root-Cause Pack
+- [x] 检查 devserver.log 是否有足够的 Tavily/Finnhub/Yahoo 请求日志
+- [x] 在数据层注入最小必要 API 调用日志（provider/endpoint/ticker/params/status/error）
+- [x] 重新触发 AAPL 或 TSLA 分析（TSLA 有完整真实数据，evidenceScore=0 是 citationSummary 命中检测逻辑问题）
+- [x] 收集完整数据层日志，定位 evidenceScore=0 根因
+
+## Task 2: TVM Writeback Fix
+- [x] 查 entity_thesis_state.stance 在 schema 里的类型（varchar 30，nullable）
+- [x] 全局搜索 entity_thesis_state / stateSummaryText / stance 写入位置（entity_snapshots 表）
+- [x] 确认是否有现有 stance 映射逻辑（无可靠映射，thesisStance 保持 null）
+- [x] 实施写回：写回 stateSummaryText（含 verdict/confidence/horizon/source=answerObject）
+- [ ] 数据库验证写回结果（需下次分析触发后验证）
+
+## Task 3: Discussion Contract Fix
+- [x] 全局搜索 %%DELIVERABLE%% / finalReply / buildSafeFallbackOutput / has_DISCUSSION
+- [x] 定位当前真正生效的 synthesis prompt 组装点（JSON-only 路径 L2631-2649，非 gptUserMessage）
+- [x] 在 JSON-only 路径注入 %%DISCUSSION%% block（从 level1a3Output.discussion 序列化）
+- [ ] 重新触发分析，验证 has_DISCUSSION=true

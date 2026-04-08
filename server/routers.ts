@@ -917,6 +917,14 @@ ${"```"}`;
 
     await updateTaskStatus(taskId, "manus_working");
 
+    // [DT-DATA][YAHOO_FINANCE] Log Yahoo Finance fetch result
+    {
+      const yStatus = stockDataResult.status;
+      const yLen = yStatus === "fulfilled" ? (stockDataResult.value?.length ?? 0) : 0;
+      const yErr = yStatus === "rejected" ? String((stockDataResult as PromiseRejectedResult).reason) : "";
+      console.log(`[DT-DATA][YAHOO_FINANCE] ticker=${primaryTicker ?? "none"} period=${yahooPeriod} status=${yStatus} len=${yLen} empty=${yLen===0} err=${yErr.slice(0,120)}`);
+    }
+
     // ── 解析 Step1 资源规划 JSON ─────────────────────────────────────────────
     interface ResourcePlan {
       dataSources: {
@@ -1208,6 +1216,15 @@ ${"```"}`;
         : Promise.resolve(""),
     ];
     const [fmpResult, secResult, polygonResult] = await runBatch(coreTasks, 3);
+    // [DT-DATA][CORE_APIS] Log FMP/SEC/Polygon fetch results
+    {
+      const fmpLen = fmpResult.status === "fulfilled" ? (fmpResult.value?.length ?? 0) : 0;
+      const secLen = secResult.status === "fulfilled" ? (secResult.value?.length ?? 0) : 0;
+      const polyLen = polygonResult.status === "fulfilled" ? (polygonResult.value?.length ?? 0) : 0;
+      const fmpErr = fmpResult.status === "rejected" ? String((fmpResult as PromiseRejectedResult).reason).slice(0,80) : "";
+      const polyErr = polygonResult.status === "rejected" ? String((polygonResult as PromiseRejectedResult).reason).slice(0,80) : "";
+      console.log(`[DT-DATA][CORE_APIS] ticker=${primaryTicker ?? "none"} fmp_len=${fmpLen} fmp_err=${fmpErr} sec_len=${secLen} polygon_len=${polyLen} polygon_err=${polyErr}`);
+    }
     // 中间状态更新：核心数据收集完成
     await updateTaskStatus(taskId, "manus_working");
 
@@ -1318,6 +1335,14 @@ ${"```"}`;
       hkexResult, boeResult, hkmaResult, _courtListenerResult,
       congressResult, _eurLexResult, gleifResult,
     ] = await runBatch(conditionalTasks, 3);
+    // [DT-DATA][CONDITIONAL_APIS] Log Finnhub/NewsAPI/Marketaux fetch results
+    {
+      const finnLen = finnhubResult.status === "fulfilled" ? (finnhubResult.value?.length ?? 0) : 0;
+      const finnErr = finnhubResult.status === "rejected" ? String((finnhubResult as PromiseRejectedResult).reason).slice(0,80) : "";
+      const newsLen = newsApiResult.status === "fulfilled" ? (newsApiResult.value?.length ?? 0) : 0;
+      const mktLen = marketauxResult.status === "fulfilled" ? (marketauxResult.value?.length ?? 0) : 0;
+      console.log(`[DT-DATA][CONDITIONAL_APIS] ticker=${primaryTicker ?? "none"} finnhub_len=${finnLen} finnhub_err=${finnErr} newsapi_len=${newsLen} marketaux_len=${mktLen}`);
+    }
     // 中间状态更新：条件性数据收集完成，进入深度分析阶段
     emitTaskStatus(taskId, "data_fetching"); // SSE: 数据获取中
     await updateTaskStatus(taskId, "manus_analyzing");
@@ -1884,6 +1909,8 @@ ${"```"}`;
       ? "stock_analysis"
       : rawResolvedTaskType;
     console.log(`[V2.1-DEBUG] resolvedTaskType=${resolvedTaskType} (raw=${rawResolvedTaskType}) primaryTicker=${primaryTicker}`);
+    // [DT-DEBUG][MODEL_PATH]
+    console.log(JSON.stringify({ tag: "[DT-DEBUG][MODEL_PATH]", ts: Date.now(), taskId, conversationId, primaryTicker, resolvedTaskType, rawResolvedTaskType, analysisMode, isProduction: ENV.isProduction, hasOpenAIKey: !!(userConfig?.openaiApiKey), useJsonOnlyMode_pending: true /* computed below */ }));
     const actionCandidatesFromStep1: string[] = (resourcePlan.taskSpec as any)?.action_candidates ?? [];
     const autoActions: string[] = [...actionCandidatesFromStep1];
     // 按 task_type 自动补充 action
@@ -2305,6 +2332,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       resolvedTaskType !== "general" &&
       resolvedTaskType !== "event_driven";
     console.log(`[V2.1-DEBUG] useJsonOnlyMode=${useJsonOnlyMode} analysisMode=${analysisMode} resolvedTaskType=${resolvedTaskType}`);
+    // [DT-DEBUG][MODEL_PATH] final
+    console.log(JSON.stringify({ tag: "[DT-DEBUG][MODEL_PATH]", ts: Date.now(), event: "model_path_final", taskId, conversationId, primaryTicker, resolvedTaskType, useJsonOnlyMode, analysisMode, isProduction: ENV.isProduction, hasOpenAIKey: !!(userConfig?.openaiApiKey), modelPath: !ENV.isProduction ? "DEV_always_claude" : (userConfig?.openaiApiKey ? "PROD_openai_with_claude_fallback" : "PROD_claude_only") }));
     const normalizedTaxonomyBlock = useJsonOnlyMode
       ? formatNormalizedTaxonomyForPrompt(normalizedTaxonomy)
       : "";
@@ -2615,6 +2644,20 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         };
         finalReply += `\n\n%%DELIVERABLE%%\n${JSON.stringify(deliverablePayload, null, 2)}\n%%END_DELIVERABLE%%`;
         console.log("[V2.1] deliverable_injected: level1a3Output serialized into finalReply");
+        // ── Task 3: Inject %%DISCUSSION%% block from level1a3Output.discussion ──
+        // JSON-only path has full discussion object in FinalOutputSchema; serialize it here
+        // so downstream DISCUSSION_RE parser can find it (same pattern as DELIVERABLE injection)
+        if (level1a3Output.discussion) {
+          const discussionPayload = {
+            key_uncertainty: level1a3Output.discussion.key_uncertainty ?? "",
+            weakest_point: level1a3Output.discussion.weakest_point ?? "",
+            alternative_view: level1a3Output.discussion.alternative_view ?? "",
+            follow_up_questions: level1a3Output.discussion.follow_up_questions ?? [],
+            exploration_paths: level1a3Output.discussion.exploration_paths ?? [],
+          };
+          finalReply += `\n\n%%DISCUSSION%%\n${JSON.stringify(discussionPayload, null, 2)}\n%%END_DISCUSSION%%`;
+          console.log("[V2.1] discussion_injected: level1a3Output.discussion serialized into finalReply");
+        }
       } catch (injectErr) {
         console.warn("[V2.1] deliverable_inject_failed:", injectErr);
       }
@@ -2701,7 +2744,9 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         isWhitelisted: c.isWhitelisted,
       }));
     }
-    // ── V2.1 OPTION_B: 解析 DELIVERABLE + DISCUSSION 结构化标记块 ──────────────
+    // [DT-DEBUG][FINAL_REPLY]
+    console.log(JSON.stringify({ tag: "[DT-DEBUG][FINAL_REPLY]", ts: Date.now(), taskId, conversationId, primaryTicker, finalReply_length: finalReply.length, has_DELIVERABLE: finalReply.includes("%%DELIVERABLE%%"), has_END_DELIVERABLE: finalReply.includes("%%END_DELIVERABLE%%"), has_DISCUSSION: finalReply.includes("%%DISCUSSION%%"), finalReply_first_200: finalReply.slice(0, 200), finalReply_last_200: finalReply.slice(-200) }));
+    // ── V2.1 OPTION_B: 解析 DELIVERABLE + DISCUSSION 结构化标记块 ──────────────────────
     // 在 finalReply 中提取 %%DELIVERABLE%% 和 %%DISCUSSION%% 块，写入 metadata
     // 严格 graceful degradation：parse 失败不 abort 任务
     const DELIVERABLE_RE = /%%DELIVERABLE%%([\s\S]*?)%%END_DELIVERABLE%%/;
@@ -2712,24 +2757,68 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
 
     // 解析 DELIVERABLE
     if (deliverableMatch) {
+      // [DT-DEBUG][DELIVERABLE_PARSE]
+      console.log(JSON.stringify({ tag: "[DT-DEBUG][DELIVERABLE_PARSE]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "deliverable_found", raw_length: deliverableMatch[1].trim().length, raw_preview: deliverableMatch[1].trim().slice(0, 300) }));
       try {
         const parsed = JSON.parse(deliverableMatch[1].trim());
-        // 验证 required keys
         const requiredKeys = ["verdict", "confidence", "bull_case", "reasoning", "bear_case", "risks", "next_steps"];
         const hasAllKeys = requiredKeys.every(k => k in parsed);
         if (hasAllKeys) {
           metadataToSave.answerObject = parsed;
+          // [DT-DEBUG][ANSWER_OBJECT]
+          console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "parse_success", verdict: parsed.verdict, confidence: parsed.confidence, degraded: parsed.degraded ?? false, bull_case_0: Array.isArray(parsed.bull_case) ? String(parsed.bull_case[0]).slice(0, 80) : String(parsed.bull_case ?? "").slice(0, 80), risks_count: Array.isArray(parsed.risks) ? parsed.risks.length : 0 }));
           console.log("[V2.1] structured_parse_success: DELIVERABLE");
+          // ── Task 2: TVM Writeback — persist answerObject verdict to entity_snapshots ──
+          // Condition: answerObject parsed OK, not degraded, has verdict, has ticker
+          if (primaryTicker && !parsed.degraded && parsed.verdict && typeof parsed.verdict === "string" && parsed.verdict.trim().length > 0) {
+            try {
+              const { insertEntitySnapshot } = await import("./db");
+              const { randomUUID } = await import("crypto");
+              const confidenceLabel = typeof parsed.confidence === "string" ? parsed.confidence : (parsed.confidence >= 70 ? "high" : parsed.confidence >= 40 ? "medium" : "low");
+              const horizonLabel = parsed.horizon ?? "mid-term";
+              const tvmStateSummaryText = [
+                `[${primaryTicker}] verdict=${parsed.verdict.slice(0, 120)}`,
+                `confidence=${confidenceLabel}`,
+                `horizon=${horizonLabel}`,
+                `source=answerObject`,
+              ].join(" | ");
+              await insertEntitySnapshot({
+                snapshotId: randomUUID(),
+                entityKey: primaryTicker,
+                snapshotTime: Date.now(),
+                thesisStance: null,          // no reliable mapping from verdict→stance, per Task 2 spec
+                thesisChangeMarker: "ao_writeback",
+                alertSeverity: null,
+                timingBias: null,
+                sourceHealth: "available",
+                changeMarker: "ao_writeback",
+                stateSummaryText: tvmStateSummaryText,
+                advisoryOnly: true,
+                createdAt: Date.now(),
+              });
+              console.log(`[TVM-WRITEBACK] success: entityKey=${primaryTicker} stateSummaryText=${tvmStateSummaryText.slice(0, 80)}`);
+            } catch (tvmErr) {
+              console.warn("[TVM-WRITEBACK] failed (non-fatal):", tvmErr instanceof Error ? tvmErr.message : String(tvmErr));
+            }
+          }
         } else {
           const missing = requiredKeys.filter(k => !(k in parsed));
+          // [DT-DEBUG][ANSWER_OBJECT]
+          console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "parse_missing_keys", missing_keys: missing }));
           console.warn("[V2.1] structured_parse_failure: DELIVERABLE missing keys:", missing);
           metadataToSave.answerObject = null;
         }
       } catch (e) {
+        // [DT-DEBUG][ANSWER_OBJECT]
+        console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "parse_json_error", error: e instanceof Error ? e.message : String(e) }));
         console.warn("[V2.1] malformed_json_detected: DELIVERABLE", e instanceof Error ? e.message : e);
         metadataToSave.answerObject = null;
       }
     } else {
+      // [DT-DEBUG][DELIVERABLE_PARSE]
+      console.log(JSON.stringify({ tag: "[DT-DEBUG][DELIVERABLE_PARSE]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "deliverable_missing", finalReply_length: finalReply.length }));
+      // [DT-DEBUG][ANSWER_OBJECT]
+      console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "null_no_deliverable", resolvedTaskType, useJsonOnlyMode }));
       console.warn("[V2.1] deliverable_missing: no %%DELIVERABLE%% block found");
       // ── REPAIR PASS: ask LLM to generate the missing DELIVERABLE block ──────
       if (primaryTicker && resolvedTaskType === "stock_analysis") {

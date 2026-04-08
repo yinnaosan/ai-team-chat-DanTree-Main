@@ -110,6 +110,8 @@ export interface EntityThesisStateInput {
   gate_result?: GateResultInput | null;
   source_result?: SourceSelectionResult | null;
   alert_summary?: AlertSummary | null;
+  /** Snapshot-derived stance from entity_snapshots.thesis_stance (TVM Writeback) */
+  snapshot_stance?: ThesisStance | null;
 }
 
 /**
@@ -330,8 +332,14 @@ export function buildEntityThesisState(
 ): EntityThesisState {
   const { entity, semantic_stats, gate_result, source_result, alert_summary } = input;
 
-  // Stance
-  const currentStance = deriveStance(semantic_stats);
+  // Stance: prefer semantic_stats, fall back to snapshot_stance from TVM Writeback
+  const rawStance = deriveStance(semantic_stats);
+  const currentStance: ThesisStance =
+    rawStance !== "unavailable"
+      ? rawStance
+      : (input.snapshot_stance && input.snapshot_stance !== "unavailable"
+          ? input.snapshot_stance
+          : "unavailable");
   const stanceConfidence = semantic_stats?.confidence_score ?? null;
 
   // Evidence

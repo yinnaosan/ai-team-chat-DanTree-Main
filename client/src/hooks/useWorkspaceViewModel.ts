@@ -214,6 +214,8 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   );
 
   // ── Layer 3: Thesis (depends on semantic + gate + alerts) ─────────────────
+  // snapshot_stance: from TVM Writeback (entity_snapshots.thesis_stance) as fallback
+  const snapshotStance = (entitySnapshots as any)?.[0]?.thesisStance ?? null;
   const { data: thesisData } = trpc.market.getEntityThesisState.useQuery(
     {
       input: {
@@ -222,6 +224,7 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
         gate_result: alertGateInput,
         source_result: null,
         alert_summary: entityAlerts ?? null,
+        snapshot_stance: snapshotStance,
       }
     },
     { staleTime: 60_000, enabled: !!entity }

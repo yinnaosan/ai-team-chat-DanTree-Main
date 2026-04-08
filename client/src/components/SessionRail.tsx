@@ -5,6 +5,7 @@
  * v5: 多选模式 + 批量操作（删除/收藏/置顶）+ 应用内确认弹窗
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star,
   Trash2, Pencil, MoreHorizontal, PinOff, StarOff, GripVertical,
@@ -87,9 +88,9 @@ function ConfirmDialog({
   onCancel: () => void;
 }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
+      position: "fixed", inset: 0, zIndex: 99999,
       display: "flex", alignItems: "center", justifyContent: "center",
       background: "rgba(0,0,0,0.60)", backdropFilter: "blur(4px)",
     }} onClick={onCancel}>
@@ -130,7 +131,8 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

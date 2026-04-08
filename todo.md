@@ -3275,3 +3275,6 @@
 - [x] 添加橙色微光光晕（CSS box-shadow + keyframe glow 动画）
 - [x] 支持叉号关闭按鈕（closeButton=true）
 - [x] 自动停留后消失（duration 保持，无需手动关闭）
+
+## 删除确认弹窗居中 (2026-04-08)
+- [x] 将删除会话确认 Dialog 移至屏幕正中央（修复偏左问题）

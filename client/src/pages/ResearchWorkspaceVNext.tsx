@@ -1026,6 +1026,16 @@ export default function ResearchWorkspacePage() {
     return "US"; // 默认美股
   };
   const currentTicker = wsEntity || manualTicker;
+  // ── 顶部胶囊公司名：从当前 session title 解析，与 Session 卡片保持一致 ──
+  const currentCnName = useMemo(() => {
+    if (!currentSession?.title) return undefined;
+    const KNOWN_MARKETS = new Set(["US", "HK", "SH", "SZ", "CN", "JP", "UK", "EU", "SG", "KR", "AU", "TW"]);
+    const parts = currentSession.title.split(" · ");
+    if (parts.length >= 3 && KNOWN_MARKETS.has(parts[parts.length - 1].trim())) {
+      return parts.slice(0, parts.length - 2).join(" · ").trim() || undefined;
+    }
+    return undefined;
+  }, [currentSession?.title]);
 
   const prevConvIdRef = useRef<number | null>(null);
   const prevTickerRef = useRef("");
@@ -1492,6 +1502,7 @@ export default function ResearchWorkspacePage() {
         {/* ── Global Top Bar / Decision Control Strip ── */}
         <DecisionHeader
           entity={currentTicker || undefined}
+          cnName={currentCnName}
           stance={stance}
           confidence={
             // 优先用 hvm.confidenceAvg（真实语义置信度），fallback 到 answerObject 推导

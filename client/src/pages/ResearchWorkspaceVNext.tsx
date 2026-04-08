@@ -246,6 +246,12 @@ export default function ResearchWorkspacePage() {
   const renameMutation = trpc.workspace.updateTitle.useMutation({
     onSuccess: () => utils.workspace.listSessions.invalidate(),
   });
+  const legacyDeleteMutation = trpc.conversation.delete.useMutation({
+    onSuccess: () => {
+      utils.chat.listConversations.invalidate();
+      utils.workspace.listSessions.invalidate();
+    },
+  });
   const deleteMutation = trpc.workspace.deleteSession.useMutation({
     onSuccess: (_, variables) => {
       utils.workspace.listSessions.invalidate();
@@ -290,7 +296,15 @@ export default function ResearchWorkspacePage() {
     onPin: (id: string, pinned: boolean) => { if (isWorkspaceSessionId(id)) pinMutation.mutate({ sessionId: id, pinned }); },
     onFavorite: (id: string, favorite: boolean) => { if (isWorkspaceSessionId(id)) favoriteMutation.mutate({ sessionId: id, favorite }); },
     onRename: (id: string, newTitle: string) => { if (isWorkspaceSessionId(id)) renameMutation.mutate({ sessionId: id, title: newTitle }); },
-    onDelete: (id: string) => { if (isWorkspaceSessionId(id)) deleteMutation.mutate({ sessionId: id }); },
+    onDelete: (id: string) => {
+      if (isWorkspaceSessionId(id)) {
+        deleteMutation.mutate({ sessionId: id });
+      } else {
+        // 旧格式 session（数字 id）走 conversation.delete 路径
+        const numId = Number(id);
+        if (!isNaN(numId) && numId > 0) legacyDeleteMutation.mutate({ conversationId: numId });
+      }
+    },
   };
 
   const batchActions = {

@@ -3313,3 +3313,6 @@
 
 ## Bug Fix: sessionId Invalid UUID
 - [x] 修复 mutation 传入非 UUID 格式 sessionId 导致的 "Invalid UUID" 验证错误
+
+## Bug Fix: 旧格式 session 删不掉
+- [x] 修复旧格式（非 UUID id）session 无法删除的问题：onDelete 对旧格式 session 走 conversation.delete 路径

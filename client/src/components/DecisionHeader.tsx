@@ -85,17 +85,42 @@ const MARKER_LABEL: Record<string, { label: string; color: string }> = {
   unknown:       { label: "—",        color: "#374151" },
 };
 
+// ─── 市场徽章常量（提升到模块级别，避免重复定义）────────────────────────────────
+const MARKET_COLORS: Record<string, { bg: string; color: string }> = {
+  US:     { bg: "rgba(59,130,246,0.18)",  color: "#60a5fa" },
+  HK:     { bg: "rgba(251,146,60,0.18)",  color: "#fb923c" },
+  CN:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+  SH:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+  SZ:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
+  JP:     { bg: "rgba(168,85,247,0.18)",  color: "#c084fc" },
+  KR:     { bg: "rgba(20,184,166,0.18)",  color: "#2dd4bf" },
+  CRYPTO: { bg: "rgba(234,179,8,0.18)",   color: "#facc15" },
+  ETF:    { bg: "rgba(52,211,153,0.18)",  color: "#34d399" },
+};
+
+function getMarketLabel(c: { ticker: string; market?: string }): string {
+  if (c.market) return c.market;
+  if (c.ticker.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(c.ticker)) return "HK";
+  if (c.ticker.endsWith(".SS")) return "SH";
+  if (c.ticker.endsWith(".SZ")) return "SZ";
+  if (c.ticker.endsWith(".T")) return "JP";
+  if (c.ticker.endsWith(".KS")) return "KR";
+  if (/^[A-Z]{1,5}$/.test(c.ticker)) return "US";
+  return "";
+}
+
 // ─── EntityCombobox: 内联搜索下拉框 ──────────────────────────────────────────
 
 interface EntityComboboxProps {
   entity?: string;
   cnName?: string;
+  market?: string;  // 当前选中标的的市场标签
   candidates: EntityCandidate[];
   onSelect: (candidate: EntityCandidate) => void;
   onNew: (ticker: string) => void;
 }
 
-function EntityCombobox({ entity, cnName, candidates, onSelect, onNew }: EntityComboboxProps) {
+function EntityCombobox({ entity, cnName, market, candidates, onSelect, onNew }: EntityComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -190,16 +215,28 @@ function EntityCombobox({ entity, cnName, candidates, onSelect, onNew }: EntityC
         >
           {entity ? (
             <>
-              <div style={{
-                width: 26, height: 26, borderRadius: 5,
-                background: "rgba(52,211,153,0.16)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
-              }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#34d399" }}>
-                  {entity[0]}
-                </span>
-              </div>
+              {/* 市场徽章：替换原绿色首字母方块 */}
+              {(() => {
+                const ml = market || getMarketLabel({ ticker: entity });
+                const mc = MARKET_COLORS[ml] ?? { bg: "rgba(52,211,153,0.16)", color: "#34d399" };
+                return (
+                  <div style={{
+                    minWidth: ml ? 30 : 26, height: 26, borderRadius: 5,
+                    background: mc.bg,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                    padding: ml ? "0 6px" : "0",
+                  }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, color: mc.color,
+                      letterSpacing: "0.04em",
+                      fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                    }}>
+                      {ml || entity[0]}
+                    </span>
+                  </div>
+                );
+              })()}
               {/* 公司名 + 代码双行显示 */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, minWidth: 0 }}>
                 {cnName && (
@@ -282,29 +319,7 @@ function EntityCombobox({ entity, cnName, candidates, onSelect, onNew }: EntityC
             {filtered.length > 0 && (
               <CommandGroup>
                 {filtered.map(c => {
-                  // 市场标签颜色映射
-                  const MARKET_COLORS: Record<string, { bg: string; color: string }> = {
-                    US:     { bg: "rgba(59,130,246,0.18)",  color: "#60a5fa" },
-                    HK:     { bg: "rgba(251,146,60,0.18)",  color: "#fb923c" },
-                    CN:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
-                    SH:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
-                    SZ:     { bg: "rgba(239,68,68,0.18)",   color: "#f87171" },
-                    JP:     { bg: "rgba(168,85,247,0.18)",  color: "#c084fc" },
-                    KR:     { bg: "rgba(20,184,166,0.18)",  color: "#2dd4bf" },
-                    CRYPTO: { bg: "rgba(234,179,8,0.18)",   color: "#facc15" },
-                    ETF:    { bg: "rgba(52,211,153,0.18)",  color: "#34d399" },
-                  };
-                  // 推断市场标签
-                  const getMarketLabel = (c: EntityCandidate): string => {
-                    if (c.market) return c.market;
-                    if (c.ticker.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(c.ticker)) return "HK";
-                    if (c.ticker.endsWith(".SS")) return "SH";
-                    if (c.ticker.endsWith(".SZ")) return "SZ";
-                    if (c.ticker.endsWith(".T")) return "JP";
-                    if (c.ticker.endsWith(".KS")) return "KR";
-                    if (/^[A-Z]{1,5}$/.test(c.ticker)) return "US";
-                    return "";
-                  };
+                  // 使用模块级 MARKET_COLORS 和 getMarketLabel
                   const marketLabel = getMarketLabel(c);
                   const mc = MARKET_COLORS[marketLabel] ?? { bg: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" };
                   const isActive = c.ticker === entity;
@@ -551,6 +566,7 @@ export function DecisionHeader({
         <EntityCombobox
           entity={entity}
           cnName={cnName}
+          market={entity ? getMarketLabel({ ticker: entity, market: entityCandidates.find(c => c.ticker === entity)?.market }) : undefined}
           candidates={entityCandidates}
           onSelect={handleSelect}
           onNew={handleNew}

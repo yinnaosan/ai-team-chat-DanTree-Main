@@ -1224,6 +1224,20 @@ export default function ResearchWorkspacePage() {
   const stance = (hvm.stance as "bullish" | "bearish" | "neutral" | "unavailable" | null) ?? stanceFrom(answerObject?.verdict);
 
   // ── Session items: 优先用 WorkspaceContext sessionList，fallback 到 allConversations ──
+  // ── 统一 title 解析："公司名 · 代码 · 市场" → { displayTitle, entity, market } ──
+  const parseSessionTitle = useCallback((rawTitle: string, fallbackKey?: string) => {
+    const KNOWN_MARKETS = new Set(["US", "HK", "SH", "SZ", "CN", "JP", "UK", "EU", "SG", "KR", "AU", "TW"]);
+    const parts = rawTitle.split(" · ");
+    if (parts.length >= 3 && KNOWN_MARKETS.has(parts[parts.length - 1].trim())) {
+      const market = parts[parts.length - 1].trim();
+      const entity = parts[parts.length - 2].trim();
+      const displayTitle = parts.slice(0, parts.length - 2).join(" · ").trim();
+      return { displayTitle: displayTitle || rawTitle, entity, market };
+    }
+    // fallback：旧格式，直接用原始 title + focusKey
+    return { displayTitle: rawTitle, entity: fallbackKey ?? "—", market: inferMarketFromKey(fallbackKey ?? "") };
+  }, []);
+
   const sessionItems = useMemo<SessionItem[]>(() => {
     // 优先：WorkspaceContext workspace sessions（真实研究会话）
     if (sessionList.length > 0) {
@@ -1232,11 +1246,12 @@ export default function ResearchWorkspacePage() {
           s.sessionType === "entity" ? "thesis" :
           s.sessionType === "basket" ? "research" : "research";
         const dir = (hvm.stance as "bullish" | "bearish" | "neutral" | null) ?? "neutral";
+        const { displayTitle, entity: parsedEntity, market: parsedMarket } = parseSessionTitle(s.title ?? "", s.focusKey);
         return {
           id: s.id,
-          entity: s.focusKey,
-          title: s.title,
-          market: inferMarketFromKey(s.focusKey),
+          entity: parsedEntity,
+          title: displayTitle,
+          market: parsedMarket,
           type,
           time: timeAgo(new Date(s.lastActiveAt)),
           pinned: s.pinned,
@@ -1251,22 +1266,25 @@ export default function ResearchWorkspacePage() {
     return [...(allConversations ?? [])].sort((a, b) =>
       new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
     ).map(c => {
-      const tk = c.title?.match(/\b([A-Z]{1,5}|BTC|ETH)\b/)?.[0];
-      const t = (c.title ?? "").toLowerCase();
+      const rawTitle = c.title ?? `对话 #${c.id}`;
+      const { displayTitle, entity: parsedEntity, market: parsedMarket } = parseSessionTitle(rawTitle);
+      const t = rawTitle.toLowerCase();
       const type: SessionItem["type"] =
         t.includes("risk") || t.includes("风险") ? "risk" :
         t.includes("timing") || t.includes("时机") ? "timing" :
         t.includes("thesis") || t.includes("论点") ? "thesis" : "research";
       const dir = stance === "unavailable" ? "neutral" : (stance ?? "neutral");
       return {
-        id: String(c.id), entity: tk ?? "—",
-        title: c.title ?? `对话 #${c.id}`,
+        id: String(c.id),
+        entity: parsedEntity,
+        title: displayTitle,
+        market: parsedMarket,
         type, time: timeAgo(new Date(c.lastMessageAt)),
         pinned: c.isPinned, active: c.id === activeConvId,
         direction: dir as "bullish" | "bearish" | "neutral",
       };
     });
-  }, [sessionList, allConversations, activeConvId, stance, currentSession?.id, hvm.stance, avm.alertCount]);
+  }, [sessionList, allConversations, activeConvId, stance, currentSession?.id, hvm.stance, avm.alertCount, parseSessionTitle]);
 
   // Discussion messages — driven by useDiscussion.visibleMessages
   const discussionMsgs = useMemo<DiscussionMsg[]>(() =>

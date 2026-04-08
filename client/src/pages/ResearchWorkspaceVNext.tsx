@@ -78,7 +78,8 @@ function fmtTime(date: Date): string {
 function extractTicker(msgs: Msg[]): string {
   for (let i = msgs.length - 1; i >= 0; i--) {
     if (msgs[i].role === "user") {
-      const m = msgs[i].content.match(/\b([A-Z]{1,5}|BTC|ETH)\b/);
+      // Match A-share/HK numeric codes (000568.SZ, 600519.SS, 00700.HK) first, then US tickers
+      const m = msgs[i].content.match(/\b(\d{4,6}\.[A-Z]{1,3}|[A-Z]{1,5})\b/);
       if (m) return m[1];
     }
   }
@@ -191,7 +192,7 @@ export default function ResearchWorkspacePage() {
   // ── 顶部胶囊公司名：从当前 session title 解析，与 Session 卡片保持一致 ──
   const currentCnName = useMemo(() => {
     if (!currentSession?.title) return undefined;
-    const KNOWN_MARKETS = new Set(["US", "HK", "SH", "SZ", "CN", "JP", "UK", "EU", "SG", "KR", "AU", "TW"]);
+    const KNOWN_MARKETS = new Set(["US", "HK", "SH", "SZ", "CN", "JP", "UK", "EU", "SG", "KR", "AU", "TW", "CRYPTO"]);
     const parts = currentSession.title.split(" · ");
     if (parts.length >= 3 && KNOWN_MARKETS.has(parts[parts.length - 1].trim())) {
       return parts.slice(0, parts.length - 2).join(" · ").trim() || undefined;

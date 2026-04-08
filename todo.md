@@ -3292,7 +3292,7 @@
 - [x] 修复 EntityCombobox 触发按鈕市场徽章：BTC/ETH 等显示 CRYPTO，港股显示 HK，A股显示 CN，美股显示 US
 
 ## 新 session 空状态骨架屏 (2026-04-08)
-- [ ] Discussion 面板：新 session 创建后无 conversationId 时显示"正在初始化分析..."骨架屏
+- [x] Discussion 面板：新 session 创建后无 conversationId 时显示“正在初始化分析...”骨架屏（isNewSessionIdle prop）
 
 ## Output Routing V16 Final Integration
 - [x] 将 Claude routing 逻辑合并进 workspaceOutputAdapter.ts：IS_NARRATIVE/IS_THESIS/IS_DRIVER/IS_RISK/IS_INSIGHTS 分类器
@@ -3323,10 +3323,10 @@
 - [ ] 浏览器截图验证 Decision/AlertBlock/Discussion/RightRail
 
 ## OUTPUT FALLBACK UI FIX
-- [ ] FIX 1: DecisionSpine hasValidTVM 弱数据 fallback
-- [ ] FIX 2: AlertBlock mapSeverity 模糊匹配
-- [ ] FIX 3: InsightsRail 可读性（line-clamp + hover + opacity）
-- [ ] FIX 4: Discussion 防堆积（max-height + paragraph spacing）
+- [x] FIX 1: DecisionSpine hasValidTVM 弱数据 fallback
+- [x] FIX 2: AlertBlock mapSeverity 模糊匹配
+- [x] FIX 3: InsightsRail 可读性（line-clamp + hover + opacity）
+- [x] FIX 4: Discussion 防堆积（max-height + paragraph spacing）
 
 ## 新建 Session 卡死 Bug 修复
 - [x] BUG-A: 新建 entity session 后首次分析发到旧 session 的 conversationId（pendingEntityPromptRef 触发时 latestConvId 非 null 导致走错路径）- [x] BUG-B: pendingEntityPromptRef useEffect 在 currentSession.id 变化时触发，但此时 currentSessionRef.current.conversationId 仍是旧 session 的値值
@@ -3337,7 +3337,7 @@
 - [ ] Layer 2: 前端 handleSubmit / createConvMutation.onSuccess 注入 [DT-DEBUG][CONV_BIND]
 - [ ] Layer 3: 后端 routers.ts submitTask 注入 [DT-DEBUG][MODEL_PATH]
 - [ ] Layer 4: 后端 finalReply / deliverable 注入 [DT-DEBUG][FINAL_REPLY] + [DELIVERABLE_PARSE] + [ANSWER_OBJECT]
-- [ ] Layer 5: 前端 ResearchWorkspaceVNext 注入 [DT-DEBUG][UI_SOURCE]
+- [x] Layer 5: 前端 ResearchWorkspaceVNext 注入 [DT-DEBUG][UI_SOURCE]
 - [ ] 触发完整 TSLA 分析并收集所有日志
 - [ ] 整理 finalReply 原文 + answerObject JSON + UI source map + 截图
 
@@ -3361,8 +3361,8 @@
 - [ ] 重新触发分析，验证 has_DISCUSSION=true
 
 ## 永久禁用 Web Search Providers（Tavily/Serper/Bloomberg）
-- [ ] tavilySearch.ts：所有导出函数返回 DISABLED 空字符串，加注释标记
-- [ ] dataSourceRegistry.ts：移除 tavily/serper/bloomberg 的 routing 选项
+- [x] tavilySearch.ts：所有导出函数返回 DISABLED 空字符串，加注释标记
+- [x] dataSourceRegistry.ts：移除 tavily/serper/bloomberg 的 routing 选项（注释标记）
 - [ ] routers.ts：清理所有 earlyTavilyResult/refinedTavilyResult 的 Promise.resolve("") 注释，改为明确 DISABLED 标记
 - [ ] evidenceValidator.ts/dataSourceRegistry.ts：web_search 类 provider 不参与 evidenceScore 计算
 - [ ] ENV 中 TAVILY/SERPER key 保留但标注 DISABLED（不删除，防止 env 报错）

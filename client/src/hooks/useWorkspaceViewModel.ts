@@ -184,8 +184,8 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   );
 
   const { data: gateStats } = trpc.market.getOutputGateStats.useQuery(
-    undefined,
-    { refetchInterval: 60_000, staleTime: 30_000 }
+    entity ? { ticker: entity } : undefined,
+    { refetchInterval: 60_000, staleTime: 30_000, enabled: !!entity }
   );
 
   const { data: semanticStats } = trpc.market.getSemanticStats.useQuery(

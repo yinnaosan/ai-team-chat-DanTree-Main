@@ -911,8 +911,9 @@ ${"```"}`;
     const [stockDataResult, earlyTavilyResult] = await Promise.allSettled([
       // B. Yahoo Finance：使用任务类型匹配的时间范围
       fetchStockDataForTask(taskDescription, yahooPeriod),
-      // C. 网页搜索已关闭，纯 API 模式
-      Promise.resolve(""),
+      // C. ❗ WEB SEARCH PERMANENTLY DISABLED — Tavily/Serper/Bloomberg 已永久禁用
+      //    不得重新开启，不得加入 evidenceScore 计算，需 GPT 明确授权才可恢复
+      Promise.resolve(""), // earlyTavilyResult = "" (DISABLED)
     ]);
 
     await updateTaskStatus(taskId, "manus_working");
@@ -1242,8 +1243,9 @@ ${"```"}`;
       () => resourcePlan.dataSources.macroData
         ? timed("IMF WEO", fetchImfData(taskDescription + " " + gptStep1Output).then(d => d ? formatImfDataAsMarkdown(d) : ""))
         : Promise.resolve(""),
-      // 网页搜索已关闭，纯 API 模式
-      () => Promise.resolve(""),
+      // ❗ WEB SEARCH PERMANENTLY DISABLED — refinedTavilyResult = "" (DISABLED)
+      //    Tavily/Serper 已永久禁用，不得重新开启
+      () => Promise.resolve(""), // refinedTavilyResult = "" (DISABLED)
       // Finnhub
       () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FINNHUB_API_KEY
         ? timed("Finnhub", getFinnhubData(primaryTicker).then(d => formatFinnhubData(d)))
@@ -6755,17 +6757,50 @@ except Exception as e:
       }),
     // ── [LEVEL13.2-B] Output Gating Stats ──────────────────────────────────────
     getOutputGateStats: publicProcedure
-      .query(async () => {
+      .input(z.object({ ticker: z.string().min(1).max(20).optional() }).optional())
+      .query(async ({ input, ctx }) => {
         try {
           const { buildOutputGateResult } = await import("./outputGatingEngine");
           const { buildEvidencePacket } = await import("./evidenceValidator");
+          // ── Real evidenceScore from analysis_memory ────────────────────────────────
+          let realEvidenceScore: number | null = null;
+          if (input?.ticker && ctx.user) {
+            try {
+              const { getDb } = await import("./db");
+              const { analysisMemory } = await import("../drizzle/schema");
+              const { eq, and, gt, desc } = await import("drizzle-orm");
+              const db = await getDb();
+              if (!db) throw new Error("db_unavailable");
+              const rows = await db
+                .select({ evidenceScore: analysisMemory.evidenceScore })
+                .from(analysisMemory)
+                .where(
+                  and(
+                    eq(analysisMemory.userId, ctx.user.id),
+                    eq(analysisMemory.ticker, input.ticker.toUpperCase().trim()),
+                    gt(analysisMemory.expiresAt, new Date())
+                  )
+                )
+                .orderBy(desc(analysisMemory.createdAt))
+                .limit(1);
+              if (rows.length > 0 && rows[0].evidenceScore != null) {
+                // stored as 0-1 decimal, convert to 0-100 for deriveEvidenceState
+                realEvidenceScore = Number(rows[0].evidenceScore) * 100;
+              }
+            } catch { /* non-fatal: fall back to default */ }
+          }
+          const hitCount = realEvidenceScore != null ? Math.round(realEvidenceScore / 12) : 0;
           const packet = buildEvidencePacket(
             "stats_query",
             "",
             { missingBlocking: [], missingImportant: [], missingOptional: [] },
-            { hitCount: 0, totalCount: 0, hitSourceIds: [], hasWhitelistedHit: false }
+            { hitCount, totalCount: Math.max(hitCount, 1), hitSourceIds: [], hasWhitelistedHit: hitCount > 0 }
           );
           const result = buildOutputGateResult(packet, 0.65, 0.5);
+          // Override evidence_score with real value if available
+          if (realEvidenceScore != null) {
+            (result as any).evidence_score = realEvidenceScore;
+          }
           return { gate_available: true as const, ...result };
         } catch {
           const { buildFallbackOutputGateResult } = await import("./outputGatingEngine");

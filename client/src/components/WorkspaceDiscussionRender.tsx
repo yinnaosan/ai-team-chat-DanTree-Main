@@ -168,18 +168,10 @@ interface WorkspaceDiscussionRenderProps {
 }
 
 export function WorkspaceDiscussionRender({ viewModel, onFollowup }: WorkspaceDiscussionRenderProps) {
-  // Fallback: unstructured raw content
-  if (!viewModel.isStructured && viewModel.rawFallback) {
-    return (
-      <div style={{ padding: "14px 18px" }}>
-        <p style={{ fontSize: 13, lineHeight: 1.78, color: "rgba(255,255,255,0.62)", margin: 0 }}>
-          {viewModel.rawFallback}
-        </p>
-      </div>
-    );
+  // STRICT: no rawFallback. If adapter fails → empty state, never raw dump.
+  if (viewModel.blocks.length === 0) {
+    return null;
   }
-
-  if (viewModel.blocks.length === 0) return null;
 
   return (
     <div style={{ padding: "12px 18px 4px" }}>

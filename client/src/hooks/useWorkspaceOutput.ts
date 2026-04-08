@@ -62,10 +62,22 @@ export function useWorkspaceOutput(input: WorkspaceOutputInput): WorkspaceOutput
       return emptyWorkspaceOutput(entity);
     }
 
-    return adaptToWorkspaceOutput({
+    const result = adaptToWorkspaceOutput({
       content: latestAssistantContent ?? "",
       answerObject: answerObject ?? undefined,
       entity,
     });
+
+    // DEBUG: verify adapter is producing structured output
+    console.log("[useWorkspaceOutput] latestAssistantContent length:", latestAssistantContent?.length ?? 0);
+    console.log("[useWorkspaceOutput] workspaceOutput.discussion.blocks:", result.discussion.blocks.length, result.discussion.blocks.map(b => b.type));
+    console.log("[useWorkspaceOutput] workspaceOutput.discussion.isStructured:", result.discussion.isStructured);
+    console.log("[useWorkspaceOutput] workspaceOutput.insights.now:", result.insights.now.length);
+    console.log("[useWorkspaceOutput] workspaceOutput.insights.monitor:", result.insights.monitor.length);
+    console.log("[useWorkspaceOutput] workspaceOutput.insights.quickFacts:", result.insights.quickFacts.length);
+    console.log("[useWorkspaceOutput] workspaceOutput.insights.news:", result.insights.news.length);
+    console.log("[useWorkspaceOutput] _meta:", result._meta);
+
+    return result;
   }, [input.latestAssistantContent, input.answerObject, input.entity]);
 }

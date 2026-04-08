@@ -3239,3 +3239,10 @@
 - [ ] 卡片标题重复代码：正则未命中"泸州老窖 · 000568.SZ"（4位数字代码）
 - [ ] 顶部胶囊显示公司名+代码双行格式
 - [ ] 搜索候选字体放大至 14px
+
+- [x] FIX: 切断旧 Discussion 渲染 — 强制用 workspaceOutput.discussion 替代 m.content，禁止 fallback 到 raw content
+- [x] FIX: adapter 验证 — console.log 确认 workspaceOutput.mainDiscussion 被分段、不含 %%FOLLOWUP%%
+- [x] FIX: chart pipeline — adapter 解析 chart blocks → WorkspaceDiscussionRender 渲染，禁止旧 chart 路径
+- [x] FIX: 切断旧 InsightsRail 数据源 — NOW/MONITOR/QUICK FACTS/NEWS 全部走 workspaceOutput
+- [x] FIX: 删除所有 placeholder/demo/hardcoded 数据
+- [ ] FIX: 最终验证截图 — Discussion 分段、无 %%FOLLOWUP%%、chart 正确、Right Rail 结构化

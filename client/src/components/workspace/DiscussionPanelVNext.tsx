@@ -6,17 +6,15 @@
  * 壳层状态: props-first，无 initialMessages demo
  * Manus 接线入口: messages / isStreaming / onSendMessage / entity
  *
- * 保留母版 v1 特性:
- * - keyPoints: 推理证据编号卡片
- * - suggestedNext: 建议下一步绿色引导条
- * - 最新消息左绿线高亮
- * - 宽敞 padding，有呼吸感
+ * STRICT: 所有 assistant 消息都走 adapter → WorkspaceDiscussionRender
+ * 禁止 raw content fallback
  */
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Send, Sparkles, User, ArrowRight, MoreHorizontal } from "lucide-react";
 import { ManusOrb } from "@/components/ManusOrb";
 import { WorkspaceDiscussionRender } from "@/components/WorkspaceDiscussionRender";
 import type { DiscussionViewModel } from "@/lib/WorkspaceOutputModel";
+import { adaptToWorkspaceOutput } from "@/lib/workspaceOutputAdapter";
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -30,13 +28,14 @@ export interface DiscussionMessage {
   keyPoints?: string[];
   /** 建议下一步 — 显示为绿色引导条 */
   suggestedNext?: string;
+  /** Optional answerObject metadata for adapter */
+  answerObject?: any;
 }
 
 export interface DiscussionPanelVNextProps {
   /**
    * WorkspaceOutputRefactor v1 — structured view model for latest assistant message.
    * When provided, replaces raw text rendering for the latest assistant message.
-   * Older messages continue to use raw text fallback.
    */
   latestAssistantViewModel?: DiscussionViewModel;
   /** Called when user clicks a followup suggestion */
@@ -77,6 +76,31 @@ export function DiscussionPanelVNext({
     onSendMessage?.(text);
     setInput("");
   };
+
+  // Build per-message view models for ALL assistant messages via adapter
+  const messageViewModels = useMemo(() => {
+    const vms = new Map<string, DiscussionViewModel>();
+    const assistantMsgs = messages.filter(m => m.role === "assistant");
+    
+    for (let i = 0; i < assistantMsgs.length; i++) {
+      const msg = assistantMsgs[i];
+      const isLast = i === assistantMsgs.length - 1;
+      
+      // Latest message: use pre-computed latestAssistantViewModel if available
+      if (isLast && latestAssistantViewModel) {
+        vms.set(msg.id, latestAssistantViewModel);
+      } else {
+        // All other assistant messages: run through adapter
+        const output = adaptToWorkspaceOutput({
+          content: msg.content,
+          answerObject: msg.answerObject,
+          entity,
+        });
+        vms.set(msg.id, output.discussion);
+      }
+    }
+    return vms;
+  }, [messages, latestAssistantViewModel, entity]);
 
   const defaultPlaceholder = placeholder
     ?? (entity ? `讨论 ${entity} 的 Thesis、Timing 或 Risk...` : "讨论 Thesis、Timing 或 Risk...");
@@ -154,36 +178,19 @@ export function DiscussionPanelVNext({
                     <span style={{ fontSize: 9, color: "rgba(255,255,255,0.16)" }}>{msg.timestamp}</span>
                   </div>
 
-                  {/* Body — WorkspaceOutputRefactor v1 */}
+                  {/* Body — ALL messages go through adapter, no raw fallback */}
                   {isUser ? (
                     <div style={{ paddingLeft: 27 }}>
                       <p style={{ fontSize: 13, lineHeight: 1.78, margin: 0, color: "rgba(255,255,255,0.72)" }}>
                         {msg.content}
                       </p>
                     </div>
-                  ) : isLatest && latestAssistantViewModel ? (
-                    // Latest assistant message: use structured WorkspaceDiscussionRender
+                  ) : (
+                    // ALL assistant messages: structured render via adapter
                     <WorkspaceDiscussionRender
-                      viewModel={latestAssistantViewModel}
+                      viewModel={messageViewModels.get(msg.id) ?? { blocks: [], isStructured: false }}
                       onFollowup={onFollowup}
                     />
-                  ) : (
-                    // Older assistant messages: raw text fallback
-                    <div style={{ paddingLeft: 27 }}>
-                      <p style={{ fontSize: 13, lineHeight: 1.78, margin: 0, color: "rgba(255,255,255,0.58)" }}>
-                        {msg.content}
-                      </p>
-                      {msg.keyPoints && msg.keyPoints.length > 0 && (
-                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 3 }}>
-                          {msg.keyPoints.map((pt, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, padding: "6px 9px", borderRadius: 5, background: "rgba(255,255,255,0.02)" }}>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(16,185,129,0.45)", flexShrink: 0 }}>{i+1}.</span>
-                              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>{pt}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                   )}
                 </div>
               );

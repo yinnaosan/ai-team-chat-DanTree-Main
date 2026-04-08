@@ -143,6 +143,17 @@ function extractSentencesWithKeywords(text: string, keywords: string[]): string[
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Section classifiers — determines which heading belongs where
+// (mirrors Claude outputRoutingAdapter v1.6 classifiers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const IS_THESIS   = (k: string) => /thesis|核心|判断|结论|summary|verdict/.test(k);
+const IS_DRIVER   = (k: string) => /driver|驱动|catalyst|bull|多头|reason|推理|关键/.test(k);
+const IS_RISK     = (k: string) => /risk|风险|bear|空头|concern|threat|warning|监控|watch/.test(k);
+const IS_INSIGHTS = (k: string) => /now|monitor|related|fact|news|新闻|相关|数据|levels|价位|催化/.test(k);
+const IS_NARRATIVE = (k: string) => !IS_THESIS(k) && !IS_DRIVER(k) && !IS_RISK(k) && !IS_INSIGHTS(k);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Discussion adapter
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -155,68 +166,42 @@ function buildDiscussionViewModel(
 ): DiscussionViewModel {
   const blocks: DiscussionBlock[] = [];
   const sections = extractSections(cleanContent);
-  const paragraphs = extractParagraphs(cleanContent);
 
-  // 1. Thesis block — from answerObject.verdict or first paragraph
-  const thesisText = answerObject?.verdict
-    ?? Array.from(sections.entries()).find(([k]) => k.includes("thesis") || k.includes("核心") || k.includes("判断"))?.[1]
-    ?? paragraphs[0]?.split("\n")[0]?.replace(/\*\*/g, "").trim()
-    ?? cleanContent.split("\n\n")[0]?.trim();
-
-  if (thesisText?.length > 20) {
-    blocks.push({ type: "thesis", content: thesisText.slice(0, 600) });
-  }
-
-  // 2. Reasoning blocks — from answerObject.reasoning or ## 推理 section
-  const reasoningItems: string[] =
-    answerObject?.reasoning?.length
-      ? answerObject.reasoning
-      : answerObject?.key_points?.length
-        ? answerObject.key_points
-        : extractBullets(
-            Array.from(sections.entries()).find(([k]) => k.includes("推理") || k.includes("reason") || k.includes("分析") || k.includes("关键"))?.[1] ?? ""
-          );
-
-  if (reasoningItems.length > 0) {
-    blocks.push({
-      type: "reasoning",
-      content: reasoningItems.slice(0, 5).join("\n"),
-    });
-  }
-
-  // 3. Narrative blocks — from sections or paragraphs (skip thesis + reasoning)
-  const usedKeys = ["thesis", "核心", "判断", "推理", "reason", "分析", "关键"];
+  // ── Narrative blocks only (thesis/drivers/risks go to DecisionSpine, NOT here) ──
+  // Step 1: sections classified as narrative
   let narrativeAdded = 0;
-  
-  // Try sections first
   for (const [key, body] of Array.from(sections.entries())) {
-    if (narrativeAdded >= 3) break;
-    if (usedKeys.some(k => key.includes(k))) continue;
-    if (["related", "相关", "监控", "watch", "levels", "价位", "new", "新闻", "catalyst", "催化"].some(k => key.includes(k))) continue;
+    if (narrativeAdded >= 4) break;
+    if (!IS_NARRATIVE(key)) continue;
     if (body.length > 40) {
       blocks.push({ type: "narrative", content: body.slice(0, 800) });
       narrativeAdded++;
     }
   }
 
-  // If sections didn't yield enough, use paragraphs (skip first = thesis)
-  if (narrativeAdded === 0 && paragraphs.length > 1) {
-    for (let i = 1; i < paragraphs.length && narrativeAdded < 3; i++) {
-      const para = paragraphs[i].trim();
-      // Skip chart-like paragraphs
-      if (para.includes("%%CHART%%") || para.includes("%%PYIMAGE%%")) continue;
-      if (para.length > 40) {
-        blocks.push({ type: "narrative", content: para.slice(0, 800) });
-        narrativeAdded++;
-      }
-    }
-  }
+  // Step 2: fallback — no markdown headings found, extract pure narrative paragraphs
+  // Aggressively skip thesis/driver/risk content using the same classifiers
+  if (blocks.length === 0) {
+    const thesisText = (answerObject?.verdict ?? "").slice(0, 60).toLowerCase();
+    const driverTexts: string[] = (answerObject?.bull_case ?? []).concat(answerObject?.reasoning ?? [])
+      .map((s: string) => s.slice(0, 40).toLowerCase());
+    const riskTexts: string[] = (answerObject?.risks ?? []).map((r: any) => (r.description ?? "").slice(0, 40).toLowerCase());
 
-  // Fallback: split by double newlines
-  if (blocks.length <= 1 && cleanContent.length > 200) {
-    const paras = cleanContent.split("\n\n").filter(p => p.trim().length > 40).slice(1, 4);
-    for (const para of paras) {
-      blocks.push({ type: "narrative", content: para.trim().slice(0, 800) });
+    const allParas = cleanContent.split("\n\n").filter(p => p.trim().length > 30);
+    for (const p of allParas.slice(0, 8)) {
+      const pLow = p.trim().toLowerCase();
+      // Skip if this paragraph IS the thesis
+      if (thesisText && pLow.startsWith(thesisText.slice(0, 40))) continue;
+      // Skip if it starts with a known driver text
+      if (driverTexts.some(d => d && pLow.startsWith(d))) continue;
+      // Skip if it starts with a known risk text
+      if (riskTexts.some(r => r && pLow.startsWith(r))) continue;
+      // Skip chart-like paragraphs
+      if (p.includes("%%CHART%%") || p.includes("%%PYIMAGE%%")) continue;
+      // Skip short verdict-like sentences (< 80 chars at position 0)
+      if (p.trim().length < 80 && allParas.indexOf(p) === 0) continue;
+      blocks.push({ type: "narrative", content: p.trim().slice(0, 800) });
+      if (blocks.length >= 4) break;
     }
   }
 

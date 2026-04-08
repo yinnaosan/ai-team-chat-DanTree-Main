@@ -3293,3 +3293,12 @@
 
 ## 新 session 空状态骨架屏 (2026-04-08)
 - [ ] Discussion 面板：新 session 创建后无 conversationId 时显示"正在初始化分析..."骨架屏
+
+## Output Routing V16 Final Integration
+- [x] 将 Claude routing 逻辑合并进 workspaceOutputAdapter.ts：IS_NARRATIVE/IS_THESIS/IS_DRIVER/IS_RISK/IS_INSIGHTS 分类器
+- [x] buildDiscussionViewModel 移除 thesis/reasoning block（只保留 narrative/chart/followups）
+- [x] fallback 路径：跳过 thesis/driver/risk 内容段落，只提取纯叙述
+- [x] 确认 /research 路由已指向 ResearchWorkspaceVNext（无需修改）
+- [x] 确认 onNewEntity 使用 EntityCombobox UI（无 prompt() 调用，符合 InstrumentSelectorModal 要求）
+- [x] 确认 pendingEntityPromptRef + createSession + useEffect 调用顺序完全符合 Claude 锁定逻辑
+- [x] TSC: 0 errors

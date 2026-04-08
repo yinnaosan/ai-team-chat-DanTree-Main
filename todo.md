@@ -3305,3 +3305,8 @@
 
 ## Bug Fix: lightweight-charts "Object is disposed"
 - [x] 修复 lightweight-charts ResizeObserver 在图表实例销毁后仍然访问导致的 "Object is disposed" 崩溃
+
+## UI 接线：workspaceOutput routing 数据接入
+- [x] DecisionSpine fallback 确认已在位（tvm.available=false 时用 answerObject.verdict/bull_case/risks）
+- [x] AlertBlock 补 answerObject.risks fallback（avm.available=false 时用 answerObject.risks）
+- [x] Discussion 继续只用 workspaceOutput.discussion，InsightsRail 继续只用 workspaceOutput.insights

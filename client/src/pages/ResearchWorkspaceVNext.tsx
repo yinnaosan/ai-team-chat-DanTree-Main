@@ -1004,7 +1004,38 @@ export default function ResearchWorkspacePage() {
                     disciplineItems,
                     overallRiskScore,
                   };
-                })() : undefined}
+                })() : (() => {
+                  // Fallback: avm not available → use answerObject.risks directly
+                  const aoRisks = answerObject?.risks;
+                  if (!aoRisks?.length) return undefined;
+                  const SEV_MAP: Record<string, "low" | "medium" | "high" | "critical"> = {
+                    high: "high", critical: "critical", medium: "medium", low: "low",
+                  };
+                  const ACTION_MAP: Record<string, string> = {
+                    high: "设置止损单", critical: "立即减仓或退出", medium: "继续监控", low: "继续监控",
+                  };
+                  const fallbackAlerts: AlertItem[] = aoRisks.slice(0, 4).map((r) => {
+                    const rawSev = (r.magnitude ?? "medium").toLowerCase();
+                    const sev: "low" | "medium" | "high" | "critical" = SEV_MAP[rawSev] ?? "medium";
+                    return {
+                      alertType: "fundamental",
+                      severity: sev,
+                      message: r.description,
+                      reason: r.description,
+                      action: ACTION_MAP[sev] ?? "继续监控",
+                    } satisfies AlertItem;
+                  });
+                  const highestFallbackSev = fallbackAlerts.reduce<"low" | "medium" | "high" | "critical">((acc, a) => {
+                    const order: Record<string, number> = { low: 0, medium: 1, high: 2, critical: 3 };
+                    return (order[a.severity] ?? 0) > (order[acc] ?? 0) ? a.severity : acc;
+                  }, "low");
+                  return {
+                    alerts: fallbackAlerts,
+                    alertCount: fallbackAlerts.length,
+                    highestSeverity: highestFallbackSev,
+                    summaryText: `AI 分析识别到 ${fallbackAlerts.length} 项风险因素`,
+                  };
+                })()}
                 history={(() => {
                   // P1-2: 优先使用 entitySnapshots 最近 5 条（真实时间线）
                   const snapshotEntries: HistoryEntry[] = hivm.snapshots.length > 0

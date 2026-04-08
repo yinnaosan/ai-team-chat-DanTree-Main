@@ -3310,3 +3310,6 @@
 - [x] DecisionSpine fallback 确认已在位（tvm.available=false 时用 answerObject.verdict/bull_case/risks）
 - [x] AlertBlock 补 answerObject.risks fallback（avm.available=false 时用 answerObject.risks）
 - [x] Discussion 继续只用 workspaceOutput.discussion，InsightsRail 继续只用 workspaceOutput.insights
+
+## Bug Fix: sessionId Invalid UUID
+- [x] 修复 mutation 传入非 UUID 格式 sessionId 导致的 "Invalid UUID" 验证错误

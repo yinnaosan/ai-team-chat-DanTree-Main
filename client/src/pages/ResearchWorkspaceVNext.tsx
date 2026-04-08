@@ -85,6 +85,10 @@ function extractTicker(msgs: Msg[]): string {
   return "";
 }
 
+/** Guard: only pass UUID-format session IDs to workspace mutations */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isWorkspaceSessionId(id: string): boolean { return UUID_RE.test(id); }
+
 function stanceFrom(verdict?: string): "bullish" | "bearish" | "neutral" | "unavailable" {
   const v = verdict?.toLowerCase() ?? "";
   if (v.match(/buy|bull|增持|看多/)) return "bullish";
@@ -283,10 +287,10 @@ export default function ResearchWorkspacePage() {
   });
 
   const sessionActions = {
-    onPin: (id: string, pinned: boolean) => pinMutation.mutate({ sessionId: id, pinned }),
-    onFavorite: (id: string, favorite: boolean) => favoriteMutation.mutate({ sessionId: id, favorite }),
-    onRename: (id: string, newTitle: string) => renameMutation.mutate({ sessionId: id, title: newTitle }),
-    onDelete: (id: string) => deleteMutation.mutate({ sessionId: id }),
+    onPin: (id: string, pinned: boolean) => { if (isWorkspaceSessionId(id)) pinMutation.mutate({ sessionId: id, pinned }); },
+    onFavorite: (id: string, favorite: boolean) => { if (isWorkspaceSessionId(id)) favoriteMutation.mutate({ sessionId: id, favorite }); },
+    onRename: (id: string, newTitle: string) => { if (isWorkspaceSessionId(id)) renameMutation.mutate({ sessionId: id, title: newTitle }); },
+    onDelete: (id: string) => { if (isWorkspaceSessionId(id)) deleteMutation.mutate({ sessionId: id }); },
   };
 
   const batchActions = {
@@ -300,19 +304,22 @@ export default function ResearchWorkspacePage() {
       if (numericIds.length > 0) {
         await batchDeleteMutation.mutateAsync({ conversationIds: numericIds });
       }
-      // 同时删除 workspace sessions
+      // 同时删除 workspace sessions（只处理 UUID 格式的 session id）
       for (const id of ids) {
+        if (!isWorkspaceSessionId(id)) continue;
         try { await deleteMutation.mutateAsync({ sessionId: id }); } catch {}
       }
     },
     onBatchPin: async (ids: string[], pinned: boolean) => {
       for (const id of ids) {
+        if (!isWorkspaceSessionId(id)) continue;
         try { await pinMutation.mutateAsync({ sessionId: id, pinned }); } catch {}
       }
       utils.workspace.listSessions.invalidate();
     },
     onBatchFavorite: async (ids: string[], favorited: boolean) => {
       for (const id of ids) {
+        if (!isWorkspaceSessionId(id)) continue;
         try { await favoriteMutation.mutateAsync({ sessionId: id, favorite: favorited }); } catch {}
       }
       utils.workspace.listSessions.invalidate();

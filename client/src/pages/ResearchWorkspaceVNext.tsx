@@ -537,6 +537,11 @@ export default function ResearchWorkspacePage() {
       answerObject: m.metadata?.answerObject ?? undefined,
     })), [visibleMessages]);
 
+  // 当新 session 刚创建、entity 已选、消息为空、正在 sending/streaming 时，显示骨架屏初始化状态
+  const isInitializing = useMemo(() => {
+    return !!(currentTicker && discussionMsgs.length === 0 && (sending || isTyping));
+  }, [currentTicker, discussionMsgs.length, sending, isTyping]);
+
   // ── WorkspaceOutput insights mapping (v1 adapter → InsightsRailVNext props) ──
   const woNowItems = workspaceOutput.insights.now.map(item => ({
     type: (item.sentiment === "positive" ? "positive" : item.sentiment === "warning" ? "warning" : "neutral") as "positive" | "warning" | "neutral" | "calendar",
@@ -1031,6 +1036,7 @@ export default function ResearchWorkspacePage() {
             entity={currentTicker || undefined}
             messages={discussionMsgs}
             isStreaming={sending || isTyping}
+            isInitializing={isInitializing}
             onSendMessage={(text) => handleSubmit(text)}
             latestAssistantViewModel={workspaceOutput.discussion}
             onFollowup={(text) => handleSubmit(text)}

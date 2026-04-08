@@ -3290,3 +3290,6 @@
 
 ## 修复市场徽章推断逻辑 (2026-04-08)
 - [x] 修复 EntityCombobox 触发按鈕市场徽章：BTC/ETH 等显示 CRYPTO，港股显示 HK，A股显示 CN，美股显示 US
+
+## 新 session 空状态骨架屏 (2026-04-08)
+- [ ] Discussion 面板：新 session 创建后无 conversationId 时显示"正在初始化分析..."骨架屏

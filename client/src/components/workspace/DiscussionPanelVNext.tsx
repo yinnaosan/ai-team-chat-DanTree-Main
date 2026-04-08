@@ -50,6 +50,11 @@ export interface DiscussionPanelVNextProps {
   onSendMessage?: (text: string) => void;
   /** 输入框占位文案 */
   placeholder?: string;
+  /**
+   * 当新 session 刚创建、正在等待首次分析任务时传入 true
+   * 显示骨架屏而非空状态
+   */
+  isInitializing?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -62,6 +67,7 @@ export function DiscussionPanelVNext({
   latestAssistantViewModel,
   onFollowup,
   placeholder,
+  isInitializing = false,
 }: DiscussionPanelVNextProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -137,6 +143,103 @@ export function DiscussionPanelVNext({
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {messages.length === 0 ? (
+          isInitializing ? (
+            /* ── 初始化中骨架屏 ── */
+            <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* 顶部状态行 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: "rgba(16,185,129,0.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Sparkles size={13} color="rgba(16,185,129,0.55)" style={{ animation: "pulse 1.8s ease-in-out infinite" }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontWeight: 600, marginBottom: 3 }}>
+                    正在初始化分析{entity ? ` · ${entity}` : ""}...
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.22)" }}>AI 正在准备深度研究，请稍候</div>
+                </div>
+              </div>
+
+              {/* 骨架行 1 — 宽 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 38 }}>
+                <div style={{
+                  height: 10, borderRadius: 5,
+                  background: "linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.8s infinite",
+                  width: "88%",
+                }} />
+                <div style={{
+                  height: 10, borderRadius: 5,
+                  background: "linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.8s infinite 0.15s",
+                  width: "72%",
+                }} />
+                <div style={{
+                  height: 10, borderRadius: 5,
+                  background: "linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.8s infinite 0.30s",
+                  width: "80%",
+                }} />
+              </div>
+
+              {/* 分隔 */}
+              <div style={{ height: 1, background: "rgba(255,255,255,0.04)", marginLeft: 38 }} />
+
+              {/* 骨架行 2 — 中 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 38 }}>
+                <div style={{
+                  height: 10, borderRadius: 5,
+                  background: "linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.8s infinite 0.45s",
+                  width: "65%",
+                }} />
+                <div style={{
+                  height: 10, borderRadius: 5,
+                  background: "linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.8s infinite 0.60s",
+                  width: "78%",
+                }} />
+              </div>
+
+              {/* 底部进度条 */}
+              <div style={{ paddingLeft: 38, marginTop: 4 }}>
+                <div style={{
+                  height: 2, borderRadius: 1,
+                  background: "rgba(16,185,129,0.08)",
+                  overflow: "hidden",
+                  width: "100%",
+                }}>
+                  <div style={{
+                    height: "100%",
+                    background: "linear-gradient(90deg, transparent, rgba(16,185,129,0.55), transparent)",
+                    animation: "progressSlide 2s ease-in-out infinite",
+                    width: "40%",
+                  }} />
+                </div>
+              </div>
+
+              {/* CSS keyframes via style tag */}
+              <style>{`
+                @keyframes shimmer {
+                  0% { background-position: -200% 0; }
+                  100% { background-position: 200% 0; }
+                }
+                @keyframes progressSlide {
+                  0% { transform: translateX(-150%); }
+                  100% { transform: translateX(350%); }
+                }
+              `}</style>
+            </div>
+          ) : (
           <div style={{
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center",
@@ -149,6 +252,7 @@ export function DiscussionPanelVNext({
                 : "选择标的，开始讨论"}
             </p>
           </div>
+          )
         ) : (
           <div style={{ padding: "8px 0 4px" }}>
             {messages.map((msg, idx) => {

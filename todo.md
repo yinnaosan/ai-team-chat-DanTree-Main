@@ -3269,3 +3269,9 @@
 - [x] FIX-8: 增强 buildInsightsViewModel heuristic — 从全文内容提取 NOW/MONITOR/QUICK FACTS/NEWS（不依赖精确 heading）
 - [x] FIX-9: 增强 buildDiscussionViewModel — 当无 answerObject 时确保 thesis block 正确提取
 - [x] FIX-10: 验证修复后 insights.now > 0, insights.monitor > 0, insights.quickFacts > 0
+
+## 通知弹窗改造 (2026-04-08)
+- [x] 通知弹窗移至右上角（position="top-right"）
+- [x] 添加橙色微光光晕（CSS box-shadow + keyframe glow 动画）
+- [x] 支持叉号关闭按鈕（closeButton=true）
+- [x] 自动停留后消失（duration 保持，无需手动关闭）

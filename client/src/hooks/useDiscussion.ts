@@ -103,9 +103,11 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
 
   const { data: rawMessages, refetch: refetchMessages } =
     trpc.chat.getConversationMessages.useQuery(
-      { conversationId: conversationId! },
+      // 使用安全的默认局部变量而非非空断言！，避免 tRPC 在 enabled=false 时仍验证 input schema
+      { conversationId: conversationId ?? -1 },
       {
-        enabled: !!conversationId,
+        // 双重保护：!!conversationId 确保非 null/undefined/0，> 0 确保是有效正整数
+        enabled: !!conversationId && conversationId > 0,
         refetchInterval: (sending || isTyping) ? 3000 : false,
       }
     );

@@ -3284,3 +3284,6 @@
 
 ## 修复新建 entity session 自动分析发送到错误对话框 (2026-04-08)
 - [x] 修复：选择新标的创建 session 后，首次分析任务应发送到新 session，而非当前旧 session
+
+## 修复 conversationId null 导致 API 查询错误 (2026-04-08)
+- [x] 修复：conversationId 为 null 时不应发起需要 number 类型的 API 查询

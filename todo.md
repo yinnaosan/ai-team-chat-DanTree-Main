@@ -3246,3 +3246,12 @@
 - [x] FIX: 切断旧 InsightsRail 数据源 — NOW/MONITOR/QUICK FACTS/NEWS 全部走 workspaceOutput
 - [x] FIX: 删除所有 placeholder/demo/hardcoded 数据
 - [ ] FIX: 最终验证截图 — Discussion 分段、无 %%FOLLOWUP%%、chart 正确、Right Rail 结构化
+
+## 任务栏多选 + 应用内弹窗
+- [x] 后端：批量删除 conversations tRPC procedure（batchDelete）
+- [x] 后端：批量收藏 conversations tRPC procedure（batchFavorite）
+- [x] 后端：批量置顶 conversations tRPC procedure（batchPin）
+- [x] 前端 SessionRail：多选模式 UI（勾选框 + 全选/取消 + 批量操作工具栏）
+- [x] 前端 SessionRail：批量删除/收藏/置顶按钮 + 调用后端 batch procedures
+- [x] 前端：替换所有浏览器原生 confirm() 为应用内 Dialog 弹窗（shadcn AlertDialog）
+- [x] 前端：删除确认弹窗改为应用内 AlertDialog

@@ -146,6 +146,40 @@ export async function reorderConversations(userId: number, orderedIds: number[])
   );
 }
 
+/** 批量删除会话及其消息 */
+export async function batchDeleteConversations(userId: number, conversationIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  for (const id of conversationIds) {
+    const conv = await db.select().from(conversations)
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+      .limit(1);
+    if (!conv.length) continue;
+    await db.delete(messages).where(eq(messages.conversationId, id));
+    await db.delete(conversations).where(eq(conversations.id, id));
+  }
+}
+
+/** 批量置顶/取消置顶会话 */
+export async function batchSetPinned(userId: number, conversationIds: number[], pinned: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  for (const id of conversationIds) {
+    await db.update(conversations).set({ isPinned: pinned })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)));
+  }
+}
+
+/** 批量收藏/取消收藏会话 */
+export async function batchSetFavorited(userId: number, conversationIds: number[], favorited: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  for (const id of conversationIds) {
+    await db.update(conversations).set({ isFavorited: favorited })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)));
+  }
+}
+
 // ─── Message helpers ─────────────────────────────────────────────────────────
 
 export async function insertMessage(msg: InsertMessage) {

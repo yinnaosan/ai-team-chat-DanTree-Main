@@ -1,28 +1,22 @@
 /**
- * SessionRail.tsx — DanTree Workspace 最终视觉母版 v4
+ * SessionRail.tsx — DanTree Workspace 最终视觉母版 v5
  *
  * 专业 Research Session Control Rail
- * v4: 修复标题重复代码 + 字体放大 + 拖拽排序
+ * v5: 多选模式 + 批量操作（删除/收藏/置顶）+ 应用内确认弹窗
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star, Trash2, Pencil, MoreHorizontal, PinOff, StarOff, GripVertical } from "lucide-react";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
+  Search, Plus, Pin, Clock, Target, AlertTriangle, Lightbulb, Star,
+  Trash2, Pencil, MoreHorizontal, PinOff, StarOff, GripVertical,
+  CheckSquare, Square, X, PinIcon,
+} from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, DragEndEvent, DragOverlay, DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
+  SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
+  useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -30,7 +24,7 @@ export interface SessionItem {
   id: string;
   entity: string;
   title: string;
-  market?: string; // US / HK / SH / SZ / CN / JP / KR / CRYPTO
+  market?: string;
   type?: "thesis" | "timing" | "risk" | "research";
   time: string;
   pinned?: boolean;
@@ -47,29 +41,28 @@ export interface SessionActions {
   onDelete?: (id: string) => void;
 }
 
+export interface BatchActions {
+  onBatchDelete?: (ids: string[]) => Promise<void>;
+  onBatchPin?: (ids: string[], pinned: boolean) => Promise<void>;
+  onBatchFavorite?: (ids: string[], favorited: boolean) => Promise<void>;
+}
+
 interface SessionRailProps {
-  // ─── Compat field (TerminalEntry.tsx 依赖) ───
   width?: number;
-  // ─── Real props ───
   sessions?: SessionItem[];
   activeSessionId?: string;
   onSelectSession?: (id: string) => void;
-  /** @deprecated 旧接口兼容，勿新增使用 */
   onNewSession?: () => void;
-  /** 绿色加号：创建空白 general session（无 focusKey） */
   onNewGeneralSession?: () => void;
   activeEntity?: string;
-  /** 重复标的跳转时，短暂闪烁高亮对应卡片 */
   highlightId?: string | null;
-  /** 卡片操作回调 */
   actions?: SessionActions;
-  /** 拖拽排序回调（非置顶区域，传入新的有序 id 数组） */
+  batchActions?: BatchActions;
   onReorder?: (orderedIds: string[]) => void;
 }
 
 const TYPE_ICON = { thesis: Target, timing: Clock, risk: AlertTriangle, research: Lightbulb };
 
-// 市场徽章颜色映射
 const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
   US:     { bg: "rgba(59,130,246,0.25)",  text: "#93c5fd" },
   HK:     { bg: "rgba(249,115,22,0.25)",  text: "#fdba74" },
@@ -81,13 +74,158 @@ const MARKET_BADGE_COLOR: Record<string, { bg: string; text: string }> = {
   CRYPTO: { bg: "rgba(234,179,8,0.25)",   text: "#fde047" },
 };
 
+// ─── 应用内确认弹窗 ───────────────────────────────────────────────
+function ConfirmDialog({
+  open, title, message, confirmLabel, confirmColor, onConfirm, onCancel,
+}: {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  confirmColor?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.60)", backdropFilter: "blur(4px)",
+    }} onClick={onCancel}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "rgba(18,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)",
+          borderRadius: 12, padding: "20px 24px", minWidth: 320, maxWidth: 420,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.70), 0 4px 16px rgba(0,0,0,0.50)",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.92)", marginBottom: 8 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.60)", lineHeight: 1.6, marginBottom: 20 }}>
+          {message}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "7px 18px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)",
+              fontSize: 13, fontWeight: 500, cursor: "pointer",
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: "7px 18px", borderRadius: 7, border: "none",
+              background: confirmColor ?? "rgba(239,68,68,0.85)", color: "#fff",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {confirmLabel ?? "确定"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 主组件 ─────────────────────────────────────────────────────
 export function SessionRail({
   sessions = [], activeSessionId, onSelectSession, onNewSession, onNewGeneralSession,
-  activeEntity, highlightId, actions, onReorder,
+  activeEntity, highlightId, actions, batchActions, onReorder,
 }: SessionRailProps) {
   const handleNewGeneral = onNewGeneralSession ?? onNewSession;
   const [query, setQuery] = useState("");
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // ─── 多选模式 ───
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  // ─── 确认弹窗 ───
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string;
+    confirmLabel?: string; confirmColor?: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", message: "", onConfirm: () => {} });
+
+  const showConfirm = useCallback((opts: {
+    title: string; message: string; confirmLabel?: string; confirmColor?: string; onConfirm: () => void;
+  }) => {
+    setConfirmDialog({ open: true, ...opts });
+  }, []);
+
+  const closeConfirm = useCallback(() => {
+    setConfirmDialog(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // 退出多选模式
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  // 切换单个选中
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // 全选 / 取消全选
+  const toggleSelectAll = useCallback(() => {
+    const allIds = sessions.map(s => s.id);
+    if (selectedIds.size === allIds.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  }, [sessions, selectedIds.size]);
+
+  // 批量操作
+  const handleBatchDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    showConfirm({
+      title: "批量删除",
+      message: `确认删除选中的 ${selectedIds.size} 个会话？此操作不可撤销。`,
+      confirmLabel: "删除",
+      confirmColor: "rgba(239,68,68,0.85)",
+      onConfirm: async () => {
+        closeConfirm();
+        setBatchLoading(true);
+        try {
+          await batchActions?.onBatchDelete?.(Array.from(selectedIds));
+          exitSelectMode();
+        } finally { setBatchLoading(false); }
+      },
+    });
+  }, [selectedIds, batchActions, showConfirm, closeConfirm, exitSelectMode]);
+
+  const handleBatchPin = useCallback(async (pinned: boolean) => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      await batchActions?.onBatchPin?.(Array.from(selectedIds), pinned);
+      exitSelectMode();
+    } finally { setBatchLoading(false); }
+  }, [selectedIds, batchActions, exitSelectMode]);
+
+  const handleBatchFavorite = useCallback(async (favorited: boolean) => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      await batchActions?.onBatchFavorite?.(Array.from(selectedIds), favorited);
+      exitSelectMode();
+    } finally { setBatchLoading(false); }
+  }, [selectedIds, batchActions, exitSelectMode]);
 
   const filtered = query.trim()
     ? sessions.filter(s =>
@@ -99,16 +237,9 @@ export function SessionRail({
   const pinned = filtered.filter(s => s.pinned);
   const recent = filtered.filter(s => !s.pinned);
 
-  // dnd-kit sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6, // 移动 6px 才触发拖拽，避免误触点击
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -119,11 +250,9 @@ export function SessionRail({
     setActiveDragId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = recent.findIndex(s => s.id === String(active.id));
     const newIndex = recent.findIndex(s => s.id === String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
-
     const newOrder = arrayMove(recent, oldIndex, newIndex);
     onReorder?.(newOrder.map(s => s.id));
   }, [recent, onReorder]);
@@ -133,63 +262,113 @@ export function SessionRail({
   return (
     <aside style={{
       width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
-      background: "rgba(3,4,8,1.00)",
-      backdropFilter: "blur(24px)",
-      WebkitBackdropFilter: "blur(24px)",
+      background: "rgba(3,4,8,1.00)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
       borderRight: "1px solid rgba(255,255,255,0.12)",
     }}>
-
       {/* Column Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 14px 11px",
-        borderBottom: "1px solid rgba(255,255,255,0.12)",
-        background: "rgba(255,255,255,0.025)",
-        flexShrink: 0,
+        padding: "12px 14px 11px", borderBottom: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(255,255,255,0.025)", flexShrink: 0,
       }}>
         <span style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.92)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
           研究会话
         </span>
-      </div>
-
-      {/* Search + New */}
-      <div style={{ padding: "8px 10px 6px" }}>
-        <div style={{ display: "flex", gap: 6 }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <Search size={12} color="rgba(255,255,255,0.18)" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="搜索..."
-              style={{
-                width: "100%", height: 28, paddingLeft: 28, paddingRight: 8,
-                fontSize: 12, lineHeight: 1,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
-                color: "rgba(255,255,255,0.80)", outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
+        {/* 多选模式切换按钮 */}
+        {sessions.length > 0 && (
           <button
-            onClick={handleNewGeneral}
-            title="新建空白研究（General Session）"
+            onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+            title={selectMode ? "退出多选" : "多选管理"}
             style={{
-              width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(52,211,153,0.20)",
-              background: "rgba(52,211,153,0.08)", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
+              width: 24, height: 24, borderRadius: 5, border: "none",
+              background: selectMode ? "rgba(52,211,153,0.20)" : "rgba(255,255,255,0.06)",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.12s",
             }}
           >
-            <Plus size={14} color="#34d399" />
+            {selectMode
+              ? <X size={12} color="#34d399" />
+              : <CheckSquare size={12} color="rgba(255,255,255,0.50)" />
+            }
           </button>
-        </div>
+        )}
       </div>
+
+      {/* 多选模式工具栏 */}
+      {selectMode && (
+        <div style={{
+          padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(52,211,153,0.04)", flexShrink: 0,
+        }}>
+          {/* 选中计数 + 全选 */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.60)" }}>
+              已选 <span style={{ color: "#34d399", fontWeight: 700 }}>{selectedIds.size}</span> / {sessions.length}
+            </span>
+            <button
+              onClick={toggleSelectAll}
+              style={{
+                fontSize: 11, color: "rgba(52,211,153,0.85)", background: "none",
+                border: "none", cursor: "pointer", fontWeight: 500,
+                textDecoration: "underline", textUnderlineOffset: 2,
+              }}
+            >
+              {selectedIds.size === sessions.length ? "取消全选" : "全选"}
+            </button>
+          </div>
+
+          {/* 批量操作按钮 */}
+          <div style={{ display: "flex", gap: 6 }}>
+            <BatchButton
+              icon={Pin} label="置顶" disabled={selectedIds.size === 0 || batchLoading}
+              onClick={() => handleBatchPin(true)}
+            />
+            <BatchButton
+              icon={Star} label="收藏" color="#fbbf24" disabled={selectedIds.size === 0 || batchLoading}
+              onClick={() => handleBatchFavorite(true)}
+            />
+            <BatchButton
+              icon={Trash2} label="删除" color="#f87171" disabled={selectedIds.size === 0 || batchLoading}
+              onClick={handleBatchDelete}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Search + New */}
+      {!selectMode && (
+        <div style={{ padding: "8px 10px 6px" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <Search size={12} color="rgba(255,255,255,0.18)" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+              <input
+                value={query} onChange={e => setQuery(e.target.value)}
+                placeholder="搜索..."
+                style={{
+                  width: "100%", height: 28, paddingLeft: 28, paddingRight: 8,
+                  fontSize: 12, lineHeight: 1, background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
+                  color: "rgba(255,255,255,0.80)", outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+            <button
+              onClick={handleNewGeneral}
+              title="新建空白研究（General Session）"
+              style={{
+                width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(52,211,153,0.20)",
+                background: "rgba(52,211,153,0.08)", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}
+            >
+              <Plus size={14} color="#34d399" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px 8px" }}>
-
-        {/* Empty state */}
         {sessions.length === 0 && (
           <div style={{ padding: "28px 12px", textAlign: "center" }}>
             <Target size={18} color="rgba(255,255,255,0.10)" style={{ margin: "0 auto 8px", display: "block" }} />
@@ -199,19 +378,22 @@ export function SessionRail({
           </div>
         )}
 
-        {/* Pinned — 不参与拖拽 */}
+        {/* Pinned */}
         {pinned.length > 0 && (
           <div style={{ marginBottom: 6 }}>
             <SectionLabel icon={Pin} label="已置顶" />
             {pinned.map(s => (
               <SessionCard
-                key={s.id}
-                session={s}
+                key={s.id} session={s}
                 isActive={s.id === activeSessionId}
                 isHighlighted={s.id === highlightId}
-                onClick={() => onSelectSession?.(s.id)}
-                actions={actions}
-                draggable={false}
+                onClick={() => selectMode ? toggleSelect(s.id) : onSelectSession?.(s.id)}
+                actions={actions} draggable={false}
+                selectMode={selectMode}
+                selected={selectedIds.has(s.id)}
+                onToggleSelect={() => toggleSelect(s.id)}
+                showConfirm={showConfirm}
+                closeConfirm={closeConfirm}
               />
             ))}
           </div>
@@ -219,49 +401,94 @@ export function SessionRail({
 
         {/* Recent — 支持拖拽排序 */}
         {recent.length > 0 && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={recent.map(s => s.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div>
-                {recent.map(s => (
-                  <SortableSessionCard
-                    key={s.id}
-                    session={s}
-                    isActive={s.id === activeSessionId}
-                    isHighlighted={s.id === highlightId}
-                    onClick={() => onSelectSession?.(s.id)}
-                    actions={actions}
-                    isDragging={s.id === activeDragId}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-
-            {/* Drag overlay — 拖拽时跟随鼠标的幽灵卡片 */}
-            <DragOverlay dropAnimation={null}>
-              {activeDragItem ? (
+          selectMode ? (
+            <div>
+              {recent.map(s => (
                 <SessionCard
-                  session={activeDragItem}
-                  isActive={activeDragItem.id === activeSessionId}
-                  isHighlighted={false}
-                  onClick={() => {}}
-                  actions={undefined}
-                  draggable={false}
-                  isOverlay
+                  key={s.id} session={s}
+                  isActive={s.id === activeSessionId}
+                  isHighlighted={s.id === highlightId}
+                  onClick={() => toggleSelect(s.id)}
+                  actions={actions} draggable={false}
+                  selectMode={selectMode}
+                  selected={selectedIds.has(s.id)}
+                  onToggleSelect={() => toggleSelect(s.id)}
+                  showConfirm={showConfirm}
+                  closeConfirm={closeConfirm}
                 />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+              ))}
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter}
+              onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <SortableContext items={recent.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                <div>
+                  {recent.map(s => (
+                    <SortableSessionCard
+                      key={s.id} session={s}
+                      isActive={s.id === activeSessionId}
+                      isHighlighted={s.id === highlightId}
+                      onClick={() => onSelectSession?.(s.id)}
+                      actions={actions}
+                      isDragging={s.id === activeDragId}
+                      showConfirm={showConfirm}
+                      closeConfirm={closeConfirm}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay dropAnimation={null}>
+                {activeDragItem ? (
+                  <SessionCard
+                    session={activeDragItem}
+                    isActive={activeDragItem.id === activeSessionId}
+                    isHighlighted={false} onClick={() => {}}
+                    actions={undefined} draggable={false} isOverlay
+                    showConfirm={showConfirm} closeConfirm={closeConfirm}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )
         )}
       </div>
+
+      {/* 确认弹窗 */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        confirmColor={confirmDialog.confirmColor}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={closeConfirm}
+      />
     </aside>
+  );
+}
+
+// ─── 批量操作按钮 ─────────────────────────────────────────────
+function BatchButton({ icon: Icon, label, color, disabled, onClick }: {
+  icon: React.FC<any>; label: string; color?: string; disabled?: boolean; onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const c = color ?? "rgba(255,255,255,0.72)";
+  return (
+    <button
+      onClick={onClick} disabled={disabled}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{
+        flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+        padding: "5px 0", borderRadius: 6, border: "1px solid rgba(255,255,255,0.10)",
+        background: hovered && !disabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.4 : 1, transition: "background 0.12s, opacity 0.12s",
+        color: c, fontSize: 11, fontWeight: 500,
+      }}
+    >
+      <Icon size={12} color={c} />
+      {label}
+    </button>
   );
 }
 
@@ -278,51 +505,31 @@ function SectionLabel({ icon: Icon, label }: { icon: React.FC<any>; label: strin
 
 /** 可排序的 SessionCard 包装器 */
 function SortableSessionCard(props: {
-  session: SessionItem;
-  isActive: boolean;
-  isHighlighted?: boolean;
-  onClick: () => void;
-  actions?: SessionActions;
-  isDragging?: boolean;
+  session: SessionItem; isActive: boolean; isHighlighted?: boolean;
+  onClick: () => void; actions?: SessionActions; isDragging?: boolean;
+  showConfirm: (opts: any) => void; closeConfirm: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging: isSortableDragging,
-  } = useSortable({ id: props.session.id });
-
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({ id: props.session.id });
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isSortableDragging ? 0.35 : 1,
-    position: "relative",
+    transform: CSS.Transform.toString(transform), transition,
+    opacity: isSortableDragging ? 0.35 : 1, position: "relative",
   };
-
   return (
     <div ref={setNodeRef} style={style}>
-      <SessionCard
-        {...props}
-        draggable
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
+      <SessionCard {...props} draggable dragHandleProps={{ ...attributes, ...listeners }} />
     </div>
   );
 }
 
 function SessionCard({
   session, isActive, isHighlighted, onClick, actions, draggable, dragHandleProps, isOverlay,
+  selectMode, selected, onToggleSelect, showConfirm, closeConfirm,
 }: {
-  session: SessionItem;
-  isActive: boolean;
-  isHighlighted?: boolean;
-  onClick: () => void;
-  actions?: SessionActions;
-  draggable?: boolean;
-  dragHandleProps?: Record<string, any>;
-  isOverlay?: boolean;
+  session: SessionItem; isActive: boolean; isHighlighted?: boolean;
+  onClick: () => void; actions?: SessionActions;
+  draggable?: boolean; dragHandleProps?: Record<string, any>; isOverlay?: boolean;
+  selectMode?: boolean; selected?: boolean; onToggleSelect?: () => void;
+  showConfirm: (opts: any) => void; closeConfirm: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -332,46 +539,29 @@ function SessionCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
-  // 闪烁动画
   useEffect(() => {
-    if (isHighlighted) {
-      setFlash(true);
-      const t = setTimeout(() => setFlash(false), 800);
-      return () => clearTimeout(t);
-    }
+    if (isHighlighted) { setFlash(true); const t = setTimeout(() => setFlash(false), 800); return () => clearTimeout(t); }
   }, [isHighlighted]);
 
-  // 点击外部关闭菜单
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  // 改名时自动聚焦
   useEffect(() => {
-    if (renaming) {
-      setRenameValue(session.title);
-      setTimeout(() => renameRef.current?.select(), 50);
-    }
+    if (renaming) { setRenameValue(session.title); setTimeout(() => renameRef.current?.select(), 50); }
   }, [renaming, session.title]);
 
   const TypeIcon = TYPE_ICON[session.type ?? "research"] ?? Lightbulb;
-
-  const dirColor = session.direction === "bullish" ? "#34d399"
-    : session.direction === "bearish" ? "#f87171"
-    : "rgba(255,255,255,0.30)";
+  const dirColor = session.direction === "bullish" ? "#34d399" : session.direction === "bearish" ? "#f87171" : "rgba(255,255,255,0.30)";
 
   const handleRenameConfirm = () => {
     const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== session.title) {
-      actions?.onRename?.(session.id, trimmed);
-    }
+    if (trimmed && trimmed !== session.title) actions?.onRename?.(session.id, trimmed);
     setRenaming(false);
   };
 
@@ -381,7 +571,6 @@ function SessionCard({
     action();
   };
 
-  // 市场徽章颜色
   const badgeColor = session.market ? MARKET_BADGE_COLOR[session.market] : null;
 
   return (
@@ -390,18 +579,33 @@ function SessionCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); if (!menuOpen) setMenuOpen(false); }}
     >
-      {/* 拖拽手柄（仅非置顶卡片显示，悬停时出现） */}
-      {draggable && (hovered || isOverlay) && !renaming && (
+      {/* 多选勾选框 */}
+      {selectMode && (
+        <button
+          onClick={e => { e.stopPropagation(); onToggleSelect?.(); }}
+          style={{
+            position: "absolute", left: 2, top: "50%", transform: "translateY(-50%)",
+            width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "none", border: "none", cursor: "pointer", zIndex: 10,
+          }}
+        >
+          {selected
+            ? <CheckSquare size={14} color="#34d399" fill="rgba(52,211,153,0.20)" />
+            : <Square size={14} color="rgba(255,255,255,0.30)" />
+          }
+        </button>
+      )}
+
+      {/* 拖拽手柄 */}
+      {!selectMode && draggable && (hovered || isOverlay) && !renaming && (
         <div
           {...dragHandleProps}
           style={{
             position: "absolute", left: -2, top: "50%", transform: "translateY(-50%)",
             width: 16, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "grab", zIndex: 10, opacity: 0.45,
-            touchAction: "none",
+            cursor: "grab", zIndex: 10, opacity: 0.45, touchAction: "none",
           }}
-          title="拖拽排序"
-          onClick={e => e.stopPropagation()}
+          title="拖拽排序" onClick={e => e.stopPropagation()}
         >
           <GripVertical size={11} color="rgba(255,255,255,0.60)" />
         </div>
@@ -414,20 +618,19 @@ function SessionCard({
           display: "flex", alignItems: "flex-start", gap: 8,
           padding: "9px 10px", borderRadius: 7, marginBottom: 2,
           cursor: renaming ? "default" : "pointer", border: "none",
-          borderLeft: `3px solid ${isActive ? "#34d399" : "transparent"}`,
-          background: flash
-            ? "rgba(52,211,153,0.30)"
-            : isActive
-            ? "rgba(52,211,153,0.16)"
+          borderLeft: `3px solid ${selectMode && selected ? "#34d399" : isActive && !selectMode ? "#34d399" : "transparent"}`,
+          background: selectMode && selected
+            ? "rgba(52,211,153,0.12)"
+            : flash ? "rgba(52,211,153,0.30)"
+            : isActive ? "rgba(52,211,153,0.16)"
             : hovered ? "rgba(255,255,255,0.065)" : "transparent",
           boxShadow: isOverlay
             ? "0 8px 32px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.40)"
-            : flash
-            ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
-            : isActive ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
+            : flash ? "0 0 0 2px rgba(52,211,153,0.60), 0 0 16px rgba(52,211,153,0.30)"
+            : isActive && !selectMode ? "0 0 0 1px rgba(52,211,153,0.32), inset 0 0 24px rgba(52,211,153,0.10), 0 2px 12px rgba(52,211,153,0.12)" : "none",
           transition: "background 0.15s, box-shadow 0.15s",
-          paddingRight: hovered ? 32 : 10,
-          paddingLeft: draggable && hovered ? 18 : 10,
+          paddingRight: !selectMode && hovered ? 32 : 10,
+          paddingLeft: selectMode ? 26 : (draggable && hovered ? 18 : 10),
         }}
       >
         {/* Type badge */}
@@ -441,33 +644,25 @@ function SessionCard({
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* 第一行：公司名（不含代码） */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
             {renaming ? (
               <input
-                ref={renameRef}
-                value={renameValue}
+                ref={renameRef} value={renameValue}
                 onChange={e => setRenameValue(e.target.value)}
                 onBlur={handleRenameConfirm}
-                onKeyDown={e => {
-                  if (e.key === "Enter") handleRenameConfirm();
-                  if (e.key === "Escape") setRenaming(false);
-                }}
+                onKeyDown={e => { if (e.key === "Enter") handleRenameConfirm(); if (e.key === "Escape") setRenaming(false); }}
                 onClick={e => e.stopPropagation()}
                 style={{
                   flex: 1, fontSize: 13, fontWeight: 500,
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(52,211,153,0.40)", borderRadius: 4,
-                  color: "rgba(237,237,239,0.92)", outline: "none",
-                  padding: "1px 5px",
+                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(52,211,153,0.40)",
+                  borderRadius: 4, color: "rgba(237,237,239,0.92)", outline: "none", padding: "1px 5px",
                 }}
               />
             ) : (
               <span style={{
                 fontSize: 14, fontWeight: isActive ? 600 : 500,
                 color: isActive ? "rgba(237,237,239,0.96)" : "rgba(255,255,255,0.72)",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
-                lineHeight: 1.3,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, lineHeight: 1.3,
               }}>
                 {session.title}
               </span>
@@ -480,43 +675,33 @@ function SessionCard({
             )}
           </div>
 
-          {/* 第二行：市场徽章 + 代码（只显示一次）+ 时间 */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            {/* 市场徽章 */}
             {badgeColor ? (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
-                background: badgeColor.bg,
-                color: badgeColor.text,
+                background: badgeColor.bg, color: badgeColor.text,
                 letterSpacing: "0.04em", flexShrink: 0,
                 fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
               }}>
                 {session.market}
               </span>
             ) : null}
-
-            {/* 代码（entity）— 只在这里显示一次，不在标题行重复 */}
             {session.entity && session.entity !== "—" && (
               <span style={{
                 fontSize: 12, fontWeight: 700,
                 color: isActive ? "rgba(52,211,153,0.85)" : "rgba(255,255,255,0.50)",
                 fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-                letterSpacing: "0.04em",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                flex: 1,
+                letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis",
+                whiteSpace: "nowrap", flex: 1,
               }}>
                 {session.entity}
               </span>
             )}
-
-            {/* 方向（仅在无代码时显示） */}
             {(!session.entity || session.entity === "—") && session.direction && session.direction !== "neutral" && (
               <span style={{ fontSize: 11, fontWeight: 600, color: dirColor, flex: 1 }}>
                 {session.direction === "bullish" ? "看多" : "看空"}
               </span>
             )}
-
-            {/* 时间 */}
             <span style={{
               fontSize: 11, color: "rgba(255,255,255,0.28)", marginLeft: "auto", flexShrink: 0,
               fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
@@ -527,8 +712,8 @@ function SessionCard({
         </div>
       </button>
 
-      {/* ⋯ 操作按钮（悬停时显示） */}
-      {(hovered || menuOpen) && !renaming && (
+      {/* ⋯ 操作按钮（非多选模式悬停时显示） */}
+      {!selectMode && (hovered || menuOpen) && !renaming && (
         <button
           onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
           style={{
@@ -544,78 +729,55 @@ function SessionCard({
       )}
 
       {/* 操作菜单 */}
-      {menuOpen && (
+      {menuOpen && !selectMode && (
         <div
           ref={menuRef}
           style={{
             position: "absolute", right: 4, top: "calc(100% - 4px)", zIndex: 100,
-            background: "rgba(18,20,26,0.98)",
-            border: "1px solid rgba(255,255,255,0.14)",
+            background: "rgba(18,20,26,0.98)", border: "1px solid rgba(255,255,255,0.14)",
             borderRadius: 8, padding: "4px 0",
             boxShadow: "0 8px 32px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.40)",
-            minWidth: 148,
-            backdropFilter: "blur(16px)",
+            minWidth: 148, backdropFilter: "blur(16px)",
           }}
         >
-          {/* 置顶 / 取消置顶 */}
-          <MenuAction
-            icon={session.pinned ? PinOff : Pin}
-            label={session.pinned ? "取消置顶" : "置顶"}
-            onClick={e => handleMenuAction(e, () => actions?.onPin?.(session.id, !session.pinned))}
-          />
-          {/* 收藏 / 取消收藏 */}
-          <MenuAction
-            icon={session.favorite ? StarOff : Star}
-            label={session.favorite ? "取消收藏" : "收藏"}
+          <MenuAction icon={session.pinned ? PinOff : Pin} label={session.pinned ? "取消置顶" : "置顶"}
+            onClick={e => handleMenuAction(e, () => actions?.onPin?.(session.id, !session.pinned))} />
+          <MenuAction icon={session.favorite ? StarOff : Star} label={session.favorite ? "取消收藏" : "收藏"}
             color={session.favorite ? undefined : "#fbbf24"}
-            onClick={e => handleMenuAction(e, () => actions?.onFavorite?.(session.id, !session.favorite))}
-          />
-          {/* 改名 */}
-          <MenuAction
-            icon={Pencil}
-            label="改名"
-            onClick={e => handleMenuAction(e, () => setRenaming(true))}
-          />
-          {/* 分隔线 */}
+            onClick={e => handleMenuAction(e, () => actions?.onFavorite?.(session.id, !session.favorite))} />
+          <MenuAction icon={Pencil} label="改名"
+            onClick={e => handleMenuAction(e, () => setRenaming(true))} />
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "3px 0" }} />
-          {/* 删除 */}
-          <MenuAction
-            icon={Trash2}
-            label="删除"
-            color="#f87171"
+          <MenuAction icon={Trash2} label="删除" color="#f87171"
             onClick={e => handleMenuAction(e, () => {
-              if (confirm(`确认删除会话「${session.title}」？此操作不可撤销。`)) {
-                actions?.onDelete?.(session.id);
-              }
-            })}
-          />
+              showConfirm({
+                title: "删除会话",
+                message: `确认删除会话「${session.title}」？此操作不可撤销。`,
+                confirmLabel: "删除",
+                confirmColor: "rgba(239,68,68,0.85)",
+                onConfirm: () => { closeConfirm(); actions?.onDelete?.(session.id); },
+              });
+            })} />
         </div>
       )}
     </div>
   );
 }
 
-function MenuAction({
-  icon: Icon, label, color, onClick,
-}: {
-  icon: React.FC<any>;
-  label: string;
-  color?: string;
-  onClick: (e: React.MouseEvent) => void;
+function MenuAction({ icon: Icon, label, color, onClick }: {
+  icon: React.FC<any>; label: string; color?: string; onClick: (e: React.MouseEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: "100%", display: "flex", alignItems: "center", gap: 8,
         padding: "6px 12px", border: "none", cursor: "pointer",
         background: hovered ? "rgba(255,255,255,0.07)" : "transparent",
         color: color ?? "rgba(255,255,255,0.72)",
-        fontSize: 12, fontWeight: 400, textAlign: "left",
-        transition: "background 0.10s",
+        fontSize: 12, fontWeight: 400, textAlign: "left", transition: "background 0.10s",
       }}
     >
       <Icon size={13} color={color ?? "rgba(255,255,255,0.50)"} />

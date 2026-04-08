@@ -258,11 +258,64 @@ export default function ResearchWorkspacePage() {
     },
   });
 
+  // Batch mutations
+  const batchDeleteMutation = trpc.conversation.batchDelete.useMutation({
+    onSuccess: () => {
+      utils.workspace.listSessions.invalidate();
+      // 如果当前 session 被批量删除，切换到第一个可用 session
+      const remaining = sessionList.filter(s => s.id !== currentSession?.id);
+      if (currentSession && !remaining.find(s => s.id === currentSession.id)) {
+        if (remaining.length > 0) {
+          setSession(remaining[0]);
+          setActiveConvId(remaining[0].conversationId ?? null);
+        } else {
+          setActiveConvId(null);
+        }
+      }
+    },
+  });
+  const batchPinMutation = trpc.conversation.batchPin.useMutation({
+    onSuccess: () => utils.workspace.listSessions.invalidate(),
+  });
+  const batchFavoriteMutation = trpc.conversation.batchFavorite.useMutation({
+    onSuccess: () => utils.workspace.listSessions.invalidate(),
+  });
+
   const sessionActions = {
     onPin: (id: string, pinned: boolean) => pinMutation.mutate({ sessionId: id, pinned }),
     onFavorite: (id: string, favorite: boolean) => favoriteMutation.mutate({ sessionId: id, favorite }),
     onRename: (id: string, newTitle: string) => renameMutation.mutate({ sessionId: id, title: newTitle }),
     onDelete: (id: string) => deleteMutation.mutate({ sessionId: id }),
+  };
+
+  const batchActions = {
+    onBatchDelete: async (ids: string[]) => {
+      // workspace sessions 的 id 是 string UUID，但 batch procedures 需要 conversationId (number)
+      // 先尝试从 sessionList 找到对应的 conversationId
+      const numericIds = ids.map(id => {
+        const ws = sessionList.find(s => s.id === id);
+        return ws?.conversationId ?? Number(id);
+      }).filter(id => !isNaN(id));
+      if (numericIds.length > 0) {
+        await batchDeleteMutation.mutateAsync({ conversationIds: numericIds });
+      }
+      // 同时删除 workspace sessions
+      for (const id of ids) {
+        try { await deleteMutation.mutateAsync({ sessionId: id }); } catch {}
+      }
+    },
+    onBatchPin: async (ids: string[], pinned: boolean) => {
+      for (const id of ids) {
+        try { await pinMutation.mutateAsync({ sessionId: id, pinned }); } catch {}
+      }
+      utils.workspace.listSessions.invalidate();
+    },
+    onBatchFavorite: async (ids: string[], favorited: boolean) => {
+      for (const id of ids) {
+        try { await favoriteMutation.mutateAsync({ sessionId: id, favorite: favorited }); } catch {}
+      }
+      utils.workspace.listSessions.invalidate();
+    },
   };
 
   const linkConvMutation = trpc.workspace.linkConversation.useMutation({
@@ -707,6 +760,7 @@ export default function ResearchWorkspacePage() {
             }}
             activeEntity={currentTicker || undefined}
             actions={sessionActions}
+            batchActions={batchActions}
           />
 
           {/* Col 2: Main Decision Canvas */}

@@ -62,6 +62,9 @@ import {
   deleteMemoryContextBatch,
   updateMemoryContext,
   getRunningTasksBySession,
+  batchDeleteConversations,
+  batchSetPinned,
+  batchSetFavorited,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -3508,6 +3511,30 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await requireAccess(ctx.user.id, ctx.user.openId);
         await updateConversationTitle(input.conversationId, input.title.trim().slice(0, 100));
+        return { success: true };
+      }),
+    // 批量删除会话
+    batchDelete: protectedProcedure
+      .input(z.object({ conversationIds: z.array(z.number()).min(1).max(100) }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await batchDeleteConversations(ctx.user.id, input.conversationIds);
+        return { success: true, deleted: input.conversationIds.length };
+      }),
+    // 批量置顶/取消置顶
+    batchPin: protectedProcedure
+      .input(z.object({ conversationIds: z.array(z.number()).min(1).max(100), pinned: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await batchSetPinned(ctx.user.id, input.conversationIds, input.pinned);
+        return { success: true };
+      }),
+    // 批量收藏/取消收藏
+    batchFavorite: protectedProcedure
+      .input(z.object({ conversationIds: z.array(z.number()).min(1).max(100), favorited: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        await requireAccess(ctx.user.id, ctx.user.openId);
+        await batchSetFavorited(ctx.user.id, input.conversationIds, input.favorited);
         return { success: true };
       }),
   }),

@@ -18,6 +18,7 @@ import {
   Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup,
 } from "@/components/ui/command";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { detectMarketType } from "@/lib/marketUtils";
 
 // ─── Compat type exports (旧 ResearchWorkspace.tsx 依赖) ─────────────────────
 export type ScrollToSection = "thesis" | "timing" | "alert" | "history";
@@ -99,14 +100,19 @@ const MARKET_COLORS: Record<string, { bg: string; color: string }> = {
 };
 
 function getMarketLabel(c: { ticker: string; market?: string }): string {
-  if (c.market) return c.market;
-  if (c.ticker.endsWith(".HK") || /^\d{3,5}\.HK$/i.test(c.ticker)) return "HK";
-  if (c.ticker.endsWith(".SS")) return "SH";
-  if (c.ticker.endsWith(".SZ")) return "SZ";
-  if (c.ticker.endsWith(".T")) return "JP";
-  if (c.ticker.endsWith(".KS")) return "KR";
-  if (/^[A-Z]{1,5}$/.test(c.ticker)) return "US";
-  return "";
+  // 优先使用后端返回的 market 字段（最准确）
+  if (c.market) return c.market.toUpperCase();
+  // 使用 marketUtils 的统一推断逻辑（支持 CRYPTO/CN/HK/UK/EU/US）
+  const type = detectMarketType(c.ticker);
+  switch (type) {
+    case "crypto": return "CRYPTO";
+    case "cn":     return "CN";
+    case "hk":     return "HK";
+    case "uk":     return "UK";
+    case "eu":     return "EU";
+    case "us":     return "US";
+    default:       return "US";
+  }
 }
 
 // ─── EntityCombobox: 内联搜索下拉框 ──────────────────────────────────────────

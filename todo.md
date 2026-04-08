@@ -3287,3 +3287,6 @@
 
 ## 修复 conversationId null 导致 API 查询错误 (2026-04-08)
 - [x] 修复：conversationId 为 null 时不应发起需要 number 类型的 API 查询
+
+## 修复市场徽章推断逻辑 (2026-04-08)
+- [x] 修复 EntityCombobox 触发按鈕市场徽章：BTC/ETH 等显示 CRYPTO，港股显示 HK，A股显示 CN，美股显示 US

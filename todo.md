@@ -3302,3 +3302,6 @@
 - [x] 确认 onNewEntity 使用 EntityCombobox UI（无 prompt() 调用，符合 InstrumentSelectorModal 要求）
 - [x] 确认 pendingEntityPromptRef + createSession + useEffect 调用顺序完全符合 Claude 锁定逻辑
 - [x] TSC: 0 errors
+
+## Bug Fix: lightweight-charts "Object is disposed"
+- [x] 修复 lightweight-charts ResizeObserver 在图表实例销毁后仍然访问导致的 "Object is disposed" 崩溃

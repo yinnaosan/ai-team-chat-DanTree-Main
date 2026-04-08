@@ -277,9 +277,13 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
     if (!containerRef.current || data.length === 0) return;
 
     let chart: unknown = null;
+    // Keep ro outside the async import so the outer cleanup can always disconnect it
+    let ro: ResizeObserver | null = null;
+    let disposed = false;
 
     import("lightweight-charts").then(({ createChart, CrosshairMode, CandlestickSeries, LineSeries }) => {
-      if (!containerRef.current) return;
+      // Component may have unmounted while the dynamic import was in-flight
+      if (disposed || !containerRef.current) return;
 
       const el = containerRef.current;
       chart = createChart(el, {
@@ -377,22 +381,24 @@ function CandlestickChart({ data, unit = "" }: { data: CandleData[]; unit?: stri
       setIsReady(true);
 
       // 响应式
-      const ro = new ResizeObserver(() => {
-        if (el && chart) {
+      ro = new ResizeObserver(() => {
+        // Guard: don't touch chart after it has been disposed
+        if (!disposed && el && chart) {
           (chart as { applyOptions: (o: unknown) => void }).applyOptions({ width: el.clientWidth });
         }
       });
       ro.observe(el);
-
-      return () => {
-        ro.disconnect();
-      };
     });
 
     return () => {
+      // Mark as disposed FIRST so any in-flight ResizeObserver callback is a no-op
+      disposed = true;
+      // Disconnect observer before removing chart to prevent "Object is disposed"
+      if (ro) { ro.disconnect(); ro = null; }
       if (chart) {
-        (chart as { remove: () => void }).remove();
+        try { (chart as { remove: () => void }).remove(); } catch { /* already disposed */ }
         chartRef.current = null;
+        chart = null;
       }
     };
   }, [data]);

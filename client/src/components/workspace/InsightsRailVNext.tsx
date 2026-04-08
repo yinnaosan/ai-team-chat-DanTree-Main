@@ -282,15 +282,16 @@ export function InsightsRailVNext({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {news.map((item, i) => (
-              <div key={i} style={{ padding: "7px 9px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 5 }}>
+              <div key={i} title={item.headline} style={{ padding: "7px 9px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 5, cursor: "default" }}>
                 <div style={{
-                  fontSize: 11, color: "rgba(255,255,255,0.58)", lineHeight: 1.45,
-                  borderLeft: `2px solid ${item.sentiment === "positive" ? "rgba(16,185,129,0.50)" : item.sentiment === "negative" ? "rgba(239,68,68,0.45)" : "rgba(255,255,255,0.15)"}`,
+                  fontSize: 11, color: "rgba(255,255,255,0.85)", lineHeight: 1.5,
+                  borderLeft: `2px solid ${item.sentiment === "positive" ? "rgba(16,185,129,0.60)" : item.sentiment === "negative" ? "rgba(239,68,68,0.55)" : "rgba(255,255,255,0.20)"}`,
                   paddingLeft: 7,
+                  display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
                 }}>
                   {item.headline}
                 </div>
-                {item.source && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", marginTop: 3, paddingLeft: 9 }}>{item.source}</div>}
+                {item.source && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", marginTop: 3, paddingLeft: 9 }}>{item.source}</div>}
               </div>
             ))}
           </div>
@@ -338,16 +339,25 @@ function InsightSection({ dot, label, labelColor, children }: {
 function InsightCard({ item }: { item: InsightItem }) {
   const cfg = ITEM_TYPE_CFG[item.type] ?? ITEM_TYPE_CFG.neutral;
   const { Icon } = cfg;
+  const fullText = [item.title, item.detail].filter(Boolean).join(" — ");
   return (
-    <div style={{ display: "flex", gap: 8, padding: "8px 10px", borderRadius: 7, background: cfg.bg }}>
+    <div title={fullText} style={{ display: "flex", gap: 8, padding: "8px 10px", borderRadius: 7, background: cfg.bg, cursor: "default" }}>
       <Icon size={12} color={cfg.iconColor} style={{ marginTop: 2, flexShrink: 0 }} />
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.75)", lineHeight: 1.4 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.88)", lineHeight: 1.45,
+          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
           {item.title}
         </div>
-        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.32)", marginTop: 2 }}>
-          {item.detail}
-        </div>
+        {item.detail && (
+          <div style={{
+            fontSize: 10, color: "rgba(255,255,255,0.65)", marginTop: 2,
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+          }}>
+            {item.detail}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -399,23 +399,33 @@ async function refreshDataSourceStatusInBackground(): Promise<DataSourceStatusRe
 
 async function invokeLLMWithRetry(
   params: Parameters<typeof invokeLLM>[0],
-  maxRetries = 3
+  maxRetries = 4
 ): Promise<ReturnType<typeof invokeLLM>> {
   let lastError: unknown;
-  // 指数退避：第1次重试等1s，第2次等3s，第3次等9s
-  const delays = [1000, 3000, 9000];
+  // 指数退避：1.5s → 3s → 6s → 12s（+0~500ms 随机抖动）
+  const baseDelays = [1500, 3000, 6000, 12000];
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await invokeLLM(params);
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      // 只对上游临时错误重试（500/502/503/超时）
-      const isRetryable = msg.includes("500") || msg.includes("502") || msg.includes("503")
-        || msg.includes("upstream") || msg.includes("timeout") || msg.includes("ECONNRESET");
-      if (!isRetryable || attempt === maxRetries) throw err;
-      const delay = delays[attempt] ?? 9000;
-      console.warn(`[LLM] Attempt ${attempt + 1} failed (${msg}), retrying in ${delay}ms...`);
+      // 只对临时过载类错误重试（529 / overloaded / rate limit / 5xx / 超时）
+      const isTransientOverload =
+        msg.includes("529") || msg.includes("overloaded") || msg.includes("rate limit") ||
+        msg.includes("rate_limit") || msg.includes("RateLimitError") ||
+        msg.includes("500") || msg.includes("502") || msg.includes("503") ||
+        msg.includes("upstream") || msg.includes("timeout") || msg.includes("ECONNRESET");
+      // 不重试的错误：认证/权限/解析/逻辑错误
+      const isNonRetryable =
+        msg.includes("401") || msg.includes("403") ||
+        msg.includes("invalid api key") || msg.includes("Incorrect API key") ||
+        msg.includes("schema") || msg.includes("parsing");
+      if (!isTransientOverload || isNonRetryable || attempt === maxRetries) throw err;
+      const baseDelay = baseDelays[attempt] ?? 12000;
+      const jitter = Math.floor(Math.random() * 500);
+      const delay = baseDelay + jitter;
+      console.warn(`[LLM-RETRY] attempt=${attempt + 1} wait=${delay}ms reason=${msg.includes("529") || msg.includes("overloaded") ? "529_overloaded" : "transient_error"}`);
       await new Promise(res => setTimeout(res, delay));
     }
   }
@@ -1868,7 +1878,12 @@ ${"```"}`;
     emitTaskStatus(taskId, "synthesis"); // SSE: 综合分析中
 
     // ── V2.1 ACTION_ENGINE：根据 task_type 自动决定触发哪些 action ─────────────
-    const resolvedTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    // Fix: when task_parse.task_type is missing/general but primaryTicker exists, infer stock_analysis
+    const rawResolvedTaskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    const resolvedTaskType: string = (rawResolvedTaskType === "general" && primaryTicker)
+      ? "stock_analysis"
+      : rawResolvedTaskType;
+    console.log(`[V2.1-DEBUG] resolvedTaskType=${resolvedTaskType} (raw=${rawResolvedTaskType}) primaryTicker=${primaryTicker}`);
     const actionCandidatesFromStep1: string[] = (resourcePlan.taskSpec as any)?.action_candidates ?? [];
     const autoActions: string[] = [...actionCandidatesFromStep1];
     // 按 task_type 自动补充 action
@@ -2081,7 +2096,7 @@ ${multiAgentBlock}`
       : "[DIRECT_ANALYSIS: 直接基于 MANUS_DATA_REPORT 分析]";
 
     // ── 动态 FOLLOWUP 策略：根据 task_type 和 outputMode 决定追问数量和方向 ──────────────────────────────────
-    const taskType = resourcePlan.taskSpec?.task_parse?.task_type ?? "general";
+    const taskType = resolvedTaskType; // Use the already-fixed resolvedTaskType (stock_analysis when primaryTicker exists)
     const outputMode = evidencePacket.outputMode;
     let followupInstruction: string;
     if (outputMode === "framework_only") {
@@ -2289,6 +2304,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     const useJsonOnlyMode = analysisMode !== "quick" &&
       resolvedTaskType !== "general" &&
       resolvedTaskType !== "event_driven";
+    console.log(`[V2.1-DEBUG] useJsonOnlyMode=${useJsonOnlyMode} analysisMode=${analysisMode} resolvedTaskType=${resolvedTaskType}`);
     const normalizedTaxonomyBlock = useJsonOnlyMode
       ? formatNormalizedTaxonomyForPrompt(normalizedTaxonomy)
       : "";
@@ -2463,17 +2479,40 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       // GPT is a RENDERER, not an author. GPT only fills the schema.
       let rawJsonOutput = "";
       try {
-        if (userConfig?.openaiApiKey) {
-          rawJsonOutput = await callOpenAI({
-            apiKey: userConfig.openaiApiKey,
-            model: userConfig.openaiModel || DEFAULT_MODEL,
+        if (!ENV.isProduction) {
+          // ── DEV: always use Claude (invokeLLMWithRetry), never OpenAI ──
+          const fb = await invokeLLMWithRetry({
             messages: [
               { role: "system", content: jsonOnlySystemMsg },
               { role: "user", content: jsonOnlyUserMsg },
             ],
-            maxTokens: modeConfig?.step3MaxTokens ?? 2400,
           });
+          rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
+        } else if (userConfig?.openaiApiKey) {
+          // ── PROD: try OpenAI first, fallback to Claude on failure ──
+          try {
+            rawJsonOutput = await callOpenAI({
+              apiKey: userConfig.openaiApiKey,
+              model: userConfig.openaiModel || DEFAULT_MODEL,
+              messages: [
+                { role: "system", content: jsonOnlySystemMsg },
+                { role: "user", content: jsonOnlyUserMsg },
+              ],
+              maxTokens: modeConfig?.step3MaxTokens ?? 2400,
+            });
+          } catch (openaiErr) {
+            // OpenAI failed → fallback to Claude
+            console.warn(`[V2.1] openai_failed_fallback_to_claude: ${openaiErr instanceof Error ? openaiErr.message.slice(0, 100) : String(openaiErr).slice(0, 100)}`);
+            const fb = await invokeLLMWithRetry({
+              messages: [
+                { role: "system", content: jsonOnlySystemMsg },
+                { role: "user", content: jsonOnlyUserMsg },
+              ],
+            });
+            rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
+          }
         } else {
+          // ── PROD no OpenAI key: use Claude ──
           const fb = await invokeLLMWithRetry({
             messages: [
               { role: "system", content: jsonOnlySystemMsg },
@@ -2485,19 +2524,40 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         // ── LEVEL1A3 Phase5: Validation Layer ──
         let validationResult = validateFinalOutput(rawJsonOutput);
         if (!validationResult.valid) {
+          console.warn(`[V2.1-VALIDATE] First attempt failed. Errors: ${validationResult.errors.slice(0,3).join("; ")}. Raw first 300 chars: ${rawJsonOutput.slice(0,300)}`);
           // Retry once with error context
           const retryMsg = jsonOnlyUserMsg + `\n\nPREVIOUS_ATTEMPT_ERRORS: ${validationResult.errors.join(", ")}\nFix these errors and output valid JSON only.`;
           let retryRaw = "";
-          if (userConfig?.openaiApiKey) {
-            retryRaw = await callOpenAI({
-              apiKey: userConfig.openaiApiKey,
-              model: userConfig.openaiModel || DEFAULT_MODEL,
+          if (!ENV.isProduction) {
+            // DEV: always Claude
+            const retryFb = await invokeLLMWithRetry({
               messages: [
                 { role: "system", content: jsonOnlySystemMsg },
                 { role: "user", content: retryMsg },
               ],
-              maxTokens: modeConfig?.step3MaxTokens ?? 2400,
             });
+            retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
+          } else if (userConfig?.openaiApiKey) {
+            // PROD: try OpenAI, fallback Claude
+            try {
+              retryRaw = await callOpenAI({
+                apiKey: userConfig.openaiApiKey,
+                model: userConfig.openaiModel || DEFAULT_MODEL,
+                messages: [
+                  { role: "system", content: jsonOnlySystemMsg },
+                  { role: "user", content: retryMsg },
+                ],
+                maxTokens: modeConfig?.step3MaxTokens ?? 2400,
+              });
+            } catch {
+              const retryFb = await invokeLLMWithRetry({
+                messages: [
+                  { role: "system", content: jsonOnlySystemMsg },
+                  { role: "user", content: retryMsg },
+                ],
+              });
+              retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
+            }
           } else {
             const retryFb = await invokeLLMWithRetry({
               messages: [
@@ -2512,25 +2572,52 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         if (validationResult.valid && validationResult.output) {
           level1a3Output = validationResult.output;
         } else {
-          // Fallback: use safe fallback output
+          // Fallback: validation failed after retries
+          console.warn(`[LLM-FALLBACK] degraded=true reason=output_validation_failed`);
           level1a3Output = buildSafeFallbackOutput(
             primaryTicker,
             outputMode,
             evidencePacket.evidenceScore ?? 50,
+            "output_validation_failed",
           );
         }
       } catch (jsonErr) {
-        // Fallback on any error
+        // Fallback on any error (overloaded / network / etc)
+        const errMsg = jsonErr instanceof Error ? jsonErr.message : String(jsonErr);
+        const isOverloaded = errMsg.includes("529") || errMsg.includes("overloaded") || errMsg.includes("rate limit");
+        const degradedReason = isOverloaded ? "claude_overloaded_fallback" : "json_path_exception";
+        console.warn(`[V2.1-CATCH] JSON-only path exception: ${errMsg}`);
+        console.warn(`[LLM-FALLBACK] degraded=true reason=${degradedReason}`);
         level1a3Output = buildSafeFallbackOutput(
           primaryTicker,
           outputMode,
           evidencePacket.evidenceScore ?? 50,
+          degradedReason,
         );
       }
       // ── LEVEL1A3 Phase3: System Renders Markdown from JSON ──
       const renderedReport = renderFinalOutputToMarkdown(level1a3Output, primaryTicker, outputMode);
       const renderedDiscussion = renderDiscussionToMarkdown(level1a3Output.discussion);
       finalReply = renderedReport + renderedDiscussion;
+      // ── V2.1 FIX: Inject %%DELIVERABLE%% block from level1a3Output ──────────────
+      // JSON-only path renders markdown directly, so finalReply never contains %%DELIVERABLE%%.
+      // We serialize level1a3Output back into the marker block so the downstream parser can find it.
+      try {
+        const deliverablePayload = {
+          verdict: level1a3Output.verdict,
+          confidence: level1a3Output.confidence,
+          horizon: level1a3Output.horizon,
+          bull_case: level1a3Output.bull_case,
+          reasoning: level1a3Output.reasoning,
+          bear_case: level1a3Output.bear_case,
+          risks: level1a3Output.risks,
+          next_steps: level1a3Output.next_steps,
+        };
+        finalReply += `\n\n%%DELIVERABLE%%\n${JSON.stringify(deliverablePayload, null, 2)}\n%%END_DELIVERABLE%%`;
+        console.log("[V2.1] deliverable_injected: level1a3Output serialized into finalReply");
+      } catch (injectErr) {
+        console.warn("[V2.1] deliverable_inject_failed:", injectErr);
+      }
       await updateMessageContent(streamMsgId, finalReply);
       emitTaskChunk(taskId, streamMsgId, finalReply);
     } else if (userConfig?.openaiApiKey) {
@@ -2644,7 +2731,63 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       }
     } else {
       console.warn("[V2.1] deliverable_missing: no %%DELIVERABLE%% block found");
-      metadataToSave.answerObject = null;
+      // ── REPAIR PASS: ask LLM to generate the missing DELIVERABLE block ──────
+      if (primaryTicker && resolvedTaskType === "stock_analysis") {
+        try {
+          console.log("[V2.1] repair_pass: attempting to generate missing DELIVERABLE block");
+          const repairResp = await invokeLLMWithRetry({
+            messages: [
+              {
+                role: "system",
+                content: `You are a structured investment analysis assistant. Based on the analysis provided, output ONLY a valid JSON object wrapped in %%DELIVERABLE%% and %%END_DELIVERABLE%% markers. No other text.
+
+Required JSON schema:
+{
+  "verdict": "BUY|SELL|HOLD|AVOID|WATCH",
+  "confidence": 0-100,
+  "horizon": "short|medium|long",
+  "bull_case": "string",
+  "reasoning": "string",
+  "bear_case": "string",
+  "risks": [{"label": "string", "severity": "low|medium|high|critical", "probability": 0-100}],
+  "next_steps": ["string"]
+}
+
+Output format MUST be:
+%%DELIVERABLE%%
+{...json...}
+%%END_DELIVERABLE%%`,
+              },
+              {
+                role: "user",
+                content: `Based on this analysis of ${primaryTicker}, generate the DELIVERABLE block:\n\n${finalReply.slice(0, 3000)}`,
+              },
+            ],
+          });
+          const repairText = String(repairResp.choices?.[0]?.message?.content ?? "");
+          const repairMatch = repairText.match(/%%DELIVERABLE%%([\s\S]*?)%%END_DELIVERABLE%%/);
+          if (repairMatch) {
+            const repairParsed = JSON.parse(repairMatch[1].trim());
+            const requiredKeys = ["verdict", "confidence", "bull_case", "reasoning", "bear_case", "risks", "next_steps"];
+            const hasAllKeys = requiredKeys.every(k => k in repairParsed);
+            if (hasAllKeys) {
+              metadataToSave.answerObject = repairParsed;
+              console.log("[V2.1] repair_pass_success: DELIVERABLE generated via repair pass");
+            } else {
+              metadataToSave.answerObject = null;
+              console.warn("[V2.1] repair_pass_incomplete: missing keys", requiredKeys.filter(k => !(k in repairParsed)));
+            }
+          } else {
+            metadataToSave.answerObject = null;
+            console.warn("[V2.1] repair_pass_failed: no DELIVERABLE block in repair response");
+          }
+        } catch (repairErr) {
+          metadataToSave.answerObject = null;
+          console.warn("[V2.1] repair_pass_error:", repairErr instanceof Error ? repairErr.message : repairErr);
+        }
+      } else {
+        metadataToSave.answerObject = null;
+      }
     }
 
     // 解析 DISCUSSION

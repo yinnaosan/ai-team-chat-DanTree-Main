@@ -29,6 +29,9 @@ export interface FinalOutputSchema {
     exploration_paths: string[];
     open_hypotheses: string[];
   };
+  // Degraded fallback marker — present only when output is a safe fallback, not real analysis
+  degraded?: boolean;
+  degraded_reason?: string;
 }
 
 // ── SAFE FALLBACK OUTPUT ──────────────────────────────────────────────────────
@@ -36,7 +39,8 @@ export interface FinalOutputSchema {
 export function buildSafeFallbackOutput(
   ticker: string,
   outputMode: string,
-  evidenceScore: number
+  evidenceScore: number,
+  degradedReason = "output_validation_failed"
 ): FinalOutputSchema {
   const modeLabel =
     outputMode === "decisive"
@@ -64,6 +68,9 @@ export function buildSafeFallbackOutput(
       },
     ],
     next_steps: ["重新提交分析请求", "检查数据源可用性"],
+    // Degraded fallback marker — this is NOT a real analysis result
+    degraded: true,
+    degraded_reason: degradedReason,
     discussion: {
       key_uncertainty: "当前分析输出未能通过结构验证，无法确定核心不确定性",
       weakest_point: "结构化输出生成失败是本次分析最薄弱的环节",
@@ -93,10 +100,11 @@ export interface ValidationResult {
 export function validateFinalOutput(raw: string): ValidationResult {
   const errors: string[] = [];
 
-  // Step 1: Parse JSON
+  // Step 1: Parse JSON (strip markdown code fences if present)
   let parsed: any;
   try {
-    parsed = JSON.parse(raw.trim());
+    const stripped = raw.trim().replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+    parsed = JSON.parse(stripped);
   } catch (e) {
     return {
       valid: false,

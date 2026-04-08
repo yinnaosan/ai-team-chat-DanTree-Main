@@ -68,12 +68,40 @@ function ReasoningBlockRender({ block }: { block: DiscussionBlock }) {
   );
 }
 
+function splitIntoParagraphs(text: string): string[] {
+  // Priority 1: split on double newlines
+  const byDoubleNewline = text.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+  if (byDoubleNewline.length > 1) return byDoubleNewline;
+  // Priority 2: fallback — split by sentence endings, group 2-3 sentences per paragraph
+  const sentences = text.match(/[^.!?\u3002\uff01\uff1f]+[.!?\u3002\uff01\uff1f]+/g) ?? [text];
+  const paragraphs: string[] = [];
+  let current: string[] = [];
+  let charCount = 0;
+  for (const s of sentences) {
+    current.push(s.trim());
+    charCount += s.length;
+    if (current.length >= 3 || charCount >= 150) {
+      paragraphs.push(current.join(" "));
+      current = [];
+      charCount = 0;
+    }
+  }
+  if (current.length > 0) paragraphs.push(current.join(" "));
+  return paragraphs.length > 0 ? paragraphs : [text];
+}
+
 function NarrativeBlockRender({ block }: { block: DiscussionBlock }) {
+  const paragraphs = splitIntoParagraphs(block.content ?? "");
   return (
     <div style={{ marginBottom: 10, paddingLeft: 2 }}>
-      <p style={{ fontSize: 13, lineHeight: 1.78, color: "rgba(255,255,255,0.58)", margin: 0 }}>
-        {block.content}
-      </p>
+      {paragraphs.map((para, i) => (
+        <p key={i} style={{
+          fontSize: 13, lineHeight: 1.78, color: "rgba(255,255,255,0.72)",
+          margin: 0, marginBottom: i < paragraphs.length - 1 ? 10 : 0,
+        }}>
+          {para}
+        </p>
+      ))}
     </div>
   );
 }
@@ -189,7 +217,7 @@ export function WorkspaceDiscussionRender({ viewModel, onFollowup }: WorkspaceDi
   }
 
   return (
-    <div style={{ padding: "12px 18px 4px" }}>
+    <div style={{ padding: "12px 18px 4px", maxHeight: 600, overflowY: "auto" }}>
       {viewModel.blocks.map((block, i) => {
         switch (block.type) {
           case "thesis":    return <ThesisBlockRender    key={i} block={block} />;

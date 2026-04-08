@@ -401,7 +401,9 @@ export async function runLevel4ActionEngine(input: Level4Input): Promise<Level4A
      const rawContent = response?.choices?.[0]?.message?.content;
     if (!rawContent) throw new Error("Empty LLM response");
     const raw = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
-    const parsed = JSON.parse(raw) as Omit<Level4ActionResult, "ticker" | "generatedAt" | "sourceMetadata">;
+    // Strip markdown code fences if present (Claude may wrap JSON in ```json...``` despite instructions)
+    const stripped = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+    const parsed = JSON.parse(stripped) as Omit<Level4ActionResult, "ticker" | "generatedAt" | "sourceMetadata">;
 
     // Validate required fields
     if (!parsed.state || !parsed.why || !parsed.cycle || !parsed.timingSignal || !parsed.action) {

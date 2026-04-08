@@ -860,25 +860,52 @@ export default function ResearchWorkspacePage() {
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 24px" }}>
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
-                thesis={tvm.available ? {
-                  coreThesis: tvm.stateSummaryText ?? tvm.stance ?? undefined,
-                  criticalDriver: tvm.evidenceState ?? undefined,
-                  failureCondition: tvm.fragility ?? undefined,
-                  confidenceScore: tvm.fragilityScore != null ? Math.round((1 - tvm.fragilityScore) * 100) : null,
-                  evidenceState: (tvm.evidenceState as "strong" | "moderate" | "weak" | "insufficient" | null) ?? "insufficient",
-                  // V2 新字段：fragilityLevel 从 fragilityScore 推导
-                  fragilityLevel: tvm.fragilityScore != null
+                thesis={(() => {
+                  // FIX 2: answerObject 优先策略
+                  // 当 answerObject 存在且非 degraded 时，优先使用 answerObject 的真实结论
+                  // TVM 的 stateSummaryText 是机器状态字符串（含 Stance: unavailable / Thesis: unknown），不适合作为主结论
+                  const isDegradedAO = !!(answerObject as { degraded?: boolean } | null)?.degraded;
+                  const hasRealAO = !!(answerObject && !isDegradedAO && answerObject.verdict);
+
+                  // 判断 TVM 是否有真实的核心论点（不是机器状态字符串）
+                  const tvmStateSummary = tvm?.stateSummaryText?.trim() ?? "";
+                  const hasRealTVMThesis = !!(tvmStateSummary &&
+                    !tvmStateSummary.includes("Thesis: unknown") &&
+                    !tvmStateSummary.includes("Stance: unavailable") &&
+                    !tvmStateSummary.includes("Stance:"));
+
+                  // 主结论：优先 answerObject.verdict（真实 AI 结论），其次 TVM 真实论点，最后 changeMarker
+                  const coreThesis = hasRealAO
+                    ? answerObject!.verdict
+                    : hasRealTVMThesis
+                      ? tvmStateSummary
+                      : (tvm?.changeMarker ?? undefined);
+
+                  // 核心驱动：优先 answerObject.bull_case[0]，其次 TVM evidenceState
+                  const criticalDriver = hasRealAO
+                    ? (answerObject!.bull_case?.[0] ?? answerObject!.reasoning?.[0] ?? undefined)
+                    : (tvm?.evidenceState ?? undefined);
+
+                  const failureCondition = answerObject?.risks?.[0]?.description ?? tvm?.fragility ?? undefined;
+
+                  // 置信度：优先 answerObject.confidence，其次 TVM fragilityScore
+                  const confidenceScore = hasRealAO
+                    ? (answerObject!.confidence === "high" ? 80 : answerObject!.confidence === "medium" ? 55 : 30)
+                    : (tvm.fragilityScore != null ? Math.round((1 - tvm.fragilityScore) * 100) : null);
+
+                  // 证据状态：优先 answerObject.confidence，其次 TVM evidenceState
+                  // evidenceScore=0 时只作为 warning，不覆盖 answerObject 的真实置信度
+                  const evidenceState = hasRealAO
+                    ? (answerObject!.confidence === "high" ? "strong" : answerObject!.confidence === "medium" ? "moderate" : "weak") as "strong" | "moderate" | "weak" | "insufficient"
+                    : ((tvm.evidenceState as "strong" | "moderate" | "weak" | "insufficient" | null) ?? "insufficient");
+
+                  const fragilityLevel = tvm.fragilityScore != null
                     ? (tvm.fragilityScore >= 0.7 ? "high" as const : tvm.fragilityScore >= 0.4 ? "medium" as const : "low" as const)
-                    : undefined,
-                } : (answerObject ? {
-                  // fallback: answerObject 推导（首次分析前 vm 尚未就绪）
-                  coreThesis: answerObject.verdict,
-                  criticalDriver: answerObject.bull_case?.[0] ?? answerObject.reasoning?.[0],
-                  failureCondition: answerObject.risks?.[0]?.description,
-                  confidenceScore: answerObject.confidence === "high" ? 80 : answerObject.confidence === "medium" ? 55 : 30,
-                  evidenceState: answerObject.confidence === "high" ? "strong" : answerObject.confidence === "medium" ? "moderate" : "weak",
-                  fragilityLevel: answerObject.confidence === "low" ? "high" as const : answerObject.confidence === "medium" ? "medium" as const : "low" as const,
-                } : undefined)}
+                    : (answerObject?.confidence === "low" ? "high" as const : answerObject?.confidence === "medium" ? "medium" as const : "low" as const);
+
+                  if (!coreThesis && !criticalDriver && !failureCondition) return undefined;
+                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel };
+                })()}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",
                   readinessState: (tivm.readinessState as "ready" | "conditional" | "not_ready" | "blocked" | null) ?? "not_ready",
@@ -1029,15 +1056,19 @@ export default function ResearchWorkspacePage() {
                   // Fallback: avm not available → use answerObject.risks directly
                   const aoRisks = answerObject?.risks;
                   if (!aoRisks?.length) return undefined;
-                  const SEV_MAP: Record<string, "low" | "medium" | "high" | "critical"> = {
-                    high: "high", critical: "critical", medium: "medium", low: "low",
-                  };
                   const ACTION_MAP: Record<string, string> = {
                     high: "设置止损单", critical: "立即减仓或退出", medium: "继续监控", low: "继续监控",
                   };
+                  const fuzzyMagnitude = (raw: string | undefined): "low" | "medium" | "high" | "critical" => {
+                    const s = (raw ?? "").toLowerCase();
+                    if (/critical|severe|extreme|致命|严重/.test(s)) return "critical";
+                    if (/high|major|significant|高|重大/.test(s)) return "high";
+                    if (/medium|moderate|中/.test(s)) return "medium";
+                    if (/low|minor|低|轻微/.test(s)) return "low";
+                    return "medium";
+                  };
                   const fallbackAlerts: AlertItem[] = aoRisks.slice(0, 4).map((r) => {
-                    const rawSev = (r.magnitude ?? "medium").toLowerCase();
-                    const sev: "low" | "medium" | "high" | "critical" = SEV_MAP[rawSev] ?? "medium";
+                    const sev = fuzzyMagnitude(r.magnitude);
                     return {
                       alertType: "fundamental",
                       severity: sev,

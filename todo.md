@@ -3316,3 +3316,14 @@
 
 ## Bug Fix: 旧格式 session 删不掉
 - [x] 修复旧格式（非 UUID id）session 无法删除的问题：onDelete 对旧格式 session 走 conversation.delete 路径
+
+## UI 接线修复 Round 2
+- [ ] magnitude 模糊匹配（critical/high/medium/low 关键词）
+- [ ] DecisionSpine 第三层 fallback：tvm.stateSummaryText → tvm.stance → answerObject.verdict → tvm.changeMarker
+- [ ] 浏览器截图验证 Decision/AlertBlock/Discussion/RightRail
+
+## OUTPUT FALLBACK UI FIX
+- [ ] FIX 1: DecisionSpine hasValidTVM 弱数据 fallback
+- [ ] FIX 2: AlertBlock mapSeverity 模糊匹配
+- [ ] FIX 3: InsightsRail 可读性（line-clamp + hover + opacity）
+- [ ] FIX 4: Discussion 防堆积（max-height + paragraph spacing）

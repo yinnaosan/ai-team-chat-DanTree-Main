@@ -555,7 +555,18 @@ export default function ResearchWorkspacePage() {
   const sessionItems = useMemo<SessionItem[]>(() => {
     // 优先：WorkspaceContext workspace sessions（真实研究会话）
     if (sessionList.length > 0) {
-      return sessionList.map(s => {
+      // 按 focusKey dedup：相同标的只显示最新的一个 session（防止新建 session 后出现重复卡片）
+      const seenFocusKeys = new Set<string>();
+      const dedupedList = sessionList
+        .slice() // 不修改原数组
+        .sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()) // 最新的优先
+        .filter(s => {
+          if (!s.focusKey) return true; // 无 focusKey 的不去重
+          if (seenFocusKeys.has(s.focusKey)) return false;
+          seenFocusKeys.add(s.focusKey);
+          return true;
+        });
+      return dedupedList.map(s => {
         const type: SessionItem["type"] =
           s.sessionType === "entity" ? "thesis" :
           s.sessionType === "basket" ? "research" : "research";
@@ -614,9 +625,35 @@ export default function ResearchWorkspacePage() {
     })), [visibleMessages]);
 
   // 当新 session 刚创建、entity 已选、消息为空、正在 sending/streaming 时，显示骨架屏初始化状态
-  const isInitializing = useMemo(() => {
-    return !!(currentTicker && discussionMsgs.length === 0 && (sending || isTyping));
-  }, [currentTicker, discussionMsgs.length, sending, isTyping]);
+  // 30s 超时降级：骨架屏不应永久显示
+  const [initTimedOut, setInitTimedOut] = useState(false);
+  const initTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawIsInitializing = !!(currentTicker && discussionMsgs.length === 0 && (sending || isTyping));
+  useEffect(() => {
+    if (rawIsInitializing && !initTimedOut) {
+      // 开始计时
+      if (!initTimeoutRef.current) {
+        initTimeoutRef.current = setTimeout(() => {
+          setInitTimedOut(true);
+          initTimeoutRef.current = null;
+        }, 30000); // 30s 超时
+      }
+    } else {
+      // 不再初始化中，清除计时器并重置超时状态
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+        initTimeoutRef.current = null;
+      }
+      setInitTimedOut(false);
+    }
+    return () => {
+      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
+    };
+  }, [rawIsInitializing, initTimedOut]);
+  const isInitializing = rawIsInitializing && !initTimedOut;
+
+  // 新 session 空状态骨架屏：有 ticker 但无 conversationId、无消息、不在发送中
+  const isNewSessionIdle = !!(currentTicker && discussionMsgs.length === 0 && !sending && !isTyping && currentSession && !currentSession.conversationId);
 
   // ── WorkspaceOutput insights mapping (v1 adapter → InsightsRailVNext props) ──
   const woNowItems = workspaceOutput.insights.now.map(item => ({
@@ -918,9 +955,11 @@ export default function ResearchWorkspacePage() {
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
                 thesis={(() => {
-                  // FIX 2: answerObject 优先策略
-                  // 当 answerObject 存在且非 degraded 时，优先使用 answerObject 的真实结论
-                  // TVM 的 stateSummaryText 是机器状态字符串（含 Stance: unavailable / Thesis: unknown），不适合作为主结论
+                  // FIX 1 (hasValidTVM 三层 fallback):
+                  // Layer 1: answerObject.verdict（最新 AI 分析结论，优先）
+                  // Layer 2: tvm.stateSummaryText（非机器状态字符串时使用）
+                  // Layer 3: hivm.snapshots[0].stateSummaryText（entity_snapshots 写回的真实 verdict）
+                  // Layer 4: tvm.changeMarker（最后兜底）
                   const isDegradedAO = !!(answerObject as { degraded?: boolean } | null)?.degraded;
                   const hasRealAO = !!(answerObject && !isDegradedAO && answerObject.verdict);
 
@@ -931,12 +970,20 @@ export default function ResearchWorkspacePage() {
                     !tvmStateSummary.includes("Stance: unavailable") &&
                     !tvmStateSummary.includes("Stance:"));
 
-                  // 主结论：优先 answerObject.verdict（真实 AI 结论），其次 TVM 真实论点，最后 changeMarker
+                  // Layer 3: entity_snapshots 写回的 verdict（格式 "[TSLA] verdict=... | confidence=..."）
+                  const snapshotSummaryRaw = hivm.snapshots[0]?.stateSummaryText?.trim() ?? "";
+                  const snapshotVerdictMatch = snapshotSummaryRaw.match(/verdict=([^|]+)/);
+                  const snapshotVerdict = snapshotVerdictMatch ? snapshotVerdictMatch[1].trim() : "";
+                  const hasSnapshotVerdict = snapshotVerdict.length > 5;
+
+                  // 主结论：优先 answerObject.verdict → TVM 真实论点 → snapshot verdict → changeMarker
                   const coreThesis = hasRealAO
                     ? answerObject!.verdict
                     : hasRealTVMThesis
                       ? tvmStateSummary
-                      : (tvm?.changeMarker ?? undefined);
+                      : hasSnapshotVerdict
+                        ? snapshotVerdict
+                        : (tvm?.changeMarker ?? undefined);
 
                   // 核心驱动：优先 answerObject.bull_case[0]，其次 TVM evidenceState
                   const criticalDriver = hasRealAO
@@ -1094,15 +1141,27 @@ export default function ResearchWorkspacePage() {
                     overallRiskScore = Math.min(Math.round(baseScore), 100);
                   }
 
+                  // FIX 2: mapSeverity 模糊匹配（处理 LLM 输出中非标准字符串）
+                  const mapSeverity = (raw: string): "low" | "medium" | "high" | "critical" => {
+                    const s = (raw ?? "").toLowerCase();
+                    if (/critical|severe|extreme|致命|严重/.test(s)) return "critical";
+                    if (/high|major|significant|高|重大/.test(s)) return "high";
+                    if (/medium|moderate|中/.test(s)) return "medium";
+                    if (/low|minor|低|轻微/.test(s)) return "low";
+                    return (s === "critical" || s === "high" || s === "medium" || s === "low") ? s as "low" | "medium" | "high" | "critical" : "medium";
+                  };
                   return {
-                    alerts: keyAlerts.map(a => ({
-                      alertType: a.type,
-                      severity: (a.severity as "low" | "medium" | "high" | "critical"),
-                      message: a.message,
-                      reason: a.message,
-                      action: a.severity === "critical" ? "立即减仓或退出" : a.severity === "high" ? "设置止损单" : "继续监控",
-                      probability: topSeverity === a.severity ? probability : undefined,
-                    } satisfies AlertItem)),
+                    alerts: keyAlerts.map(a => {
+                      const sev = mapSeverity(a.severity);
+                      return {
+                        alertType: a.type,
+                        severity: sev,
+                        message: a.message,
+                        reason: a.message,
+                        action: sev === "critical" ? "立即减仓或退出" : sev === "high" ? "设置止损单" : "继续监控",
+                        probability: topSeverity === a.severity ? probability : undefined,
+                      } satisfies AlertItem;
+                    }),
                     alertCount: avm.alertCount,
                     highestSeverity: (avm.highestSeverity as "low" | "medium" | "high" | "critical" | null) ?? null,
                     summaryText: avm.summaryText ?? undefined,
@@ -1183,6 +1242,7 @@ export default function ResearchWorkspacePage() {
             messages={discussionMsgs}
             isStreaming={sending || isTyping}
             isInitializing={isInitializing}
+            isNewSessionIdle={isNewSessionIdle}
             onSendMessage={(text) => handleSubmit(text)}
             latestAssistantViewModel={workspaceOutput.discussion}
             onFollowup={(text) => handleSubmit(text)}

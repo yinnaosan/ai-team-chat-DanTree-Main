@@ -3359,3 +3359,26 @@
 - [x] 定位当前真正生效的 synthesis prompt 组装点（JSON-only 路径 L2631-2649，非 gptUserMessage）
 - [x] 在 JSON-only 路径注入 %%DISCUSSION%% block（从 level1a3Output.discussion 序列化）
 - [ ] 重新触发分析，验证 has_DISCUSSION=true
+
+## 永久禁用 Web Search Providers（Tavily/Serper/Bloomberg）
+- [ ] tavilySearch.ts：所有导出函数返回 DISABLED 空字符串，加注释标记
+- [ ] dataSourceRegistry.ts：移除 tavily/serper/bloomberg 的 routing 选项
+- [ ] routers.ts：清理所有 earlyTavilyResult/refinedTavilyResult 的 Promise.resolve("") 注释，改为明确 DISABLED 标记
+- [ ] evidenceValidator.ts/dataSourceRegistry.ts：web_search 类 provider 不参与 evidenceScore 计算
+- [ ] ENV 中 TAVILY/SERPER key 保留但标注 DISABLED（不删除，防止 env 报错）
+- [ ] TSC 0 errors 验证
+
+## 本次修复批次（2026-04-08）
+
+- [x] analysis_memory.verdict varchar(20) 溢出 → 扩展为 varchar(500)，写入成功
+- [x] taskStream SSE 挂起修复：服务器重启后立即检查任务状态，不再卡死
+- [x] FIX 1: DecisionSpine 三层 fallback（answerObject → TVM → snapshot verdict → changeMarker）
+- [x] FIX 2: AlertBlock mapSeverity 模糊匹配（主路径 keyAlerts 添加 mapSeverity 函数）
+- [x] FIX 3: InsightsRail 可读性（InsightCard hover 展开、opacity 提升、点击展开提示）
+- [x] FIX 4: Discussion 防堆积（单条消息 maxHeight 340px + borderBottom 分隔线）
+- [x] evidenceScore 命中检测修复：排除错误字符串（"Error:"/"Failed:"/"Rate limit"/"Unauthorized"/"timeout"）不计为 hit
+- [x] Web Search 永久禁用清理：tavilySearch.ts 全部函数返回 DISABLED 空值，dataSourceRegistry.ts 移除 tavily 路由（注释标记）
+- [x] Discussion JSON 格式解析兼容：adaptToWorkspaceOutput 在 parseFollowups 剥离前先提取 %%DISCUSSION%% block，支持 JSON 和自然语言两种格式，key_uncertainty/weakest_point/alternative_view 注入为 narrative blocks，follow_up_questions 合并入 followups
+- [x] Session Rail 重复卡片 dedup：sessionItems useMemo 按 focusKey 去重，相同标的只显示最新 session
+- [x] 骨架屏 30s 超时降级：isInitializing 超过 30s 自动降级为 false，防止永久骨架屏
+- [x] 新 session 空状态骨架屏：isNewSessionIdle prop 接入 DiscussionPanelVNext，显示就绪状态 + 快捷分析提示卡片

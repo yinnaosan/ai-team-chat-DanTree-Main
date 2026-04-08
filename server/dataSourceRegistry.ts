@@ -659,28 +659,30 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     costClass: "free",
     fieldPriority: "optional",
   },
-  // ── 网页搜索 ──────────────────────────────────────────────────────────────────────────────
-  {
-    id: "tavily",
-    displayName: "Tavily 搜索",
-    category: "网页搜索",
-    icon: "🔍",
-    description: "实时网页搜索（限白名单域名）",
-    isWhitelisted: true,
-    requiresApiKey: true,
-    envKeyName: "TAVILY_API_KEY",
-    dataType: "web",
-    homepageUrl: "https://tavily.com",
-    supportsFields: ["web.search_results", "web.article_content"],
-    priorityRank: 2,
-    confidenceWeight: 0.65,
-    costClass: "freemium",
-    fieldPriority: "optional",
-  },
 ];
-
-// ── 便捷查询函数 ──────────────────────────────────────────────────────────────
-
+// ── 网页搜索 — ★ PERMANENTLY DISABLED ★ ───────────────────────────────────────────────────────────────────────
+// ⛔ Tavily/Serper/Bloomberg web search 已永久禁用。
+// 不得重新开启，不得加入 citationSummary hitCount 计算。
+// ENV key 保留不删除，防止 env 报错。
+// 如需重新开启，需 GPT 明确授权。
+// {
+//   id: "tavily",
+//   displayName: "Tavily 搜索",
+//   category: "网页搜索",
+//   icon: "🔍",
+//   description: "实时网页搜索（限白名单域名）",
+//   isWhitelisted: true,
+//   requiresApiKey: true,
+//   envKeyName: "TAVILY_API_KEY",
+//   dataType: "web",
+//   homepageUrl: "https://tavily.com",
+//   supportsFields: ["web.search_results", "web.article_content"],
+//   priorityRank: 2,
+//   confidenceWeight: 0.65,
+//   costClass: "freemium",
+//   fieldPriority: "optional",
+// },
+// ── 便捷查询函数 ──────────────────────────────────────────────────────────────────────────────────────
 /** 通过 id 查找注册项 */
 export function getDataSourceById(id: string): DataSourceDefinition | undefined {
   return DATA_SOURCE_REGISTRY.find(d => d.id === id);
@@ -762,7 +764,23 @@ export function buildCitationSummary(
     const def = getDataSourceById(r.sourceId);
     if (!def) continue; // 未注册的来源不进入 citation
 
-    const hit = r.data.trim().length > 0;
+    // 修复 evidenceScore 命中检测：排除错误字符串（如 "获取 AAPL 数据失败: TypeError: fetch failed"）不计为 hit
+    // 有效数据必须包含数字、表格内容或标志性关键词
+    const dataStr = r.data.trim();
+    const isErrorString = (
+      dataStr.startsWith("获取") && dataStr.includes("失败") ||
+      dataStr.startsWith("Failed") ||
+      dataStr.startsWith("Error") ||
+      dataStr.includes("TypeError: fetch failed") ||
+      dataStr.includes("fetch failed") ||
+      dataStr.includes("ECONNREFUSED") ||
+      dataStr.includes("ETIMEDOUT") ||
+      dataStr.includes("HTTP:000") ||
+      dataStr.includes("API请求失败") ||
+      dataStr.includes("\u8bf7求失败") ||
+      (dataStr.length < 20 && !/\d/.test(dataStr))  // 小于 20 字符且无数字的内容不计为有效数据
+    );
+    const hit = dataStr.length > 0 && !isErrorString;
     citations.push({
       sourceId: r.sourceId,
       displayName: def.displayName,

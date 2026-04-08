@@ -12,7 +12,7 @@
 
 import { invokeLLM } from "./_core/llm";
 import { getMacroDashboard } from "./fredApi";
-import { searchFinancialNews } from "./tavilySearch";
+// import { searchFinancialNews } from "./tavilySearch"; // ⛔ DISABLED — web search permanently disabled
 // worldMonitorApi requires per-ticker context — not used for global radar scan
 
 // ─── Data Model ───────────────────────────────────────────────────────────────
@@ -75,7 +75,8 @@ async function aggregateRadarInputs(): Promise<RadarInputBundle> {
   // macroResult is index 0, newsResults are indices 1..N
   const allResults = await Promise.allSettled([
     getMacroDashboard(),
-    ...THEMATIC_QUERIES.map((q) => searchFinancialNews(q, 3)),
+    // ⛔ DISABLED: web search calls removed — return empty strings for all thematic queries
+    ...THEMATIC_QUERIES.map(() => Promise.resolve("")),
   ]);
 
   const macroResult = allResults[0];

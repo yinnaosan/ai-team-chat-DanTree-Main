@@ -108,13 +108,8 @@ export const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
     region: "US", user_preferred: true,
     freshness: 0.7, cost: 0.0, latency: 600,
   },
-  "bloomberg": {
-    source_name: "bloomberg", category: "financial", priority: 10,
-    reliability_score: 0.98, freshness_requirement: "high",
-    supports_fields: ["price.current", "valuation.pe", "market_cap", "analyst.target_price", "macro.primary_series"],
-    region: "GLOBAL", user_preferred: true,
-    freshness: 1.0, cost: 1.0, latency: 300,
-  },
+  // ⛔ DISABLED: bloomberg — no API access, web scraping prohibited
+  // "bloomberg": { ... },
   "aqr": {
     source_name: "aqr", category: "research", priority: 8,
     reliability_score: 0.92, freshness_requirement: "low",
@@ -223,12 +218,8 @@ export const SOURCE_DEFINITIONS: Record<string, SourceDefinition> = {
     supports_fields: ["sentiment.signal", "news.recent"],
     region: "US", freshness: 0.9, cost: 0.3, latency: 800,
   },
-  "tavily": {
-    source_name: "tavily", category: "news", priority: 7,
-    reliability_score: 0.82, freshness_requirement: "high",
-    supports_fields: ["news.recent", "policy_context", "macro.cross_asset_impact"],
-    region: "GLOBAL", freshness: 1.0, cost: 0.3, latency: 1500,
-  },
+  // ⛔ DISABLED: tavily — web search permanently disabled per architecture decision
+  // "tavily": { ... },
   // ── Crypto ────────────────────────────────────────────────────────────────
   "coingecko": {
     source_name: "coingecko", category: "financial", priority: 8,

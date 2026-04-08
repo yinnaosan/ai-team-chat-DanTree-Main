@@ -55,6 +55,11 @@ export interface DiscussionPanelVNextProps {
    * 显示骨架屏而非空状态
    */
   isInitializing?: boolean;
+  /**
+   * 新 session 空闲状态：有 ticker 但无 conversationId、无消息、不在发送中
+   * 显示“就绪”状态骨架屏，提示用户输入请求
+   */
+  isNewSessionIdle?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -68,6 +73,7 @@ export function DiscussionPanelVNext({
   onFollowup,
   placeholder,
   isInitializing = false,
+  isNewSessionIdle = false,
 }: DiscussionPanelVNextProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -239,6 +245,51 @@ export function DiscussionPanelVNext({
                 }
               `}</style>
             </div>
+          ) : isNewSessionIdle ? (
+            /* 新 session 就绪状态骨架屏 */
+            <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: "rgba(16,185,129,0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Sparkles size={13} color="rgba(16,185,129,0.35)" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontWeight: 600, marginBottom: 2 }}>
+                    {entity ? `${entity} 就绪` : "就绪"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.20)" }}>
+                    在下方输入分析请求，开始深度研究
+                  </div>
+                </div>
+              </div>
+              {/* 提示卡片 */}
+              {[
+                "📊 深度分析" + (entity ? ` ${entity}` : ""),
+                "⚠️ 风险评估",
+                "📈 技术分析",
+              ].map((hint, i) => (
+                <div key={i} style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.28)",
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                  onClick={() => onSendMessage?.(hint.replace(/^[^\s]+\s/, "").replace(entity ? ` ${entity}` : "", "").trim() + (entity ? ` ${entity}` : ""))}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                >
+                  {hint}
+                </div>
+              ))}
+            </div>
           ) : (
           <div style={{
             display: "flex", flexDirection: "column",
@@ -260,10 +311,13 @@ export function DiscussionPanelVNext({
               const isUser = msg.role === "user";
               return (
                 <div key={msg.id} style={{
-                  padding: "14px 18px",
+                  padding: "12px 18px 14px",
                   borderLeft: isLatest
                     ? "2px solid rgba(16,185,129,0.28)"
                     : "2px solid transparent",
+                  borderBottom: idx < messages.length - 1 ? "1px solid rgba(255,255,255,0.03)" : undefined,
+                  // FIX 4: 防堆积—单条消息最大高度 340px，超出内部滚动
+                  maxHeight: 340, overflowY: "auto",
                 }}>
                   {/* Role + time */}
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>

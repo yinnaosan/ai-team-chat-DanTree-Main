@@ -21,6 +21,7 @@
 import { EventEmitter } from "events";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter } from "express";
+import { getDb } from "./db";
 
 // ── 广播总线 ──────────────────────────────────────────────────────────────────
 const bus = new EventEmitter();
@@ -76,7 +77,7 @@ export const taskStreamRouter: Router = createRouter();
  * 鉴权：通过 cookie session（与 tRPC 相同机制）
  * 前端：new EventSource('/api/task-stream/123', { withCredentials: true })
  */
-taskStreamRouter.get("/api/task-stream/:taskId", (req: Request, res: Response) => {
+taskStreamRouter.get("/api/task-stream/:taskId", async (req: Request, res: Response) => {
   const taskId = parseInt(req.params.taskId, 10);
   if (isNaN(taskId)) {
     res.status(400).json({ error: "Invalid taskId" });
@@ -89,6 +90,29 @@ taskStreamRouter.get("/api/task-stream/:taskId", (req: Request, res: Response) =
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no"); // 禁用 nginx 缓冲
   res.flushHeaders();
+
+  // ── P0 防卡：立即检查任务状态，避免服务器重启后 SSE 永久挂起 ─────────────
+  try {
+    const db = await getDb();
+    if (db) {
+      const { tasks } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      const [task] = await db.select({ status: tasks.status }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+      if (task) {
+        if (task.status === "failed") {
+          res.write(`data: ${JSON.stringify({ type: "error", message: "分析任务已失败（可能因服务器重启中断），请重新发送分析请求。" })}\n\n`);
+          res.end();
+          return;
+        } else if (task.status === "completed") {
+          res.write(`data: ${JSON.stringify({ type: "done", msgId: 0, content: "" })}\n\n`);
+          res.end();
+          return;
+        }
+      }
+    }
+  } catch {
+    // 查询失败时继续正常流程，不阻断 SSE
+  }
 
   // 发送心跳（每 15s），防止代理超时断开
   const heartbeat = setInterval(() => {

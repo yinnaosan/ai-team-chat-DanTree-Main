@@ -340,23 +340,41 @@ function InsightCard({ item }: { item: InsightItem }) {
   const cfg = ITEM_TYPE_CFG[item.type] ?? ITEM_TYPE_CFG.neutral;
   const { Icon } = cfg;
   const fullText = [item.title, item.detail].filter(Boolean).join(" — ");
+  const [expanded, setExpanded] = React.useState(false);
   return (
-    <div title={fullText} style={{ display: "flex", gap: 8, padding: "8px 10px", borderRadius: 7, background: cfg.bg, cursor: "default" }}>
+    <div
+      title={expanded ? undefined : fullText}
+      onClick={() => setExpanded(e => !e)}
+      style={{
+        display: "flex", gap: 8, padding: "8px 10px", borderRadius: 7,
+        background: cfg.bg, cursor: "pointer",
+        transition: "background 0.15s",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+      onMouseLeave={e => (e.currentTarget.style.background = cfg.bg)}
+    >
       <Icon size={12} color={cfg.iconColor} style={{ marginTop: 2, flexShrink: 0 }} />
       <div style={{ minWidth: 0 }}>
         <div style={{
-          fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.88)", lineHeight: 1.45,
-          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+          fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.90)", lineHeight: 1.5,
+          ...(expanded ? {} : {
+            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+          }),
         }}>
           {item.title}
         </div>
         {item.detail && (
           <div style={{
-            fontSize: 10, color: "rgba(255,255,255,0.65)", marginTop: 2,
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            fontSize: 10, color: "rgba(255,255,255,0.68)", marginTop: 3, lineHeight: 1.55,
+            ...(expanded ? {} : {
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }),
           }}>
             {item.detail}
           </div>
+        )}
+        {!expanded && (item.title?.length ?? 0) > 60 && (
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", marginTop: 2 }}>点击展开</div>
         )}
       </div>
     </div>

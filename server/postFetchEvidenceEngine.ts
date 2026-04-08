@@ -73,7 +73,7 @@ export interface EvidenceConflictBundle {
 const SOURCE_RELIABILITY: Record<string, number> = {
   yahoo_finance: 0.88,
   fred: 0.95,
-  bloomberg: 0.98,
+  // bloomberg: 0.98, // ⛔ DISABLED — no API access, web scraping prohibited
   aqr: 0.95,
   citadel: 0.93,
   gmo: 0.92,

@@ -477,8 +477,47 @@ export function adaptToWorkspaceOutput(input: AdapterInput): WorkspaceOutputV1 {
 
     if (!content?.trim()) return emptyWorkspaceOutput(entity);
 
+    // 0. Extract %%DISCUSSION%% block BEFORE stripping (supports both JSON and natural language formats)
+    let discussionFromBlock: {
+      key_uncertainty?: string;
+      weakest_point?: string;
+      alternative_view?: string;
+      follow_up_questions?: string[];
+      exploration_paths?: string[];
+      open_hypotheses?: string[];
+    } | null = null;
+    const discussionBlockMatch = content.match(/%%DISCUSSION%%\s*([\s\S]*?)%%END_DISCUSSION%%/);
+    if (discussionBlockMatch) {
+      const raw = discussionBlockMatch[1].trim();
+      // Try JSON parse first (JSON-only path)
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          discussionFromBlock = parsed;
+        }
+      } catch {
+        // Natural language format — extract key fields from markdown-like text
+        const kuMatch = raw.match(/key_uncertainty[:\s]+([^\n]+)/);
+        const wpMatch = raw.match(/weakest_point[:\s]+([^\n]+)/);
+        const avMatch = raw.match(/alternative_view[:\s]+([^\n]+)/);
+        if (kuMatch || wpMatch || avMatch) {
+          discussionFromBlock = {
+            key_uncertainty: kuMatch?.[1]?.trim(),
+            weakest_point: wpMatch?.[1]?.trim(),
+            alternative_view: avMatch?.[1]?.trim(),
+          };
+        }
+      }
+    }
+
     // 1. Strip markers, extract followups (preserve existing utility)
     const { cleanContent, followups } = parseFollowups(content);
+    // Merge follow_up_questions from DISCUSSION block into followups
+    if (discussionFromBlock?.follow_up_questions?.length) {
+      for (const q of discussionFromBlock.follow_up_questions) {
+        if (q && !followups.includes(q)) followups.push(q);
+      }
+    }
 
     // 2. Extract chart blocks — handles both %%CHART%% and %%PYIMAGE%%
     const chartBlocks: Array<{ type: string; raw?: string; base64?: string; text?: string }> = [];
@@ -503,6 +542,28 @@ export function adaptToWorkspaceOutput(input: AdapterInput): WorkspaceOutputV1 {
     // 3. Build discussion + insights view models
     const discussion = buildDiscussionViewModel(chartStripped, followups, chartBlocks, answerObject, entity);
     const insights = buildInsightsViewModel(chartStripped, answerObject, entity);
+
+    // 3b. Inject DISCUSSION block fields as narrative blocks (prepend to front)
+    if (discussionFromBlock) {
+      const injectedBlocks: DiscussionBlock[] = [];
+      if (discussionFromBlock.key_uncertainty) {
+        injectedBlocks.push({ type: "narrative", content: `❓ 核心不确定性：${discussionFromBlock.key_uncertainty}` });
+      }
+      if (discussionFromBlock.weakest_point) {
+        injectedBlocks.push({ type: "narrative", content: `⚠️ 最弱论点：${discussionFromBlock.weakest_point}` });
+      }
+      if (discussionFromBlock.alternative_view) {
+        injectedBlocks.push({ type: "narrative", content: `🔄 反向观点：${discussionFromBlock.alternative_view}` });
+      }
+      if (discussionFromBlock.open_hypotheses?.length) {
+        injectedBlocks.push({ type: "narrative", content: `💡 待验证假设：${discussionFromBlock.open_hypotheses.slice(0, 2).join(" / ")}` });
+      }
+      if (injectedBlocks.length > 0) {
+        // Prepend structured fields; keep existing narrative blocks after
+        discussion.blocks.unshift(...injectedBlocks);
+        discussion.isStructured = true;
+      }
+    }
 
     const parseQuality: WorkspaceOutputV1["_meta"]["parseQuality"] =
       discussion.blocks.length > 2 ? "full"

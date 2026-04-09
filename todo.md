@@ -3386,3 +3386,4 @@
 ## Bug 修复 - 2026-04-09
 
 - [x] 删除 session 卡片后残留灰色空框（幽灵卡片 bug）：onMutate 乐观更新立即从缓存移除，onError 回滚，onSuccess invalidate 同步服务器
+- [x] Discussion 面板消息内容被锁在小框（maxHeight 340px），需移除高度限制让内容自然展开

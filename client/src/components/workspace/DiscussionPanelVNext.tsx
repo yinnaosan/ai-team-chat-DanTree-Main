@@ -316,8 +316,7 @@ export function DiscussionPanelVNext({
                     ? "2px solid rgba(16,185,129,0.28)"
                     : "2px solid transparent",
                   borderBottom: idx < messages.length - 1 ? "1px solid rgba(255,255,255,0.03)" : undefined,
-                  // FIX 4: 防堆积—单条消息最大高度 340px，超出内部滚动
-                  maxHeight: 340, overflowY: "auto",
+                  // 消息内容自然展开，不限制高度
                 }}>
                   {/* Role + time */}
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>

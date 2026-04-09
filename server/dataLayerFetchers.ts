@@ -14,8 +14,19 @@
  * - 禁止：Tavily / Serper / Web search / Scraping
  */
 
+import path from "path";
+import { fileURLToPath } from "url";
 import { ENV } from "./_core/env";
 import { OHLCVBar, computeIndicators, formatIndicatorsMarkdown } from "./localIndicatorEngine";
+
+// ESM 环境下的 __dirname 替代
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 腾讯新闻 CLI 路径（项目内固化路径，相对于本文件所在目录）
+// 二进制位于 server/bin/tencent-news-cli
+// 如需重新安装，运行: sh server/bin/setup-tencent-news.sh
+const TENCENT_NEWS_CLI_PATH = path.resolve(__dirname, "bin", "tencent-news-cli");
 
 const DEFAULT_TIMEOUT = 10000; // 10 秒
 
@@ -250,13 +261,27 @@ export async function fetchTencentNews(query: string): Promise<string | null> {
     const { promisify } = await import("util");
     const execFileAsync = promisify(execFile);
 
-    const cliPath = "/home/ubuntu/upload/tencent-news/tencent-news/tencent-news-cli";
+    const cliPath = TENCENT_NEWS_CLI_PATH;
     const key = ENV.TENCENT_NEWS_API_KEY;
+
+    // 验证 CLI 二进制存在
+    const { existsSync } = await import("fs");
+    if (!existsSync(cliPath)) {
+      // CLI 不存在，返回 null（missing_key 级别处理）
+      return null;
+    }
 
     const { stdout } = await execFileAsync(
       cliPath,
-      ["search", "--query", query, "--key", key, "--limit", "5"],
-      { timeout: DEFAULT_TIMEOUT }
+      ["search", query, "--limit", "5"],
+      {
+        timeout: DEFAULT_TIMEOUT,
+        env: {
+          ...process.env,
+          // 确保 CLI 能读到 API key（CLI 使用 TENCENT_NEWS_APIKEY 变量名）
+          TENCENT_NEWS_APIKEY: key,
+        },
+      }
     );
 
     if (!stdout || stdout.trim() === "") return null;

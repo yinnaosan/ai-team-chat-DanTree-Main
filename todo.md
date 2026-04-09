@@ -3397,4 +3397,13 @@
 - [x] STEP 5: 实现 provider 状态系统（active/missing_key/disabled/failed/fallback_used/unavailable）
 - [x] STEP 6: 修正 evidenceScore 规则（只有 active+valid data 才计分）
 - [x] STEP 7: 端到端验证（1个美股 + 1个A股或港股）
-- [ ] 输出完整报告（Matrix/Key状态/修改文件列表/fallback说明/evidenceScore说明）
+- [x] 输出完整报告（Matrix/Key状态/修改文件列表/fallback说明/evidenceScore说明）
+
+## Tencent News Path Hardening（2026-04-09）
+- [x] 定位当前腾讯新闻完整依赖结构（CLI入口/脚本/key/调用方）
+- [x] 迁移腾讯新闻 CLI 到 server/bin/tencent-news-cli（项目目录内固化路径）
+- [x] 更新 dataLayerFetchers.ts：移除 /home/ubuntu/upload/ 硬编码路径，改为 import.meta.url 相对路径
+- [x] 新增 server/bin/setup-tencent-news.sh：沙箱重启后一键重装 CLI 脚本
+- [x] 真实验证 news_china 调用（搜索「茅台」，返回真实数据）
+- [x] 验证旧路径 /home/ubuntu/upload/ 不再被任何 server/*.ts 引用
+- [x] checkpoint

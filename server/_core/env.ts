@@ -50,5 +50,9 @@ export const ENV = {
   // ── Tushare A 股增强数据（FinanceMCP 架构，需用户自行配置） ─────────────────
   TUSHARE_TOKEN:           e("TUSHARE_TOKEN",           ""),
   // ── Twelve Data（实时行情/历史 OHLCV/技术指标，免费 800次/天） ────────────────────
-  TWELVE_DATA_API_KEY:     e("TWELVE_DATA_API_KEY",     ""),
+  TWELVE_DATA_API_KEY:     e("TWELVE_DATA_API_KEY",     "4ea6995e91b847818ec735266f64d93d"),
+  // ── QuiverQuant（国会交易/另类数据） ──────────────────────────────────────────
+  QUIVER_QUANT_API_KEY:    e("QUIVER_QUANT_API_KEY",    "e3f5fc497e6e71812266f257273b66cde34016ba"),
+  // ── 腾讯新闻（中文新闻，通过 CLI 调用） ─────────────────────────────────────
+  TENCENT_NEWS_API_KEY:    e("TENCENT_NEWS_API_KEY",    "95b0b0c9-e4d0-458c-a271-ef0847d84283"),
 };

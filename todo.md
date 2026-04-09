@@ -3387,3 +3387,14 @@
 
 - [x] 删除 session 卡片后残留灰色空框（幽灵卡片 bug）：onMutate 乐观更新立即从缓存移除，onError 回滚，onSuccess invalidate 同步服务器
 - [x] Discussion 面板消息内容被锁在小框（maxHeight 340px），需移除高度限制让内容自然展开
+
+## Phase 1 Data Routing 总图 v1（强约束执行）
+
+- [x] STEP 1: 检测所有 API key 状态（FMP/TwelveData/腾讯新闻/QuiverQuant/Finviz/Polymarket）
+- [x] STEP 2: 构建 Data Routing Matrix（只定义，不接线）
+- [x] STEP 3: 实现 routing（按矩阵，在现有文件基础上改造）
+- [x] STEP 4: 实现 fallback（Primary→Backup→Backup2→unavailable）
+- [x] STEP 5: 实现 provider 状态系统（active/missing_key/disabled/failed/fallback_used/unavailable）
+- [x] STEP 6: 修正 evidenceScore 规则（只有 active+valid data 才计分）
+- [x] STEP 7: 端到端验证（1个美股 + 1个A股或港股）
+- [ ] 输出完整报告（Matrix/Key状态/修改文件列表/fallback说明/evidenceScore说明）

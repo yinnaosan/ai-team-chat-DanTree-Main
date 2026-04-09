@@ -764,11 +764,14 @@ export function buildCitationSummary(
     const def = getDataSourceById(r.sourceId);
     if (!def) continue; // 未注册的来源不进入 citation
 
-    // 修复 evidenceScore 命中检测：排除错误字符串（如 "获取 AAPL 数据失败: TypeError: fetch failed"）不计为 hit
-    // 有效数据必须包含数字、表格内容或标志性关键词
+    // STEP 6 修复：evidenceScore 规则
+    // 只有 active + valid data 才能参与 evidenceScore
+    // 必须排除：disabled / missing_key / failed / unavailable
+    // 禁止：空字符串算命中、错误文本算命中、rate limit 算命中
     const dataStr = r.data.trim();
     const isErrorString = (
-      dataStr.startsWith("获取") && dataStr.includes("失败") ||
+      dataStr === "" ||
+      (dataStr.startsWith("获取") && dataStr.includes("失败")) ||
       dataStr.startsWith("Failed") ||
       dataStr.startsWith("Error") ||
       dataStr.includes("TypeError: fetch failed") ||
@@ -777,8 +780,17 @@ export function buildCitationSummary(
       dataStr.includes("ETIMEDOUT") ||
       dataStr.includes("HTTP:000") ||
       dataStr.includes("API请求失败") ||
-      dataStr.includes("\u8bf7求失败") ||
-      (dataStr.length < 20 && !/\d/.test(dataStr))  // 小于 20 字符且无数字的内容不计为有效数据
+      dataStr.includes("请求失败") ||
+      dataStr.includes("rate limit") ||
+      dataStr.includes("Rate Limit") ||
+      dataStr.includes("429") ||
+      dataStr.includes("NOT_AUTHORIZED") ||
+      dataStr.includes("Unauthorized") ||
+      dataStr.includes("403 Forbidden") ||
+      dataStr.includes("missing_key") ||
+      dataStr.includes("disabled") ||
+      dataStr.includes("unavailable") ||
+      (dataStr.length < 15 && !/\d/.test(dataStr))  // 小于 15 字符且无数字 → 无效
     );
     const hit = dataStr.length > 0 && !isErrorString;
     citations.push({

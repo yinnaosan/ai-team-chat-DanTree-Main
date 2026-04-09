@@ -254,6 +254,19 @@ export default function ResearchWorkspacePage() {
     },
   });
   const deleteMutation = trpc.workspace.deleteSession.useMutation({
+    onMutate: async ({ sessionId }) => {
+      // 乐观更新：立即从缓存中移除，防止幽灵卡片
+      await utils.workspace.listSessions.cancel();
+      const prev = utils.workspace.listSessions.getData();
+      utils.workspace.listSessions.setData(undefined, (old) =>
+        old ? { ...old, sessions: old.sessions.filter((s) => s.id !== sessionId) } : old
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      // 回滚
+      if (ctx?.prev) utils.workspace.listSessions.setData(undefined, ctx.prev);
+    },
     onSuccess: (_, variables) => {
       utils.workspace.listSessions.invalidate();
       // 如果删除的是当前 session，切换到第一个可用 session

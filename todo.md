@@ -3382,3 +3382,7 @@
 - [x] Session Rail 重复卡片 dedup：sessionItems useMemo 按 focusKey 去重，相同标的只显示最新 session
 - [x] 骨架屏 30s 超时降级：isInitializing 超过 30s 自动降级为 false，防止永久骨架屏
 - [x] 新 session 空状态骨架屏：isNewSessionIdle prop 接入 DiscussionPanelVNext，显示就绪状态 + 快捷分析提示卡片
+
+## Bug 修复 - 2026-04-09
+
+- [x] 删除 session 卡片后残留灰色空框（幽灵卡片 bug）：onMutate 乐观更新立即从缓存移除，onError 回滚，onSuccess invalidate 同步服务器

@@ -3407,3 +3407,15 @@
 - [x] 真实验证 news_china 调用（搜索「茅台」，返回真实数据）
 - [x] 验证旧路径 /home/ubuntu/upload/ 不再被任何 server/*.ts 引用
 - [x] checkpoint
+
+## Data Routing Orchestrator Mainline Integration（2026-04-09）
+- [ ] 定位 TVM/分析主流程数据入口，梳理现有分散调用点
+- [ ] 接入 dataRoutingOrchestrator，替换分散调用
+- [ ] 端到端验证（美股 + A股/港股，展示 6 层命中 provider）
+- [ ] checkpoint
+
+## Data Routing Orchestrator Mainline Integration（2026-04-09）
+- [x] 定位 TVM/分析主流程数据入口，梳理现有分散调用点
+- [x] 接入 dataRoutingOrchestrator，替换分散调用
+- [x] 端到端验证（美股 + A股/港股，展示 6 层命中 provider）
+- [x] checkpoint

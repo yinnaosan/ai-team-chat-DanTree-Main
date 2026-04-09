@@ -170,6 +170,7 @@ import { runSourceSelection, type TaskType as SourceTaskType, type Region as Sou
 // ── LEVEL1C: Post-Fetch Evidence Engine + Output Gating ──────────────────────
 import { runLevel1CEvidenceEngine, type FieldDataPoint } from "./postFetchEvidenceEngine";
 import { computeOutputGating, buildGatingInstruction } from "./outputGatingController";
+import { routeDataRequest, type RoutingResult } from "./dataRoutingOrchestrator";
 
 // --- 访问权限检查（Owner 或已授权用户）----------------------------------------
 
@@ -1180,6 +1181,26 @@ ${"```"}`;
       : primaryTicker && /^\d{5,6}$/.test(primaryTicker) ? "CN"
       : "US"
     ) as SourceRegion;
+    // ── resolveOrchestratorMarket: 统一 market 判定（ticker后缀 > level1bRegion > isHKTask > 默认US）
+    const resolveOrchestratorMarket = (
+      ticker: string | null,
+      region: SourceRegion,
+      hkTask: boolean
+    ): "US" | "CN" | "HK" | "CRYPTO" | "GLOBAL" => {
+      if (ticker) {
+        if (ticker.endsWith(".SS") || ticker.endsWith(".SZ") || ticker.endsWith(".SH") || ticker.endsWith(".BJ")) return "CN";
+        if (ticker.endsWith(".HK")) return "HK";
+        if (ticker.endsWith("-USD") || /^(BTC|ETH|BNB|SOL|ADA|DOGE|XRP|MATIC|DOT|AVAX)$/i.test(ticker)) return "CRYPTO";
+      }
+      if (region === "CN") return "CN";
+      if (region === "HK") return "HK";
+      if (region === "EU") return "GLOBAL";
+      if (region === "US") return "US";
+      if (hkTask) return "HK";
+      return "US";
+    };
+    const orchMarket = resolveOrchestratorMarket(primaryTicker, level1bRegion, isHKTask);
+
     const level1bFields = [
       ...level1aFieldReqs.blocking,
       ...level1aFieldReqs.important.slice(0, 5),
@@ -1199,9 +1220,23 @@ ${"```"}`;
         results.push(...batchResults);
       }
       return results;
-    };
-
-    // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────
+    };    // ── Data Routing Orchestrator：统一路由层（Price/Fundamentals/NewsGlobal/NewsChina/Macro/Indicators）
+    let orchResult: RoutingResult | null = null;
+    try {
+      orchResult = await routeDataRequest({
+        ticker: primaryTicker ?? "",
+        market: orchMarket,
+        newsQuery: primaryTicker ?? taskDescription.slice(0, 50),
+        needFundamentals: !!(resourcePlan.dataSources.deepFinancials),
+        needMacro: !!(resourcePlan.dataSources.macroData),
+        needAlternative: true,
+        needIndicators: !!(resourcePlan.dataSources.technicalIndicators),
+      });
+      console.log(`[DT-ORCH] market=${orchMarket} ticker=${primaryTicker ?? "none"} layers=${Object.keys(orchResult?.layerResults ?? {}).join(",")} evidenceScore=${orchResult?.evidenceScore}`);
+    } catch (orchErr) {
+      console.error("[DT-ORCH] routeDataRequest failed:", orchErr);
+    }
+    // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────────────────
     const coreTasks: Array<() => Promise<string>> = [
       // FMP：财务报表/DCF估值/分析师目标价（必要源）
       () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FMP_API_KEY
@@ -1643,8 +1678,35 @@ ${"```"}`;
 
     // 将结构化数据与网页内容分开，让 Manus 分别处理
     // 结构化数据来源：Yahoo Finance / FRED / World Bank / IMF / Finnhub / FMP / Polygon / SEC EDGAR / Alpha Vantage
-    const finnhubMarkdown = finnhubResult.status === "fulfilled" && finnhubResult.value ? finnhubResult.value : "";
-    const fmpMarkdown = fmpResult.status === "fulfilled" && fmpResult.value ? fmpResult.value : "";
+    // ── 数据路由层提取函数：从 orchResult.layerResults 按 layer 名称提取数据
+    const getOrchLayer = (layerName: string): string => {
+      if (!orchResult) return "";
+      const lr = orchResult.layerResults.find(r => r.layer === layerName);
+      return (lr?.data && !lr.data.match(/^(rate.?limit|429|403|401|Unauthorized|missing_key|disabled|unavailable|fetch failed|ETIMEDOUT)/i)) ? lr.data : "";
+    };
+    // ── 6 层主数据：统一来自 orchestrator，旧调用结果不再进入 structuredDataBlock
+    // Price 层：从 orchestrator price 层提取（替换旧 stockDataResult/Yahoo 独立拉取）
+    const orchPriceData = getOrchLayer("price");
+    // Fundamentals 层：从 orchestrator fundamentals 层提取（US only，A股/港股如实暴露缺口）
+    const orchFundamentalsData = getOrchLayer("fundamentals");
+    // News Global 层：从 orchestrator news_global 层提取（替换旧 Finnhub/NewsAPI/Marketaux 分散调用）
+    const orchNewsGlobalData = getOrchLayer("news_global");
+    // News China 层：从 orchestrator news_china 层提取（仅辅助层，不进 global 主链）
+    const orchNewsChinaData = getOrchLayer("news_china");
+    // Macro 层：从 orchestrator macro 层提取（替换旧 FRED/WorldBank/IMF 分散调用）
+    const orchMacroData = getOrchLayer("macro");
+    // Indicators 层：从 orchestrator indicators 层提取（US: indicators_us, CN/HK: indicators_cn_hk）
+    const orchIndicatorsData = getOrchLayer("indicators_us") || getOrchLayer("indicators_cn_hk");
+    // SimFin/Tiingo: 从 orchestrator providerStatusSummary 提取真实状态（替换旧空占位）
+    const orchSimfinStatus = orchResult?.providerStatusSummary?.simfin ?? "not_routed";
+    const orchTiingoStatus = orchResult?.providerStatusSummary?.tiingo ?? "not_routed";
+    // 安全兼容视图： stockDataResult 映射到 orchPriceData（不再独立发起第二次 Yahoo fetch）
+    const orchStockDataCompat: PromiseSettledResult<string> = orchPriceData
+      ? { status: "fulfilled", value: orchPriceData }
+      : { status: "rejected", reason: "orchestrator price layer: no data" };
+    // 旧占位变量替换：不再使用旧 runBatch 结果
+    const finnhubMarkdown = orchNewsGlobalData;  // 来自 orchestrator news_global
+    const fmpMarkdown = orchFundamentalsData;    // 来自 orchestrator fundamentals
     const polygonMarkdown = polygonResult.status === "fulfilled" && polygonResult.value ? polygonResult.value : "";
     const secMarkdown = secResult.status === "fulfilled" && secResult.value ? secResult.value : "";
     const avEconomicMarkdown = avEconomicResult.status === "fulfilled" && avEconomicResult.value ? avEconomicResult.value : "";
@@ -1658,11 +1720,15 @@ ${"```"}`;
     const healthScoreMarkdown = healthScoreResult?.status === "fulfilled" && healthScoreResult.value ? healthScoreResult.value : "";
     const aStockMarkdown = "";  // [已移除 Baostock]
     const gdeltMarkdown = "";  // [已移除 GDELT]
-    const newsApiMarkdown = newsApiResult.status === "fulfilled" && newsApiResult.value ? newsApiResult.value : "";
-    const marketauxMarkdown = marketauxResult.status === "fulfilled" && marketauxResult.value ? marketauxResult.value : "";
-    const simfinMarkdown = "";  // [已移除 SimFin]
-    const tiingoMarkdown = "";  // [已移除 Tiingo]
-    const techIndicatorsMarkdown = techIndicatorsResult.status === "fulfilled" && techIndicatorsResult.value ? techIndicatorsResult.value : "";
+    const newsApiMarkdown = "";  // [已并入 orchestrator news_global 层]
+    const marketauxMarkdown = "";  // [已并入 orchestrator news_global 层]
+    const simfinMarkdown = orchSimfinStatus === "active" || orchSimfinStatus === "fallback_used"
+      ? (orchFundamentalsData || "")
+      : "";  // 来自 orchestrator providerStatusSummary
+    const tiingoMarkdown = orchTiingoStatus === "active" || orchTiingoStatus === "fallback_used"
+      ? (orchPriceData || "")
+      : "";  // 来自 orchestrator providerStatusSummary
+    const techIndicatorsMarkdown = orchIndicatorsData;  // 来自 orchestrator indicators 层
     const optionsChainMarkdown = optionsChainResult.status === "fulfilled" && optionsChainResult.value ? optionsChainResult.value : "";
     const ecbMarkdown = ecbResult.status === "fulfilled" && ecbResult.value ? ecbResult.value : "";
     const hkexMarkdown = hkexResult.status === "fulfilled" && hkexResult.value ? hkexResult.value : "";
@@ -1673,13 +1739,17 @@ ${"```"}`;
     const eurLexMarkdown = "";  // [已移除 EUR-Lex]
     const gleifMarkdown = gleifResult.status === "fulfilled" && gleifResult.value ? gleifResult.value : "";
     const structuredDataBlock = [
-      stockData.status === "fulfilled" && stockData.value ? stockData.value : "",
-      macroData.status === "fulfilled" && macroData.value ? macroData.value : "",
-      worldBankData.status === "fulfilled" && worldBankData.value ? worldBankData.value : "",
-      imfMarkdown,
+      // ── 6 层主数据：统一来自 orchestrator（替换旧分散调用）
+      orchPriceData,       // Price 层： orchestrator price（Finnhub→Tiingo→Yahoo）
+      orchMacroData,       // Macro 层： orchestrator macro（FRED→WorldBank→IMF）
+      orchNewsGlobalData,  // News Global 层： orchestrator news_global（Finnhub News→Marketaux→NewsAPI）
+      orchNewsChinaData,   // News China 层： orchestrator news_china（腾讯新闻，仅辅助层）
+      orchFundamentalsData, // Fundamentals 层： orchestrator fundamentals（US: FMP→SimFin，CN/HK: 如实暴露缺口）
+      orchIndicatorsData,  // Indicators 层： orchestrator indicators（US: TwelveData→AV, CN/HK: Yahoo OHLCV→本地计算）
+      // ── 保留层：未被 orchestrator 覆盖的专用数据源
       avEconomicMarkdown,  // Alpha Vantage 宏观指标（利率/CPI/失业率/汇率）
-      finnhubMarkdown,     // Finnhub 实时报价/分析师评级/内部交易
-      fmpMarkdown,         // FMP 财务报表/DCF估值/分析师目标价
+      finnhubMarkdown,     // [已并入 orchestrator news_global，此处为空]
+      fmpMarkdown,         // [已并入 orchestrator fundamentals，此处为空]
       polygonMarkdown,     // Polygon.io 市场快照/近期走势/新闻情绪
       secMarkdown,         // SEC EDGAR XBRL 财务数据/年报/季报
       cryptoMarkdown,      // CoinGecko 加密货币实时价格/市值/趋势
@@ -1762,7 +1832,7 @@ ${"```"}`;
     const ms = (key: string) => latencyMap.get(key) ?? -1;
     const citationSummary = buildCitationSummary([
       // 市场数据
-      { sourceId: "yahoo_finance",        data: (stockData.status === "fulfilled" && stockData.value) ? stockData.value : "",  latencyMs: ms("Yahoo Finance") },
+      { sourceId: "yahoo_finance",        data: (orchStockDataCompat.status === "fulfilled" && orchStockDataCompat.value) ? orchStockDataCompat.value : "",  latencyMs: ms("Yahoo Finance") },  // 来自 orchestrator price 层兼容视图
       { sourceId: "finnhub",              data: finnhubMarkdown,        latencyMs: ms("Finnhub") },
       { sourceId: "fmp",                  data: fmpMarkdown,            latencyMs: ms("FMP") },
       { sourceId: "polygon",              data: polygonMarkdown,        latencyMs: ms("Polygon.io") },

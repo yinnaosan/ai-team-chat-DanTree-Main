@@ -53,12 +53,14 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
       const data = await profileRes.value.json() as any;
       const p = Array.isArray(data) ? data[0] : data;
       if (p && p.symbol) {
+        // FMP /stable/ 新字段名为 marketCap，旧字段名为 mktCap，做双重兼容
+        const mktCapRaw: number | undefined = p.marketCap ?? p.mktCap;
         parts.push(`## FMP Profile — ${ticker}
 | 字段 | 值 |
 |------|-----|
 | 公司名 | ${p.companyName ?? "N/A"} |
 | 行业 | ${p.industry ?? "N/A"} |
-| 市值 | ${p.mktCap ? (p.mktCap / 1e9).toFixed(2) + "B" : "N/A"} |
+| 市值 | ${mktCapRaw ? (mktCapRaw / 1e9).toFixed(2) + "B" : "N/A"} |
 | 股价 | ${p.price ?? "N/A"} |
 | Beta | ${p.beta ?? "N/A"} |
 | 员工数 | ${p.fullTimeEmployees ?? "N/A"} |`);
@@ -68,16 +70,44 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
     if (ratiosRes.status === "fulfilled" && ratiosRes.value.ok) {
       const data = await ratiosRes.value.json() as any;
       const r = Array.isArray(data) ? data[0] : data;
-      if (r && (r.peRatioTTM || r.priceToBookRatioTTM)) {
+      // 宽松兼容映射：只要返回对象存在且包含任一有效数值字段即保留
+      // 不再依赖 peRatioTTM / priceToBookRatioTTM 做存在性判断（新版 API 已改名或移除）
+      const hasAnyValue = r && typeof r === "object" &&
+        Object.values(r).some(v => typeof v === "number" && isFinite(v) && v !== 0);
+      if (hasAnyValue) {
+        // PE：FMP /stable/ 实际字段名为 priceToEarningsRatioTTM
+        // 旧字段 peRatioTTM / priceEarningsRatioTTM 均已删除，做三重兼容
+        const pe = r.priceToEarningsRatioTTM ?? r.priceEarningsRatioTTM ?? r.peRatioTTM;
+        // PB：新字段 priceToBookRatioTTM（仍存在）
+        const pb = r.priceToBookRatioTTM;
+        // PS：新字段 priceToSalesRatioTTM（仍存在）
+        const ps = r.priceToSalesRatioTTM;
+        // EV/EBITDA：新字段 enterpriseValueMultipleTTM（仍存在）
+        const evEbitda = r.enterpriseValueMultipleTTM;
+        // ROE：FMP /stable/ ratios-ttm 中已无任何 ROE 字段（returnOnEquityTTM 不存在）
+        // 保留结构，值为 undefined → fmtPct 输出 N/A
+        const roe = r.returnOnEquityTTM ?? r.roeTTM ?? r.returnOnEquity;
+        // 净利率：新字段 netProfitMarginTTM（仍存在）
+        const npm = r.netProfitMarginTTM;
+        // 毛利率：新字段 grossProfitMarginTTM
+        const gpm = r.grossProfitMarginTTM;
+        // EBIT Margin：新字段 ebitMarginTTM
+        const ebitM = r.ebitMarginTTM;
+        const fmtPct = (v: number | undefined | null) =>
+          typeof v === "number" && isFinite(v) ? (v * 100).toFixed(2) + "%" : "N/A";
+        const fmtNum = (v: number | undefined | null) =>
+          typeof v === "number" && isFinite(v) ? v.toFixed(2) : "N/A";
         parts.push(`## FMP Ratios TTM — ${ticker}
 | 指标 | 值 |
 |------|-----|
-| PE (TTM) | ${r.peRatioTTM?.toFixed(2) ?? "N/A"} |
-| PB | ${r.priceToBookRatioTTM?.toFixed(2) ?? "N/A"} |
-| PS | ${r.priceToSalesRatioTTM?.toFixed(2) ?? "N/A"} |
-| EV/EBITDA | ${r.enterpriseValueMultipleTTM?.toFixed(2) ?? "N/A"} |
-| ROE | ${r.returnOnEquityTTM ? (r.returnOnEquityTTM * 100).toFixed(2) + "%" : "N/A"} |
-| 净利率 | ${r.netProfitMarginTTM ? (r.netProfitMarginTTM * 100).toFixed(2) + "%" : "N/A"} |`);
+| PE (TTM) | ${fmtNum(pe)} |
+| PB | ${fmtNum(pb)} |
+| PS | ${fmtNum(ps)} |
+| EV/EBITDA | ${fmtNum(evEbitda)} |
+| ROE | ${fmtPct(roe)} |
+| 净利率 | ${fmtPct(npm)} |
+| 毛利率 | ${fmtPct(gpm)} |
+| EBIT Margin | ${fmtPct(ebitM)} |`);
       }
     }
 

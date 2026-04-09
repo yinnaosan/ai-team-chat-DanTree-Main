@@ -42,9 +42,11 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
   try {
     const key = ENV.FMP_API_KEY;
     // 使用 /stable/ 端点（/api/v3/ legacy 已废弃）
-    const [profileRes, ratiosRes] = await Promise.allSettled([
+    const [profileRes, ratiosRes, keyMetricsRes] = await Promise.allSettled([
       fetch(`https://financialmodelingprep.com/stable/profile?symbol=${ticker}&apikey=${key}`, { signal: timeout(DEFAULT_TIMEOUT) }),
       fetch(`https://financialmodelingprep.com/stable/ratios-ttm?symbol=${ticker}&apikey=${key}`, { signal: timeout(DEFAULT_TIMEOUT) }),
+      // key-metrics-ttm: 仅用于补 ROE 等 ratios-ttm 缺口字段，失败不影响主链
+      fetch(`https://financialmodelingprep.com/stable/key-metrics-ttm?symbol=${ticker}&apikey=${key}`, { signal: timeout(DEFAULT_TIMEOUT) }),
     ]);
 
     const parts: string[] = [];
@@ -67,6 +69,18 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
       }
     }
 
+    // 解析 key-metrics-ttm（仅用于补 ROE，失败静默）
+    let _kmRoe: number | undefined;
+    if (keyMetricsRes.status === "fulfilled" && keyMetricsRes.value.ok) {
+      try {
+        const kmData = await keyMetricsRes.value.json() as any;
+        const km = Array.isArray(kmData) ? kmData[0] : kmData;
+        if (km && typeof km.returnOnEquityTTM === "number" && isFinite(km.returnOnEquityTTM)) {
+          _kmRoe = km.returnOnEquityTTM;
+        }
+      } catch { /* 静默失败 */ }
+    }
+
     if (ratiosRes.status === "fulfilled" && ratiosRes.value.ok) {
       const data = await ratiosRes.value.json() as any;
       const r = Array.isArray(data) ? data[0] : data;
@@ -84,9 +98,9 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
         const ps = r.priceToSalesRatioTTM;
         // EV/EBITDA：新字段 enterpriseValueMultipleTTM（仍存在）
         const evEbitda = r.enterpriseValueMultipleTTM;
-        // ROE：FMP /stable/ ratios-ttm 中已无任何 ROE 字段（returnOnEquityTTM 不存在）
-        // 保留结构，值为 undefined → fmtPct 输出 N/A
-        const roe = r.returnOnEquityTTM ?? r.roeTTM ?? r.returnOnEquity;
+        // ROE：ratios-ttm 无字段，从 key-metrics-ttm（_kmRoe）补充
+        // key-metrics-ttm 失败时 _kmRoe 为 undefined → fmtPct 输出 N/A
+        const roe = r.returnOnEquityTTM ?? r.roeTTM ?? r.returnOnEquity ?? _kmRoe;
         // 净利率：新字段 netProfitMarginTTM（仍存在）
         const npm = r.netProfitMarginTTM;
         // 毛利率：新字段 grossProfitMarginTTM
@@ -137,37 +151,34 @@ export async function fetchSimFinFundamentals(ticker: string): Promise<string | 
       return obj;
     };
 
-    // Fetch Income Statement (pl)
-    const plRes = await fetch(
-      `${BASE}/companies/statements/compact?ticker=${encodeURIComponent(ticker)}&statements=pl&period=FY&fyear=2024`,
-      { headers, signal: timeout(DEFAULT_TIMEOUT) }
-    );
-    let plData: Record<string, unknown> | null = null;
-    if (plRes.ok) {
-      const plJson = await plRes.json() as any[];
-      if (Array.isArray(plJson) && plJson.length > 0) {
-        const stmts = plJson[0]?.statements;
-        if (Array.isArray(stmts) && stmts.length > 0) {
-          plData = parseCompact(stmts[0]);
-        }
-      }
-    }
+    // Helper: fetch one SimFin compact statement, try fyear then fallback
+    const fetchCompact = async (statements: string, fyear: number): Promise<Record<string, unknown> | null> => {
+      const tryYear = async (yr: number): Promise<Record<string, unknown> | null> => {
+        const res = await fetch(
+          `${BASE}/companies/statements/compact?ticker=${encodeURIComponent(ticker)}&statements=${statements}&period=FY&fyear=${yr}`,
+          { headers, signal: timeout(DEFAULT_TIMEOUT) }
+        );
+        if (!res.ok) return null;
+        const json = await res.json() as any[];
+        if (!Array.isArray(json) || json.length === 0) return null;
+        const stmts = json[0]?.statements;
+        if (!Array.isArray(stmts) || stmts.length === 0) return null;
+        return parseCompact(stmts[0]);
+      };
+      // 先试 currentYear-1，无数据则 fallback 到 currentYear-2
+      const result = await tryYear(fyear);
+      if (result && Object.keys(result).length > 2) return result;
+      return tryYear(fyear - 1);
+    };
 
-    // Fetch Derived metrics (gross margin, EPS, FCF, ROE, etc.)
-    const derivedRes = await fetch(
-      `${BASE}/companies/statements/compact?ticker=${encodeURIComponent(ticker)}&statements=derived&period=FY&fyear=2024`,
-      { headers, signal: timeout(DEFAULT_TIMEOUT) }
-    );
-    let derivedData: Record<string, unknown> | null = null;
-    if (derivedRes.ok) {
-      const derivedJson = await derivedRes.json() as any[];
-      if (Array.isArray(derivedJson) && derivedJson.length > 0) {
-        const stmts = derivedJson[0]?.statements;
-        if (Array.isArray(stmts) && stmts.length > 0) {
-          derivedData = parseCompact(stmts[0]);
-        }
-      }
-    }
+    // 动态 fyear：优先尝试上一财年（currentYear - 1）
+    const currentFyear = new Date().getFullYear() - 1;
+
+    // Fetch Income Statement (pl) 和 Derived metrics 并行
+    const [plData, derivedData] = await Promise.all([
+      fetchCompact('pl', currentFyear),
+      fetchCompact('derived', currentFyear),
+    ]);
 
     if (!plData && !derivedData) return null;
 

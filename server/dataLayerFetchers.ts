@@ -90,17 +90,96 @@ export async function fetchFMPFundamentals(ticker: string): Promise<string | nul
 export async function fetchSimFinFundamentals(ticker: string): Promise<string | null> {
   try {
     const key = ENV.SIMFIN_API_KEY;
-    // SimFin v2 API
-    const res = await fetch(
-      `https://simfin.com/api/v2/companies/statements?ticker=${ticker}&statement=pl&period=ttm&api-key=${key}`,
-      { signal: timeout(DEFAULT_TIMEOUT) }
+    if (!key) return null;
+    // SimFin v3 API — compact format
+    const BASE = 'https://backend.simfin.com/api/v3';
+    const headers: Record<string, string> = { 'Authorization': `api-key ${key}` };
+
+    // Helper: parse compact response { columns, data } into a key-value object
+    const parseCompact = (stmt: any): Record<string, unknown> | null => {
+      if (!stmt || !Array.isArray(stmt.columns) || !Array.isArray(stmt.data) || stmt.data.length === 0) return null;
+      const cols: string[] = stmt.columns;
+      const row: unknown[] = stmt.data[0];
+      const obj: Record<string, unknown> = {};
+      for (let i = 0; i < cols.length; i++) {
+        if (row[i] !== null && row[i] !== undefined) obj[cols[i]] = row[i];
+      }
+      return obj;
+    };
+
+    // Fetch Income Statement (pl)
+    const plRes = await fetch(
+      `${BASE}/companies/statements/compact?ticker=${encodeURIComponent(ticker)}&statements=pl&period=FY&fyear=2024`,
+      { headers, signal: timeout(DEFAULT_TIMEOUT) }
     );
-    if (!res.ok) return null;
-    const data = await res.json() as any;
-    if (!data || data.error) return null;
-    const item = Array.isArray(data) ? data[0] : data;
-    if (!item?.data) return null;
-    return `## SimFin Income Statement (TTM) — ${ticker}\n${JSON.stringify(item.data).slice(0, 800)}`;
+    let plData: Record<string, unknown> | null = null;
+    if (plRes.ok) {
+      const plJson = await plRes.json() as any[];
+      if (Array.isArray(plJson) && plJson.length > 0) {
+        const stmts = plJson[0]?.statements;
+        if (Array.isArray(stmts) && stmts.length > 0) {
+          plData = parseCompact(stmts[0]);
+        }
+      }
+    }
+
+    // Fetch Derived metrics (gross margin, EPS, FCF, ROE, etc.)
+    const derivedRes = await fetch(
+      `${BASE}/companies/statements/compact?ticker=${encodeURIComponent(ticker)}&statements=derived&period=FY&fyear=2024`,
+      { headers, signal: timeout(DEFAULT_TIMEOUT) }
+    );
+    let derivedData: Record<string, unknown> | null = null;
+    if (derivedRes.ok) {
+      const derivedJson = await derivedRes.json() as any[];
+      if (Array.isArray(derivedJson) && derivedJson.length > 0) {
+        const stmts = derivedJson[0]?.statements;
+        if (Array.isArray(stmts) && stmts.length > 0) {
+          derivedData = parseCompact(stmts[0]);
+        }
+      }
+    }
+
+    if (!plData && !derivedData) return null;
+
+    const parts: string[] = [];
+
+    if (plData) {
+      const fyear = plData['Fiscal Year'] ?? 'N/A';
+      const reportDate = plData['Report Date'] ?? 'N/A';
+      const fmt = (v: unknown) => (typeof v === 'number' ? (v / 1e9).toFixed(2) + 'B' : String(v ?? 'N/A'));
+      const plLines = [
+        `Fiscal Year: ${fyear} (Report Date: ${reportDate})`,
+        `Revenue: ${fmt(plData['Revenue'])}`,
+        `Gross Profit: ${fmt(plData['Gross Profit'])}`,
+        `Operating Income: ${fmt(plData['Operating Income (Loss)'])}`,
+        `Pretax Income: ${fmt(plData['Pretax Income (Loss)'])}`,
+        `Net Income: ${fmt(plData['Net Income'])}`,
+        `R&D Expense: ${fmt(plData['Research & Development'])}`,
+        `SG&A Expense: ${fmt(plData['Selling, General & Administrative'])}`,
+      ].join('\n');
+      parts.push(`## SimFin Income Statement (FY${fyear}) — ${ticker}\n${plLines}`);
+    }
+
+    if (derivedData) {
+      const pct = (v: unknown) => (typeof v === 'number' ? (v * 100).toFixed(2) + '%' : String(v ?? 'N/A'));
+      const num = (v: unknown) => (typeof v === 'number' ? v.toFixed(4) : String(v ?? 'N/A'));
+      const usd = (v: unknown) => (typeof v === 'number' ? (v / 1e9).toFixed(2) + 'B' : String(v ?? 'N/A'));
+      const derivedLines = [
+        `Gross Profit Margin: ${pct(derivedData['Gross Profit Margin'])}`,
+        `Operating Margin: ${pct(derivedData['Operating Margin'])}`,
+        `Net Profit Margin: ${pct(derivedData['Net Profit Margin'])}`,
+        `EPS (Diluted): ${num(derivedData['Earnings Per Share, Diluted'])}`,
+        `Free Cash Flow: ${usd(derivedData['Free Cash Flow'])}`,
+        `Return on Equity: ${pct(derivedData['Return on Equity'])}`,
+        `Return on Assets: ${pct(derivedData['Return on Assets'])}`,
+        `ROIC: ${pct(derivedData['Return On Invested Capital'])}`,
+        `EBITDA: ${usd(derivedData['EBITDA'])}`,
+        `Total Debt: ${usd(derivedData['Total Debt'])}`,
+      ].join('\n');
+      parts.push(`## SimFin Derived Metrics — ${ticker}\n${derivedLines}`);
+    }
+
+    return parts.join('\n\n');
   } catch {
     return null;
   }

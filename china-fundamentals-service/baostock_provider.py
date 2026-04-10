@@ -39,6 +39,11 @@ SOURCE_TYPE = "official_free"
 CONFIDENCE = "high"
 
 
+def _fiscal_year_to_period(year: int) -> tuple[str, str]:
+    """BaoStock FY data is always Q4 (year-end). Returns (periodType, periodEndDate)."""
+    return "FY", f"{year}-12-31"
+
+
 def _safe_float(val) -> Optional[float]:
     """Convert to float, return None if empty/invalid."""
     if val is None:
@@ -265,6 +270,8 @@ def fetch_baostock(symbol: str) -> Optional[object]:
                 sharesOutstanding=shares_outstanding,
                 # Metadata
                 fiscalYear=fiscal_year_used,
+                periodType="FY" if fiscal_year_used else None,
+                periodEndDate=f"{fiscal_year_used}-12-31" if fiscal_year_used else None,
                 sourceType=SOURCE_TYPE,
                 confidence=CONFIDENCE,
             )

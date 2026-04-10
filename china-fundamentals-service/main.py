@@ -67,7 +67,9 @@ class FundamentalsData(BaseModel):
     sharesOutstanding: Optional[float] = None   # Shares Outstanding (count)
     # ── Metadata ─────────────────────────────────────────────────────────────
     fiscalYear: Optional[int] = None
-    sourceType: Optional[str] = None        # "official_free" | "third_party_free"
+    periodType: Optional[str] = None        # "Q1" | "Q2" | "Q3" | "FY"
+    periodEndDate: Optional[str] = None     # "YYYY-MM-DD" (e.g., "2024-09-30")
+    sourceType: Optional[str] = None        # "official_free" | "community_aggregated"
     confidence: Optional[str] = None        # "high" | "medium" | "low"
 
 
@@ -121,6 +123,8 @@ class FundamentalsRaw(BaseModel):
     dividendYield: Optional[float] = None
     sharesOutstanding: Optional[float] = None
     fiscalYear: Optional[int] = None
+    periodType: Optional[str] = None
+    periodEndDate: Optional[str] = None
     sourceType: Optional[str] = None
     confidence: Optional[str] = None
 
@@ -149,15 +153,22 @@ class FundamentalsFmt(BaseModel):
     sharesOutstanding: str = "N/A"
 
 
+# Fields permanently unavailable from all free providers
+PERMANENTLY_UNAVAILABLE: List[str] = ["freeCashFlow"]
+
+
 class FundamentalsResponse(BaseModel):
     raw: FundamentalsRaw
     fmt: FundamentalsFmt
     source: str                     # "baostock" | "akshare" | "efinance" | "none"
-    sourceType: str                 # "official_free" | "third_party_free" | "none"
+    sourceType: str                 # "official_free" | "community_aggregated" | "none"
     confidence: str                 # "high" | "medium" | "low"
     status: str                     # "active" | "fallback_used" | "unavailable"
     coverageScore: float            # 0-1, weighted: core*0.7 + extended*0.3
-    missingFields: List[str]        # list of field names that are null
+    missingFields: List[str]        # fields null for current provider/result
+    permanentlyUnavailable: List[str]  # fields structurally unavailable from all free providers
+    periodType: Optional[str] = None   # "Q1" | "Q2" | "Q3" | "FY" | None
+    periodEndDate: Optional[str] = None  # "YYYY-MM-DD" | None
     symbol: str
     fetched_at: float               # unix timestamp
 
@@ -322,6 +333,9 @@ def build_response(
         status=status,
         coverageScore=coverage,
         missingFields=missing,
+        permanentlyUnavailable=PERMANENTLY_UNAVAILABLE,
+        periodType=data.periodType,
+        periodEndDate=data.periodEndDate,
         symbol=symbol,
         fetched_at=time.time(),
     )
@@ -388,7 +402,7 @@ async def fetch_with_fallback(symbol: str) -> FundamentalsResponse:
 
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-app = FastAPI(title="China Fundamentals Service", version="1.1.0")
+app = FastAPI(title="China Fundamentals Service", version="1.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -402,7 +416,7 @@ app.add_middleware(
 async def health():
     return {
         "status": "ok",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "providers": {
             "baostock": BAOSTOCK_AVAILABLE and _is_provider_enabled("baostock"),
             "akshare": AKSHARE_AVAILABLE and _is_provider_enabled("akshare"),

@@ -1,6 +1,6 @@
 """
 efinance Provider — Fallback 2 for A-share fundamentals.
-sourceType: "third_party_free"
+sourceType: "community_aggregated"
 confidence: "low"
 
 APIs used:
@@ -21,7 +21,7 @@ from typing import Optional
 
 logger = logging.getLogger("china-fundamentals.efinance")
 
-SOURCE_TYPE = "third_party_free"
+SOURCE_TYPE = "community_aggregated"
 CONFIDENCE = "low"
 
 
@@ -124,6 +124,8 @@ def fetch_efinance(symbol: str) -> Optional[object]:
         sharesOutstanding=None,
         # Metadata
         fiscalYear=None,
+        periodType=None,       # get_base_info has no report period info
+        periodEndDate=None,
         sourceType=SOURCE_TYPE,
         confidence=CONFIDENCE,
     )

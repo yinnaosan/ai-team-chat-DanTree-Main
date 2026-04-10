@@ -22,8 +22,24 @@ from typing import Optional
 
 logger = logging.getLogger("china-fundamentals.akshare")
 
-SOURCE_TYPE = "third_party_free"
+SOURCE_TYPE = "community_aggregated"
 CONFIDENCE = "medium"
+
+
+def _date_to_period(date_str: str) -> tuple[str, str]:
+    """
+    Infer periodType from date string (YYYY-MM-DD or YYYYMMDD).
+    Rules: MM=03→Q1, MM=06→Q2, MM=09→Q3, MM=12→FY
+    Returns (periodType, periodEndDate in YYYY-MM-DD).
+    """
+    s = str(date_str).strip().replace("-", "")
+    if len(s) == 8:
+        year, month, day = s[:4], s[4:6], s[6:]
+        period_date = f"{year}-{month}-{day}"
+        month_map = {"03": "Q1", "06": "Q2", "09": "Q3", "12": "FY"}
+        period_type = month_map.get(month, "Q3")  # default Q3 if unknown
+        return period_type, period_date
+    return "FY", date_str
 
 
 def _safe_float(val) -> Optional[float]:
@@ -233,6 +249,23 @@ def fetch_akshare(symbol: str) -> Optional[object]:
     # Dividend yield requires dividend per share / stock price — not directly available here
     # Leave as None
 
+    # ── Determine period from indicator_df latest date ───────────────────────
+    period_type = None
+    period_end_date = None
+    fiscal_year = None
+    if indicator_df is not None and not indicator_df.empty:
+        date_col = '日期'
+        if date_col in indicator_df.columns:
+            dates = sorted(indicator_df[date_col].dropna().astype(str).tolist(), reverse=True)
+            if dates:
+                latest_date = dates[0]
+                period_type, period_end_date = _date_to_period(latest_date)
+                try:
+                    fiscal_year = int(period_end_date[:4])
+                except Exception:
+                    pass
+                logger.info(f"[akshare] period: type={period_type}, endDate={period_end_date}, fiscalYear={fiscal_year}")
+
     return FundamentalsData(
         # Core
         pe=pe,
@@ -257,7 +290,9 @@ def fetch_akshare(symbol: str) -> Optional[object]:
         dividendYield=dividend_yield,
         sharesOutstanding=total_shares,
         # Metadata
-        fiscalYear=None,
+        fiscalYear=fiscal_year,
+        periodType=period_type,
+        periodEndDate=period_end_date,
         sourceType=SOURCE_TYPE,
         confidence=CONFIDENCE,
     )

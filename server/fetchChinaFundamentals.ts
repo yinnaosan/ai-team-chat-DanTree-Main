@@ -1,12 +1,14 @@
 /**
- * fetchChinaFundamentals v1.1
+ * fetchChinaFundamentals v1.2
  * Calls the china-fundamentals-service (Python FastAPI on port 8001)
  * Only invoked when market === "CN" && needFundamentals.
  * Does NOT affect US fundamentals chain.
  *
- * Returns both:
- *   - structured object (ChinaFundamentalsResponse) for downstream use
- *   - formatted Markdown string for LLM consumption
+ * v1.2 changes:
+ *   - periodType / periodEndDate in raw + response
+ *   - permanentlyUnavailable field in response
+ *   - sourceType enum: "official_free" | "community_aggregated"
+ *   - Updated markdown: shows report period, permanent unavailability note
  */
 
 const CHINA_FUNDAMENTALS_URL = "http://localhost:8001";
@@ -44,8 +46,10 @@ export interface ChinaFundamentalsRaw {
   sharesOutstanding: number | null;
   // Metadata
   fiscalYear: number | null;
-  sourceType: string | null;
-  confidence: string | null;
+  periodType: string | null;    // "Q1" | "Q2" | "Q3" | "FY" | null
+  periodEndDate: string | null; // "YYYY-MM-DD" | null
+  sourceType: string | null;    // "official_free" | "community_aggregated"
+  confidence: string | null;    // "high" | "medium" | "low"
 }
 
 // ── Formatted display strings ─────────────────────────────────────────────────
@@ -76,12 +80,15 @@ export interface ChinaFundamentalsFmt {
 export interface ChinaFundamentalsResponse {
   raw: ChinaFundamentalsRaw;
   fmt: ChinaFundamentalsFmt;
-  source: string;
-  sourceType: string;
-  confidence: string;
-  status: string;
-  coverageScore: number;
-  missingFields: string[];
+  source: string;                   // "baostock" | "akshare" | "efinance" | "none"
+  sourceType: string;               // "official_free" | "community_aggregated" | "none"
+  confidence: string;               // "high" | "medium" | "low"
+  status: string;                   // "active" | "fallback_used" | "unavailable"
+  coverageScore: number;            // 0-1, weighted: core*0.7 + extended*0.3
+  missingFields: string[];          // fields null for current provider/result
+  permanentlyUnavailable: string[]; // fields unavailable from all free providers
+  periodType: string | null;        // "Q1" | "Q2" | "Q3" | "FY" | null
+  periodEndDate: string | null;     // "YYYY-MM-DD" | null
   symbol: string;
   fetched_at: number;
 }
@@ -101,7 +108,7 @@ const CONFIDENCE_LABELS: Record<string, string> = {
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   official_free: "官方免费",
-  third_party_free: "第三方免费",
+  community_aggregated: "社区聚合",
 };
 
 /**
@@ -152,16 +159,28 @@ function buildMarkdown(ticker: string, json: ChinaFundamentalsResponse): string 
   const confidenceLabel = CONFIDENCE_LABELS[json.confidence] ?? json.confidence;
   const sourceTypeLabel = SOURCE_TYPE_LABELS[json.sourceType] ?? json.sourceType;
   const statusLabel = json.status === "active" ? "主源" : "已触发 Fallback";
-  const fyLabel = json.raw.fiscalYear ? `FY${json.raw.fiscalYear}` : "最新可得";
+
+  // Period label: prefer periodType + periodEndDate, fall back to fiscalYear
+  const periodLabel = json.periodEndDate
+    ? `${json.periodType ?? ""} ${json.periodEndDate}`.trim()
+    : json.raw.fiscalYear
+    ? `FY${json.raw.fiscalYear}`
+    : "最新可得";
+
   const coveragePct = (json.coverageScore * 100).toFixed(1);
 
   const missingNote =
     json.missingFields.length > 0
-      ? `\n> ⚠️ 以下字段当前不可得：${json.missingFields.join(", ")}`
+      ? `\n> ⚠️ 当前 provider 缺失字段：${json.missingFields.join(", ")}`
+      : "";
+
+  const permanentNote =
+    json.permanentlyUnavailable && json.permanentlyUnavailable.length > 0
+      ? `\n> 🚫 免费数据源结构性不可得：${json.permanentlyUnavailable.join(", ")}`
       : "";
 
   return `## A股基本面数据 — ${ticker}
-> 数据来源：${sourceLabel}（${sourceTypeLabel}）| 置信度：${confidenceLabel} | 状态：${statusLabel} | 财年：${fyLabel} | 字段覆盖率：${coveragePct}%${missingNote}
+> 数据来源：${sourceLabel}（${sourceTypeLabel}）| 置信度：${confidenceLabel} | 状态：${statusLabel} | 报告期：${periodLabel} | 字段覆盖率：${coveragePct}%${missingNote}${permanentNote}
 
 ### 估值指标
 | 指标 | 数值 |

@@ -1,13 +1,19 @@
 """
 AKShare Provider — Fallback 1 for A-share fundamentals.
+sourceType: "third_party_free"
+confidence: "medium"
 
-Endpoints used:
-  - stock_financial_abstract: ROE / 毛利率 / 净利率 / EPS
-  - stock_individual_info_em: PE / PB / 市值
-  - stock_financial_report_sina: revenue / net income (补充)
+APIs used:
+  - stock_individual_info_em:           totalMarketCap / totalShares / latest price
+  - stock_financial_analysis_indicator: ROE / ROA / margins / EPS / BVPS / ratios / growth
+  - stock_financial_abstract:           revenue / netIncome / cashFromOperations (wide format)
 
-All fields mapped to unified schema. Individual field failures return null,
-not full provider failure.
+Field rules:
+  - debtToEquity: use '负债与所有者权益比率(%)' which is totalLiab/totalEquity (precise, %)
+  - PE = totalMarketCap / annualNetIncome (computed)
+  - PB = totalMarketCap / (BVPS × totalShares) (computed)
+  - PS = totalMarketCap / annualRevenue (computed)
+  - Individual field failures return null, not full provider failure.
 """
 
 import logging
@@ -16,27 +22,70 @@ from typing import Optional
 
 logger = logging.getLogger("china-fundamentals.akshare")
 
+SOURCE_TYPE = "third_party_free"
+CONFIDENCE = "medium"
+
+
 def _safe_float(val) -> Optional[float]:
     if val is None:
         return None
-    s = str(val).strip().replace(",", "").replace("%", "")
-    if s in ("", "None", "nan", "--", "N/A", "-", "—"):
+    s = str(val).strip().replace(",", "")
+    if s in ("", "None", "nan", "--", "N/A", "-", "—", "无", "NaN"):
         return None
     try:
         f = float(s)
-        return f if f == f else None
+        return f if f == f else None  # filter NaN
     except (ValueError, TypeError):
         return None
 
+
 def _pct_to_float(val) -> Optional[float]:
-    """Convert percentage string like '45.23%' or '45.23' to 0.4523."""
+    """Convert percentage value (e.g., 38.43 → 0.3843)."""
     f = _safe_float(val)
     if f is None:
         return None
-    # If value looks like a percentage (> 1 and <= 100), divide by 100
-    if abs(f) > 1:
-        return f / 100.0
-    return f
+    return f / 100.0
+
+
+def _get_indicator_value(df, col_name: str) -> Optional[float]:
+    """Get value from stock_financial_analysis_indicator (wide columns)."""
+    if df is None or df.empty:
+        return None
+    if col_name not in df.columns:
+        return None
+    # Sort by date desc, take latest non-null
+    date_col = '日期'
+    if date_col in df.columns:
+        df = df.sort_values(date_col, ascending=False)
+    for _, row in df.iterrows():
+        val = _safe_float(row.get(col_name))
+        if val is not None:
+            return val
+    return None
+
+
+def _get_abstract_value(df, indicator_name: str) -> Optional[float]:
+    """
+    Get value from stock_financial_abstract (pivoted: rows=indicators, cols=dates).
+    Returns the latest non-null value.
+    """
+    if df is None or df.empty:
+        return None
+    if '指标' not in df.columns:
+        return None
+    row = df[df['指标'] == indicator_name]
+    if row.empty:
+        return None
+    # Date columns are all columns except '选项' and '指标'
+    date_cols = [c for c in df.columns if c not in ('选项', '指标')]
+    # Sort date columns descending (they are strings like '20241231')
+    date_cols_sorted = sorted(date_cols, reverse=True)
+    for col in date_cols_sorted:
+        val = _safe_float(row.iloc[0][col])
+        if val is not None:
+            return val
+    return None
+
 
 def fetch_akshare(symbol: str) -> Optional[object]:
     """
@@ -46,108 +95,169 @@ def fetch_akshare(symbol: str) -> Optional[object]:
     """
     try:
         import akshare as ak
+        import warnings
+        warnings.filterwarnings('ignore')
         from main import FundamentalsData
     except ImportError as e:
         logger.error(f"[akshare] import failed: {e}")
         return None
 
-    pe = None
-    pb = None
+    # ── 1. Individual info → market cap / total shares / latest price ─────────
+    total_market_cap = None
+    total_shares = None
+    latest_price = None
+
+    try:
+        time.sleep(0.3)
+        info_df = ak.stock_individual_info_em(symbol=symbol)
+        if info_df is not None and not info_df.empty:
+            # Rows: item/value format
+            info_dict = dict(zip(info_df['item'], info_df['value']))
+            total_market_cap = _safe_float(info_dict.get('总市值'))
+            total_shares = _safe_float(info_dict.get('总股本'))
+            latest_price = _safe_float(info_dict.get('最新'))
+            logger.info(
+                f"[akshare] individual_info: mktCap={total_market_cap}, "
+                f"shares={total_shares}, price={latest_price}"
+            )
+    except Exception as e:
+        logger.warning(f"[akshare] individual_info error: {e}")
+
+    # ── 2. Financial analysis indicator → ROE/ROA/margins/EPS/BVPS/ratios/growth
+    indicator_df = None
     roe = None
-    revenue = None
-    net_income = None
+    roa = None
     gross_margin = None
     net_margin = None
+    operating_margin = None
     eps = None
+    book_value_per_share = None
+    current_ratio = None
+    debt_to_equity = None
+    revenue_growth_yoy = None
+    net_income_growth_yoy = None
+    cfo_per_share = None
 
-    # ── 1. stock_individual_info_em → PE / PB / 市值 ─────────────────────────
     try:
-        time.sleep(0.2)
-        info_df = ak.stock_individual_info_em(symbol=symbol)
-        # Returns DataFrame with columns: item, value
-        if info_df is not None and not info_df.empty:
-            info_dict = dict(zip(info_df.iloc[:, 0], info_df.iloc[:, 1]))
-            # PE fields: '市盈率(动)', '市盈率(静)', '市盈率(TTM)'
-            pe_raw = (
-                info_dict.get("市盈率(TTM)")
-                or info_dict.get("市盈率(动)")
-                or info_dict.get("市盈率(静)")
+        time.sleep(0.3)
+        import datetime
+        current_year = datetime.datetime.now().year
+        indicator_df = ak.stock_financial_analysis_indicator(
+            symbol=symbol,
+            start_year=str(current_year - 2)
+        )
+        if indicator_df is not None and not indicator_df.empty:
+            roe = _pct_to_float(_get_indicator_value(indicator_df, '净资产收益率(%)'))
+            roa = _pct_to_float(_get_indicator_value(indicator_df, '总资产净利润率(%)'))
+            if roa is None:
+                roa = _pct_to_float(_get_indicator_value(indicator_df, '资产报酬率(%)'))
+            gross_margin = _pct_to_float(_get_indicator_value(indicator_df, '销售毛利率(%)'))
+            net_margin = _pct_to_float(_get_indicator_value(indicator_df, '销售净利率(%)'))
+            operating_margin = _pct_to_float(_get_indicator_value(indicator_df, '营业利润率(%)'))
+            eps = _safe_float(_get_indicator_value(indicator_df, '摊薄每股收益(元)'))
+            if eps is None:
+                eps = _safe_float(_get_indicator_value(indicator_df, '加权每股收益(元)'))
+            book_value_per_share = _safe_float(_get_indicator_value(indicator_df, '每股净资产_调整前(元)'))
+            current_ratio = _safe_float(_get_indicator_value(indicator_df, '流动比率'))
+            # D/E: '负债与所有者权益比率(%)' = totalLiab/totalEquity × 100 (precise)
+            de_pct = _safe_float(_get_indicator_value(indicator_df, '负债与所有者权益比率(%)'))
+            if de_pct is not None:
+                debt_to_equity = de_pct / 100.0
+            revenue_growth_yoy = _pct_to_float(_get_indicator_value(indicator_df, '主营业务收入增长率(%)'))
+            net_income_growth_yoy = _pct_to_float(_get_indicator_value(indicator_df, '净利润增长率(%)'))
+            cfo_per_share = _safe_float(_get_indicator_value(indicator_df, '每股经营性现金流(元)'))
+
+            logger.info(
+                f"[akshare] financial_indicator: roe={roe}, roa={roa}, "
+                f"grossMargin={gross_margin}, netMargin={net_margin}, "
+                f"operatingMargin={operating_margin}, eps={eps}, bvps={book_value_per_share}, "
+                f"currentRatio={current_ratio}, D/E={debt_to_equity}"
             )
-            pe = _safe_float(pe_raw)
-            pb = _safe_float(info_dict.get("市净率"))
-            logger.info(f"[akshare] individual_info: pe={pe}, pb={pb}")
     except Exception as e:
-        logger.warning(f"[akshare] stock_individual_info_em error: {e}")
+        logger.warning(f"[akshare] financial_analysis_indicator error: {e}")
 
-    # ── 2. stock_financial_abstract → ROE / 毛利率 / 净利率 / EPS ─────────────
+    # ── 3. Financial abstract → revenue / netIncome / cashFromOperations ──────
+    revenue = None
+    net_income = None
+    cash_from_operations = None
+    free_cash_flow = None
+
     try:
-        time.sleep(0.2)
+        time.sleep(0.3)
         abstract_df = ak.stock_financial_abstract(symbol=symbol)
         if abstract_df is not None and not abstract_df.empty:
-            # Sort by date descending, take latest
-            if "报告期" in abstract_df.columns:
-                abstract_df = abstract_df.sort_values("报告期", ascending=False)
-            latest = abstract_df.iloc[0]
-            
-            # ROE
-            roe_raw = latest.get("净资产收益率") or latest.get("ROE") or latest.get("加权净资产收益率")
-            roe = _pct_to_float(roe_raw)
-            
-            # Gross margin
-            gm_raw = latest.get("销售毛利率") or latest.get("毛利率")
-            gross_margin = _pct_to_float(gm_raw)
-            
-            # Net margin
-            nm_raw = latest.get("销售净利率") or latest.get("净利率")
-            net_margin = _pct_to_float(nm_raw)
-            
-            # EPS
-            eps_raw = latest.get("基本每股收益") or latest.get("每股收益")
-            eps = _safe_float(eps_raw)
-            
-            logger.info(f"[akshare] financial_abstract: roe={roe}, grossMargin={gross_margin}, netMargin={net_margin}, eps={eps}")
-    except Exception as e:
-        logger.warning(f"[akshare] stock_financial_abstract error: {e}")
+            revenue = _get_abstract_value(abstract_df, '营业总收入')
+            if revenue is None:
+                revenue = _get_abstract_value(abstract_df, '营业收入')
+            net_income = _get_abstract_value(abstract_df, '归母净利润')
+            if net_income is None:
+                net_income = _get_abstract_value(abstract_df, '净利润')
+            cash_from_operations = _get_abstract_value(abstract_df, '经营现金流量净额')
 
-    # ── 3. stock_financial_report_sina → revenue / net income ────────────────
-    try:
-        time.sleep(0.2)
-        # Try income statement from Sina
-        sina_df = ak.stock_financial_report_sina(stock=symbol, symbol="利润表")
-        if sina_df is not None and not sina_df.empty:
-            # Columns are dates, rows are financial items
-            # Get the latest column (most recent period)
-            latest_col = sina_df.columns[1] if len(sina_df.columns) > 1 else None
-            if latest_col:
-                sina_dict = dict(zip(sina_df.iloc[:, 0], sina_df[latest_col]))
-                
-                # Revenue: 营业总收入 or 营业收入
-                rev_raw = (
-                    sina_dict.get("营业总收入")
-                    or sina_dict.get("营业收入")
-                    or sina_dict.get("一、营业收入")
-                )
-                revenue = _safe_float(rev_raw)
-                
-                # Net income: 净利润 or 归属于母公司所有者的净利润
-                ni_raw = (
-                    sina_dict.get("净利润")
-                    or sina_dict.get("归属于母公司所有者的净利润")
-                    or sina_dict.get("归属于母公司股东的净利润")
-                )
-                net_income = _safe_float(ni_raw)
-                
-                logger.info(f"[akshare] sina_report: revenue={revenue}, netIncome={net_income}")
+            logger.info(
+                f"[akshare] financial_abstract: revenue={revenue}, "
+                f"netIncome={net_income}, CFO={cash_from_operations}"
+            )
     except Exception as e:
-        logger.warning(f"[akshare] stock_financial_report_sina error: {e}")
+        logger.warning(f"[akshare] financial_abstract error: {e}")
+
+    # ── 4. Compute PE / PB / PS from market cap ───────────────────────────────
+    pe = None
+    pb = None
+    ps = None
+
+    if total_market_cap is not None and total_market_cap > 0:
+        # PE = totalMarketCap / annualNetIncome
+        if net_income is not None and net_income > 0:
+            pe = total_market_cap / net_income
+        # PB = totalMarketCap / (BVPS × totalShares)
+        if book_value_per_share is not None and total_shares is not None and total_shares > 0:
+            net_assets = book_value_per_share * total_shares
+            if net_assets > 0:
+                pb = total_market_cap / net_assets
+        # PS = totalMarketCap / annualRevenue
+        if revenue is not None and revenue > 0:
+            ps = total_market_cap / revenue
+
+    logger.info(f"[akshare] computed: pe={pe}, pb={pb}, ps={ps}")
+
+    # ── 5. Cash flow from operations (absolute) ───────────────────────────────
+    # If we have cfo_per_share and total_shares, compute absolute CFO
+    if cash_from_operations is None and cfo_per_share is not None and total_shares is not None:
+        cash_from_operations = cfo_per_share * total_shares
+        logger.info(f"[akshare] computed CFO from per-share: {cash_from_operations}")
+
+    # ── 6. Dividend yield ─────────────────────────────────────────────────────
+    dividend_yield = None
+    # AKShare stock_financial_analysis_indicator has '股息发放率(%)' but that's payout ratio
+    # Dividend yield requires dividend per share / stock price — not directly available here
+    # Leave as None
 
     return FundamentalsData(
+        # Core
         pe=pe,
         pb=pb,
+        ps=ps,
         roe=roe,
-        revenue=revenue,
-        netIncome=net_income,
         grossMargin=gross_margin,
         netMargin=net_margin,
+        revenue=revenue,
+        netIncome=net_income,
         eps=eps,
+        # Extended
+        operatingMargin=operating_margin,
+        roa=roa,
+        debtToEquity=debt_to_equity,
+        currentRatio=current_ratio,
+        cashFromOperations=cash_from_operations,
+        freeCashFlow=free_cash_flow,
+        revenueGrowthYoy=revenue_growth_yoy,
+        netIncomeGrowthYoy=net_income_growth_yoy,
+        bookValuePerShare=book_value_per_share,
+        dividendYield=dividend_yield,
+        sharesOutstanding=total_shares,
+        # Metadata
+        fiscalYear=None,
+        sourceType=SOURCE_TYPE,
+        confidence=CONFIDENCE,
     )

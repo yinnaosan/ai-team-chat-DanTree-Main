@@ -118,8 +118,13 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
 
   // ── [Fundamentals - CN]（仅 A股 + 需要基本面）────────────────────────────
   if (needFundamentals && market === "CN") {
-    const cnFundamentalsFetchers = new Map([
-      ["china_fundamentals", () => fetchChinaFundamentals(ticker)],
+    // fetchChinaFundamentals returns { structured, text } | null
+    // routing engine expects string | null — extract .text for the engine
+    const cnFundamentalsFetchers = new Map<string, () => Promise<string | null>>([
+      ["china_fundamentals", async () => {
+        const result = await fetchChinaFundamentals(ticker);
+        return result ? result.text : null;
+      }],
     ]);
     const cnFundamentalsResult = await executeLayerRouting("fundamentals", cnFundamentalsFetchers);
     layerResults.push(cnFundamentalsResult);

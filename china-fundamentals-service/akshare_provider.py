@@ -192,7 +192,7 @@ def fetch_akshare(symbol: str) -> Optional[object]:
     except Exception as e:
         logger.warning(f"[akshare] financial_analysis_indicator error: {e}")
 
-    # ── 3. Financial abstract → revenue / netIncome / cashFromOperations ──────
+    # ── 3. Financial abstract → revenue / netIncome / cashFromOperations / grossMargin ──
     revenue = None
     net_income = None
     cash_from_operations = None
@@ -210,9 +210,19 @@ def fetch_akshare(symbol: str) -> Optional[object]:
                 net_income = _get_abstract_value(abstract_df, '净利润')
             cash_from_operations = _get_abstract_value(abstract_df, '经营现金流量净额')
 
+            # grossMargin: try candidates in priority order (direct field only, no approximation)
+            # Values are in percentage format (e.g., 91.29), convert to decimal (0.9129)
+            if gross_margin is None:
+                for gm_candidate in ['销售毛利率(%)', '毛利率(%)', '毛利率']:
+                    gm_raw = _get_abstract_value(abstract_df, gm_candidate)
+                    if gm_raw is not None:
+                        gross_margin = gm_raw / 100.0
+                        logger.info(f"[akshare] grossMargin from abstract '{gm_candidate}': {gross_margin}")
+                        break
+
             logger.info(
                 f"[akshare] financial_abstract: revenue={revenue}, "
-                f"netIncome={net_income}, CFO={cash_from_operations}"
+                f"netIncome={net_income}, CFO={cash_from_operations}, grossMargin={gross_margin}"
             )
     except Exception as e:
         logger.warning(f"[akshare] financial_abstract error: {e}")

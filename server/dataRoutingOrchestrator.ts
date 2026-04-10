@@ -13,6 +13,7 @@
  */
 
 import { executeLayerRouting, computeEvidenceScore, buildKeyStatusReport, LayerResult, isFailedData } from "./dataRoutingEngine";
+import { fetchChinaFundamentals } from "./fetchChinaFundamentals";
 import {
   fetchFMPFundamentals, fetchSimFinFundamentals,
   fetchFinnhubPrice, fetchTiingoPrice, fetchYahooPrice,
@@ -115,6 +116,17 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
     layerResults.push(newsChinaResult);
   }
 
+  // ── [Fundamentals - CN]（仅 A股 + 需要基本面）────────────────────────────
+  if (needFundamentals && market === "CN") {
+    const cnFundamentalsFetchers = new Map([
+      ["china_fundamentals", () => fetchChinaFundamentals(ticker)],
+    ]);
+    const cnFundamentalsResult = await executeLayerRouting("fundamentals", cnFundamentalsFetchers);
+    layerResults.push(cnFundamentalsResult);
+    if (cnFundamentalsResult.status === "unavailable" || !cnFundamentalsResult.data) {
+      fallbackLog.push({ layer: "fundamentals", usedProvider: "none", reason: "CN fundamentals service unavailable or returned no data" });
+    }
+  }
   // ── [Fundamentals]（仅美股 + 需要基本面）──────────────────────────────────
   if (needFundamentals && market === "US") {
     const fundamentalsFetchers = new Map([

@@ -237,3 +237,115 @@ export async function checkChinaFundamentalsHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// ── HK Source Labels ──────────────────────────────────────────────────────────
+const HK_SOURCE_LABELS: Record<string, string> = {
+  hk_akshare: "AKShare（港股）",
+};
+
+/**
+ * Fetch HK fundamentals from the Python microservice (/fundamentals/hk).
+ * Returns { structured, text } or null if unavailable.
+ */
+export async function fetchHKFundamentals(
+  ticker: string
+): Promise<{ structured: ChinaFundamentalsResponse; text: string } | null> {
+  try {
+    // Normalize: strip .HK suffix for the query param
+    const symbol = ticker.split(".")[0].replace(/^0+/, "") || "0";
+
+    const res = await fetch(
+      `${CHINA_FUNDAMENTALS_URL}/fundamentals/hk?symbol=${encodeURIComponent(symbol)}`,
+      { signal: makeAbortSignal(TIMEOUT_MS) }
+    );
+
+    if (!res.ok) {
+      console.warn(`[hk-fundamentals] HTTP ${res.status} for ${symbol}`);
+      return null;
+    }
+
+    const json = (await res.json()) as ChinaFundamentalsResponse;
+
+    if (json.status === "unavailable") {
+      console.warn(`[hk-fundamentals] unavailable for ${symbol}`);
+      return null;
+    }
+
+    const text = buildHKMarkdown(ticker, json);
+    return { structured: json, text };
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      console.warn(`[hk-fundamentals] timeout for ${ticker}`);
+    } else {
+      console.warn(`[hk-fundamentals] error for ${ticker}: ${e?.message}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Build LLM-ready Markdown for HK fundamentals.
+ */
+function buildHKMarkdown(ticker: string, json: ChinaFundamentalsResponse): string {
+  const f = json.fmt;
+  const sourceLabel = HK_SOURCE_LABELS[json.source] ?? json.source;
+  const confidenceLabel = CONFIDENCE_LABELS[json.confidence] ?? json.confidence;
+  const sourceTypeLabel = SOURCE_TYPE_LABELS[json.sourceType] ?? json.sourceType;
+
+  const periodLabel = json.periodEndDate
+    ? `${json.periodType ?? ""} ${json.periodEndDate}`.trim()
+    : json.raw.fiscalYear
+    ? `FY${json.raw.fiscalYear}`
+    : "最新可得";
+
+  const coveragePct = (json.coverageScore * 100).toFixed(1);
+
+  const missingNote =
+    json.missingFields.length > 0
+      ? `\n> ⚠️ 当前 provider 缺失字段：${json.missingFields.join(", ")}`
+      : "";
+
+  const permanentNote =
+    json.permanentlyUnavailable && json.permanentlyUnavailable.length > 0
+      ? `\n> 🚫 免费数据源结构性不可得：${json.permanentlyUnavailable.join(", ")}`
+      : "";
+
+  return `## 港股基本面数据 — ${ticker}
+> 数据来源：${sourceLabel}（${sourceTypeLabel}）| 置信度：${confidenceLabel} | 报告期：${periodLabel} | 字段覆盖率：${coveragePct}%${missingNote}${permanentNote}
+
+### 估值指标（港元）
+| 指标 | 数值 |
+|------|------|
+| 市盈率（PE） | ${f.pe} |
+| 市净率（PB） | ${f.pb} |
+| 市销率（PS） | ${f.ps} |
+| 股息率 | ${f.dividendYield} |
+
+### 盈利能力
+| 指标 | 数值 |
+|------|------|
+| 净资产收益率（ROE） | ${f.roe} |
+| 资产收益率（ROA） | ${f.roa} |
+| 毛利率 | ${f.grossMargin} |
+| 净利率 | ${f.netMargin} |
+
+### 财务规模（港元）
+| 指标 | 数值 |
+|------|------|
+| 营业收入 | ${f.revenue} |
+| 归母净利润 | ${f.netIncome} |
+| 每股收益（EPS） | ${f.eps} |
+| 每股净资产（BVPS） | ${f.bookValuePerShare} |
+
+### 成长性
+| 指标 | 数值 |
+|------|------|
+| 净利润同比增长 | ${f.netIncomeGrowthYoy} |
+| 营收同比增长 | ${f.revenueGrowthYoy} |
+
+### 财务健康
+| 指标 | 数值 |
+|------|------|
+| 负债权益比（D/E） | ${f.debtToEquity} |
+| 流动比率 | ${f.currentRatio} |`;
+}

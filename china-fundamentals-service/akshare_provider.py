@@ -253,11 +253,47 @@ def fetch_akshare(symbol: str) -> Optional[object]:
         cash_from_operations = cfo_per_share * total_shares
         logger.info(f"[akshare] computed CFO from per-share: {cash_from_operations}")
 
-    # ── 6. Dividend yield ─────────────────────────────────────────────────────
+    # ── 6. Dividend yield ─────────────────────────────────────────────────────────────────────────────
     dividend_yield = None
-    # AKShare stock_financial_analysis_indicator has '股息发放率(%)' but that's payout ratio
-    # Dividend yield requires dividend per share / stock price — not directly available here
-    # Leave as None
+    try:
+        # stock_history_dividend_detail returns per-share cash dividend history
+        # 派息 column: cash dividend per 10 shares (CNY)
+        # Yield = (annual_dividend_per_share) / latest_price
+        if latest_price and latest_price > 0:
+            div_df = ak.stock_history_dividend_detail(symbol=symbol, indicator="分红")
+            if div_df is not None and not div_df.empty:
+                # Find most recent fiscal year
+                # Columns may vary; look for '派息' or '每10股派息(元)'
+                cash_col = None
+                for col in div_df.columns:
+                    if '派息' in str(col) or '现金' in str(col):
+                        cash_col = col
+                        break
+                date_col_d = None
+                for col in div_df.columns:
+                    if '年度' in str(col) or '公告日' in str(col) or '除权日' in str(col):
+                        date_col_d = col
+                        break
+                if cash_col:
+                    # Get latest year's total dividend (sum if multiple distributions)
+                    latest_year = None
+                    if date_col_d and date_col_d in div_df.columns:
+                        years = div_df[date_col_d].astype(str).str[:4]
+                        latest_year = years.max()
+                        year_rows = div_df[years == latest_year]
+                    else:
+                        year_rows = div_df.head(3)  # fallback: last 3 rows
+                    annual_div_per_10 = 0.0
+                    for val in year_rows[cash_col]:
+                        v = _safe_float(val)
+                        if v is not None:
+                            annual_div_per_10 += v
+                    annual_div_per_share = annual_div_per_10 / 10.0
+                    if annual_div_per_share > 0:
+                        dividend_yield = annual_div_per_share / latest_price
+                        logger.info(f"[akshare] dividendYield={dividend_yield:.4f} (div={annual_div_per_share:.4f}/price={latest_price:.2f})")
+    except Exception as e:
+        logger.warning(f"[akshare] dividendYield fetch failed: {e}")
 
     # ── Determine period from indicator_df latest date ───────────────────────
     period_type = None

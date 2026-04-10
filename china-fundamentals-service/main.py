@@ -219,6 +219,14 @@ except Exception as e:
     EFINANCE_AVAILABLE = False
     logger.warning(f"[init] efinance_provider load failed: {e}")
 
+try:
+    from hk_akshare_provider import fetch_hk_akshare
+    HK_AKSHARE_AVAILABLE = True
+    logger.info("[init] hk_akshare_provider loaded OK")
+except Exception as e:
+    HK_AKSHARE_AVAILABLE = False
+    logger.warning(f"[init] hk_akshare_provider load failed: {e}")
+
 # ── Override flags for fallback testing (set via /test/override endpoint) ─────
 _provider_overrides: dict[str, bool] = {}  # e.g., {"baostock": False}
 
@@ -423,11 +431,12 @@ app.add_middleware(
 async def health():
     return {
         "status": "ok",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "providers": {
             "baostock": BAOSTOCK_AVAILABLE and _is_provider_enabled("baostock"),
             "akshare": AKSHARE_AVAILABLE and _is_provider_enabled("akshare"),
             "efinance": EFINANCE_AVAILABLE and _is_provider_enabled("efinance"),
+            "hk_akshare": HK_AKSHARE_AVAILABLE and _is_provider_enabled("hk_akshare"),
         },
         "overrides": _provider_overrides,
         "cache_size": len(_cache),
@@ -498,6 +507,50 @@ async def clear_provider_overrides():
     _provider_overrides.clear()
     logger.info("[TEST OVERRIDE] All overrides cleared — providers restored to default")
     return {"cleared": True, "overrides": _provider_overrides}
+
+
+@app.get("/fundamentals/hk", response_model=FundamentalsResponse)
+async def get_hk_fundamentals(symbol: str):
+    """
+    Get HK stock fundamentals for a given symbol.
+    Accepts: "1810", "1810.HK", "01810" (all converted to 5-digit HK code).
+    """
+    if not HK_AKSHARE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="HK fundamentals provider unavailable")
+
+    # Normalize: strip .HK suffix, strip leading zeros for cache key
+    clean = symbol.split(".")[0].strip().lstrip("0") or "0"
+    cache_key = f"hk_{clean}"
+
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    logger.info(f"[hk] Fetching fundamentals for symbol={symbol} (clean={clean})")
+    try:
+        loop = asyncio.get_event_loop()
+        data = await asyncio.wait_for(
+            loop.run_in_executor(None, fetch_hk_akshare, symbol),
+            timeout=60.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"[hk] TIMEOUT (60s) for {symbol}")
+        data = None
+    except Exception as e:
+        logger.error(f"[hk] ERROR for {symbol}: {e}")
+        data = None
+
+    if data is None or not is_sufficient(data):
+        logger.warning(f"[hk] insufficient data for {symbol}")
+        empty = FundamentalsData()
+        return build_response(empty, "none", "unavailable", symbol)
+
+    result = build_response(data, "hk_akshare", "active", symbol)
+
+    if result.status != "unavailable":
+        cache_set(cache_key, result)
+
+    return result
 
 
 if __name__ == "__main__":

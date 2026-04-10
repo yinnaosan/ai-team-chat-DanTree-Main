@@ -37,6 +37,7 @@ export type DataSourceCategory =
   | "新闻情绪"
   | "加密货币"
   | "A股数据"
+  | "港股基本面"
   | "港股公告"
   | "法律监管"
   | "网页搜索"
@@ -537,8 +538,47 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     confidenceWeight: 0.82,
     costClass: "free",
     fieldPriority: "optional",
+  },  // ── 港股基本面 ──────────────────────────────────────────────────────────────────────────────
+  {
+    id: "hk_akshare",
+    displayName: "AKShare HK",
+    category: "港股基本面",
+    icon: "🇭🇰",
+    description: "港股基本面数据（ROE/ROA/毛利率/净利率/营收/净利润/EPS/BVPS/PE/PB）",
+    isWhitelisted: true,
+    requiresApiKey: false,
+    envKeyName: null,
+    dataType: "structured",
+    homepageUrl: "https://akshare.akfamily.xyz",
+    supportsFields: [
+      "financials.income", "financials.balance", "financials.cashflow",
+      "valuation.pe", "valuation.pb", "valuation.ps",
+      "earnings.eps", "market_cap",
+    ],
+    priorityRank: 2,
+    confidenceWeight: 0.75,
+    costClass: "free",
+    fieldPriority: "important",
   },
-  // ── 新增数据源 ──────────────────────────────────────────────────────────────────────────────
+  // ── 港股公告 ──────────────────────────────────────────────────────────────────────────────
+  {
+    id: "hkex",
+    costClass: "free",
+    fieldPriority: "important",
+    displayName: "HKEXnews",
+    category: "港股公告",
+    icon: "📢",
+    description: "港股公告、年报、监管文件",
+    isWhitelisted: true,
+    requiresApiKey: false,
+    envKeyName: null,
+    dataType: "structured",
+    homepageUrl: "https://www.hkexnews.hk",
+    supportsFields: ["filings.annual_report", "filings.announcements", "filings.regulatory"],
+    priorityRank: 2,
+    confidenceWeight: 0.85,
+  },
+  // ── 市场数据 ──────────────────────────────────────────────────────────────────────────────
   {
     id: "twelve-data",
     displayName: "Twelve Data",
@@ -939,13 +979,15 @@ export const FIELD_FALLBACK_MAP: FieldFallbackEntry[] = [
     field: "valuation.pe",
     priority: "blocking",
     // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
-    sources: ["fmp", "tiingo", "simfin", "yahoo_finance", "baostock"],
+    // hk_akshare = HK fundamentals microservice (AKShare HK)
+    sources: ["fmp", "tiingo", "simfin", "yahoo_finance", "baostock", "hk_akshare"],
   },
   {
     field: "financials.income",
     priority: "blocking",
     // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
-    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
+    // hk_akshare = HK fundamentals microservice (AKShare HK)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock", "hk_akshare"],
   },
 
   // ── Important 字段（缺失则降低 evidenceScore）──────────────────
@@ -983,13 +1025,15 @@ export const FIELD_FALLBACK_MAP: FieldFallbackEntry[] = [
     field: "financials.balance",
     priority: "important",
     // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
-    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
+    // hk_akshare = HK fundamentals microservice (AKShare HK)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock", "hk_akshare"],
   },
   {
     field: "financials.cashflow",
     priority: "important",
     // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
-    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
+    // hk_akshare = HK fundamentals microservice (AKShare HK)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock", "hk_akshare"],
   },
   {
     field: "market_cap",

@@ -3446,3 +3446,27 @@
   - 预期 evidenceScore：从 9/100 提升至 40-60/100
 - [x] TSC 0 errors 验证
 - [ ] checkpoint + 反馈文档
+
+## HK Fundamentals Layer Integration v1.0（2026-04-10）
+- [x] 探测 AKShare 港股接口可用性（1810.HK 小米）
+  - stock_financial_hk_analysis_indicator_em：✅ coverageScore 0.79，ROE/ROA/毛利率/净利率/营收/净利润/EPS/BVPS/流动比率/资产负债率/增长率
+  - stock_hk_daily：✅ 实时价格（30.9 HKD），用于计算 PE/PB
+  - stock_hk_valuation_baidu / stock_hk_indicator_eniu：❌ JSONDecodeError（API 失效）
+  - stock_hk_dividend_payout_em：❌ 空 DataFrame
+- [x] 新建 hk_akshare_provider.py（AKShare 港股 provider）
+  - PE = 最新价格 / EPS，PB = 最新价格 / BVPS（直接计算，不依赖 shares_outstanding）
+  - coverageScore 0.7859（1810.HK 实测）
+- [x] 修复 CN dividendYield 缺口（akshare_provider.py）
+  - 使用 stock_history_dividend_detail(symbol, indicator="分红") 计算 yield
+- [x] 扩展 main.py 支持 HK 路由（/fundamentals/hk 端点）
+- [x] 扩展 fetchChinaFundamentals.ts 添加 fetchHKFundamentals 函数
+- [x] 更新 dataRoutingOrchestrator.ts 添加 HK fundamentals 分支
+- [x] 更新 dataSourceRegistry.ts 注册 hk_akshare 数据源（category: 港股基本面，isWhitelisted: true）
+- [x] 更新 FIELD_FALLBACK_MAP 为 hk_akshare 添加 financials.income/valuation.pe/financials.balance/cashflow
+- [x] 编写 hkFundamentals.test.ts（14 个测试，全部通过）
+  - HK provider 独立验证（1810.HK, 0700.HK）：6 tests ✅
+  - CN snapshot vs historical（600519, 600916）：3 tests ✅
+  - CN fallback validation（BaoStock disabled → AKShare, all disabled → null）：2 tests ✅
+  - dataSourceRegistry registration（hk_akshare, FIELD_FALLBACK_MAP）：3 tests ✅
+- [x] TSC: 0 errors
+- [x] checkpoint (version TBD)

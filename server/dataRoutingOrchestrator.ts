@@ -13,7 +13,7 @@
  */
 
 import { executeLayerRouting, computeEvidenceScore, buildKeyStatusReport, LayerResult, isFailedData } from "./dataRoutingEngine";
-import { fetchChinaFundamentals } from "./fetchChinaFundamentals";
+import { fetchChinaFundamentals, fetchHKFundamentals } from "./fetchChinaFundamentals";
 import {
   fetchFMPFundamentals, fetchSimFinFundamentals,
   fetchFinnhubPrice, fetchTiingoPrice, fetchYahooPrice,
@@ -134,6 +134,22 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
       fallbackLog.push({ layer: "fundamentals", usedProvider: "none", reason: "CN fundamentals service unavailable or returned no data" });
     }
   }
+  // ── [Fundamentals - HK]（仅港股 + 需要基本面）─────────────────────────────
+  if (needFundamentals && market === "HK") {
+    const hkFundamentalsFetchers = new Map<string, () => Promise<string | null>>([
+      // Key must match registered data source ID in dataSourceRegistry.ts
+      ["hk_akshare", async () => {
+        const result = await fetchHKFundamentals(ticker);
+        return result ? result.text : null;
+      }],
+    ]);
+    const hkFundamentalsResult = await executeLayerRouting("fundamentals", hkFundamentalsFetchers);
+    layerResults.push(hkFundamentalsResult);
+    if (hkFundamentalsResult.status === "unavailable" || !hkFundamentalsResult.data) {
+      fallbackLog.push({ layer: "fundamentals", usedProvider: "none", reason: "HK fundamentals service unavailable or returned no data" });
+    }
+  }
+
   // ── [Fundamentals]（仅美股 + 需要基本面）──────────────────────────────────
   if (needFundamentals && market === "US") {
     const fundamentalsFetchers = new Map([

@@ -373,7 +373,14 @@ async def fetch_with_fallback(symbol: str) -> FundamentalsResponse:
         try:
             logger.info(f"[fetch] Trying provider={name} for symbol={symbol}")
             loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, fetcher, symbol)
+            try:
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(None, fetcher, symbol),
+                    timeout=20.0,  # 20s hard timeout per provider
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"[fetch] {name} TIMEOUT (20s) for {symbol} → try next")
+                continue
 
             if data is None:
                 logger.warning(f"[fetch] {name} returned None for {symbol} → try next")

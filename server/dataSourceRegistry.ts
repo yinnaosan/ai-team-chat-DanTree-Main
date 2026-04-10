@@ -439,7 +439,12 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     envKeyName: null,
     dataType: "structured",
     homepageUrl: "http://baostock.com",
-    supportsFields: ["price.history", "financials.income", "valuation.pe"],
+    // Actual data provided by china-fundamentals-service (BaoStock primary + AKShare fallback)
+    supportsFields: [
+      "price.history", "financials.income", "financials.balance", "financials.cashflow",
+      "valuation.pe", "valuation.pb", "valuation.ps",
+      "earnings.eps", "market_cap",
+    ],
     priorityRank: 2,
     confidenceWeight: 0.80,
     costClass: "free",
@@ -933,12 +938,14 @@ export const FIELD_FALLBACK_MAP: FieldFallbackEntry[] = [
   {
     field: "valuation.pe",
     priority: "blocking",
-    sources: ["fmp", "tiingo", "simfin", "yahoo_finance"],
+    // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
+    sources: ["fmp", "tiingo", "simfin", "yahoo_finance", "baostock"],
   },
   {
     field: "financials.income",
     priority: "blocking",
-    sources: ["fmp", "sec_edgar", "simfin"],
+    // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
   },
 
   // ── Important 字段（缺失则降低 evidenceScore）──────────────────
@@ -975,12 +982,14 @@ export const FIELD_FALLBACK_MAP: FieldFallbackEntry[] = [
   {
     field: "financials.balance",
     priority: "important",
-    sources: ["fmp", "sec_edgar", "simfin"],
+    // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
   },
   {
     field: "financials.cashflow",
     priority: "important",
-    sources: ["fmp", "sec_edgar", "simfin"],
+    // baostock = CN fundamentals microservice (AKShare/BaoStock fallback)
+    sources: ["fmp", "sec_edgar", "simfin", "baostock"],
   },
   {
     field: "market_cap",

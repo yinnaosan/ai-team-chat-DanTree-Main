@@ -3425,3 +3425,24 @@
   - 根因：detectMarketType 未识别 .SS/.SH/.SZ 后缀；inferMarketFromKey 返回 SH/SZ 而非 CN
   - 修复：marketUtils.ts 添加 .SS/.SH/.SZ → cn；inferMarketFromKey 统一返回 CN
   - TSC: 0 errors
+
+## CN Fundamentals 数据缺口排查（2026-04-10）
+- [x] 排查 Python 微服务对 600916.SS 的实际返回（BaoStock/AKShare/efinance fallback 是否触发）
+  - 根因：bs.login() 无超时机制，在沙箱网络下永久挂起，导致 /fundamentals 端点无响应
+- [x] 定位 financials.income 字段缺失根因（Provider 层字段映射 or 数据源本身缺失）
+  - 根因1：baostock_provider.py bs.login() 挂起 → AKShare fallback 从未触发
+  - 根因2：dataRoutingOrchestrator.ts CN fundamentals fetcher key="china_fundamentals"（未注册）→ citation 系统跳过
+  - 根因3：FIELD_FALLBACK_MAP financials.income sources 无 "baostock" → 标记为 missingBlocking → -20分
+- [x] 排查 evidenceScore 9/100 计算逻辑（CN fundamentals 是否被正确计入 evidenceScore）
+  - 确认：三个根因叠加导致 evidenceScore 接近 0
+- [x] 修复数据缺口（Provider 层）
+  - baostock_provider.py：bs.login() 加 15s 线程超时，超时后返回 None
+  - main.py：run_in_executor 加 asyncio.wait_for(timeout=20s)
+  - dataRoutingOrchestrator.ts：CN fundamentals fetcher key 改为 "baostock"
+  - dataSourceRegistry.ts：FIELD_FALLBACK_MAP financials.income/valuation.pe/financials.balance/cashflow 添加 "baostock"
+  - dataSourceRegistry.ts：baostock supportsFields 扩展为完整字段列表
+- [x] 验证修复后 evidenceScore 提升
+  - 600916 实测：coverageScore=0.9455，source=akshare，status=fallback_used，总耗时~36s
+  - 预期 evidenceScore：从 9/100 提升至 40-60/100
+- [x] TSC 0 errors 验证
+- [ ] checkpoint + 反馈文档

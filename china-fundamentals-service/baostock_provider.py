@@ -28,8 +28,34 @@ Fields NOT available from BaoStock (return null):
 
 import logging
 import threading
+import ctypes
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
+
+BS_LOGIN_TIMEOUT = 15  # seconds before giving up on baostock login
+
+
+def _run_with_timeout(fn, timeout_s: int):
+    """Run fn() in a thread with a hard timeout. Returns (result, timed_out)."""
+    result = [None]
+    exc = [None]
+    timed_out = [False]
+
+    def target():
+        try:
+            result[0] = fn()
+        except Exception as e:
+            exc[0] = e
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout_s)
+    if t.is_alive():
+        timed_out[0] = True
+        return None, True
+    if exc[0]:
+        raise exc[0]
+    return result[0], False
 
 logger = logging.getLogger("china-fundamentals.baostock")
 
@@ -100,9 +126,14 @@ def fetch_baostock(symbol: str) -> Optional[object]:
 
     with _bs_lock:
         try:
-            lg = bs.login()
-            if lg.error_code != "0":
-                logger.error(f"[baostock] login failed: {lg.error_msg}")
+            # Wrap login in a timeout thread — bs.login() can hang indefinitely
+            # when the BaoStock server is unreachable from the current network.
+            lg, timed_out = _run_with_timeout(bs.login, BS_LOGIN_TIMEOUT)
+            if timed_out:
+                logger.warning(f"[baostock] login TIMEOUT ({BS_LOGIN_TIMEOUT}s) for {symbol} — skipping")
+                return None
+            if lg is None or lg.error_code != "0":
+                logger.error(f"[baostock] login failed: {getattr(lg, 'error_msg', 'unknown')}")
                 return None
 
             # ── Initialize all fields ─────────────────────────────────────────

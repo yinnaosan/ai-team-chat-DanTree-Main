@@ -121,7 +121,9 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
     // fetchChinaFundamentals returns { structured, text } | null
     // routing engine expects string | null — extract .text for the engine
     const cnFundamentalsFetchers = new Map<string, () => Promise<string | null>>([
-      ["china_fundamentals", async () => {
+      // Key must match the registered data source ID in dataSourceRegistry.ts
+      // so that citation system can resolve it and include in evidenceScore
+      ["baostock", async () => {
         const result = await fetchChinaFundamentals(ticker);
         return result ? result.text : null;
       }],

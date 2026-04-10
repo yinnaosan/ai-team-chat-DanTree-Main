@@ -181,8 +181,7 @@ export default function ResearchWorkspacePage() {
   const inferMarketFromKey = (focusKey: string): string => {
     if (!focusKey) return "";
     if (focusKey.endsWith(".HK") || /^\d{4,5}\.HK$/.test(focusKey)) return "HK";
-    if (focusKey.endsWith(".SS") || focusKey.endsWith(".SH")) return "SH";
-    if (focusKey.endsWith(".SZ")) return "SZ";
+    if (focusKey.endsWith(".SS") || focusKey.endsWith(".SH") || focusKey.endsWith(".SZ")) return "CN";
     if (focusKey.endsWith(".T")) return "JP";
     if (focusKey.endsWith(".KS")) return "KR";
     if (["BTC","ETH","SOL","BNB","XRP","ADA","DOGE","AVAX"].includes(focusKey.toUpperCase())) return "CRYPTO";

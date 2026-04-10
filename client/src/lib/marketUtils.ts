@@ -12,8 +12,9 @@ export function detectMarketType(symbol: string): MarketType {
   const s = symbol.toUpperCase().trim();
   // 加密货币
   if (/^(BTC|ETH|BNB|SOL|ADA|XRP|DOGE|MATIC|DOT|AVAX|LINK|UNI|ATOM|LTC|BCH|ALGO|VET|FIL|TRX|EOS)(-USD|-USDT|-BTC)?$/.test(s)) return "crypto";
-  // A股（6位数字，或带sh./sz.前缀）
+  // A股（6位数字，或带sh./sz.前缀，或带.SS/.SH/.SZ后缀 Yahoo Finance 格式）
   if (/^(SH\.|SZ\.)?[0-9]{6}$/.test(s) || /^(600|601|603|605|000|001|002|003|300|688)[0-9]{3}$/.test(s)) return "cn";
+  if (s.endsWith(".SS") || s.endsWith(".SH") || s.endsWith(".SZ")) return "cn";
   // 港股（4-5位数字，或带.HK后缀）
   if (/^\d{4,5}(\.HK)?$/.test(s) || s.endsWith(".HK")) return "hk";
   // 英股（带.L后缀）

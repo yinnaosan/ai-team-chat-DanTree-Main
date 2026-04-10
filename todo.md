@@ -3419,3 +3419,9 @@
 - [x] 接入 dataRoutingOrchestrator，替换分散调用
 - [x] 端到端验证（美股 + A股/港股，展示 6 层命中 provider）
 - [x] checkpoint
+
+## Bug 修复 - 2026-04-10
+- [x] 任务框 market badge 显示错误：600916.SS（A股）显示 US，应显示 CN
+  - 根因：detectMarketType 未识别 .SS/.SH/.SZ 后缀；inferMarketFromKey 返回 SH/SZ 而非 CN
+  - 修复：marketUtils.ts 添加 .SS/.SH/.SZ → cn；inferMarketFromKey 统一返回 CN
+  - TSC: 0 errors

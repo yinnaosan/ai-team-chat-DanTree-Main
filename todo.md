@@ -3470,3 +3470,18 @@
   - dataSourceRegistry registration（hk_akshare, FIELD_FALLBACK_MAP）：3 tests ✅
 - [x] TSC: 0 errors
 - [x] checkpoint (version TBD)
+
+## Jin10 MCP Integration — JIN10_PATCH_V1（2026-04-11）
+- [x] 注入 JIN10_MCP_TOKEN 到 Secrets
+- [x] 探测 MCP 接口：tools/list (7 tools) + quote://codes 实测 (000001=4061.07, HSI=25893.54)
+- [x] 实现 server/jin10Api.ts（Session 池 TTL 25s + fetchJin10FlashNews + fetchJin10Calendar + fetchJin10Quote + 3 format helpers）
+- [x] Session 池：TTL 25s，过期自动重建，并发请求共享 session
+- [x] fetchJin10FlashNews：list_flash，title 截断规则（content 前 80 字），source="金十数据"
+- [x] fetchJin10Calendar：list_calendar，返回当前自然周财经日历，star 字段保留
+- [x] fetchJin10Quote：get_quote，支持 000001/HSI/XAUUSD/USOIL/EURUSD/USDCNH 等
+- [x] 更新 cnFinanceNewsApi.ts：Jin10 MCP 主路径 + fetchJin10NewsLegacy fallback（旧爬虫保留）
+- [x] 并行执行 Promise.all，单接口 timeout ≤ 2s
+- [x] 安全：token 从 ENV 读取，不打印 token
+- [x] 真实 API 验证（News 20条/Calendar 当前周/Quote 5个/Fallback 触发）
+- [x] TSC: 0 errors
+- [ ] checkpoint + 报告

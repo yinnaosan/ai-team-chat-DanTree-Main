@@ -3,7 +3,13 @@
  * 中文财经新闻聚合模块
  * 数据源参考 ourongxing/newsnow 仓库的爬虫逻辑
  * 覆盖：华尔街见闻、金十数据、格隆汇、雪球热股
+ *
+ * Jin10 数据源策略：
+ *   主路径 → Jin10 官方 MCP 接口（jin10Api.ts）
+ *   fallback → 旧爬虫逻辑（fetchJin10NewsLegacy，保留在本文件）
  */
+
+import { fetchJin10FlashNews } from "./jin10Api";
 
 export interface CnNewsItem {
   id: string;
@@ -73,6 +79,8 @@ export async function fetchWallStreetCnLive(): Promise<CnNewsResult> {
 }
 
 // ─── 金十数据（实时快讯） ────────────────────────────────────────────────────
+// 主路径：Jin10 官方 MCP 接口（jin10Api.ts fetchJin10FlashNews）
+// fallback：旧爬虫逻辑（fetchJin10NewsLegacy，保留在下方）
 
 interface Jin10Item {
   id: string;
@@ -85,7 +93,44 @@ interface Jin10Item {
   channel?: number[];
 }
 
+/**
+ * fetchJin10News — 主入口
+ * 优先使用 Jin10 官方 MCP 接口；MCP 失败时 fallback 到旧爬虫逻辑
+ */
 export async function fetchJin10News(): Promise<CnNewsResult> {
+  const source = "金十数据";
+
+  // ── 主路径：Jin10 MCP 官方接口 ────────────────────────────────────────────
+  try {
+    const mcpResult = await fetchJin10FlashNews();
+    if (mcpResult.items.length > 0 && !mcpResult.error) {
+      const items: CnNewsItem[] = mcpResult.items.map((k) => ({
+        id: k.id,
+        title: k.title,
+        url: k.url,
+        source,
+        publishedAt: k.publishedAt,
+        important: k.important,
+      }));
+      return { source, items, fetchedAt: mcpResult.fetchedAt };
+    }
+    // MCP 返回空列表（非 error），也 fallback 到旧逻辑
+    if (mcpResult.error) {
+      console.warn(`[Jin10] MCP error: ${mcpResult.error} — falling back to legacy scraper`);
+    }
+  } catch (mcpErr) {
+    console.warn(`[Jin10] MCP exception: ${mcpErr} — falling back to legacy scraper`);
+  }
+
+  // ── fallback：旧爬虫逻辑 ─────────────────────────────────────────────────
+  return fetchJin10NewsLegacy();
+}
+
+/**
+ * fetchJin10NewsLegacy — 旧爬虫逻辑（保留，作为 MCP fallback）
+ * 原始实现：从 flash_newest.js 抓取
+ */
+async function fetchJin10NewsLegacy(): Promise<CnNewsResult> {
   const source = "金十数据";
   try {
     const url = `https://www.jin10.com/flash_newest.js?t=${Date.now()}`;

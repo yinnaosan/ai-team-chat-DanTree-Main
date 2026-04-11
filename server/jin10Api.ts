@@ -44,6 +44,7 @@ export interface Jin10CalendarResult {
   items: Jin10CalendarItem[];
   fetchedAt: number;
   error?: string;
+  unavailable?: boolean;  // true = 数据源不可用，调用方应跳过此字段
 }
 
 export interface Jin10QuoteItem {
@@ -63,13 +64,14 @@ export interface Jin10QuoteResult {
   quotes: Record<string, Jin10QuoteItem | null>;
   fetchedAt: number;
   error?: string;
+  unavailable?: boolean;  // true = 数据源不可用，调用方应跳过此字段
 }
 
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
 const BASE_URL = "https://mcp.jin10.com/mcp";
 const SESSION_TTL_MS = 25_000;  // 25s，低于服务端 30s 超时
-const TOOL_TIMEOUT_MS = 8_000;  // 单次工具调用超时
+const TOOL_TIMEOUT_MS = 3_000;  // 单次工具调用超时（实测延迟 400-600ms，3s 有足够余量）
 
 /** 默认报价 codes（按探测结果使用官方 code 格式） */
 export const DEFAULT_QUOTE_CODES = [
@@ -322,7 +324,7 @@ export async function fetchJin10Calendar(): Promise<Jin10CalendarResult> {
 
     return { items, fetchedAt: Date.now() };
   } catch (err) {
-    return { items: [], fetchedAt: Date.now(), error: String(err) };
+    return { items: [], fetchedAt: Date.now(), error: String(err), unavailable: true };
   }
 }
 
@@ -380,7 +382,12 @@ export async function fetchJin10Quote(
     })
   );
 
-  return { quotes: results, fetchedAt: Date.now() };
+  const allNull = Object.values(results).every((v) => v === null);
+  return {
+    quotes: results,
+    fetchedAt: Date.now(),
+    ...(allNull ? { unavailable: true, error: "all quotes failed" } : {}),
+  };
 }
 
 // ── 格式化工具 ────────────────────────────────────────────────────────────────

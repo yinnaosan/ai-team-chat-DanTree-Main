@@ -3484,4 +3484,4 @@
 - [x] 安全：token 从 ENV 读取，不打印 token
 - [x] 真实 API 验证（News 20条/Calendar 当前周/Quote 5个/Fallback 触发）
 - [x] TSC: 0 errors
-- [ ] checkpoint + 报告
+- [x] checkpoint 527af6b2 + 报告

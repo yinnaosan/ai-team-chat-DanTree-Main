@@ -7,6 +7,7 @@ vi.mock("./db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./db")>();
   return {
     ...actual,
+    // Legacy access-code helpers (kept for completeness, not used by current router)
     getUserAccess: vi.fn(),
     grantUserAccess: vi.fn(),
     revokeUserAccess: vi.fn(),
@@ -15,6 +16,13 @@ vi.mock("./db", async (importOriginal) => {
     createAccessCode: vi.fn(),
     listAccessCodes: vi.fn(),
     revokeAccessCode: vi.fn(),
+    // Current access-key helpers used by appRouter
+    checkUserActivated: vi.fn().mockResolvedValue(true),
+    getUserBoundKeyExpiry: vi.fn().mockResolvedValue(null),
+    activateAccessKey: vi.fn().mockResolvedValue({ success: true }),
+    listAccessKeys: vi.fn().mockResolvedValue([]),
+    revokeAccessKey: vi.fn().mockResolvedValue(undefined),
+    createAccessKey: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -27,12 +35,10 @@ vi.mock("./_core/env", () => ({
 }));
 
 import {
-  getUserAccess,
-  verifyAccessCode,
-  incrementCodeUsage,
-  grantUserAccess,
-  listAccessCodes,
-  revokeAccessCode,
+  checkUserActivated,
+  listAccessKeys,
+  revokeAccessKey,
+  activateAccessKey,
 } from "./db";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
@@ -61,79 +67,109 @@ function makeOwnerCtx(): TrpcContext {
   return makeCtx({ openId: "owner-open-id", role: "admin" });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// access.check
+// Real return shape: { hasAccess, isOwner, expiredAt }
+// ─────────────────────────────────────────────────────────────────────────────
+
 describe("access.check", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("Owner always has access and isOwner=true", async () => {
     const caller = appRouter.createCaller(makeOwnerCtx());
     const result = await caller.access.check();
-    expect(result).toEqual({ hasAccess: true, isOwner: true });
+    // Real interface returns expiredAt field — align assertion with actual shape
+    expect(result.hasAccess).toBe(true);
+    expect(result.isOwner).toBe(true);
+    expect(result.expiredAt).toBeNull();
   });
 
-  it("Guest with valid user_access record has access", async () => {
-    vi.mocked(getUserAccess).mockResolvedValue({ id: 1, userId: 1, accessCodeId: 1, grantedAt: new Date(), revokedAt: null } as any);
+  it("Guest with checkUserActivated=true has access", async () => {
+    vi.mocked(checkUserActivated).mockResolvedValue(true);
     const caller = appRouter.createCaller(makeCtx());
     const result = await caller.access.check();
-    expect(result).toEqual({ hasAccess: true, isOwner: false });
+    expect(result.hasAccess).toBe(true);
+    expect(result.isOwner).toBe(false);
+    expect(result.expiredAt).toBeNull();
   });
 
-  it("Guest without user_access record has no access", async () => {
-    vi.mocked(getUserAccess).mockResolvedValue(null);
+  it("Guest with checkUserActivated=false has no access", async () => {
+    vi.mocked(checkUserActivated).mockResolvedValue(false);
     const caller = appRouter.createCaller(makeCtx());
     const result = await caller.access.check();
-    expect(result).toEqual({ hasAccess: false, isOwner: false });
+    expect(result.hasAccess).toBe(false);
+    expect(result.isOwner).toBe(false);
   });
 });
 
-describe("access.verify", () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// access.activateKey  (was: access.verify — renamed in current appRouter)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("access.activateKey (was: access.verify)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("Valid code grants access and increments usage", async () => {
-    const mockCode = { id: 42, code: "VALID-CODE", isActive: true, usedCount: 0, maxUses: 1, expiresAt: null } as any;
-    vi.mocked(verifyAccessCode).mockResolvedValue(mockCode);
-    vi.mocked(grantUserAccess).mockResolvedValue(undefined);
-    vi.mocked(incrementCodeUsage).mockResolvedValue(undefined);
-
+  it("Valid key activates successfully", async () => {
+    vi.mocked(activateAccessKey).mockResolvedValue({ success: true });
     const caller = appRouter.createCaller(makeCtx());
-    const result = await caller.access.verify({ code: "VALID-CODE" });
-
+    const result = await caller.access.activateKey({ key: "VALID-KEY-32CHARS-PADDED-XXXXXXXX" });
     expect(result).toEqual({ success: true });
-    expect(grantUserAccess).toHaveBeenCalledWith(1, 42);
-    expect(incrementCodeUsage).toHaveBeenCalledWith(42);
   });
 
-  it("Invalid code throws FORBIDDEN", async () => {
-    vi.mocked(verifyAccessCode).mockResolvedValue(null);
+  it("Invalid key throws FORBIDDEN", async () => {
+    vi.mocked(activateAccessKey).mockResolvedValue({ success: false, reason: "密钥无效" });
     const caller = appRouter.createCaller(makeCtx());
-    await expect(caller.access.verify({ code: "INVALID" })).rejects.toThrow("密码无效或已过期");
+    await expect(
+      caller.access.activateKey({ key: "INVALID-KEY-32CHARS-PADDED-XXXXX" })
+    ).rejects.toThrow("密钥无效");
   });
 });
 
-describe("access.listCodes (ownerProcedure)", () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// access.listKeys  (was: access.listCodes — renamed in current appRouter)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("access.listKeys (was: access.listCodes)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("Owner can list codes", async () => {
-    vi.mocked(listAccessCodes).mockResolvedValue([{ id: 1, code: "ABC123", label: "test", isActive: true, usedCount: 0, maxUses: 1, createdAt: new Date(), expiresAt: null } as any]);
+  it("Owner can list keys", async () => {
+    vi.mocked(listAccessKeys).mockResolvedValue([
+      {
+        id: 1,
+        keyHash: "abc",
+        label: "test",
+        boundEmail: null,
+        boundUserId: null,
+        expiresAt: new Date("2027-01-01"),
+        revoked: false,
+        activatedAt: null,
+        createdAt: new Date(),
+      },
+    ]);
     const caller = appRouter.createCaller(makeOwnerCtx());
-    const result = await caller.access.listCodes();
+    const result = await caller.access.listKeys();
     expect(result).toHaveLength(1);
-    expect(result[0].code).toBe("ABC123");
+    expect(result[0].label).toBe("test");
   });
 
-  it("Non-owner cannot list codes", async () => {
+  it("Non-owner cannot list keys", async () => {
     const caller = appRouter.createCaller(makeCtx());
-    await expect(caller.access.listCodes()).rejects.toThrow();
+    await expect(caller.access.listKeys()).rejects.toThrow();
   });
 });
 
-describe("access.revokeCode (ownerProcedure)", () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// access.revokeKey  (was: access.revokeCode — renamed in current appRouter)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("access.revokeKey (was: access.revokeCode)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("Owner can revoke a code", async () => {
-    vi.mocked(revokeAccessCode).mockResolvedValue(undefined);
+  it("Owner can revoke a key", async () => {
+    vi.mocked(revokeAccessKey).mockResolvedValue(undefined);
     const caller = appRouter.createCaller(makeOwnerCtx());
-    const result = await caller.access.revokeCode({ codeId: 1 });
+    const result = await caller.access.revokeKey({ keyId: 1 });
     expect(result).toEqual({ success: true });
-    expect(revokeAccessCode).toHaveBeenCalledWith(1);
+    expect(revokeAccessKey).toHaveBeenCalledWith(1);
   });
 });

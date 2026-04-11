@@ -38,6 +38,7 @@ export interface OpenAICallOptions {
  */
 export async function callOpenAI(options: OpenAICallOptions): Promise<string> {
   const { messages, maxTokens = 4096 } = options;
+  const t0 = Date.now();
 
   // 将 OpenAIMessage[] 适配为 RouterInput.messages（LLMMessage[]）
   const routerMessages = messages.map((m) => ({
@@ -50,11 +51,33 @@ export async function callOpenAI(options: OpenAICallOptions): Promise<string> {
     maxTokens,
   };
 
-  // 委托 modelRouter.generate()，task_type 使用 "default"（通用回退）
-  const result = await modelRouter.generate(routerInput, "default");
+  try {
+    // 委托 modelRouter.generate()，task_type 使用 "default"（通用回退）
+    const result = await modelRouter.generate(routerInput, "default");
+    const responseTimeMs = Date.now() - t0;
 
-  // 返回文本内容（与旧实现行为一致）
-  return result.output ?? result.content ?? "";
+    // Structured log — debug visibility only, no persistence
+    console.log(JSON.stringify({
+      source: "rpa.callOpenAI",
+      providerUsed: result.provider ?? "modelRouter/default",
+      responseTimeMs,
+    }));
+
+    // 返回文本内容（与旧实现行为一致）
+    return result.output ?? result.content ?? "";
+  } catch (err) {
+    const responseTimeMs = Date.now() - t0;
+    const errorCode = err instanceof Error ? err.message : String(err);
+
+    console.log(JSON.stringify({
+      source: "rpa.callOpenAI",
+      providerUsed: "modelRouter/default",
+      responseTimeMs,
+      errorCode,
+    }));
+
+    throw err;
+  }
 }
 
 /**
@@ -142,6 +165,7 @@ export async function testOpenAIConnection(
   apiKey: string,
   model = DEFAULT_MODEL
 ): Promise<{ ok: boolean; error?: string; model?: string }> {
+  const t0 = Date.now();
   try {
     await callOpenAI({
       apiKey,
@@ -149,8 +173,23 @@ export async function testOpenAIConnection(
       messages: [{ role: "user", content: "Hi, reply with just 'OK'" }],
       maxTokens: 10,
     });
+    // callOpenAI 内部已输出日志，这里只记录连通性测试结果
+    console.log(JSON.stringify({
+      source: "rpa.testOpenAIConnection",
+      providerUsed: "modelRouter/default",
+      responseTimeMs: Date.now() - t0,
+      ok: true,
+    }));
     return { ok: true, model };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    const errorCode = err instanceof Error ? err.message : String(err);
+    console.log(JSON.stringify({
+      source: "rpa.testOpenAIConnection",
+      providerUsed: "modelRouter/default",
+      responseTimeMs: Date.now() - t0,
+      ok: false,
+      errorCode,
+    }));
+    return { ok: false, error: errorCode };
   }
 }

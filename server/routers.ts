@@ -2615,6 +2615,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 { role: "system", content: jsonOnlySystemMsg },
                 { role: "user", content: jsonOnlyUserMsg },
               ],
+              triggerContext: {
+                business_task_type: resolvedTaskType,
+                interaction_mode:   intentCtx.interaction_mode,
+                entity_scope:       intentCtx.entity_scope,
+                source:             "step3_main",
+              },
             });
             rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
           }
@@ -2625,6 +2631,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               { role: "system", content: jsonOnlySystemMsg },
               { role: "user", content: jsonOnlyUserMsg },
             ],
+            triggerContext: {
+              business_task_type: resolvedTaskType,
+              interaction_mode:   intentCtx.interaction_mode,
+              entity_scope:       intentCtx.entity_scope,
+              source:             "step3_main",
+            },
           });
           rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
         }
@@ -2642,6 +2654,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 { role: "system", content: jsonOnlySystemMsg },
                 { role: "user", content: retryMsg },
               ],
+              triggerContext: {
+                business_task_type: resolvedTaskType,
+                interaction_mode:   intentCtx.interaction_mode,
+                entity_scope:       intentCtx.entity_scope,
+                source:             "step3_main",
+              },
             });
             retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
           } else if (userConfig?.openaiApiKey) {
@@ -2662,6 +2680,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                   { role: "system", content: jsonOnlySystemMsg },
                   { role: "user", content: retryMsg },
                 ],
+                triggerContext: {
+                  business_task_type: resolvedTaskType,
+                  interaction_mode:   intentCtx.interaction_mode,
+                  entity_scope:       intentCtx.entity_scope,
+                  source:             "step3_main",
+                },
               });
               retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
             }
@@ -2671,6 +2695,12 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 { role: "system", content: jsonOnlySystemMsg },
                 { role: "user", content: retryMsg },
               ],
+              triggerContext: {
+                business_task_type: resolvedTaskType,
+                interaction_mode:   intentCtx.interaction_mode,
+                entity_scope:       intentCtx.entity_scope,
+                source:             "step3_main",
+              },
             });
             retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
           }

@@ -1,6 +1,7 @@
 import { ENV } from "./env";
 import { modelRouter, type RouterInput } from "../model_router";
 import { resolveBridgedTaskType, buildBridgeMetadata, type TriggerContext } from "../taskTypeBridge";
+import { decideExecutionTrigger, formatTriggerDecisionLog } from "../executionTrigger";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -306,10 +307,18 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
     };
 
-    // TaskType Bridge v1: 用 triggerContext 映射业务语义，不再永远 "default"
+    // ── Layer 1: TaskType Bridge — 业务语义 → 路由语义 ────────────────────
     const resolvedTaskType = resolveBridgedTaskType(params.triggerContext);
 
-    // Observability: log when bridge produces a non-default task type
+    // ── Layer 2: Execution Trigger System v1 — 触发决策 ──────────────────
+    // 触发决策是逻辑层，不改变研发态实际执行路径（Claude Sonnet 4.6 处理所有请求）
+    const triggerDecision = decideExecutionTrigger({
+      triggerContext:  params.triggerContext,
+      resolvedTaskType,
+      messages:        params.messages as unknown[],
+    });
+
+    // ── Layer 3: Observability ────────────────────────────────────────────
     if (params.triggerContext && resolvedTaskType !== "default") {
       const meta = buildBridgeMetadata(params.triggerContext, resolvedTaskType);
       console.info(
@@ -317,7 +326,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         `${meta.original_business_task_type} → ${meta.resolved_task_type}`
       );
     }
+    console.info(
+      formatTriggerDecisionLog(triggerDecision, params.triggerContext?.source)
+    );
 
+    // ── 研发态：始终走 Claude（dev stage — Claude is actual executor）──────
+    // TriggerDecision 在 v1 是 advisory；v2 才实际影响执行路径
     const routerResult = await modelRouter.generate(routerInput, resolvedTaskType);
     // 将 modelRouter 响应适配为 InvokeResult 格式
     return {

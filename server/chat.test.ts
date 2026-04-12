@@ -67,8 +67,6 @@ vi.mock("./db", () => ({
   // User mock
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn().mockResolvedValue(undefined),
-  // Access activation check — must be present; routers.ts calls this in requireAccess()
-  checkUserActivated: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock RPA module (OpenAI API 模块)

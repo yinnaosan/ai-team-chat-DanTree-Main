@@ -1,5 +1,6 @@
 import { ENV } from "./env";
 import { modelRouter, type RouterInput } from "../model_router";
+import { resolveBridgedTaskType, buildBridgeMetadata, type TriggerContext } from "../taskTypeBridge";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -67,6 +68,9 @@ export type InvokeParams = {
   output_schema?: OutputSchema;
   responseFormat?: ResponseFormat;
   response_format?: ResponseFormat;
+  // ── TaskType Bridge v1 ────────────────────────────────────────────────
+  /** 可选业务上下文，供 TaskType Bridge 映射路由语义。不传则 fallback 到 "default"。*/
+  triggerContext?: TriggerContext;
 };
 
 export type ToolCall = {
@@ -302,7 +306,19 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
     };
 
-    const routerResult = await modelRouter.generate(routerInput, "default");
+    // TaskType Bridge v1: 用 triggerContext 映射业务语义，不再永远 "default"
+    const resolvedTaskType = resolveBridgedTaskType(params.triggerContext);
+
+    // Observability: log when bridge produces a non-default task type
+    if (params.triggerContext && resolvedTaskType !== "default") {
+      const meta = buildBridgeMetadata(params.triggerContext, resolvedTaskType);
+      console.info(
+        `[TaskTypeBridge] ${meta.source ?? "unknown"}: ` +
+        `${meta.original_business_task_type} → ${meta.resolved_task_type}`
+      );
+    }
+
+    const routerResult = await modelRouter.generate(routerInput, resolvedTaskType);
     // 将 modelRouter 响应适配为 InvokeResult 格式
     return {
       id: `router-${Date.now()}`,

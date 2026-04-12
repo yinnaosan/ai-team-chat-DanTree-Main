@@ -21,15 +21,6 @@ import {
   getSourcesByCategory,
 } from "./dataSourceRegistry";
 
-/**
- * validData(name) — 生成符合 isErrorString 有效数据密度要求的测试 fixture。
- * 规则：长度 ≥ 15 或包含数字。
- * 格式："${name} 数据 2026-01-01 1.23" 保证长度 ≥ 15 且含数字。
- */
-function validData(name: string): string {
-  return `${name} 数据 2026-01-01 1.23`;
-}
-
 // ── 1. 注册表完整性 ────────────────────────────────────────────────────────────
 
 describe("DATA_SOURCE_REGISTRY 完整性", () => {
@@ -100,7 +91,7 @@ describe("buildCitationSummary", () => {
 
   it("跳过：latencyMs=-1 的条目被标记为 skipped", () => {
     const summary = buildCitationSummary([
-      { sourceId: "fred", data: validData("FRED"), latencyMs: 400 },
+      { sourceId: "fred", data: "有数据", latencyMs: 400 },
       { sourceId: "coingecko", data: "", latencyMs: -1 }, // 未调用
     ]);
 
@@ -121,7 +112,7 @@ describe("buildCitationSummary", () => {
 
   it("hasEvidenceToBasis：至少一个白名单来源命中时为 true", () => {
     const summary = buildCitationSummary([
-      { sourceId: "fred", data: validData("FRED"), latencyMs: 300 },
+      { sourceId: "fred", data: "FRED 数据", latencyMs: 300 },
     ]);
     expect(summary.hasEvidenceToBasis).toBe(true);
   });
@@ -167,7 +158,7 @@ describe("sourcingBlock（Source Gating）", () => {
 
   it("有数据时包含今日日期", () => {
     const summary = buildCitationSummary([
-      { sourceId: "fred", data: validData("FRED"), latencyMs: 100 },
+      { sourceId: "fred", data: "数据", latencyMs: 100 },
     ]);
     const today = new Date().getFullYear().toString();
     expect(summary.sourcingBlock).toContain(today);
@@ -184,7 +175,7 @@ describe("sourcingBlock（Source Gating）", () => {
 describe("citationToApiSources", () => {
   it("只返回命中条目", () => {
     const summary = buildCitationSummary([
-      { sourceId: "fred", data: validData("FRED"), latencyMs: 300 },
+      { sourceId: "fred", data: "FRED 数据", latencyMs: 300 },
       { sourceId: "yahoo_finance", data: "", latencyMs: 200 }, // 未命中
       { sourceId: "coingecko", data: "", latencyMs: -1 }, // 未调用
     ]);
@@ -236,23 +227,12 @@ describe("注册表扩展性", () => {
   it("buildCitationSummary 能处理注册表中的所有 id", () => {
     const inputs = DATA_SOURCE_REGISTRY.map(src => ({
       sourceId: src.id,
-      data: validData(src.displayName),
+      data: `${src.displayName} 测试数据`,
       latencyMs: 100,
     }));
     const summary = buildCitationSummary(inputs);
     // 所有注册的来源都应该命中
     expect(summary.hitCount).toBe(DATA_SOURCE_REGISTRY.length);
     expect(summary.missCount).toBe(0);
-  });
-
-  it("isErrorString 规则：短且无数字的字符串仍被过滤（规则验证）", () => {
-    // 验证 len<15 且无数字的占位文本确实被过滤，规则仍成立
-    const summary = buildCitationSummary([
-      { sourceId: "fred", data: "暂无", latencyMs: 100 },      // len=2, 无数字 → filtered
-      { sourceId: "yahoo_finance", data: "N/A", latencyMs: 100 }, // len=3, 无数字 → filtered
-      { sourceId: "polygon", data: validData("Polygon.io"), latencyMs: 100 }, // valid
-    ]);
-    expect(summary.hitCount).toBe(1);   // 只有 polygon 命中
-    expect(summary.missCount).toBe(2);  // fred 和 yahoo_finance 被过滤
   });
 });

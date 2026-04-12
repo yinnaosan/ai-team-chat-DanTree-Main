@@ -560,6 +560,24 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     costClass: "free",
     fieldPriority: "important",
   },
+  // ── 港股公告 ──────────────────────────────────────────────────────────────────────────────
+  {
+    id: "hkex",
+    costClass: "free",
+    fieldPriority: "important",
+    displayName: "HKEXnews",
+    category: "港股公告",
+    icon: "📢",
+    description: "港股公告、年报、监管文件",
+    isWhitelisted: true,
+    requiresApiKey: false,
+    envKeyName: null,
+    dataType: "structured",
+    homepageUrl: "https://www.hkexnews.hk",
+    supportsFields: ["filings.annual_report", "filings.announcements", "filings.regulatory"],
+    priorityRank: 2,
+    confidenceWeight: 0.85,
+  },
   // ── 市场数据 ──────────────────────────────────────────────────────────────────────────────
   {
     id: "twelve-data",
@@ -685,24 +703,6 @@ export const DATA_SOURCE_REGISTRY: DataSourceDefinition[] = [
     confidenceWeight: 0.88,
     costClass: "free",
     fieldPriority: "optional",
-  },
-  // ── 新闻情绪（Jin10 MCP）─────────────────────────────────────────────────────────────────
-  {
-    id: "jin10_mcp",
-    displayName: "金十数据 MCP",
-    category: "新闻情绪",
-    icon: "⚡",
-    description: "金十数据 MCP 实时快讯（list_flash）、财经日历（list_calendar）、行情报价（get_quote），通过 Robust Client 接入，含 session 重试与 fallback",
-    isWhitelisted: true,
-    requiresApiKey: true,
-    envKeyName: "JIN10_MCP_TOKEN",
-    dataType: "structured",
-    homepageUrl: "https://mcp.jin10.com",
-    supportsFields: ["news.cn_flash", "news.cn_calendar", "market.cn_quote"],
-    priorityRank: 1,
-    confidenceWeight: 0.88,
-    costClass: "paid",
-    fieldPriority: "important",
   },
 ];
 // ── 网页搜索 — ★ PERMANENTLY DISABLED ★ ───────────────────────────────────────────────────────────────────────

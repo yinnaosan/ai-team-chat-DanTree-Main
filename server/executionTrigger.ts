@@ -32,7 +32,7 @@
  *   - 深层 orchestration 重构
  */
 
-import type { TaskType } from "./model_router";
+import type { TaskType, ExecutionTarget, ExecutionMode } from "./model_router";
 import type { TriggerContext } from "./taskTypeBridge";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -443,5 +443,152 @@ export function buildTriggerObservability(
     source:                             triggerContext?.source ?? null,
     // 研发态：Claude Sonnet 4.6 始终是实际执行者
     dev_actual_executor: "claude-sonnet-4-6",
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Execution Trigger System v3
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GPT_PIPELINE_SOURCES — Rule F: GPT 主控 pipeline 来源
+ * 这些来源明确属于 GPT 主控层（research / narrative / reasoning），
+ * 即使 resolvedTaskType 是 execution，也应路由到 GPT。
+ */
+export const GPT_PIPELINE_SOURCES = new Set<string>([
+  "market_narrative",   // 市场叙事生成（GPT 主控）
+  "thesis_generation",  // 投资论文生成（GPT 主控）
+  "risk_assessment",    // 风险评估报告（GPT 主控）
+  "portfolio_summary",  // 组合摘要（GPT 主控）
+]);
+
+/**
+ * TriggerDecisionV3 — Execution Trigger System v3 决策结构
+ *
+ * v3 新增：
+ *   - execution_target: ExecutionTarget（gpt | claude | hybrid）
+ *   - execution_mode:   ExecutionMode（primary | fallback | repair）
+ *   - rule:             命中的主规则标识（A/B/C/D/E/F/none）
+ *   - finalTaskType:    v3 建议的最终 task_type
+ */
+export interface TriggerDecisionV3 {
+  /** v3 执行权威目标（对应 RouterInput.executionTarget） */
+  execution_target: ExecutionTarget;
+  /** v3 执行模式（对应 RouterInput.executionMode） */
+  execution_mode: ExecutionMode;
+  /** 命中的主规则标识 */
+  rule: "A" | "B" | "C" | "D" | "E" | "F" | "none";
+  /** v3 建议的最终 task_type */
+  finalTaskType: TaskType;
+  /** 是否触发执行层 */
+  should_trigger_execution: boolean;
+}
+
+/**
+ * decideExecutionTriggerV3 — Execution Trigger System v3 核心决策函数
+ *
+ * 在 v2 规则基础上新增 Rule F（GPT pipeline 来源），
+ * 并将决策结果映射为 ExecutionTarget / ExecutionMode 类型。
+ *
+ * 规则优先级（高→低）：
+ *   Rule E（阻止）> Rule F（GPT 主控）> Rule A（执行型 task_type）>
+ *   Rule C（repair）> Rule B（文档）> Rule D（pipeline）> none
+ *
+ * 决策映射：
+ *   Rule E → execution_target="gpt",    execution_mode="primary",  rule="E"
+ *   Rule F → execution_target="gpt",    execution_mode="primary",  rule="F"
+ *   Rule A → execution_target="claude", execution_mode="primary",  rule="A"
+ *   Rule C → execution_target="claude", execution_mode="repair",   rule="C"
+ *   Rule B → execution_target="claude", execution_mode="primary",  rule="B"
+ *   Rule D → execution_target="claude", execution_mode="primary",  rule="D"
+ *   none   → execution_target="gpt",    execution_mode="primary",  rule="none"
+ */
+export function decideExecutionTriggerV3(input: TriggerInput): TriggerDecisionV3 {
+  const source = input.triggerContext?.source;
+
+  // ── Rule E（阻止规则）：轻量 narrative/summary → GPT 主控 ─────────────────
+  if (source && NON_EXECUTION_SOURCES.has(source)) {
+    return {
+      execution_target: "gpt",
+      execution_mode:   "primary",
+      rule:             "E",
+      finalTaskType:    input.resolvedTaskType,
+      should_trigger_execution: false,
+    };
+  }
+
+  // ── Rule F（GPT pipeline 来源）：明确属于 GPT 主控层 ──────────────────────
+  if (source && GPT_PIPELINE_SOURCES.has(source)) {
+    return {
+      execution_target: "gpt",
+      execution_mode:   "primary",
+      rule:             "F",
+      finalTaskType:    input.resolvedTaskType,
+      should_trigger_execution: false,
+    };
+  }
+
+  // ── Rule A：明确执行型 task_type → Claude 主控 ───────────────────────────
+  if (EXECUTION_TASK_TYPES.has(input.resolvedTaskType)) {
+    return {
+      execution_target: "claude",
+      execution_mode:   "primary",
+      rule:             "A",
+      finalTaskType:    input.resolvedTaskType,
+      should_trigger_execution: true,
+    };
+  }
+
+  // ── Rule C：repair/JSON 修复 → Claude repair 模式 ────────────────────────
+  if (source && REPAIR_SOURCES.has(source)) {
+    return {
+      execution_target: "claude",
+      execution_mode:   "repair",
+      rule:             "C",
+      finalTaskType:    "structured_json",
+      should_trigger_execution: true,
+    };
+  }
+
+  // ── Rule B：消息包含文件/文档 → Claude 主控 ──────────────────────────────
+  if (input.messages && input.messages.length > 0) {
+    for (const msg of input.messages) {
+      if (!msg || typeof msg !== "object") continue;
+      const content = (msg as Record<string, unknown>).content;
+      if (!Array.isArray(content)) continue;
+      for (const block of content) {
+        if (!block || typeof block !== "object") continue;
+        const b = block as Record<string, unknown>;
+        if (b.type === "file_url") {
+          return {
+            execution_target: "claude",
+            execution_mode:   "primary",
+            rule:             "B",
+            finalTaskType:    input.resolvedTaskType,
+            should_trigger_execution: true,
+          };
+        }
+      }
+    }
+  }
+
+  // ── Rule D：pipeline 语义 → Claude 主控 ──────────────────────────────────
+  if (source && PIPELINE_SOURCES.has(source)) {
+    return {
+      execution_target: "claude",
+      execution_mode:   "primary",
+      rule:             "D",
+      finalTaskType:    input.resolvedTaskType,
+      should_trigger_execution: true,
+    };
+  }
+
+  // ── 默认：GPT 主控层（研究 / 判断 / 叙事）────────────────────────────────
+  return {
+    execution_target: "gpt",
+    execution_mode:   "primary",
+    rule:             "none",
+    finalTaskType:    input.resolvedTaskType,
+    should_trigger_execution: false,
   };
 }

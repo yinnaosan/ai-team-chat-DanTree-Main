@@ -660,3 +660,219 @@ describe("TC-TRIGGER-13: v2 integration — finalTaskType drives modelRouter.gen
     expect(obs.dev_actual_executor).toBe("claude-sonnet-4-6");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-V3-01: TriggerDecisionV3 type exported correctly
+// ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  decideExecutionTriggerV3,
+  GPT_PIPELINE_SOURCES,
+  type TriggerDecisionV3,
+} from "./executionTrigger";
+
+describe("TC-TRIGGER-V3-01: TriggerDecisionV3 type and decideExecutionTriggerV3 exported", () => {
+  it("decideExecutionTriggerV3 is a function", () => {
+    expect(typeof decideExecutionTriggerV3).toBe("function");
+  });
+
+  it("GPT_PIPELINE_SOURCES is a Set with >= 1 entry", () => {
+    expect(GPT_PIPELINE_SOURCES instanceof Set).toBe(true);
+    expect(GPT_PIPELINE_SOURCES.size).toBeGreaterThanOrEqual(1);
+  });
+
+  it("GPT_PIPELINE_SOURCES contains market_narrative and thesis_generation", () => {
+    expect(GPT_PIPELINE_SOURCES.has("market_narrative")).toBe(true);
+    expect(GPT_PIPELINE_SOURCES.has("thesis_generation")).toBe(true);
+  });
+
+  it("decideExecutionTriggerV3 returns TriggerDecisionV3 shape", () => {
+    const result: TriggerDecisionV3 = decideExecutionTriggerV3({
+      resolvedTaskType: "research",
+    });
+    expect(result).toHaveProperty("execution_target");
+    expect(result).toHaveProperty("execution_mode");
+    expect(result).toHaveProperty("rule");
+    expect(result).toHaveProperty("finalTaskType");
+    expect(result).toHaveProperty("should_trigger_execution");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-V3-02: Rule F — GPT pipeline sources → execution_target="gpt"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-V3-02: Rule F — GPT pipeline sources route to GPT", () => {
+  it("source=market_narrative → rule=F, execution_target=gpt, should_trigger=false", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "narrative", source: "market_narrative" },
+      resolvedTaskType: "narrative",
+    });
+    expect(result.rule).toBe("F");
+    expect(result.execution_target).toBe("gpt");
+    expect(result.execution_mode).toBe("primary");
+    expect(result.should_trigger_execution).toBe(false);
+  });
+
+  it("source=thesis_generation → rule=F, execution_target=gpt", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "thesis_generation" },
+      resolvedTaskType: "research",
+    });
+    expect(result.rule).toBe("F");
+    expect(result.execution_target).toBe("gpt");
+  });
+
+  it("source=risk_assessment → rule=F, execution_target=gpt", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "risk_assessment" },
+      resolvedTaskType: "research",
+    });
+    expect(result.rule).toBe("F");
+    expect(result.execution_target).toBe("gpt");
+  });
+
+  it("source=portfolio_summary → rule=F, execution_target=gpt", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "summarization", source: "portfolio_summary" },
+      resolvedTaskType: "summarization",
+    });
+    expect(result.rule).toBe("F");
+    expect(result.execution_target).toBe("gpt");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-V3-03: Rule A/C/D/E mapping to ExecutionTarget/ExecutionMode
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-V3-03: v3 rule-to-ExecutionTarget/ExecutionMode mapping", () => {
+  it("Rule A: resolvedTaskType=execution → execution_target=claude, mode=primary, rule=A", () => {
+    const result = decideExecutionTriggerV3({ resolvedTaskType: "execution" });
+    expect(result.rule).toBe("A");
+    expect(result.execution_target).toBe("claude");
+    expect(result.execution_mode).toBe("primary");
+    expect(result.should_trigger_execution).toBe(true);
+  });
+
+  it("Rule A: resolvedTaskType=code_analysis → execution_target=claude, rule=A", () => {
+    const result = decideExecutionTriggerV3({ resolvedTaskType: "code_analysis" });
+    expect(result.rule).toBe("A");
+    expect(result.execution_target).toBe("claude");
+  });
+
+  it("Rule A: resolvedTaskType=agent_task → execution_target=claude, rule=A", () => {
+    const result = decideExecutionTriggerV3({ resolvedTaskType: "agent_task" });
+    expect(result.rule).toBe("A");
+    expect(result.execution_target).toBe("claude");
+  });
+
+  it("Rule C: source=repair_pass → execution_target=claude, mode=repair, finalTaskType=structured_json", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "repair_pass" },
+      resolvedTaskType: "research",
+    });
+    expect(result.rule).toBe("C");
+    expect(result.execution_target).toBe("claude");
+    expect(result.execution_mode).toBe("repair");
+    expect(result.finalTaskType).toBe("structured_json");
+  });
+
+  it("Rule E: source=title_gen → execution_target=gpt, mode=primary, rule=E", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "narrative", source: "title_gen" },
+      resolvedTaskType: "narrative",
+    });
+    expect(result.rule).toBe("E");
+    expect(result.execution_target).toBe("gpt");
+    expect(result.execution_mode).toBe("primary");
+    expect(result.should_trigger_execution).toBe(false);
+  });
+
+  it("Rule E: source=memory_summary → execution_target=gpt, rule=E", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "summarization", source: "memory_summary" },
+      resolvedTaskType: "summarization",
+    });
+    expect(result.rule).toBe("E");
+    expect(result.execution_target).toBe("gpt");
+  });
+
+  it("Rule D: source=step3_main → execution_target=claude, mode=primary, rule=D", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "step3_main" },
+      resolvedTaskType: "research",
+    });
+    expect(result.rule).toBe("D");
+    expect(result.execution_target).toBe("claude");
+    expect(result.execution_mode).toBe("primary");
+  });
+
+  it("no source, resolvedTaskType=research → rule=none, execution_target=gpt", () => {
+    const result = decideExecutionTriggerV3({ resolvedTaskType: "research" });
+    expect(result.rule).toBe("none");
+    expect(result.execution_target).toBe("gpt");
+    expect(result.execution_mode).toBe("primary");
+    expect(result.should_trigger_execution).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-V3-04: Rule priority — Rule E > Rule F > Rule A
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-V3-04: Rule priority — Rule E > Rule F > Rule A", () => {
+  it("Rule E blocks even if resolvedTaskType=execution (E > A)", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "execution", source: "title_gen" },
+      resolvedTaskType: "execution",
+    });
+    expect(result.rule).toBe("E");
+    expect(result.execution_target).toBe("gpt");
+    expect(result.should_trigger_execution).toBe(false);
+  });
+
+  it("Rule F routes to GPT even if resolvedTaskType=execution (F > A)", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "execution", source: "market_narrative" },
+      resolvedTaskType: "execution",
+    });
+    expect(result.rule).toBe("F");
+    expect(result.execution_target).toBe("gpt");
+    expect(result.should_trigger_execution).toBe(false);
+  });
+
+  it("Rule B: message with file_url → execution_target=claude, rule=B", () => {
+    const result = decideExecutionTriggerV3({
+      resolvedTaskType: "research",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "file_url", file_url: { url: "https://example.com/doc.pdf", mime_type: "application/pdf" } },
+          ],
+        },
+      ],
+    });
+    expect(result.rule).toBe("B");
+    expect(result.execution_target).toBe("claude");
+    expect(result.execution_mode).toBe("primary");
+  });
+
+  it("finalTaskType preserved for non-repair rules", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "step3_main" },
+      resolvedTaskType: "research",
+    });
+    expect(result.finalTaskType).toBe("research");
+  });
+
+  it("finalTaskType=structured_json only for Rule C", () => {
+    const result = decideExecutionTriggerV3({
+      triggerContext: { business_task_type: "research", source: "repair_pass" },
+      resolvedTaskType: "research",
+    });
+    expect(result.rule).toBe("C");
+    expect(result.finalTaskType).toBe("structured_json");
+  });
+});

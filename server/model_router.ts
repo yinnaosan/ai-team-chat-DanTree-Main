@@ -130,12 +130,38 @@ export interface RouterInput {
   extendedThinking?: boolean;
   /** 仅 GPT：结构化输出 JSON schema */
   responseFormat?: { type: "json_object" } | { type: "json_schema"; json_schema: object };
+  /** v3: 执行权威目标（来自 decideExecutionTriggerV3） */
+  executionTarget?: ExecutionTarget;
+  /** v3: 执行模式（来自 decideExecutionTriggerV3） */
+  executionMode?: ExecutionMode;
+  /** v3: Trigger v3 observability metadata（单一真相来源） */
+  triggerV3Meta?: {
+    trigger_rule:       string;
+    resolved_task_type: string;
+    final_task_type:    string;
+  };
 }
 
 /** 向后兼容：RouterOptions = RouterInput + task_type */
 export interface RouterOptions extends RouterInput {
   task_type: TaskType;
 }
+
+/**
+ * ExecutionTarget — 执行权威目标
+ * gpt    = GPT-5.4 主控（pipeline / research / narrative）
+ * claude = Claude Sonnet 主控（execution / repair / agent）
+ * hybrid = 双模协作（保留扩展）
+ */
+export type ExecutionTarget = "gpt" | "claude" | "hybrid";
+
+/**
+ * ExecutionMode — 执行模式
+ * primary  = 正常主路径
+ * fallback = 降级路径
+ * repair   = JSON 修复 / 结构化重试路径
+ */
+export type ExecutionMode = "primary" | "fallback" | "repair";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. ROUTING MAPS
@@ -190,6 +216,43 @@ function getCurrentMode(): DanTreeMode {
   const mode = process.env.DANTREE_MODE ?? process.env.MODEL_ROUTER_MODE;
   if (mode === "production") return "production";
   return "development";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4.5 PROVIDER AUTHORITY RESOLVER (v3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * resolveProviderWithAuthority — authority hint + routing map → final provider
+ *
+ * 内部工具，不对外导出。由 generate() 调用。
+ *
+ * 策略：
+ *   1. 开发态：始终返回 anthropic（开发态全用 Claude）
+ *   2. 生产态：
+ *      - executionTarget="claude" → 强制 anthropic（authority override）
+ *      - executionTarget="gpt"    → 强制 openai（authority override）
+ *      - executionTarget="hybrid" → 遵循 PRODUCTION_ROUTING_MAP
+ *      - executionTarget=undefined → 遵循 PRODUCTION_ROUTING_MAP
+ */
+function resolveProviderWithAuthority(
+  taskType: TaskType,
+  executionTarget: ExecutionTarget | undefined,
+  mode: DanTreeMode
+): { provider: "anthropic" | "openai"; strategy: "authority_override" | "routing_map" } {
+  if (mode === "development") {
+    return { provider: "anthropic", strategy: "routing_map" };
+  }
+  // Production: authority override takes precedence
+  if (executionTarget === "claude") {
+    return { provider: "anthropic", strategy: "authority_override" };
+  }
+  if (executionTarget === "gpt") {
+    return { provider: "openai", strategy: "authority_override" };
+  }
+  // No authority hint or hybrid: fall back to PRODUCTION_ROUTING_MAP
+  const mapped = PRODUCTION_ROUTING_MAP[taskType] ?? "openai";
+  return { provider: mapped, strategy: "routing_map" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -456,9 +519,10 @@ export const modelRouter = {
     if (mode === "development") {
       // ── Step 4-5: development — 全部走 Claude，但标记 GPT 任务的 dev_override
       const isGptTask = GPT_TASK_TYPES.has(resolvedTaskType);
-      const devOverrideApplied = isGptTask;
-      const devOverrideReason = isGptTask
-        ? `task_type "${resolvedTaskType}" is GPT-assigned in production, overridden to Claude in development`
+      // v3: dev_override = true 当 executionTarget="gpt" 或 task 属于 GPT 类
+      const devOverrideApplied = input.executionTarget === "gpt" || (input.executionTarget === undefined && isGptTask);
+      const devOverrideReason = devOverrideApplied
+        ? `executionTarget="${input.executionTarget ?? resolvedTaskType}" overridden to Claude in development`
         : "";
 
       const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
@@ -485,14 +549,29 @@ export const modelRouter = {
       };
       console.log("[model_router:route]", JSON.stringify(log));
 
+      // v3: inject 8-field observability metadata (single source of truth)
+      const v3Meta = {
+        execution_target:    input.executionTarget ?? "none",
+        execution_mode:      input.executionMode   ?? "primary",
+        selected_provider:   result.provider,
+        dev_override:        devOverrideApplied,
+        simulated_target:    devOverrideApplied ? (input.executionTarget ?? resolvedTaskType) : undefined,
+        ...(input.triggerV3Meta ?? {}),
+      };
+
       return {
         ...result,
+        metadata: { ...(result.metadata ?? {}), ...v3Meta },
         routing: { task_type: resolvedTaskType, mode, resolved_model: resolvedModel, provider: result.provider, was_overridden: false },
       };
     }
 
-    // ── Production: 按路由表分发
-    const targetProvider = PRODUCTION_ROUTING_MAP[resolvedTaskType];
+    // ── Production: 按路由表分发（v3: resolveProviderWithAuthority 接管权威路由）
+    const { provider: targetProvider, strategy } = resolveProviderWithAuthority(
+      resolvedTaskType,
+      input.executionTarget,
+      mode
+    );
     const targetModel = PRODUCTION_MODEL_MAP[resolvedTaskType][targetProvider];
 
     let result: RouterResponse;
@@ -520,11 +599,23 @@ export const modelRouter = {
       fallback_reason,
       dev_override_applied: false,
       dev_override_reason: "",
+      authority_strategy: strategy,
     };
     console.log("[model_router:route]", JSON.stringify(log));
 
+    // v3: inject 8-field observability metadata (single source of truth)
+    const v3MetaProd = {
+      execution_target:    input.executionTarget ?? "none",
+      execution_mode:      input.executionMode   ?? "primary",
+      selected_provider:   result.provider,
+      dev_override:        false,
+      simulated_target:    undefined,
+      ...(input.triggerV3Meta ?? {}),
+    };
+
     return {
       ...result,
+      metadata: { ...(result.metadata ?? {}), ...v3MetaProd },
       routing: { task_type: resolvedTaskType, mode, resolved_model: targetModel, provider: result.provider, was_overridden: false },
     };
   },

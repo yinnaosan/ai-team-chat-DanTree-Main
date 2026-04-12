@@ -3,6 +3,7 @@ import { modelRouter, type RouterInput } from "../model_router";
 import { resolveBridgedTaskType, buildBridgeMetadata, type TriggerContext } from "../taskTypeBridge";
 import {
   decideExecutionTrigger,
+  decideExecutionTriggerV3,
   resolveFinalTaskType,
   formatTriggerDecisionLog,
   buildTriggerObservability,
@@ -328,6 +329,28 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     const finalTaskTypeResult = resolveFinalTaskType(resolvedTaskType, triggerDecision);
     const finalTaskType = finalTaskTypeResult.finalTaskType;
 
+    // ── Layer 3.5: Trigger v3 — resolveProviderWithAuthority hint ────────
+    // v3 decision provides execution_target (gpt|claude|hybrid) and
+    // execution_mode (primary|fallback|repair) for RouterInput.
+    // These fields are passed to modelRouter.generate() which calls
+    // resolveProviderWithAuthority() internally.
+    const triggerV3 = decideExecutionTriggerV3({
+      triggerContext:  params.triggerContext,
+      resolvedTaskType,
+      messages:        params.messages as unknown[],
+    });
+    // Inject v3 fields into routerInput (non-destructive: only adds new fields)
+    const routerInputV3: RouterInput = {
+      ...routerInput,
+      executionTarget: triggerV3.execution_target,
+      executionMode:   triggerV3.execution_mode,
+      triggerV3Meta: {
+        trigger_rule:       triggerV3.rule,
+        resolved_task_type: resolvedTaskType,
+        final_task_type:    triggerV3.finalTaskType,
+      },
+    };
+
     // ── Layer 4: Observability (v2 log level fix) ────────────────────────
     if (params.triggerContext && resolvedTaskType !== "default") {
       console.info(
@@ -353,7 +376,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     // ── Layer 5: Execute with finalTaskType ──────────────────────────────
     // Dev mode: Claude Sonnet 4.6 处理所有请求（实际执行者不变）
     // finalTaskType 在生产态开启后会通过 PRODUCTION_ROUTING_MAP 真正分发
-    const routerResult = await modelRouter.generate(routerInput, finalTaskType);
+    const routerResult = await modelRouter.generate(routerInputV3, finalTaskType);
     // 将 modelRouter 响应适配为 InvokeResult 格式
     return {
       id: `router-${Date.now()}`,

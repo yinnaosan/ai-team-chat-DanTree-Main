@@ -339,3 +339,279 @@ describe("TC-MR-05: Deprecated wrapper delegates to modelRouter.generate()", () 
     spy.mockRestore();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-V3-01: ExecutionTarget / ExecutionMode type exports
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { type ExecutionTarget, type ExecutionMode } from "./model_router";
+
+describe("TC-MR-V3-01: ExecutionTarget and ExecutionMode types exported correctly", () => {
+  it("ExecutionTarget values are gpt | claude | hybrid", () => {
+    const valid: ExecutionTarget[] = ["gpt", "claude", "hybrid"];
+    for (const v of valid) {
+      expect(typeof v).toBe("string");
+    }
+  });
+
+  it("ExecutionMode values are primary | fallback | repair", () => {
+    const valid: ExecutionMode[] = ["primary", "fallback", "repair"];
+    for (const v of valid) {
+      expect(typeof v).toBe("string");
+    }
+  });
+
+  it("RouterInput accepts executionTarget and executionMode as optional fields (stub mode)", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    delete process.env.NODE_ENV;
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "test" }],
+        executionTarget: "claude",
+        executionMode: "primary",
+      },
+      "research"
+    );
+    expect(result).toBeDefined();
+    expect(typeof result.output).toBe("string");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-V3-02: Dev override behavior — executionTarget in dev mode (stub)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-V3-02: Dev override — executionTarget routing in dev mode (stub)", () => {
+  beforeEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    delete process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("executionTarget=gpt in dev (stub) → dev_override=true, simulated_target=gpt", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Analyze AAPL" }],
+        executionTarget: "gpt",
+        executionMode: "primary",
+      },
+      "research"
+    );
+    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    expect(result.metadata?.dev_override).toBe(true);
+    expect(result.metadata?.simulated_target).toBe("gpt");
+    expect(result.metadata?.execution_target).toBe("gpt");
+  });
+
+  it("executionTarget=claude in dev (stub) → dev_override=false", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Execute task" }],
+        executionTarget: "claude",
+        executionMode: "primary",
+      },
+      "execution"
+    );
+    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    expect(result.metadata?.dev_override).toBe(false);
+    expect(result.metadata?.execution_target).toBe("claude");
+  });
+
+  it("no executionTarget in dev (stub) → execution_target=none in metadata", async () => {
+    const result = await modelRouter.generate(
+      { messages: [{ role: "user", content: "Analyze AAPL" }] },
+      "research"
+    );
+    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    expect(result.metadata?.execution_target).toBe("none");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-V3-03: Stub mode dev override (no ANTHROPIC_API_KEY)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-V3-03: Stub dev override — no keys, executionTarget=gpt → gpt_stub + dev_override", () => {
+  beforeEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    delete process.env.NODE_ENV;
+  });
+
+  it("executionTarget=gpt, no keys → gpt_stub provider, dev_override=true, simulated_target=gpt", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Analyze AAPL" }],
+        executionTarget: "gpt",
+        executionMode: "primary",
+      },
+      "research"
+    );
+    expect(result.provider).toBe("gpt_stub");
+    expect(result.metadata?.dev_override).toBe(true);
+    expect(result.metadata?.simulated_target).toBe("gpt");
+    expect(result.metadata?.execution_target).toBe("gpt");
+  });
+
+  it("executionTarget=claude, no keys → gpt_stub provider, dev_override=false", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Execute task" }],
+        executionTarget: "claude",
+        executionMode: "repair",
+      },
+      "execution"
+    );
+    expect(result.provider).toBe("gpt_stub");
+    expect(result.metadata?.dev_override).toBe(false);
+    expect(result.metadata?.execution_mode).toBe("repair");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-V3-04: Observability minimum viable fields in metadata
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-V3-04: Observability — RouterResponse.metadata is single source of truth for all 8 fields", () => {
+  beforeEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    delete process.env.NODE_ENV;
+  });
+
+  it("all 8 required observability fields present in RouterResponse.metadata when triggerV3Meta provided", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Analyze AAPL" }],
+        executionTarget: "gpt",
+        executionMode: "primary",
+        triggerV3Meta: {
+          trigger_rule:       "F",
+          resolved_task_type: "research",
+          final_task_type:    "research",
+        },
+      },
+      "research"
+    );
+    expect(result.metadata).toBeDefined();
+    expect(result.metadata).toHaveProperty("trigger_rule",       "F");
+    expect(result.metadata).toHaveProperty("resolved_task_type", "research");
+    expect(result.metadata).toHaveProperty("final_task_type",    "research");
+    expect(result.metadata).toHaveProperty("execution_target",   "gpt");
+    expect(result.metadata).toHaveProperty("execution_mode",     "primary");
+    expect(result.metadata).toHaveProperty("selected_provider");
+    expect(result.metadata).toHaveProperty("dev_override",       true);
+    expect(result.metadata).toHaveProperty("simulated_target",   "gpt");
+  });
+
+  it("execution_mode=repair propagates to metadata", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Repair JSON" }],
+        executionTarget: "claude",
+        executionMode: "repair",
+        triggerV3Meta: {
+          trigger_rule:       "C",
+          resolved_task_type: "research",
+          final_task_type:    "structured_json",
+        },
+      },
+      "structured_json"
+    );
+    expect(result.metadata?.execution_mode).toBe("repair");
+    expect(result.metadata?.trigger_rule).toBe("C");
+    expect(result.metadata?.final_task_type).toBe("structured_json");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-V3-05: PRODUCTION_ROUTING_MAP + ExecutionTarget types check
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-V3-05: OI-001 routing integrity preserved with v3 types present", () => {
+  it("PRODUCTION_ROUTING_MAP still has >= 12 task types", () => {
+    expect(Object.keys(PRODUCTION_ROUTING_MAP).length).toBeGreaterThanOrEqual(12);
+  });
+
+  it("execution task types still route to anthropic in PRODUCTION_ROUTING_MAP", () => {
+    expect(PRODUCTION_ROUTING_MAP["execution"]).toBe("anthropic");
+    expect(PRODUCTION_ROUTING_MAP["code_analysis"]).toBe("anthropic");
+    expect(PRODUCTION_ROUTING_MAP["agent_task"]).toBe("anthropic");
+  });
+
+  it("research/narrative/reasoning still route to openai in PRODUCTION_ROUTING_MAP", () => {
+    expect(PRODUCTION_ROUTING_MAP["research"]).toBe("openai");
+    expect(PRODUCTION_ROUTING_MAP["narrative"]).toBe("openai");
+    expect(PRODUCTION_ROUTING_MAP["reasoning"]).toBe("openai");
+  });
+
+  it("TASK_TYPES has >= 12 entries (not broken by v3 additions)", () => {
+    expect(Object.keys(TASK_TYPES).length).toBeGreaterThanOrEqual(12);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-GUARD-01: Direct provider bypass guardrail
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-GUARD-01: modelRouter.generate() is the only exported LLM entry point", () => {
+  it("internal call functions _callAnthropic/_callOpenAI/_callGptStub are NOT exported", async () => {
+    const mr = await import("./model_router");
+    const exported = mr as Record<string, unknown>;
+    expect(exported["_callAnthropic"]).toBeUndefined();
+    expect(exported["_callOpenAI"]).toBeUndefined();
+    expect(exported["_callGptStub"]).toBeUndefined();
+  });
+
+  it("modelRouter.generate is the only function-typed export for LLM invocation", async () => {
+    const mr = await import("./model_router");
+    expect(typeof mr.modelRouter.generate).toBe("function");
+    const spy = vi.spyOn(mr.modelRouter, "generate");
+    mr.invokeWithModelRouter([{ role: "user" as const, content: "test" }], "research");
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ messages: expect.any(Array) }),
+      "research"
+    );
+    spy.mockRestore();
+  });
+
+  it("resolveProviderWithAuthority is NOT exported (stays internal to router)", async () => {
+    const mr = await import("./model_router");
+    const exported = mr as Record<string, unknown>;
+    expect(exported["resolveProviderWithAuthority"]).toBeUndefined();
+  });
+
+  it("executionTarget=gpt routing strategy goes through resolveProviderWithAuthority, not direct assignment", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+    delete process.env.NODE_ENV;
+    const { modelRouter: mr } = await import("./model_router");
+    const result = await mr.generate(
+      {
+        messages: [{ role: "user", content: "test" }],
+        executionTarget: "gpt",
+        executionMode: "primary",
+        triggerV3Meta: { trigger_rule: "F", resolved_task_type: "research", final_task_type: "research" },
+      },
+      "research"
+    );
+    expect(result.metadata?.trigger_rule).toBe("F");
+    expect(result.metadata?.resolved_task_type).toBe("research");
+    expect(result.metadata?.final_task_type).toBe("research");
+    expect(result.metadata?.execution_target).toBe("gpt");
+    expect(result.metadata?.execution_mode).toBe("primary");
+    expect(result.metadata?.selected_provider).toBeDefined();
+    expect(result.metadata?.dev_override).toBe(true);
+    expect(result.metadata?.simulated_target).toBe("gpt");
+  });
+});

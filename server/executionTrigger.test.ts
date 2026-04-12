@@ -12,14 +12,19 @@
  * TC-TRIGGER-08: 4个真实调用点期望行为
  * TC-TRIGGER-09: Bridge + Trigger 集成路径
  * TC-TRIGGER-10: Observability helpers
+ * TC-TRIGGER-11: resolveFinalTaskType — v2 core
+ * TC-TRIGGER-12: Log level signals (v2)
+ * TC-TRIGGER-13: v2 integration — finalTaskType drives modelRouter.generate()
  */
 import { describe, it, expect } from "vitest";
 import {
   decideExecutionTrigger,
   formatTriggerDecisionLog,
   buildTriggerObservability,
+  resolveFinalTaskType,
   type TriggerDecision,
   type TriggerInput,
+  type FinalTaskTypeResult,
 } from "./executionTrigger";
 import { resolveBridgedTaskType } from "./taskTypeBridge";
 
@@ -454,20 +459,204 @@ describe("TC-TRIGGER-10: Observability helpers", () => {
     expect(log).toContain("title_gen");
   });
 
-  it("buildTriggerObservability: includes all required fields", () => {
+  it("buildTriggerObservability: includes all required fields including v2 fields", () => {
     const decision = decideExecutionTrigger({
       resolvedTaskType: "research",
       triggerContext: { source: "step3_main", business_task_type: "stock_analysis" },
     });
+    const finalResult = resolveFinalTaskType("research", decision);
     const obs = buildTriggerObservability(
       "research",
       decision,
+      finalResult,
       { source: "step3_main", business_task_type: "stock_analysis" },
     );
     expect(obs.bridged_task_type).toBe("research");
     expect(obs.trigger_decision).toBe(decision);
     expect(obs.source).toBe("step3_main");
+    // v2 fields
+    expect(obs.finalTaskType).toBe(finalResult.finalTaskType);
+    expect(obs.trigger_applied_to_execution_path).toBe(finalResult.trigger_applied_to_execution_path);
     // Always Claude in dev mode
+    expect(obs.dev_actual_executor).toBe("claude-sonnet-4-6");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-11: resolveFinalTaskType — v2 core
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-11: resolveFinalTaskType — FinalTaskType Apply Layer (v2)", () => {
+  it("repair_pass: REPLACE research → structured_json (Rule C makes it more precise)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "repair_pass", business_task_type: "stock_analysis" },
+    });
+    const result = resolveFinalTaskType("research", decision);
+    expect(result.finalTaskType).toBe("structured_json");
+    expect(result.trigger_applied_to_execution_path).toBe(true);
+  });
+
+  it("step3_main: NO REPLACE — suggested=research equals resolvedTaskType (condition b fails)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "step3_main", business_task_type: "stock_analysis" },
+    });
+    // step3_main: Rule D only, suggested_task_type = research (same as resolved)
+    expect(decision.suggested_task_type).toBe("research");
+    const result = resolveFinalTaskType("research", decision);
+    expect(result.finalTaskType).toBe("research");
+    expect(result.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("memory_summary: NO REPLACE — NO_TRIGGER (condition a fails)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "memory_summary", business_task_type: "stock_analysis" },
+    });
+    expect(decision.should_trigger_execution).toBe(false);
+    const result = resolveFinalTaskType("research", decision);
+    expect(result.finalTaskType).toBe("research");
+    expect(result.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("title_gen: NO REPLACE — NO_TRIGGER (condition a fails)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "title_gen", business_task_type: "stock_analysis" },
+    });
+    expect(decision.should_trigger_execution).toBe(false);
+    const result = resolveFinalTaskType("research", decision);
+    expect(result.finalTaskType).toBe("research");
+    expect(result.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("execution task Rule A: TRIGGER but suggested=resolvedTaskType → NO REPLACE (condition b fails)", () => {
+    // Rule A fires, but suggested_task_type stays as resolvedTaskType (no Rule C)
+    const decision = decideExecutionTrigger({ resolvedTaskType: "execution" });
+    expect(decision.suggested_task_type).toBe("execution"); // same as resolved
+    const result = resolveFinalTaskType("execution", decision);
+    expect(result.finalTaskType).toBe("execution");
+    expect(result.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("repair_pass with execution taskType: Rule A wins suggested stays execution → NO REPLACE", () => {
+    // When Rule A fires (execution) + Rule C fires (repair_pass), Rule A takes precedence
+    // in suggested_task_type (it stays "execution"). Condition b: suggested != resolved? No.
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "execution",
+      triggerContext: { source: "repair_pass" },
+    });
+    // Rule A + C both fire → suggested stays execution (Rule A takes precedence)
+    const result = resolveFinalTaskType("execution", decision);
+    expect(result.finalTaskType).toBe("execution");
+    expect(result.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("trigger_applied_to_execution_path is always boolean", () => {
+    const cases = [
+      { resolvedTaskType: "research" as const, source: "repair_pass" },
+      { resolvedTaskType: "research" as const, source: "step3_main" },
+      { resolvedTaskType: "research" as const, source: "title_gen" },
+      { resolvedTaskType: "research" as const, source: undefined },
+    ];
+    for (const { resolvedTaskType, source } of cases) {
+      const decision = decideExecutionTrigger({
+        resolvedTaskType,
+        triggerContext: source ? { source } : undefined,
+      });
+      const result = resolveFinalTaskType(resolvedTaskType, decision);
+      expect(typeof result.trigger_applied_to_execution_path).toBe("boolean");
+      expect(typeof result.finalTaskType).toBe("string");
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-12: Log level — TRIGGER=info signal, NO_TRIGGER=debug signal
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-12: Log level signals (v2)", () => {
+  it("TRIGGER decision: formatTriggerDecisionLog contains TRIGGER keyword (for console.info)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "step3_main" },
+    });
+    expect(decision.should_trigger_execution).toBe(true);
+    const log = formatTriggerDecisionLog(decision, "step3_main");
+    // Caller uses console.info for triggered decisions
+    expect(log).toContain("TRIGGER");
+    expect(log).not.toContain("NO_TRIGGER");
+  });
+
+  it("NO_TRIGGER decision: formatTriggerDecisionLog contains NO_TRIGGER keyword (for console.debug)", () => {
+    const decision = decideExecutionTrigger({
+      resolvedTaskType: "research",
+      triggerContext: { source: "title_gen" },
+    });
+    expect(decision.should_trigger_execution).toBe(false);
+    const log = formatTriggerDecisionLog(decision, "title_gen");
+    // Caller uses console.debug for non-triggered decisions
+    expect(log).toContain("NO_TRIGGER");
+    expect(log).not.toContain(": TRIGGER (");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-TRIGGER-13: v2 integration — resolvedTaskType / finalTaskType distinction
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-TRIGGER-13: v2 integration — finalTaskType drives modelRouter.generate()", () => {
+  it("repair_pass: finalTaskType=structured_json ≠ resolvedTaskType=research", () => {
+    const triggerContext = {
+      business_task_type: "stock_analysis",
+      interaction_mode: "execution" as const,
+      entity_scope: ["AAPL"],
+      source: "repair_pass",
+    };
+    const resolvedTaskType = resolveBridgedTaskType(triggerContext);
+    expect(resolvedTaskType).toBe("research");
+
+    const decision = decideExecutionTrigger({ triggerContext, resolvedTaskType });
+    const finalResult = resolveFinalTaskType(resolvedTaskType, decision);
+
+    // KEY ASSERTION: finalTaskType != resolvedTaskType
+    expect(finalResult.finalTaskType).toBe("structured_json");
+    expect(finalResult.finalTaskType).not.toBe(resolvedTaskType);
+    expect(finalResult.trigger_applied_to_execution_path).toBe(true);
+  });
+
+  it("step3_main: finalTaskType = resolvedTaskType = research (no change)", () => {
+    const triggerContext = {
+      business_task_type: "stock_analysis",
+      interaction_mode: "execution" as const,
+      source: "step3_main",
+    };
+    const resolvedTaskType = resolveBridgedTaskType(triggerContext);
+    const decision = decideExecutionTrigger({ triggerContext, resolvedTaskType });
+    const finalResult = resolveFinalTaskType(resolvedTaskType, decision);
+
+    expect(finalResult.finalTaskType).toBe("research");
+    expect(finalResult.finalTaskType).toBe(resolvedTaskType); // same
+    expect(finalResult.trigger_applied_to_execution_path).toBe(false);
+  });
+
+  it("v2 observability has all 6 required fields", () => {
+    const triggerContext = {
+      business_task_type: "stock_analysis",
+      source: "repair_pass",
+    };
+    const resolvedTaskType = resolveBridgedTaskType(triggerContext);
+    const decision = decideExecutionTrigger({ triggerContext, resolvedTaskType });
+    const finalResult = resolveFinalTaskType(resolvedTaskType, decision);
+    const obs = buildTriggerObservability(resolvedTaskType, decision, finalResult, triggerContext);
+
+    // All 6 required observability fields
+    expect(obs.bridged_task_type).toBeDefined();
+    expect(obs.trigger_decision).toBeDefined();
+    expect(obs.finalTaskType).toBeDefined();
+    expect(typeof obs.trigger_applied_to_execution_path).toBe("boolean");
+    expect(obs.source).toBeDefined();
     expect(obs.dev_actual_executor).toBe("claude-sonnet-4-6");
   });
 });

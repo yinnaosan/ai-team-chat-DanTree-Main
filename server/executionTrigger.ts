@@ -1,11 +1,13 @@
 /**
  * executionTrigger.ts
- * Execution Trigger System v1
+ * Execution Trigger System v1 / v2
  *
  * 职责：
  *   - 定义 TriggerDecision schema
  *   - 实现轻量规则引擎 decideExecutionTrigger()
  *   - 提供可观测性输出 formatTriggerDecisionLog()
+ *   - v2: resolveFinalTaskType() — 三条件替换规则，决定 finalTaskType
+ *   - v2: ExecutionTriggerObservability 扩展（finalTaskType + trigger_applied_to_execution_path）
  *
  * 关键设计原则：
  *
@@ -29,6 +31,7 @@
  *   - execution complexity scoring
  *   - 深层 orchestration 重构
  */
+
 import type { TaskType } from "./model_router";
 import type { TriggerContext } from "./taskTypeBridge";
 
@@ -45,26 +48,31 @@ import type { TriggerContext } from "./taskTypeBridge";
 export interface TriggerDecision {
   /** 是否判定为需要执行层处理的任务 */
   should_trigger_execution: boolean;
+
   /**
    * 触发原因列表（可观测性）
    * 未触发时包含说明原因；触发时包含命中规则的具体描述。
    */
   trigger_reasons: string[];
+
   /**
    * 命中的规则类别（Rule A / Rule B / Rule C / Rule D / Rule E）
    * 未触发时为空数组。Rule E 命中时填入 ["Rule E"]。
    */
   trigger_categories: string[];
+
   /**
    * 建议的 model_router TaskType
    * 通常与 bridge resolvedTaskType 一致；Rule C（repair）命中时可能建议 "structured_json"。
    */
   suggested_task_type: TaskType;
+
   /**
    * 执行优先级
    * Rule A / B / C → "high"；Rule D only → "medium"；不触发 → "low"
    */
   execution_priority: "low" | "medium" | "high";
+
   /**
    * 执行目标
    *
@@ -86,8 +94,10 @@ export interface TriggerDecision {
 export interface TriggerInput {
   /** 来自 TaskType Bridge 的业务上下文（可选，无时安全退化） */
   triggerContext?: TriggerContext;
+
   /** TaskType Bridge 映射后的 task_type */
   resolvedTaskType: TaskType;
+
   /**
    * 消息列表（可选，用于 Rule B 文档/文件内容检测）
    * 使用 unknown[] 避免与 _core/llm.ts 的循环依赖。
@@ -155,13 +165,16 @@ function ruleA_explicitExecutionTaskType(input: TriggerInput): string | null {
  */
 function ruleB_documentContent(input: TriggerInput): string | null {
   if (!input.messages || input.messages.length === 0) return null;
+
   for (const msg of input.messages) {
     if (!msg || typeof msg !== "object") continue;
     const content = (msg as Record<string, unknown>).content;
     if (!Array.isArray(content)) continue;
+
     for (const block of content) {
       if (!block || typeof block !== "object") continue;
       const b = block as Record<string, unknown>;
+
       // FileContent: { type: "file_url", file_url: { url, mime_type? } }
       if (b.type === "file_url") {
         return `Rule B: message contains file_url content (document/file detected)`;
@@ -257,6 +270,7 @@ export function decideExecutionTrigger(input: TriggerInput): TriggerDecision {
   if (ruleDResult) { reasons.push(ruleDResult); categories.push("Rule D"); }
 
   const triggered = reasons.length > 0;
+
   if (!triggered) {
     return {
       should_trigger_execution: false,
@@ -299,12 +313,81 @@ export function decideExecutionTrigger(input: TriggerInput): TriggerDecision {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Final Task Type Apply Layer (v2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * FinalTaskTypeResult — resolveFinalTaskType() 的输出结构
+ */
+export interface FinalTaskTypeResult {
+  /** 最终传入 modelRouter.generate() 的 task_type */
+  finalTaskType: TaskType;
+  /**
+   * trigger 决策是否被应用到执行路径
+   * true  = finalTaskType 被 suggested_task_type 替换
+   * false = finalTaskType 保持 resolvedTaskType 不变
+   */
+  trigger_applied_to_execution_path: boolean;
+}
+
+/**
+ * resolveFinalTaskType — Execution Trigger System v2 核心函数
+ *
+ * 决定最终传入 modelRouter.generate() 的 taskType。
+ *
+ * 设计原则：
+ *   1. 默认：finalTaskType = resolvedTaskType
+ *   2. 替换条件（同时满足三项）：
+ *      a. should_trigger_execution = true（有触发决策）
+ *      b. suggested_task_type !== resolvedTaskType（建议值与当前值不同）
+ *      c. "更精确"定义：trigger_categories 包含 Rule C（repair 语义）
+ *   3. 通过 PRODUCTION_ROUTING_MAP 驱动 routing，不直接操作 provider
+ *
+ * repair_pass 场景：resolvedTaskType=research → suggested=structured_json
+ *   理由：DELIVERABLE 块 JSON 修复是严格 schema 执行任务，structured_json
+ *   比 research 更精确描述该调用的执行性质，且在 OI-001 中路由到同一 provider（openai）。
+ *
+ * step3_main 场景：resolvedTaskType=research → suggested=research（相同）
+ *   → 不替换（条件 b 不满足）
+ *
+ * NO_TRIGGER 场景（memory_summary / title_gen）：
+ *   should_trigger_execution=false → 不替换（条件 a 不满足）
+ */
+export function resolveFinalTaskType(
+  resolvedTaskType: TaskType,
+  decision: TriggerDecision,
+): FinalTaskTypeResult {
+  // 条件 a: 必须触发
+  if (!decision.should_trigger_execution) {
+    return { finalTaskType: resolvedTaskType, trigger_applied_to_execution_path: false };
+  }
+  // 条件 b: suggested 与 resolved 必须不同
+  if (decision.suggested_task_type === resolvedTaskType) {
+    return { finalTaskType: resolvedTaskType, trigger_applied_to_execution_path: false };
+  }
+  // 条件 c: suggested 比 resolved 更精确（v2 最小集：Rule C 命中时替换）
+  const isMorePrecise = decision.trigger_categories.includes("Rule C");
+  if (!isMorePrecise) {
+    return { finalTaskType: resolvedTaskType, trigger_applied_to_execution_path: false };
+  }
+  return {
+    finalTaskType: decision.suggested_task_type,
+    trigger_applied_to_execution_path: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Observability helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * 格式化 TriggerDecision 为可观测日志行
- * 用于 invokeLLM 的 console.info 输出
+ *
+ * 日志级别（v2 修正）：
+ *   TRIGGER     → console.info（保留，有价值的决策信号）
+ *   NO_TRIGGER  → console.debug（生产态可关闭，减少 log 噪音）
+ *
+ * 注意：本函数只返回字符串，调用方决定用哪个 console 级别。
  */
 export function formatTriggerDecisionLog(
   decision: TriggerDecision,
@@ -328,25 +411,36 @@ export function formatTriggerDecisionLog(
 }
 
 /**
- * 构建完整可观测性对象（供 metadata 或 debug 对象使用）
+ * 完整可观测性对象（v2 扩展）
+ * 供 metadata 或 debug 对象使用
  */
 export interface ExecutionTriggerObservability {
+  /** Layer 1 bridge 输出 */
   bridged_task_type: TaskType;
+  /** Layer 2 trigger 决策 */
   trigger_decision: TriggerDecision;
+  /** Layer 3 最终传入 modelRouter.generate() 的 task_type（v2 新增）*/
+  finalTaskType: TaskType;
+  /** trigger 决策是否影响了执行路径（v2 新增）*/
+  trigger_applied_to_execution_path: boolean;
+  /** 调用来源 */
   source: string | null;
-  /** 研发态实际执行路径（区别于 execution_target 的逻辑目标） */
+  /** 研发态实际执行路径（区别于 execution_target 的逻辑目标）*/
   dev_actual_executor: "claude-sonnet-4-6";
 }
 
 export function buildTriggerObservability(
   resolvedTaskType: TaskType,
   decision: TriggerDecision,
+  finalTaskTypeResult: FinalTaskTypeResult,
   triggerContext?: TriggerContext,
 ): ExecutionTriggerObservability {
   return {
-    bridged_task_type: resolvedTaskType,
-    trigger_decision: decision,
-    source: triggerContext?.source ?? null,
+    bridged_task_type:                  resolvedTaskType,
+    trigger_decision:                   decision,
+    finalTaskType:                      finalTaskTypeResult.finalTaskType,
+    trigger_applied_to_execution_path:  finalTaskTypeResult.trigger_applied_to_execution_path,
+    source:                             triggerContext?.source ?? null,
     // 研发态：Claude Sonnet 4.6 始终是实际执行者
     dev_actual_executor: "claude-sonnet-4-6",
   };

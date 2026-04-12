@@ -1,7 +1,12 @@
 import { ENV } from "./env";
 import { modelRouter, type RouterInput } from "../model_router";
 import { resolveBridgedTaskType, buildBridgeMetadata, type TriggerContext } from "../taskTypeBridge";
-import { decideExecutionTrigger, formatTriggerDecisionLog } from "../executionTrigger";
+import {
+  decideExecutionTrigger,
+  resolveFinalTaskType,
+  formatTriggerDecisionLog,
+  buildTriggerObservability,
+} from "../executionTrigger";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -307,32 +312,48 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
       ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
     };
 
-    // ── Layer 1: TaskType Bridge — 业务语义 → 路由语义 ────────────────────
+    // ── Layer 1: TaskType Bridge ─────────────────────────────────────────
     const resolvedTaskType = resolveBridgedTaskType(params.triggerContext);
 
-    // ── Layer 2: Execution Trigger System v1 — 触发决策 ──────────────────
-    // 触发决策是逻辑层，不改变研发态实际执行路径（Claude Sonnet 4.6 处理所有请求）
+    // ── Layer 2: Execution Trigger Decision ──────────────────────────────
     const triggerDecision = decideExecutionTrigger({
       triggerContext:  params.triggerContext,
       resolvedTaskType,
       messages:        params.messages as unknown[],
     });
 
-    // ── Layer 3: Observability ────────────────────────────────────────────
+    // ── Layer 3: Apply finalTaskType (v2) ────────────────────────────────
+    // repair_pass: research → structured_json (Rule C: more precise)
+    // others: no change
+    const finalTaskTypeResult = resolveFinalTaskType(resolvedTaskType, triggerDecision);
+    const finalTaskType = finalTaskTypeResult.finalTaskType;
+
+    // ── Layer 4: Observability (v2 log level fix) ────────────────────────
     if (params.triggerContext && resolvedTaskType !== "default") {
-      const meta = buildBridgeMetadata(params.triggerContext, resolvedTaskType);
       console.info(
-        `[TaskTypeBridge] ${meta.source ?? "unknown"}: ` +
-        `${meta.original_business_task_type} → ${meta.resolved_task_type}`
+        `[TaskTypeBridge] ${params.triggerContext.source ?? "unknown"}: ` +
+        `${params.triggerContext.business_task_type} → ${resolvedTaskType}`
       );
     }
-    console.info(
-      formatTriggerDecisionLog(triggerDecision, params.triggerContext?.source)
-    );
+    // TRIGGER → console.info；NO_TRIGGER → console.debug（减少 log 噪音）
+    const triggerLog = formatTriggerDecisionLog(triggerDecision, params.triggerContext?.source);
+    if (triggerDecision.should_trigger_execution) {
+      console.info(triggerLog);
+    } else {
+      console.debug(triggerLog);
+    }
+    if (finalTaskTypeResult.trigger_applied_to_execution_path) {
+      console.info(
+        `[ExecutionTrigger] finalTaskType applied: ` +
+        `${resolvedTaskType} → ${finalTaskType} ` +
+        `(source=${params.triggerContext?.source ?? "unknown"})`
+      );
+    }
 
-    // ── 研发态：始终走 Claude（dev stage — Claude is actual executor）──────
-    // TriggerDecision 在 v1 是 advisory；v2 才实际影响执行路径
-    const routerResult = await modelRouter.generate(routerInput, resolvedTaskType);
+    // ── Layer 5: Execute with finalTaskType ──────────────────────────────
+    // Dev mode: Claude Sonnet 4.6 处理所有请求（实际执行者不变）
+    // finalTaskType 在生产态开启后会通过 PRODUCTION_ROUTING_MAP 真正分发
+    const routerResult = await modelRouter.generate(routerInput, finalTaskType);
     // 将 modelRouter 响应适配为 InvokeResult 格式
     return {
       id: `router-${Date.now()}`,

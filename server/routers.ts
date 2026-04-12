@@ -3616,19 +3616,14 @@ Output format MUST be:
               {
                 role: "system",
                 content: `你是一个专业的金融记忆分类助手，专注于 A 股、港股、美股投资场景。根据任务描述和摘要，将记忆分类为以下四种类型之一：
-
 - preference：用户的投资偏好、风险偏好、交易风格、关注市场等个人倾向
   示例：「我喜欢价值投资」「偏好低估值蓝筹股」「不做短线」「关注 A 股消费板块」「风险承受能力中等」「段永平投资理念认同者」
-
 - workflow：用户常用的分析流程、操作步骤、工作方法、使用习惯
   示例：「每次分析先看 PE/PB」「用 DCF 估值」「先看宏观再选行业再选股」「每周一复盘」「用 MACD+RSI 判断入场时机」
-
 - watchlist：用户关注的股票代码、公司名称、行业板块、资产类别
   示例：「关注茅台/平安/腾讯」「600519 贵州茅台」「00700 腾讯控股」「新能源板块」「半导体行业」「黄金 ETF」「比特币」
-
 - analysis：具体的分析结论、市场判断、研究发现、数据解读
   示例：「茅台当前 PE 偏高」「美联储降息利好 A 股」「中芯国际技术面突破」「Q3 财报超预期」「港股恒生指数超跌反弹」
-
 只输出一个单词：preference、workflow、watchlist 或 analysis。不要有任何其他内容。`,
               },
               {
@@ -3636,6 +3631,7 @@ Output format MUST be:
                 content: `任务：${taskDescription.slice(0, 150)}\n摘要：${summary.slice(0, 200)}`,
               },
             ],
+            triggerContext: { source: "memory_classify" },
           });
           const classified = String(classifyResp.choices?.[0]?.message?.content || "").trim().toLowerCase();
           if (["preference", "workflow", "watchlist", "analysis"].includes(classified)) {
@@ -3655,7 +3651,7 @@ Output format MUST be:
         // ── LLM 自动评估重要性分数（1-5）──────────────────────────────────
         let importance = 3; // 默认重要性
         try {
-          const importanceResp = await invokeLLMWithRetry({
+           const importanceResp = await invokeLLMWithRetry({
             messages: [
               {
                 role: "system",
@@ -3665,7 +3661,6 @@ Output format MUST be:
 3 = 重要：股票分析结论、市场判断，对投资决策有直接影响
 4 = 很重要：用户投资偏好、核心持仓分析、重要宏观判断
 5 = 核心记忆：投资理念、长期持仓逻辑、个人投资原则确认
-
 只输出一个数字（1、2、3、4 或 5）。不要有任何其他内容。`,
               },
               {
@@ -3673,6 +3668,7 @@ Output format MUST be:
                 content: `类型：${memoryType}\n任务：${taskDescription.slice(0, 150)}\n摘要：${summary.slice(0, 200)}`,
               },
             ],
+            triggerContext: { source: "memory_importance" },
           });
           const impStr = String(importanceResp.choices?.[0]?.message?.content || "").trim();
           const impNum = parseInt(impStr, 10);
@@ -4547,10 +4543,11 @@ export const appRouter = router({
                 role: "system",
                 content: `你是一个金融搜索关键词提取助手。将用户的自然语言查询扩展为3-6个搜索关键词，包括同义词、相关股票代码、行业名称。
 输出格式：用逗号分隔的关键词列表，不要有其他内容。
-示例：用户输入“我关注的股票” → 输出“股票,watchlist,关注,持仓”`,
+示例：用户输入"我关注的股票" → 输出"股票,watchlist,关注,持仓"`,
               },
               { role: "user", content: input.query },
             ],
+            triggerContext: { source: "memory_search" },
           });
           const kwStr = String(kwResp.choices?.[0]?.message?.content || "").trim();
           if (kwStr) {

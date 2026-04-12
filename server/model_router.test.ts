@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import Anthropic from "@anthropic-ai/sdk";
 import {
   modelRouter,
   invokeWithModelRouter,
@@ -380,22 +381,38 @@ describe("TC-MR-V3-01: ExecutionTarget and ExecutionMode types exported correctl
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TC-MR-V3-02: Dev override behavior — executionTarget in dev mode (stub)
+// TC-MR-V3-02: Dev override behavior — executionTarget=gpt routes to Claude with dev_override metadata
 // ─────────────────────────────────────────────────────────────────────────────
+// FIX_DELIVERY semantic: dev override with executionTarget="gpt" routes to Claude in dev.
+// Compatibility fix (B1): vi.mock token values aligned to TC-MR-02 (150/300) to eliminate
+// cross-test pollution. FIX_DELIVERY assertions (provider, dev_override, simulated_target,
+// execution_target) are NOT checked against token values, so semantics are fully preserved.
 
-describe("TC-MR-V3-02: Dev override — executionTarget routing in dev mode (stub)", () => {
+describe("TC-MR-V3-02: Dev override — executionTarget=gpt routes to Claude with dev_override metadata", () => {
   beforeEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.BUILT_IN_FORGE_API_KEY;
+    vi.mock("@anthropic-ai/sdk", () => ({
+      default: class MockAnthropic {
+        messages = {
+          create: vi.fn().mockResolvedValue({
+            content: [{ type: "text", text: "Mock dev override output." }],
+            model: "claude-sonnet-4-6",
+            stop_reason: "end_turn",
+            // Token values aligned with TC-MR-02 mock to prevent cross-test pollution
+            usage: { input_tokens: 150, output_tokens: 300 },
+          }),
+        };
+      },
+    }));
+    process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     delete process.env.NODE_ENV;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete process.env.ANTHROPIC_API_KEY;
   });
 
-  it("executionTarget=gpt in dev (stub) → dev_override=true, simulated_target=gpt", async () => {
+  it("executionTarget=gpt in dev → provider is anthropic (Claude), dev_override=true", async () => {
     const result = await modelRouter.generate(
       {
         messages: [{ role: "user", content: "Analyze AAPL" }],
@@ -404,13 +421,15 @@ describe("TC-MR-V3-02: Dev override — executionTarget routing in dev mode (stu
       },
       "research"
     );
-    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    // Dev mode: always Claude regardless of executionTarget
+    expect(result.provider).toBe("anthropic");
+    // Dev override metadata MUST be present (FIX_DELIVERY exact assertions)
     expect(result.metadata?.dev_override).toBe(true);
     expect(result.metadata?.simulated_target).toBe("gpt");
     expect(result.metadata?.execution_target).toBe("gpt");
   });
 
-  it("executionTarget=claude in dev (stub) → dev_override=false", async () => {
+  it("executionTarget=claude in dev → provider is anthropic, dev_override=false", async () => {
     const result = await modelRouter.generate(
       {
         messages: [{ role: "user", content: "Execute task" }],
@@ -419,17 +438,18 @@ describe("TC-MR-V3-02: Dev override — executionTarget routing in dev mode (stu
       },
       "execution"
     );
-    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    expect(result.provider).toBe("anthropic");
     expect(result.metadata?.dev_override).toBe(false);
     expect(result.metadata?.execution_target).toBe("claude");
   });
 
-  it("no executionTarget in dev (stub) → execution_target=none in metadata", async () => {
+  it("no executionTarget in dev → execution_target=none in metadata", async () => {
     const result = await modelRouter.generate(
       { messages: [{ role: "user", content: "Analyze AAPL" }] },
       "research"
     );
-    expect(["anthropic", "gpt_stub"]).toContain(result.provider);
+    expect(result.provider).toBe("anthropic");
+    // backward compat: no execution_target means "none"
     expect(result.metadata?.execution_target).toBe("none");
   });
 });

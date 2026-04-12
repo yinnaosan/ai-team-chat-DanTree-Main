@@ -445,150 +445,164 @@ export function buildTriggerObservability(
     dev_actual_executor: "claude-sonnet-4-6",
   };
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Execution Trigger System v3
+// Trigger v3 — Execution Authority Decision
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * GPT_PIPELINE_SOURCES — Rule F: GPT 主控 pipeline 来源
- * 这些来源明确属于 GPT 主控层（research / narrative / reasoning），
- * 即使 resolvedTaskType 是 execution，也应路由到 GPT。
- */
-export const GPT_PIPELINE_SOURCES = new Set<string>([
-  "market_narrative",   // 市场叙事生成（GPT 主控）
-  "thesis_generation",  // 投资论文生成（GPT 主控）
-  "risk_assessment",    // 风险评估报告（GPT 主控）
-  "portfolio_summary",  // 组合摘要（GPT 主控）
-]);
 
 /**
  * TriggerDecisionV3 — Execution Trigger System v3 决策结构
  *
- * v3 新增：
- *   - execution_target: ExecutionTarget（gpt | claude | hybrid）
- *   - execution_mode:   ExecutionMode（primary | fallback | repair）
- *   - rule:             命中的主规则标识（A/B/C/D/E/F/none）
- *   - finalTaskType:    v3 建议的最终 task_type
+ * v3 升级点（相比 v2 TriggerDecision）：
+ *   - execution_target: "gpt" | "claude" | "hybrid"（不再是 "anthropic" | "none"）
+ *   - execution_mode: "primary" | "fallback" | "repair"
+ *   - single rule field（主规则，不再是 string[]）
+ *   - finalTaskType 已内含（不需要再单独调用 resolveFinalTaskType）
+ *   - reason: 人读说明字符串
+ *
+ * 规则优先级（高到低）：
+ *   Rule E > Rule C > Rule A > Rule B > Rule F > Rule D > NONE
  */
 export interface TriggerDecisionV3 {
-  /** v3 执行权威目标（对应 RouterInput.executionTarget） */
-  execution_target: ExecutionTarget;
-  /** v3 执行模式（对应 RouterInput.executionMode） */
-  execution_mode: ExecutionMode;
-  /** 命中的主规则标识 */
-  rule: "A" | "B" | "C" | "D" | "E" | "F" | "none";
-  /** v3 建议的最终 task_type */
+  triggered: boolean;
+  rule: "A" | "B" | "C" | "D" | "E" | "F" | "NONE";
+  resolvedTaskType: TaskType;
   finalTaskType: TaskType;
-  /** 是否触发执行层 */
-  should_trigger_execution: boolean;
+  execution_target: ExecutionTarget;
+  execution_mode: ExecutionMode;
+  reason: string;
+  metadata?: Record<string, unknown>;
 }
 
 /**
- * decideExecutionTriggerV3 — Execution Trigger System v3 核心决策函数
+ * Rule F sources: Pipeline steps where GPT is the primary execution authority.
+ * Distinct from Rule D (repair_pass) which is Claude execution.
+ * Rule F = step3_main (GPT orchestrates the primary JSON output).
+ */
+const GPT_PIPELINE_SOURCES = new Set<string>(["step3_main"]);
+
+/**
+ * decideExecutionTriggerV3 — Trigger v3 core decision function
  *
- * 在 v2 规则基础上新增 Rule F（GPT pipeline 来源），
- * 并将决策结果映射为 ExecutionTarget / ExecutionMode 类型。
+ * Builds on v2 rule detection but maps outcomes to explicit execution authority:
+ *   Rule E (block): execution_target="gpt", triggered=false
+ *   Rule C (repair): execution_target="claude", execution_mode="repair"
+ *   Rule A (explicit execution type): execution_target="claude", execution_mode="primary"
+ *   Rule B (document content): execution_target="claude", execution_mode="primary"
+ *   Rule F (step3_main GPT pipeline): execution_target="gpt", execution_mode="primary"
+ *   Rule D (generic pipeline): execution_target="gpt", execution_mode="primary"
+ *   NONE: execution_target="gpt", execution_mode="primary"
  *
- * 规则优先级（高→低）：
- *   Rule E（阻止）> Rule F（GPT 主控）> Rule A（执行型 task_type）>
- *   Rule C（repair）> Rule B（文档）> Rule D（pipeline）> none
- *
- * 决策映射：
- *   Rule E → execution_target="gpt",    execution_mode="primary",  rule="E"
- *   Rule F → execution_target="gpt",    execution_mode="primary",  rule="F"
- *   Rule A → execution_target="claude", execution_mode="primary",  rule="A"
- *   Rule C → execution_target="claude", execution_mode="repair",   rule="C"
- *   Rule B → execution_target="claude", execution_mode="primary",  rule="B"
- *   Rule D → execution_target="claude", execution_mode="primary",  rule="D"
- *   none   → execution_target="gpt",    execution_mode="primary",  rule="none"
+ * Dev mode note: execution_target="gpt" does NOT mean GPT runs.
+ * modelRouter.generate() adds dev_override=true, simulated_target="gpt"
+ * when processing a "gpt" target in dev mode.
  */
 export function decideExecutionTriggerV3(input: TriggerInput): TriggerDecisionV3 {
+  const v2 = decideExecutionTrigger(input);
+  const finalResult = resolveFinalTaskType(input.resolvedTaskType, v2);
+  const finalTaskType = finalResult.finalTaskType;
   const source = input.triggerContext?.source;
 
-  // ── Rule E（阻止规则）：轻量 narrative/summary → GPT 主控 ─────────────────
-  if (source && NON_EXECUTION_SOURCES.has(source)) {
+  // NOTE: TriggerDecisionV3.metadata is INTERNAL computation data only.
+  // It is NOT the observability output. The single source of truth for all
+  // 8 observability fields (trigger_rule, resolved_task_type, final_task_type,
+  // execution_target, execution_mode, selected_provider, dev_override,
+  // simulated_target) is RouterResponse.metadata, assembled by modelRouter.generate()
+  // via RouterInput.executionTarget/executionMode/triggerV3Meta.
+  // DO NOT add those fields here — it would create two sources of truth.
+
+  // ── Rule E: block ─────────────────────────────────────────────────────────
+  if (v2.trigger_categories.includes("Rule E")) {
     return {
-      execution_target: "gpt",
-      execution_mode:   "primary",
+      triggered:        false,
       rule:             "E",
-      finalTaskType:    input.resolvedTaskType,
-      should_trigger_execution: false,
-    };
-  }
-
-  // ── Rule F（GPT pipeline 来源）：明确属于 GPT 主控层 ──────────────────────
-  if (source && GPT_PIPELINE_SOURCES.has(source)) {
-    return {
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
       execution_target: "gpt",
       execution_mode:   "primary",
-      rule:             "F",
-      finalTaskType:    input.resolvedTaskType,
-      should_trigger_execution: false,
+      reason:           v2.trigger_reasons[0] ?? "Rule E: low-complexity path — GPT master layer",
+      metadata: { v2_categories: v2.trigger_categories },
     };
   }
 
-  // ── Rule A：明确执行型 task_type → Claude 主控 ───────────────────────────
-  if (EXECUTION_TASK_TYPES.has(input.resolvedTaskType)) {
+  // ── Rule C: structured JSON repair — Claude execution authority ────────────
+  if (v2.trigger_categories.includes("Rule C")) {
     return {
-      execution_target: "claude",
-      execution_mode:   "primary",
-      rule:             "A",
-      finalTaskType:    input.resolvedTaskType,
-      should_trigger_execution: true,
-    };
-  }
-
-  // ── Rule C：repair/JSON 修复 → Claude repair 模式 ────────────────────────
-  if (source && REPAIR_SOURCES.has(source)) {
-    return {
+      triggered:        true,
+      rule:             "C",
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
       execution_target: "claude",
       execution_mode:   "repair",
-      rule:             "C",
-      finalTaskType:    "structured_json",
-      should_trigger_execution: true,
+      reason:           `Rule C: source="${source ?? "unknown"}" — structured JSON repair, Claude execution authority`,
+      metadata: {
+        trigger_applied: finalResult.trigger_applied_to_execution_path,
+        v2_categories:   v2.trigger_categories,
+      },
     };
   }
 
-  // ── Rule B：消息包含文件/文档 → Claude 主控 ──────────────────────────────
-  if (input.messages && input.messages.length > 0) {
-    for (const msg of input.messages) {
-      if (!msg || typeof msg !== "object") continue;
-      const content = (msg as Record<string, unknown>).content;
-      if (!Array.isArray(content)) continue;
-      for (const block of content) {
-        if (!block || typeof block !== "object") continue;
-        const b = block as Record<string, unknown>;
-        if (b.type === "file_url") {
-          return {
-            execution_target: "claude",
-            execution_mode:   "primary",
-            rule:             "B",
-            finalTaskType:    input.resolvedTaskType,
-            should_trigger_execution: true,
-          };
-        }
-      }
-    }
-  }
-
-  // ── Rule D：pipeline 语义 → Claude 主控 ──────────────────────────────────
-  if (source && PIPELINE_SOURCES.has(source)) {
+  // ── Rule A: explicit Claude execution task type ────────────────────────────
+  if (v2.trigger_categories.includes("Rule A")) {
     return {
+      triggered:        true,
+      rule:             "A",
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
       execution_target: "claude",
       execution_mode:   "primary",
-      rule:             "D",
-      finalTaskType:    input.resolvedTaskType,
-      should_trigger_execution: true,
+      reason:           `Rule A: resolvedTaskType="${input.resolvedTaskType}" — explicit Claude execution layer`,
+      metadata: { v2_categories: v2.trigger_categories },
     };
   }
 
-  // ── 默认：GPT 主控层（研究 / 判断 / 叙事）────────────────────────────────
+  // ── Rule B: document/file content ─────────────────────────────────────────
+  if (v2.trigger_categories.includes("Rule B")) {
+    return {
+      triggered:        true,
+      rule:             "B",
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
+      execution_target: "claude",
+      execution_mode:   "primary",
+      reason:           "Rule B: message contains file/document content — Claude execution authority",
+      metadata: { v2_categories: v2.trigger_categories },
+    };
+  }
+
+  // ── Rule F (v3 new): step3_main — GPT-authority pipeline step ─────────────
+  if (source && GPT_PIPELINE_SOURCES.has(source)) {
+    return {
+      triggered:        true,
+      rule:             "F",
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
+      execution_target: "gpt",
+      execution_mode:   "primary",
+      reason:           `Rule F: source="${source}" — GPT-authority pipeline step`,
+    };
+  }
+
+  // ── Rule D: generic multi-step pipeline ───────────────────────────────────
+  if (v2.trigger_categories.includes("Rule D")) {
+    return {
+      triggered:        true,
+      rule:             "D",
+      resolvedTaskType: input.resolvedTaskType,
+      finalTaskType,
+      execution_target: "gpt",
+      execution_mode:   "primary",
+      reason:           `Rule D: source="${source ?? "unknown"}" — multi-step pipeline path`,
+    };
+  }
+
+  // ── NONE ──────────────────────────────────────────────────────────────────
   return {
+    triggered:        false,
+    rule:             "NONE",
+    resolvedTaskType: input.resolvedTaskType,
+    finalTaskType,
     execution_target: "gpt",
     execution_mode:   "primary",
-    rule:             "none",
-    finalTaskType:    input.resolvedTaskType,
-    should_trigger_execution: false,
+    reason:           "No trigger rules matched — GPT master layer task (default)",
   };
 }

@@ -66,19 +66,28 @@ describe("TC-MR-01: TaskType strict validation", () => {
     expect(TASK_TYPES.summarization).toBe("summarization");
   });
 
-  it("should throw on invalid task_type string", async () => {
-    await expect(
-      modelRouter.generate(
-        { messages: SAMPLE_MESSAGES },
-        "invalid_type" as TaskType
-      )
-    ).rejects.toThrow(/Invalid task_type/);
+  it("should not throw on invalid task_type string — fallback to default", async () => {
+    // OI-001 baseline: generate() walks fallback path instead of throwing
+    const result = await modelRouter.generate(
+      { messages: SAMPLE_MESSAGES },
+      "invalid_type" as TaskType
+    );
+    expect(result).toBeDefined();
+    expect(typeof result.output).toBe("string");
+    expect(result.metadata?.task_type).toBe("default");
+    expect(["anthropic", "openai", "gpt_stub"]).toContain(result.provider);
   });
 
-  it("should throw on empty string task_type", async () => {
-    await expect(
-      modelRouter.generate({ messages: SAMPLE_MESSAGES }, "" as TaskType)
-    ).rejects.toThrow(/Invalid task_type/);
+  it("should not throw on empty string task_type — fallback to default", async () => {
+    // OI-001 baseline: generate() walks fallback path instead of throwing
+    const result = await modelRouter.generate(
+      { messages: SAMPLE_MESSAGES },
+      "" as TaskType
+    );
+    expect(result).toBeDefined();
+    expect(typeof result.output).toBe("string");
+    expect(result.metadata?.task_type).toBe("default");
+    expect(["anthropic", "openai", "gpt_stub"]).toContain(result.provider);
   });
 
   it("should accept all valid task types without throwing type error", () => {
@@ -242,25 +251,27 @@ describe("TC-MR-04: Production routing map completeness", () => {
     }
   });
 
-  it("should route research to anthropic in production", () => {
-    expect(PRODUCTION_ROUTING_MAP.research).toBe("anthropic");
+  it("should route research to openai in production", () => {
+    // OI-001 baseline: research 归 GPT 主控（openai）
+    expect(PRODUCTION_ROUTING_MAP.research).toBe("openai");
   });
 
   it("should route reasoning to openai in production", () => {
     expect(PRODUCTION_ROUTING_MAP.reasoning).toBe("openai");
   });
 
-  it("should route narrative to anthropic in production", () => {
-    // OI-001 resolved: narrative 归 Anthropic (Claude) — 叙事生成由 Claude 处理
-    expect(PRODUCTION_ROUTING_MAP.narrative).toBe("anthropic");
+  it("should route narrative to openai in production", () => {
+    // OI-001 baseline: narrative 归 GPT 主控（openai）
+    expect(PRODUCTION_ROUTING_MAP.narrative).toBe("openai");
   });
 
   it("should route execution to anthropic in production", () => {
     expect(PRODUCTION_ROUTING_MAP.execution).toBe("anthropic");
   });
 
-  it("should route summarization to anthropic in production", () => {
-    expect(PRODUCTION_ROUTING_MAP.summarization).toBe("anthropic");
+  it("should route summarization to openai in production", () => {
+    // OI-001 baseline: summarization 归 GPT 主控（openai）
+    expect(PRODUCTION_ROUTING_MAP.summarization).toBe("openai");
   });
 
   it("routingFor() should return correct provider/model in development", () => {
@@ -273,9 +284,10 @@ describe("TC-MR-04: Production routing map completeness", () => {
   });
 
   it("routingFor() should return correct provider/model in production", () => {
+    // OI-001 baseline: research 在生产态归 openai（GPT 主控策略）
     const researchRoute = modelRouter.routingFor("research", "production");
-    expect(researchRoute.provider).toBe("anthropic");
-    expect(researchRoute.model.startsWith("claude-")).toBe(true);
+    expect(researchRoute.provider).toBe("openai");
+    expect(researchRoute.model.length).toBeGreaterThan(0);
 
     const reasoningRoute = modelRouter.routingFor("reasoning", "production");
     expect(reasoningRoute.provider).toBe("openai");

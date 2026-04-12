@@ -170,7 +170,7 @@ export const MODEL_METADATA: Record<string, ModelMeta> = {
     contextWindow: 1_000_000, maxOutput: 128_000,
     inputPricePerMTok: 2.5, outputPricePerMTok: 15.0,
     supportsVision: true, supportsExtendedThinking: false, latency: "fast",
-    recommended_for: ["deep_research", "complex_reasoning", "professional_workflows", "structured_json"],
+    recommended_for: ["agentic_tasks", "deep_research", "complex_reasoning", "professional_workflows", "structured_json"],
   },
   "gpt-5.4-pro": {
     id: "gpt-5.4-pro", provider: "openai", displayName: "GPT-5.4 Pro",

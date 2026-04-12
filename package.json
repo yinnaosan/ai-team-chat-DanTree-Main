@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently --names \"node,china\" --prefix-colors \"cyan,yellow\" \"NODE_ENV=development tsx watch server/_core/index.ts\" \"bash scripts/start-china-service.sh\"",
+    "dev": "concurrently --names \"node,china\" --prefix-colors \"cyan,yellow\" \"PORT=8001 NODE_ENV=development tsx watch server/_core/index.ts\" \"bash scripts/start-china-service.sh\"",
     "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",

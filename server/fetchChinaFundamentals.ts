@@ -11,7 +11,7 @@
  *   - Updated markdown: shows report period, permanent unavailability note
  */
 
-const CHINA_FUNDAMENTALS_URL = "http://localhost:8001";
+const CHINA_FUNDAMENTALS_URL = "http://localhost:8002";
 const TIMEOUT_MS = 45_000; // 45s — Python providers can be slow on first call
 
 function makeAbortSignal(ms: number): AbortSignal {

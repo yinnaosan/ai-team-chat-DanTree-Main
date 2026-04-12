@@ -153,7 +153,7 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
+  const preferredPort = parseInt(process.env.PORT || "8001");
   const port = await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {

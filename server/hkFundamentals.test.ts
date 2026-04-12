@@ -13,7 +13,7 @@ import { fetchHKFundamentals, fetchChinaFundamentals } from "./fetchChinaFundame
 
 async function isServiceUp(): Promise<boolean> {
   try {
-    const res = await fetch("http://localhost:8001/health", {
+    const res = await fetch("http://localhost:8002/health", {
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return false;
@@ -28,7 +28,7 @@ async function clearCache(symbol: string, isHK = false): Promise<void> {
   const key = isHK
     ? `hk_${symbol.split(".")[0].replace(/^0+/, "") || "0"}`
     : symbol.split(".")[0];
-  await fetch(`http://localhost:8001/cache/${key}`, { method: "DELETE" }).catch(() => {});
+  await fetch(`http://localhost:8002/cache/${key}`, { method: "DELETE" }).catch(() => {});
 }
 
 // ── HK Provider Tests ─────────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ describe("CN Fundamentals — fallback validation (override-based)", () => {
   it("600519: AKShare fallback triggered when BaoStock disabled", async () => {
     const up = await isServiceUp();
     if (!up) return;
-    await fetch("http://localhost:8001/test/override?provider=baostock&enabled=false", { method: "POST" });
+    await fetch("http://localhost:8002/test/override?provider=baostock&enabled=false", { method: "POST" });
     try {
       await clearCache("600519.SS");
       const result = await fetchChinaFundamentals("600519.SS");
@@ -165,22 +165,22 @@ describe("CN Fundamentals — fallback validation (override-based)", () => {
         expect(result.structured.coverageScore).toBeGreaterThanOrEqual(0.7);
       }
     } finally {
-      await fetch("http://localhost:8001/test/override", { method: "DELETE" });
+      await fetch("http://localhost:8002/test/override", { method: "DELETE" });
     }
   }, 90_000);
 
   it("600519: returns null (unavailable) when all CN providers disabled", async () => {
     const up = await isServiceUp();
     if (!up) return;
-    await fetch("http://localhost:8001/test/override?provider=baostock&enabled=false", { method: "POST" });
-    await fetch("http://localhost:8001/test/override?provider=akshare&enabled=false", { method: "POST" });
-    await fetch("http://localhost:8001/test/override?provider=efinance&enabled=false", { method: "POST" });
+    await fetch("http://localhost:8002/test/override?provider=baostock&enabled=false", { method: "POST" });
+    await fetch("http://localhost:8002/test/override?provider=akshare&enabled=false", { method: "POST" });
+    await fetch("http://localhost:8002/test/override?provider=efinance&enabled=false", { method: "POST" });
     try {
       await clearCache("600519.SS");
       const result = await fetchChinaFundamentals("600519.SS");
       expect(result).toBeNull();
     } finally {
-      await fetch("http://localhost:8001/test/override", { method: "DELETE" });
+      await fetch("http://localhost:8002/test/override", { method: "DELETE" });
     }
   }, 90_000);
 });

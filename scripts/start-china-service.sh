@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # start-china-service.sh
-# Starts the china-fundamentals-service (FastAPI on port 8001).
+# Starts the china-fundamentals-service (FastAPI on port 8002).
 # Designed to be called from the dev script alongside Node.js.
 # If Python service fails to start, it logs clearly but does NOT kill Node.js.
 
@@ -8,21 +8,22 @@ set -euo pipefail
 
 SERVICE_DIR="$(cd "$(dirname "$0")/../china-fundamentals-service" && pwd)"
 LOG_PREFIX="[china-fundamentals-service]"
-PORT=8001
+PORT=8002
 
 echo "$LOG_PREFIX Starting on port $PORT..."
 echo "$LOG_PREFIX Service dir: $SERVICE_DIR"
 
 # Check Python dependencies
-if ! python3 -c "import fastapi, uvicorn, baostock, akshare, efinance" 2>/dev/null; then
+PY_SITE="/usr/local/lib/python3.11/dist-packages"
+if [ ! -d "$PY_SITE/fastapi" ] || [ ! -d "$PY_SITE/uvicorn" ] || [ ! -d "$PY_SITE/baostock" ] || [ ! -d "$PY_SITE/akshare" ] || [ ! -d "$PY_SITE/efinance" ]; then
   echo "$LOG_PREFIX WARNING: Missing Python dependencies. Installing..."
-  sudo pip3 install baostock akshare efinance fastapi uvicorn --quiet || {
+  sudo /usr/bin/python3.11 -m pip install baostock akshare efinance fastapi uvicorn --quiet || {
     echo "$LOG_PREFIX ERROR: Failed to install dependencies. CN fundamentals will be unavailable."
     exit 0  # exit 0 so parent process continues
   }
 fi
 
-# Kill any existing instance on port 8001
+# Kill any existing instance on port 8002
 if lsof -ti:$PORT >/dev/null 2>&1; then
   echo "$LOG_PREFIX Killing existing process on port $PORT..."
   kill $(lsof -ti:$PORT) 2>/dev/null || true
@@ -31,7 +32,7 @@ fi
 
 # Start uvicorn
 cd "$SERVICE_DIR"
-python3 -m uvicorn main:app \
+/usr/local/bin/uvicorn main:app \
   --host 0.0.0.0 \
   --port $PORT \
   --log-level info \

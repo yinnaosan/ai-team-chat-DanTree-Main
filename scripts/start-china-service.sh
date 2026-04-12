@@ -16,7 +16,7 @@ echo "$LOG_PREFIX Service dir: $SERVICE_DIR"
 # Check Python dependencies
 if ! python3 -c "import fastapi, uvicorn, baostock, akshare, efinance" 2>/dev/null; then
   echo "$LOG_PREFIX WARNING: Missing Python dependencies. Installing..."
-  pip3 install baostock akshare efinance fastapi uvicorn --quiet || {
+  sudo pip3 install baostock akshare efinance fastapi uvicorn --quiet || {
     echo "$LOG_PREFIX ERROR: Failed to install dependencies. CN fundamentals will be unavailable."
     exit 0  # exit 0 so parent process continues
   }

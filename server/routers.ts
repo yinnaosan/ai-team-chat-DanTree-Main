@@ -2801,6 +2801,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
             { role: "system", content: gptSystemPrompt },
             { role: "user", content: gptUserMessage },
           ],
+          triggerContext: { source: "legacy_stream_fallback" },
         });
         finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
         await updateMessageContent(streamMsgId, finalReply);
@@ -2812,6 +2813,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           { role: "system", content: gptSystemPrompt },
           { role: "user", content: gptUserMessage },
         ],
+        triggerContext: { source: "legacy_no_key" },
       });
       finalReply = String(fb.choices?.[0]?.message?.content || manusReport);
       await updateMessageContent(streamMsgId, finalReply);

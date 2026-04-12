@@ -635,3 +635,217 @@ describe("TC-MR-GUARD-01: modelRouter.generate() is the only exported LLM entry 
     expect(result.metadata?.simulated_target).toBe("gpt");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-PROD-01: Production path — Trigger v3 metadata survives through
+//                modelRouter.generate() production branch
+//
+// Context: In the REAL REPO, invokeLLM() production path was bypassing
+// modelRouter.generate() entirely (raw fetch). PATCH LLM-8 removes that
+// bypass. These tests verify the ROUTER LAYER production path works correctly
+// with Trigger v3 authority inputs, so that once invokeLLM() is fixed to
+// route through modelRouter, the metadata contract holds end-to-end.
+//
+// NOTE: "production mode" here means DANTREE_MODE=production (real repo switch).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-PROD-01: Production path — Trigger v3 metadata contract", () => {
+  beforeEach(() => {
+    process.env.DANTREE_MODE = "production";
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.DANTREE_MODE;
+  });
+
+  it("production path: triggerV3Meta fields appear in RouterResponse.metadata (single source of truth)", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Analyze AAPL" }],
+        executionTarget: "gpt",
+        executionMode:   "primary",
+        triggerV3Meta: {
+          trigger_rule:        "F",
+          resolved_task_type:  "research",
+          final_task_type:     "research",
+        },
+      },
+      "research"
+    );
+    expect(result.metadata?.trigger_rule).toBe("F");
+    expect(result.metadata?.resolved_task_type).toBe("research");
+    expect(result.metadata?.final_task_type).toBe("research");
+    expect(result.metadata?.execution_target).toBe("gpt");
+    expect(result.metadata?.execution_mode).toBe("primary");
+    expect(result.metadata?.selected_provider).toBeDefined();
+    expect(result.metadata?.dev_override).toBe(false);
+  });
+
+  it("production path: executionTarget=claude on research task triggers authority_override", async () => {
+    // B1 isolation: mock Anthropic locally to avoid real API call in production mode
+    vi.mock("@anthropic-ai/sdk", () => ({
+      default: class MockAnthropic {
+        messages = {
+          create: vi.fn().mockResolvedValue({
+            content: [{ type: "text", text: "Mock authority_override response." }],
+            model: "claude-sonnet-4-6",
+            stop_reason: "end_turn",
+            usage: { input_tokens: 150, output_tokens: 300 },
+          }),
+        };
+      },
+    }));
+    process.env.ANTHROPIC_API_KEY = "test-prod-key";
+    try {
+      const result = await modelRouter.generate(
+        {
+          messages: [{ role: "user", content: "Execute analysis" }],
+          executionTarget: "claude",
+          executionMode:   "primary",
+          triggerV3Meta: {
+            trigger_rule:        "A",
+            resolved_task_type:  "execution",
+            final_task_type:     "execution",
+          },
+        },
+        "research"
+      );
+      expect(result.metadata?.execution_target).toBe("claude");
+      expect(result.metadata?.trigger_rule).toBe("A");
+      expect(result.metadata?.routing_strategy).toBe("authority_override");
+    } finally {
+      delete process.env.ANTHROPIC_API_KEY;
+      vi.resetModules();
+    }
+  });
+
+  it("production path: executionTarget=gpt on execution task → authority_override (routing_map says anthropic)", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Execute code" }],
+        executionTarget: "gpt",
+        executionMode:   "primary",
+        triggerV3Meta: {
+          trigger_rule:        "F",
+          resolved_task_type:  "execution",
+          final_task_type:     "execution",
+        },
+      },
+      "execution"
+    );
+    expect(result.metadata?.execution_target).toBe("gpt");
+    expect(result.metadata?.routing_strategy).toBe("authority_override");
+    expect(result.metadata?.routing_map_provider).toBe("anthropic");
+  });
+
+  it("production path: no executionTarget → pure routing_map, no override", async () => {
+    const result = await modelRouter.generate(
+      {
+        messages: [{ role: "user", content: "Research AAPL" }],
+        triggerV3Meta: {
+          trigger_rule:        "NONE",
+          resolved_task_type:  "research",
+          final_task_type:     "research",
+        },
+      },
+      "research"
+    );
+    expect(result.metadata?.routing_strategy).toBe("routing_map");
+    expect(result.metadata?.execution_target).toBe("none");
+  });
+
+  it("production path: repair pass (Rule C) — execution_mode=repair survives in metadata", async () => {
+    // B1 isolation: mock Anthropic locally to avoid real API call in production mode
+    vi.mock("@anthropic-ai/sdk", () => ({
+      default: class MockAnthropic {
+        messages = {
+          create: vi.fn().mockResolvedValue({
+            content: [{ type: "text", text: "Mock repair response." }],
+            model: "claude-sonnet-4-6",
+            stop_reason: "end_turn",
+            usage: { input_tokens: 150, output_tokens: 300 },
+          }),
+        };
+      },
+    }));
+    process.env.ANTHROPIC_API_KEY = "test-prod-key";
+    try {
+      const result = await modelRouter.generate(
+        {
+          messages: [{ role: "user", content: "Fix JSON" }],
+          executionTarget: "claude",
+          executionMode:   "repair",
+          triggerV3Meta: {
+            trigger_rule:        "C",
+            resolved_task_type:  "research",
+            final_task_type:     "structured_json",
+          },
+        },
+        "structured_json"
+      );
+      expect(result.metadata?.execution_mode).toBe("repair");
+      expect(result.metadata?.trigger_rule).toBe("C");
+      expect(result.metadata?.final_task_type).toBe("structured_json");
+    } finally {
+      delete process.env.ANTHROPIC_API_KEY;
+      vi.resetModules();
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-MR-PROD-02: Dev and production produce structurally identical metadata
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("TC-MR-PROD-02: Dev and production produce structurally identical metadata", () => {
+  const SHARED_INPUT = {
+    messages: [{ role: "user" as const, content: "Analyze AAPL" }],
+    executionTarget: "gpt" as const,
+    executionMode:   "primary" as const,
+    triggerV3Meta: {
+      trigger_rule:        "F",
+      resolved_task_type:  "research",
+      final_task_type:     "research",
+    },
+  };
+
+  it("dev mode: all 8 metadata fields present", async () => {
+    delete process.env.DANTREE_MODE;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+
+    const result = await modelRouter.generate(SHARED_INPUT, "research");
+    const required = [
+      "trigger_rule", "resolved_task_type", "final_task_type",
+      "execution_target", "execution_mode", "selected_provider",
+      "dev_override", "simulated_target",
+    ];
+    for (const field of required) {
+      expect(result.metadata, `field ${field} missing in dev mode`).toHaveProperty(field);
+    }
+    expect(result.metadata?.dev_override).toBe(true);
+  });
+
+  it("production mode: all required metadata fields present", async () => {
+    process.env.DANTREE_MODE = "production";
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.BUILT_IN_FORGE_API_KEY;
+
+    const result = await modelRouter.generate(SHARED_INPUT, "research");
+    const required = [
+      "trigger_rule", "resolved_task_type", "final_task_type",
+      "execution_target", "execution_mode", "selected_provider",
+      "dev_override",
+    ];
+    for (const field of required) {
+      expect(result.metadata, `field ${field} missing in production mode`).toHaveProperty(field);
+    }
+    expect(result.metadata?.dev_override).toBe(false);
+    delete process.env.DANTREE_MODE;
+  });
+});

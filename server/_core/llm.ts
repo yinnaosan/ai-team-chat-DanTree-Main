@@ -290,75 +290,63 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   // ── 路由策略 ──────────────────────────────────────────────────────────────
-  // 研发态（DANTREE_MODE 未设置 / != "production"）：
-  //   → 委托 modelRouter.generate()，由 ANTHROPIC_API_KEY 驱动 Claude Sonnet
-  //   → 沙盒可用，不走 api.openai.com
-  // 发布态（DANTREE_MODE=production）：
-  //   → 走原始 OpenAI 直连路径（gpt-5.4）
+  // PATCH LLM-8: 统一 dev/prod 到同一 Trigger v3 → modelRouter 链路
+  // isDev 仅用于 Observability log 决策，不再作为链路 gate
   // ─────────────────────────────────────────────────────────────────────────
   const isDev = (process.env.DANTREE_MODE ?? "") !== "production";
 
+  // ── Message adaptation（统一，dev/prod 共用）─────────────────────────────
+  const routerMessages = messages.map((m) => ({
+    role: (typeof m.role === "string" ? m.role : "user") as "system" | "user" | "assistant",
+    content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+  }));
+  const normalizedResponseFormat = normalizeResponseFormat({
+    responseFormat, response_format, outputSchema, output_schema,
+  });
+  const routerInput: RouterInput = {
+    messages: routerMessages,
+    ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
+  };
+
+  // ── Layer 1: TaskType Bridge ─────────────────────────────────────────────
+  const resolvedTaskType = resolveBridgedTaskType(params.triggerContext);
+
+  // ── Layer 2: Execution Trigger Decision ──────────────────────────────────
+  const triggerDecision = decideExecutionTrigger({
+    triggerContext:  params.triggerContext,
+    resolvedTaskType,
+    messages:        params.messages as unknown[],
+  });
+
+  // ── Layer 3: Apply finalTaskType (v2) ────────────────────────────────────
+  const finalTaskTypeResult = resolveFinalTaskType(resolvedTaskType, triggerDecision);
+  const finalTaskType = finalTaskTypeResult.finalTaskType;
+
+  // ── Layer 3.5: Trigger v3 — resolveProviderWithAuthority hint ────────────
+  const triggerV3 = decideExecutionTriggerV3({
+    triggerContext:  params.triggerContext,
+    resolvedTaskType,
+    messages:        params.messages as unknown[],
+  });
+  const routerInputV3: RouterInput = {
+    ...routerInput,
+    executionTarget: triggerV3.execution_target,
+    executionMode:   triggerV3.execution_mode,
+    triggerV3Meta: {
+      trigger_rule:       triggerV3.rule,
+      resolved_task_type: resolvedTaskType,
+      final_task_type:    triggerV3.finalTaskType,
+    },
+  };
+
+  // ── Layer 4: Observability (dev only) ────────────────────────────────────
   if (isDev) {
-    // 研发态：委托 modelRouter（Claude Sonnet 4.6，沙盒可用）
-    // 将 invokeLLM 的 Message 类型适配为 RouterInput 的 LLMMessage（只保留 role + content 字符串）
-    const routerMessages = messages.map((m) => ({
-      role: (typeof m.role === "string" ? m.role : "user") as "system" | "user" | "assistant",
-      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-    }));
-    const normalizedResponseFormat = normalizeResponseFormat({
-      responseFormat, response_format, outputSchema, output_schema,
-    });
-    const routerInput: RouterInput = {
-      messages: routerMessages,
-      ...(normalizedResponseFormat ? { responseFormat: normalizedResponseFormat as RouterInput["responseFormat"] } : {}),
-    };
-
-    // ── Layer 1: TaskType Bridge ─────────────────────────────────────────
-    const resolvedTaskType = resolveBridgedTaskType(params.triggerContext);
-
-    // ── Layer 2: Execution Trigger Decision ──────────────────────────────
-    const triggerDecision = decideExecutionTrigger({
-      triggerContext:  params.triggerContext,
-      resolvedTaskType,
-      messages:        params.messages as unknown[],
-    });
-
-    // ── Layer 3: Apply finalTaskType (v2) ────────────────────────────────
-    // repair_pass: research → structured_json (Rule C: more precise)
-    // others: no change
-    const finalTaskTypeResult = resolveFinalTaskType(resolvedTaskType, triggerDecision);
-    const finalTaskType = finalTaskTypeResult.finalTaskType;
-
-    // ── Layer 3.5: Trigger v3 — resolveProviderWithAuthority hint ────────
-    // v3 decision provides execution_target (gpt|claude|hybrid) and
-    // execution_mode (primary|fallback|repair) for RouterInput.
-    // These fields are passed to modelRouter.generate() which calls
-    // resolveProviderWithAuthority() internally.
-    const triggerV3 = decideExecutionTriggerV3({
-      triggerContext:  params.triggerContext,
-      resolvedTaskType,
-      messages:        params.messages as unknown[],
-    });
-    // Inject v3 fields into routerInput (non-destructive: only adds new fields)
-    const routerInputV3: RouterInput = {
-      ...routerInput,
-      executionTarget: triggerV3.execution_target,
-      executionMode:   triggerV3.execution_mode,
-      triggerV3Meta: {
-        trigger_rule:       triggerV3.rule,
-        resolved_task_type: resolvedTaskType,
-        final_task_type:    triggerV3.finalTaskType,
-      },
-    };
-
-    // ── Layer 4: Observability (v2 log level fix) ────────────────────────
     if (params.triggerContext && resolvedTaskType !== "default") {
       console.info(
         `[TaskTypeBridge] ${params.triggerContext.source ?? "unknown"}: ` +
         `${params.triggerContext.business_task_type} → ${resolvedTaskType}`
       );
     }
-    // TRIGGER → console.info；NO_TRIGGER → console.debug（减少 log 噪音）
     const triggerLog = formatTriggerDecisionLog(triggerDecision, params.triggerContext?.source);
     if (triggerDecision.should_trigger_execution) {
       console.info(triggerLog);
@@ -372,57 +360,21 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
         `(source=${params.triggerContext?.source ?? "unknown"})`
       );
     }
-
-    // ── Layer 5: Execute with finalTaskType ──────────────────────────────
-    // Dev mode: Claude Sonnet 4.6 处理所有请求（实际执行者不变）
-    // finalTaskType 在生产态开启后会通过 PRODUCTION_ROUTING_MAP 真正分发
-    const routerResult = await modelRouter.generate(routerInputV3, finalTaskType);
-    // 将 modelRouter 响应适配为 InvokeResult 格式
-    return {
-      id: `router-${Date.now()}`,
-      object: "chat.completion",
-      created: Math.floor(Date.now() / 1000),
-      model: routerResult.model,
-      choices: [{
-        index: 0,
-        message: { role: "assistant", content: routerResult.content },
-        finish_reason: "stop",
-      }],
-      usage: routerResult.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-    } as unknown as InvokeResult;
   }
 
-  // 发布态：直连 OpenAI gpt-5.4
-  assertApiKey();
-  const payload: Record<string, unknown> = {
-    model: "gpt-5.4",
-    messages: messages.map(normalizeMessage),
-  };
-  if (tools && tools.length > 0) payload.tools = tools;
-  const normalizedToolChoice = normalizeToolChoice(toolChoice || tool_choice, tools);
-  if (normalizedToolChoice) payload.tool_choice = normalizedToolChoice;
-  payload.max_tokens = 8192;
-  const normalizedResponseFormat = normalizeResponseFormat({
-    responseFormat, response_format, outputSchema, output_schema,
-  });
-  if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
-
-  const response = await fetch(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(180000),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
-  }
-
-  return (await response.json()) as InvokeResult;
+  // ── Layer 5: Execute — unified dev/prod entry point ──────────────────────
+  // modelRouter.generate() handles dev/prod routing internally via DANTREE_MODE
+  const routerResult = await modelRouter.generate(routerInputV3, finalTaskType);
+  return {
+    id: `router-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model: routerResult.model,
+    choices: [{
+      index: 0,
+      message: { role: "assistant", content: routerResult.content },
+      finish_reason: "stop",
+    }],
+    usage: routerResult.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+  } as unknown as InvokeResult;
 }

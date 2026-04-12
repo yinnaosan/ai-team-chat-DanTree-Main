@@ -603,13 +603,16 @@ export const modelRouter = {
     };
     console.log("[model_router:route]", JSON.stringify(log));
 
-    // v3: inject 8-field observability metadata (single source of truth)
+    // v3: inject 8-field observability metadata + routing strategy (single source of truth)
+    const routingMapProvider = PRODUCTION_ROUTING_MAP[resolvedTaskType] ?? "openai";
     const v3MetaProd = {
-      execution_target:    input.executionTarget ?? "none",
-      execution_mode:      input.executionMode   ?? "primary",
-      selected_provider:   result.provider,
-      dev_override:        false,
-      simulated_target:    undefined,
+      execution_target:     input.executionTarget ?? "none",
+      execution_mode:       input.executionMode   ?? "primary",
+      selected_provider:    result.provider,
+      dev_override:         false,
+      simulated_target:     undefined,
+      routing_strategy:     strategy,
+      routing_map_provider: routingMapProvider,
       ...(input.triggerV3Meta ?? {}),
     };
 

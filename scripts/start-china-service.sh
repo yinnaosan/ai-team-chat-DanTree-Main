@@ -52,7 +52,7 @@ UVICORN_PID=$!
 echo "$LOG_PREFIX Started with PID $UVICORN_PID"
 
 # Wait briefly and verify it started
-sleep 3
+sleep 6
 if kill -0 $UVICORN_PID 2>/dev/null; then
   echo "$LOG_PREFIX OK — service is running (PID $UVICORN_PID)"
 else

@@ -3620,8 +3620,8 @@ Output format MUST be:
         ],
         triggerContext: {
           business_task_type: resolvedTaskType,
-          interaction_mode:   intentCtx.interaction_mode,
-          entity_scope:       intentCtx.entity_scope,
+          interaction_mode:   "execution" as const,
+          entity_scope:       primaryTicker ? [primaryTicker] : [],
           source:             "memory_summary",
         },
       });

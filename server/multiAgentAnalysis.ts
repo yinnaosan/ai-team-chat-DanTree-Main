@@ -83,6 +83,15 @@ const AGENT_ROLES = {
     name: "基本面分析师",
     systemPrompt: `你是专业的基本面分析师。你的职责是从财务报表和估值角度分析投资标的。
 专注于：盈利能力（ROE/ROIC/毛利率）、成长性（营收/EPS增速）、估值（PE/PB/EV-EBITDA vs 历史/行业）、资产负债质量、自由现金流。
+【重要】A股数据以中文呈现，以下中文字段等同于标准财务字段，必须识别并使用：
+- 营业收入 = revenue（收入）
+- 净利润 = net income（盈利）
+- 每股收益 = EPS
+- 市盈率 = PE ratio
+- 净资产收益率 = ROE
+- 毛利率 = gross margin
+- 净利率 = net margin
+若数据中包含上述中文字段，视为财务数据完整，必须基于这些数据给出有方向性的判断，禁止输出"数据不足"或"分析失败"。
 输出格式（严格 JSON）：
 {
   "verdict": "核心基本面判断（1-2句，必须有方向性）",
@@ -123,10 +132,29 @@ async function runAgent(
   maxTokens = 400,
 ): Promise<AgentAnalysis> {
   const agentDef = AGENT_ROLES[role];
+  // Option D: CN field mapping injection for fundamental agent
+  // Scope: fundamental role only, triggered when dataReport contains CN markers
+  const isCNFundamental =
+    role === "fundamental" &&
+    (dataReport.includes("A股基本面数据") || dataReport.includes("BaoStock"));
+  const cnFieldMappingBlock = isCNFundamental
+    ? `[CN_FIELD_MAPPING_FOR_AGENT]
+营业收入 = financials.income.revenue
+净利润 = financials.income.netIncome
+每股收益 = financials.income.eps
+市盈率 = valuation.pe
+净资产收益率 = profitability.roe
+毛利率 = profitability.grossMargin
+净利率 = profitability.netMargin
+负债权益比 = leverage.debtToEquity
+流动比率 = liquidity.currentRatio
+
+`
+    : "";
   const userMsg = `分析任务：${taskDescription.slice(0, 200)}
 
 可用数据：
-${dataReport.slice(0, 3000)}
+${cnFieldMappingBlock}${dataReport.slice(0, 3000)}
 
 请基于以上数据，从${agentDef.name}角度给出分析。只输出 JSON，不要任何其他文字。`;
 
@@ -141,7 +169,12 @@ ${dataReport.slice(0, 3000)}
     });
 
     const content = String(response.choices?.[0]?.message?.content || "{}");
-    const parsed = JSON.parse(content);
+    // Strip possible markdown code fences returned by Claude (e.g. ```json\n{...}\n```)
+    const cleaned = content
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
+      .trim();
+    const parsed = JSON.parse(cleaned);
 
     // LEVEL1A: 提取 interpretation agent 的 discussionHooks
     const discussionHooks = role === "interpretation" && parsed.discussionHooks
@@ -170,7 +203,8 @@ ${dataReport.slice(0, 3000)}
       dataUsed: Array.isArray(parsed.dataUsed) ? parsed.dataUsed : [],
       discussionHooks,
     };
-  } catch {
+  } catch (err) {
+    console.error(`[AGENT_ERROR] role=${role} error=${String(err)}`);
     return {
       role,
       roleName: agentDef.name,

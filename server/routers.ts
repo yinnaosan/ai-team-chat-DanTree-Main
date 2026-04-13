@@ -2597,52 +2597,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       // GPT is a RENDERER, not an author. GPT only fills the schema.
       let rawJsonOutput = "";
       try {
-        if (!ENV.isProduction) {
-          // ── DEV: always use Claude (invokeLLMWithRetry), never OpenAI ──
-          const fb = await invokeLLMWithRetry({
-            messages: [
-              { role: "system", content: jsonOnlySystemMsg },
-              { role: "user", content: jsonOnlyUserMsg },
-            ],
-            triggerContext: {
-              business_task_type: resolvedTaskType,
-              interaction_mode:   intentCtx.interaction_mode,
-              entity_scope:       intentCtx.entity_scope,
-              source:             "step3_main",
-            },
-          });
-          rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
-        } else if (userConfig?.openaiApiKey) {
-          // ── PROD: try OpenAI first, fallback to Claude on failure ──
-          try {
-            rawJsonOutput = await callOpenAI({
-              apiKey: userConfig.openaiApiKey,
-              model: userConfig.openaiModel || DEFAULT_MODEL,
-              messages: [
-                { role: "system", content: jsonOnlySystemMsg },
-                { role: "user", content: jsonOnlyUserMsg },
-              ],
-              maxTokens: modeConfig?.step3MaxTokens ?? 2400,
-            });
-          } catch (openaiErr) {
-            // OpenAI failed → fallback to Claude
-            console.warn(`[V2.1] openai_failed_fallback_to_claude: ${openaiErr instanceof Error ? openaiErr.message.slice(0, 100) : String(openaiErr).slice(0, 100)}`);
-            const fb = await invokeLLMWithRetry({
-              messages: [
-                { role: "system", content: jsonOnlySystemMsg },
-                { role: "user", content: jsonOnlyUserMsg },
-              ],
-              triggerContext: {
-                business_task_type: resolvedTaskType,
-                interaction_mode:   intentCtx.interaction_mode,
-                entity_scope:       intentCtx.entity_scope,
-                source:             "step3_main",
-              },
-            });
-            rawJsonOutput = String(fb.choices?.[0]?.message?.content || "");
-          }
-        } else {
-          // ── PROD no OpenAI key: use Claude ──
+        // BP-2: Phase 1 retirement — always use invokeLLMWithRetry (openaiApiKey bypass removed)
+        {
           const fb = await invokeLLMWithRetry({
             messages: [
               { role: "system", content: jsonOnlySystemMsg },
@@ -2664,49 +2620,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           // Retry once with error context
           const retryMsg = jsonOnlyUserMsg + `\n\nPREVIOUS_ATTEMPT_ERRORS: ${validationResult.errors.join(", ")}\nFix these errors and output valid JSON only.`;
           let retryRaw = "";
-          if (!ENV.isProduction) {
-            // DEV: always Claude
-            const retryFb = await invokeLLMWithRetry({
-              messages: [
-                { role: "system", content: jsonOnlySystemMsg },
-                { role: "user", content: retryMsg },
-              ],
-              triggerContext: {
-                business_task_type: resolvedTaskType,
-                interaction_mode:   intentCtx.interaction_mode,
-                entity_scope:       intentCtx.entity_scope,
-                source:             "repair_pass",
-              },
-            });
-            retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
-          } else if (userConfig?.openaiApiKey) {
-            // PROD: try OpenAI, fallback Claude
-            try {
-              retryRaw = await callOpenAI({
-                apiKey: userConfig.openaiApiKey,
-                model: userConfig.openaiModel || DEFAULT_MODEL,
-                messages: [
-                  { role: "system", content: jsonOnlySystemMsg },
-                  { role: "user", content: retryMsg },
-                ],
-                maxTokens: modeConfig?.step3MaxTokens ?? 2400,
-              });
-            } catch {
-              const retryFb = await invokeLLMWithRetry({
-                messages: [
-                  { role: "system", content: jsonOnlySystemMsg },
-                  { role: "user", content: retryMsg },
-                ],
-                triggerContext: {
-                  business_task_type: resolvedTaskType,
-                  interaction_mode:   intentCtx.interaction_mode,
-                  entity_scope:       intentCtx.entity_scope,
-                  source:             "repair_pass",
-                },
-              });
-              retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
-            }
-          } else {
+          // BP-3: Phase 1 retirement — always use invokeLLMWithRetry (openaiApiKey bypass removed)
+          {
             const retryFb = await invokeLLMWithRetry({
               messages: [
                 { role: "system", content: jsonOnlySystemMsg },

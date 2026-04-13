@@ -2675,7 +2675,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 business_task_type: resolvedTaskType,
                 interaction_mode:   intentCtx.interaction_mode,
                 entity_scope:       intentCtx.entity_scope,
-                source:             "step3_main",
+                source:             "repair_pass",
               },
             });
             retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
@@ -2701,7 +2701,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                   business_task_type: resolvedTaskType,
                   interaction_mode:   intentCtx.interaction_mode,
                   entity_scope:       intentCtx.entity_scope,
-                  source:             "step3_main",
+                  source:             "repair_pass",
                 },
               });
               retryRaw = String(retryFb.choices?.[0]?.message?.content || "");
@@ -2716,7 +2716,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 business_task_type: resolvedTaskType,
                 interaction_mode:   intentCtx.interaction_mode,
                 entity_scope:       intentCtx.entity_scope,
-                source:             "step3_main",
+                source:             "repair_pass",
               },
             });
             retryRaw = String(retryFb.choices?.[0]?.message?.content || "");

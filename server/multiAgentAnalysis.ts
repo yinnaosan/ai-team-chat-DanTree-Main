@@ -13,7 +13,15 @@
 
 import { invokeLLM } from "./_core/llm";
 
-// ── 类型定义 ──────────────────────────────────────────────────────────────────
+// ── Patch A: 回退检测常量（与 catch 块硬编码字符串一致） ──────────────────────────────────────────────────────────────────────────────
+
+const FALLBACK_VERDICT = "分析失败（数据不足或 API 错误）";
+
+function isAgentFallback(agent: AgentAnalysis): boolean {
+  return agent.verdict === FALLBACK_VERDICT;
+}
+
+// ── 类型定义 ──────────────────────────────────────────────────────────────────────────────
 
 export interface AgentAnalysis {
   role: "macro" | "technical" | "fundamental" | "sentiment" | "interpretation";
@@ -48,6 +56,10 @@ export interface MultiAgentResult {
   };
   /** LEVEL1A: interpretation agent 的 discussionHooks（若已激活） */
   discussionHooks?: AgentAnalysis["discussionHooks"];
+  // Patch A: agent 成功门控新增字段
+  analysisSucceeded: boolean;      // false = 门控阻断了合成
+  successfulAgentCount: number;    // 通过门控的 agent 数量
+  requiredAgentCount: number;      // 要求的最低阈值
 }
 
 // ── Agent 角色定义 ────────────────────────────────────────────────────────────
@@ -311,7 +323,37 @@ export async function runMultiAgentAnalysis(
   const agentPromises = activeRoles.map(role =>
     runAgent(role, taskDescription, dataReport, maxTokensPerAgent)
   );
-  const agents = await Promise.all(agentPromises);
+   const agents = await Promise.all(agentPromises);
+
+  // ── Patch A: Agent 成功门控 ──────────────────────────────────────────────────────────────────────────────
+  const successfulAgents = agents.filter(a => !isAgentFallback(a));
+  const requiredSuccessCount = Math.ceil(activeRoles.length / 2);
+  if (successfulAgents.length < requiredSuccessCount) {
+    console.warn(
+      `[MultiAgent:GATE] 代理数量不足：` +
+      `${successfulAgents.length}/${activeRoles.length} 个成功，` +
+      `需要 ${requiredSuccessCount} 个。终止合成。`
+    );
+    return {
+      agents: [],            // 空数组：防止 agentTaxonomyNormalizer 产出错误分类
+      directorSummary: "",   // 空字符串：防止注入 Step3 提示词
+      consensusSignal: "neutral" as const,
+      divergenceNote: `[分析中断] ${successfulAgents.length}/${activeRoles.length} 个代理成功，` +
+        `低于最低要求 ${requiredSuccessCount} 个 — 跳过多代理分析`,
+      elapsedMs: Date.now() - t0,
+      roleClassification: {
+        valuation_view: null,
+        business_view: null,
+        risk_view: null,
+        market_context: null,
+      },
+      discussionHooks: undefined,
+      analysisSucceeded: false,
+      successfulAgentCount: successfulAgents.length,
+      requiredAgentCount: requiredSuccessCount,
+    };
+  }
+  // ── 门控通过，继续合成 ──────────────────────────────────────────────────────────────────────────────
 
   const consensusSignal = calcConsensusSignal(agents);
   const directorSummary = buildDirectorSummary(agents, consensusSignal);
@@ -397,6 +439,10 @@ export async function runMultiAgentAnalysis(
     elapsedMs: Date.now() - t0,
     roleClassification: { valuation_view, business_view, risk_view, market_context },
     discussionHooks,
+    // Patch A: 门控通过时必填字段
+    analysisSucceeded: true,
+    successfulAgentCount: successfulAgents.length,
+    requiredAgentCount: requiredSuccessCount,
   };
 }
 

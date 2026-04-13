@@ -471,7 +471,7 @@ export async function runDanTreeSystem(
       decisionCount: 0,
       suppressedCount: 0,
       dangerCount: 0,
-      guardStatus: "healthy",
+      guardStatus: "critical",
       topGuardReason: null,
       durationMs: Date.now() - startMs,
       pipelineOutput: {} as Level7PipelineOutput,

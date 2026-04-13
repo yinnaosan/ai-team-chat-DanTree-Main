@@ -29,6 +29,7 @@ export type ProviderStatus =
 // ── 路由层定义 ──────────────────────────────────────────────────────────────────
 export type RoutingLayer =
   | "fundamentals"
+  | "fundamentals_cn"
   | "price"
   | "news_global"
   | "news_china"
@@ -91,6 +92,22 @@ export const DATA_ROUTING_MATRIX: RoutingLayerConfig[] = [
     },
     participatesInEvidence: true,
     notes: "FMP 必须使用 /stable/ 端点（/api/v3/ legacy 已废弃）",
+  },
+
+  // ── [Fundamentals - CN] ───────────────────────────────────────────────────
+  {
+    layer: "fundamentals_cn",
+    displayName: "A股基本面数据",
+    market: ["CN"],
+    purpose: "A股财务指标、估值倍数、盈利能力（BaoStock + AKShare fallback）",
+    primary: {
+      id: "baostock",
+      displayName: "Baostock",
+      envKey: null,
+      participatesInEvidence: true,
+    },
+    participatesInEvidence: true,
+    notes: "通过 china-fundamentals-service（localhost:8002）提供，BaoStock 为主，AKShare 为 fallback",
   },
 
   // ── [Price] ────────────────────────────────────────────────────────────────

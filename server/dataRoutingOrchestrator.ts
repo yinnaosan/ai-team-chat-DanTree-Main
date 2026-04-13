@@ -128,10 +128,10 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
         return result ? result.text : null;
       }],
     ]);
-    const cnFundamentalsResult = await executeLayerRouting("fundamentals", cnFundamentalsFetchers);
+    const cnFundamentalsResult = await executeLayerRouting("fundamentals_cn", cnFundamentalsFetchers);
     layerResults.push(cnFundamentalsResult);
     if (cnFundamentalsResult.status === "unavailable" || !cnFundamentalsResult.data) {
-      fallbackLog.push({ layer: "fundamentals", usedProvider: "none", reason: "CN fundamentals service unavailable or returned no data" });
+      fallbackLog.push({ layer: "fundamentals_cn", usedProvider: "none", reason: "CN fundamentals service unavailable or returned no data" });
     }
   }
   // ── [Fundamentals - HK]（仅港股 + 需要基本面）─────────────────────────────

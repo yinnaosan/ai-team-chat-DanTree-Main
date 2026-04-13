@@ -31,8 +31,17 @@ if lsof -ti:$PORT >/dev/null 2>&1; then
 fi
 
 # Start uvicorn
+# Use explicit python3.11 -m uvicorn to avoid Python version collision.
+# pnpm child process may inherit /opt/.manus/.sandbox-runtime/.venv paths (Python 3.13),
+# causing SRE module mismatch when /usr/local/bin/uvicorn is called directly.
+# Explicitly clearing PYTHONPATH and using python3.11 ensures deterministic interpreter.
 cd "$SERVICE_DIR"
-/usr/local/bin/uvicorn main:app \
+env -i \
+  HOME="$HOME" \
+  PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  PYTHONPATH="" \
+  PYTHONHOME="" \
+  /usr/bin/python3.11 -m uvicorn main:app \
   --host 0.0.0.0 \
   --port $PORT \
   --log-level info \

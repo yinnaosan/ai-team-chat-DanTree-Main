@@ -114,3 +114,4 @@ client/public/__manus__/version.json
 
 # Tencent News CLI binary (large binary, install via setup script)
 server/bin/tencent-news-cli
+china-fundamentals-service/__pycache__/

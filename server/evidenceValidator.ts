@@ -413,7 +413,7 @@ ${apiHitSummary}${fieldMissingSummary}`;
     outputMode = "directional";
     step3Instruction = `[EVIDENCE_LEVEL: PARTIAL | score=${evidenceScore} | outputMode=DIRECTIONAL]
 证据部分充分，输出方向性判断：可给出趋势方向（如「偏高」「谨慎」），但禁止给出具体目标价/买卖建议。
-每个结论后必须标注「（数据不完整，仅供参考）」。
+若系统已标注缺失字段（见下方字段缺口），可在报告末尾一句话简短提及；禁止将辅助字段缺失泛化为「核心财务数据缺失」，禁止在每个结论后附加「数据不完整」标注。
 ${apiHitSummary}${fieldMissingSummary}`;
   } else {
     evidenceLevel = mb.length > 0 ? "insufficient" : "partial";

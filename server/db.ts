@@ -566,6 +566,9 @@ export async function upsertRpaConfig(
   const cleanConfig = Object.fromEntries(
     Object.entries(config).filter(([, v]) => v !== null && v !== undefined)
   ) as typeof config;
+  // Phase 0: GPT key retirement — never persist openaiApiKey or openaiModel to DB
+  delete (cleanConfig as any).openaiApiKey;
+  delete (cleanConfig as any).openaiModel;
   if (existing) {
     await db.update(rpaConfigs).set({ ...cleanConfig } as any).where(eq(rpaConfigs.userId, userId));
   } else {

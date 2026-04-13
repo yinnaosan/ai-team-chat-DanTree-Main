@@ -1133,7 +1133,8 @@ export default function Settings() {
             </div>
 
             {/* API Key 输入 — Terminal 面板 */}
-            <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Phase 0: GPT key retirement — section hidden */}
+            <section style={{ display: "none" }}>
               {/* Section 标题 */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <Key size={12} style={{ color: "#34d399", flexShrink: 0 }} />

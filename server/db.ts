@@ -1,4 +1,4 @@
-import { eq, desc, and, ne, isNull, sql, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, lt, isNull, sql, inArray, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
@@ -265,7 +265,7 @@ export async function getLastAssistantMessage(conversationId: number, excludeId?
     .where(and(
       eq(messages.conversationId, conversationId),
       eq(messages.role, "assistant"),
-      excludeId !== undefined ? ne(messages.id, excludeId) : undefined,
+      excludeId !== undefined ? lt(messages.id, excludeId) : undefined,
     ))
     .orderBy(desc(messages.id))
     .limit(1);

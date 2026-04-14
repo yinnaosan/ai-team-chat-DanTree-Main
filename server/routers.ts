@@ -2809,11 +2809,13 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     }    // Phase 1B: 查询 prev_state（当前会话Id最后一条 assistant 消息的 decisionSnapshot）
     // 仅查询一次，main + repair 共用
     let prevSnapshot: DecisionSnapshot | null = null;
+    let prevDecisionObject: unknown = null; // Phase 1B B-1: 上一轮有效 decisionObject，FALLBACK 时回填用
     if (conversationId) {
       try {
         const prevMsg = await getLastAssistantMessage(conversationId, streamMsgId);
         const prevMeta = prevMsg?.metadata as Record<string, unknown> | null | undefined;
         prevSnapshot = castToDecisionSnapshot(prevMeta?.decisionSnapshot);
+        prevDecisionObject = prevMeta?.decisionObject ?? null; // 同步提取，不扩大 prevMeta 作用域
       } catch (e) {
         // graceful degradation: prev_state 读取失败不阻断主链
         console.warn("[Phase1B] getLastAssistantMessage failed:", e instanceof Error ? e.message : String(e));
@@ -2910,11 +2912,25 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           // ── Phase 1A: OutputAdapter 并联调用 (non-fatal) ──────────────────────────
           try {
             const adapterResult = extractDecisionObject(parsed as FinalOutputSchema, prevSnapshot, taskId);
+            const effectiveTier = adapterResult?.decision_object._tier;
             if (adapterResult) {
-              metadataToSave.decisionObject = adapterResult.decision_object;
-              metadataToSave.decisionSnapshot = adapterResult.snapshot;
-              metadataToSave.w1Health = adapterResult.health;
-              console.log("[Phase1A] OutputAdapter success: tier=", adapterResult.decision_object._tier, "stance=", adapterResult.decision_object.stance);
+              if (effectiveTier !== 'FALLBACK') {
+                // FULL_SUCCESS / PARTIAL_SUCCESS: write structured state normally
+                metadataToSave.decisionObject = adapterResult.decision_object;
+                metadataToSave.decisionSnapshot = adapterResult.snapshot;
+              } else {
+                // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
+                if (prevSnapshot) {
+                  // shallow-copy snapshot + shallow-copy _meta, then set is_stale=true (avoid reference pollution)
+                  metadataToSave.decisionSnapshot = { ...prevSnapshot, _meta: { ...prevSnapshot._meta, is_stale: true } };
+                }
+                if (prevDecisionObject) {
+                  metadataToSave.decisionObject = prevDecisionObject;
+                }
+                console.log('[Phase1C] FALLBACK_PRESERVE triggered: backfilled from prev state, is_stale=true, has_prevSnapshot=', !!prevSnapshot, 'has_prevDecisionObject=', !!prevDecisionObject);
+              }
+              metadataToSave.w1Health = adapterResult.health; // always update health
+              console.log("[Phase1A] OutputAdapter success: tier=", adapterResult.decision_object._tier, "effectiveTier=", effectiveTier, "stance=", adapterResult.decision_object.stance);
             }
           } catch (adapterErr) {
             console.warn("[Phase1A] OutputAdapter failed (non-fatal):", adapterErr instanceof Error ? adapterErr.message : String(adapterErr));
@@ -2991,9 +3007,20 @@ Output format MUST be:
               try {
                 const repairAdapterResult = extractDecisionObject(repairParsed as FinalOutputSchema, prevSnapshot, taskId);
                 if (repairAdapterResult) {
-                  metadataToSave.decisionObject = repairAdapterResult.decision_object;
-                  metadataToSave.decisionSnapshot = repairAdapterResult.snapshot;
-                  metadataToSave.w1Health = repairAdapterResult.health;
+                  if (repairAdapterResult.decision_object._tier !== 'FALLBACK') {
+                    // FULL_SUCCESS / PARTIAL_SUCCESS: write structured state normally
+                    metadataToSave.decisionObject = repairAdapterResult.decision_object;
+                    metadataToSave.decisionSnapshot = repairAdapterResult.snapshot;
+                  } else {
+                    // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
+                    if (prevSnapshot) {
+                      metadataToSave.decisionSnapshot = { ...prevSnapshot, _meta: { ...prevSnapshot._meta, is_stale: true } };
+                    }
+                    if (prevDecisionObject) {
+                      metadataToSave.decisionObject = prevDecisionObject;
+                    }
+                  }
+                  metadataToSave.w1Health = repairAdapterResult.health; // always update health
                   console.log("[Phase1A] OutputAdapter success (repair_pass): tier=", repairAdapterResult.decision_object._tier);
                 }
               } catch (repairAdapterErr) {

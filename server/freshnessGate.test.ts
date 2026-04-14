@@ -131,14 +131,17 @@ describe("applyFreshnessGate — stance freshness", () => {
     expect(result.snapshot._meta.field_freshness?.stance).toBe("REUSE");
   });
 
-  it("REUSE: keeps entire prevSnapshot.current_bias (not just direction)", () => {
+  it("REUSE: gate writes signal only — current_bias NOT overwritten by gate (executor's job)", () => {
+    // Updated for Phase 1B executor split:
+    // gate = signal layer only, does NOT overwrite current_bias
     const curr = makeAdapterResult("BULLISH", "new bull arg");
     const prev = makePrevSnapshot("BULLISH", "prev summary text");
     const prevDO = makePrevDecisionObject("old bull arg");
     const result = applyFreshnessGate(curr, prev, prevDO);
-    // Should use prev current_bias object (same reference)
-    expect(result.snapshot.current_bias).toBe(prev.current_bias);
-    expect(result.snapshot.current_bias.summary).toBe("prev summary text");
+    // Gate must write REUSE signal
+    expect(result.snapshot._meta.field_freshness?.stance).toBe("REUSE");
+    // Gate must NOT overwrite current_bias (value passthrough)
+    expect(result.snapshot.current_bias).toBe(curr.snapshot.current_bias);
   });
 
   it("FRESH_UPDATE: uses current current_bias", () => {
@@ -169,14 +172,19 @@ describe("applyFreshnessGate — key_arguments freshness", () => {
     expect(result.decision_object.key_arguments[0].argument).toBe(sameArg);
   });
 
-  it("REUSE: keeps entire prev key_arguments array", () => {
+  it("REUSE: gate writes signal only — key_arguments NOT overwritten by gate (executor's job)", () => {
+    // Updated for Phase 1B executor split:
+    // gate = signal layer only, does NOT overwrite key_arguments
     const sameArg = "same arg";
     const curr = makeAdapterResult("BULLISH", sameArg);
     const prev = makePrevSnapshot("BULLISH");
     const prevDO = makePrevDecisionObject(sameArg);
     const result = applyFreshnessGate(curr, prev, prevDO);
-    // Should use prev array (length 1, not 2 from curr)
-    expect(result.decision_object.key_arguments.length).toBe(1);
+    // Gate must write REUSE signal
+    expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
+    // Gate must NOT overwrite key_arguments (value passthrough — curr has 2 args)
+    expect(result.decision_object.key_arguments.length).toBe(2);
+    expect(result.decision_object.key_arguments[0].argument).toBe(sameArg);
   });
 
   it("key_arguments is FRESH_UPDATE when prevDecisionObject is null", () => {
@@ -348,5 +356,146 @@ describe("deriveSnapshot() stability — Phase 1B Stance Freshness Upgrade", () 
     const result = extractDecisionObject(deliverable, null, 1);
     expect(result).not.toBeNull();
     expect(result!.snapshot._meta.stability).toBe("STABLE");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 1B — Minimal UpdatePlanExecutor tests
+// ═══════════════════════════════════════════════════════════════════════════════
+import { buildUpdatePlan, executeUpdatePlan } from "./outputAdapter";
+import type { UpdatePlan } from "./outputAdapter";
+
+// ── buildUpdatePlan tests ─────────────────────────────────────────────────────
+
+describe("buildUpdatePlan", () => {
+  const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+
+  it("FALLBACK tier → both modules PRESERVE regardless of freshness", () => {
+    const plan = buildUpdatePlan("FALLBACK", { stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE" }, prevSnap);
+    expect(plan.stance_summary).toBe("PRESERVE");
+    expect(plan.key_arguments).toBe("PRESERVE");
+  });
+
+  it("FALLBACK tier with no prev → still PRESERVE (FALLBACK always preserves)", () => {
+    const plan = buildUpdatePlan("FALLBACK", undefined, null);
+    expect(plan.stance_summary).toBe("PRESERVE");
+    expect(plan.key_arguments).toBe("PRESERVE");
+  });
+
+  it("FULL_SUCCESS + FRESH_UPDATE → both modules OVERWRITE", () => {
+    const plan = buildUpdatePlan("FULL_SUCCESS", { stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE" }, prevSnap);
+    expect(plan.stance_summary).toBe("OVERWRITE");
+    expect(plan.key_arguments).toBe("OVERWRITE");
+  });
+
+  it("FULL_SUCCESS + REUSE → both modules PRESERVE", () => {
+    const plan = buildUpdatePlan("FULL_SUCCESS", { stance: "REUSE", key_arguments: "REUSE" }, prevSnap);
+    expect(plan.stance_summary).toBe("PRESERVE");
+    expect(plan.key_arguments).toBe("PRESERVE");
+  });
+
+  it("FULL_SUCCESS + mixed freshness → per-module decision", () => {
+    const plan = buildUpdatePlan("FULL_SUCCESS", { stance: "REUSE", key_arguments: "FRESH_UPDATE" }, prevSnap);
+    expect(plan.stance_summary).toBe("PRESERVE");
+    expect(plan.key_arguments).toBe("OVERWRITE");
+  });
+
+  it("FULL_SUCCESS + no prev → both OVERWRITE (no previous state to preserve)", () => {
+    const plan = buildUpdatePlan("FULL_SUCCESS", { stance: "REUSE", key_arguments: "REUSE" }, null);
+    expect(plan.stance_summary).toBe("OVERWRITE");
+    expect(plan.key_arguments).toBe("OVERWRITE");
+  });
+
+  it("FULL_SUCCESS + missing field_freshness → safe default OVERWRITE", () => {
+    const plan = buildUpdatePlan("FULL_SUCCESS", undefined, prevSnap);
+    expect(plan.stance_summary).toBe("OVERWRITE");
+    expect(plan.key_arguments).toBe("OVERWRITE");
+  });
+
+  it("PARTIAL_SUCCESS + REUSE → PRESERVE", () => {
+    const plan = buildUpdatePlan("PARTIAL_SUCCESS", { stance: "REUSE", key_arguments: "REUSE" }, prevSnap);
+    expect(plan.stance_summary).toBe("PRESERVE");
+    expect(plan.key_arguments).toBe("PRESERVE");
+  });
+});
+
+// ── executeUpdatePlan tests ───────────────────────────────────────────────────
+
+describe("executeUpdatePlan", () => {
+  const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+  const prevDecisionObject = {
+    stance: "BULLISH",
+    confidence: "HIGH",
+    confidence_reason: "prev reason",
+    action_readiness: "CONSIDER",
+    key_arguments: [
+      { argument: "prev arg 1", direction: "BULL", strength: "STRONG", source: "LLM" },
+    ],
+    top_bear_argument: "prev bear",
+    invalidation_conditions: [],
+    _tier: "FULL_SUCCESS",
+  };
+
+  it("OVERWRITE: current values are written through unchanged", () => {
+    const current = makeAdapterResult("BEARISH", "new arg");
+    // Inject field_freshness = FRESH_UPDATE
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE" } };
+    const result = executeUpdatePlan(current, prevSnap, prevDecisionObject);
+    expect(result.snapshot.current_bias.direction).toBe("BEARISH");
+    expect(result.decision_object.key_arguments[0].argument).toBe("new arg");
+  });
+
+  it("PRESERVE stance: current_bias replaced with prevSnapshot.current_bias", () => {
+    const current = makeAdapterResult("BULLISH", "new arg");
+    // Same direction → REUSE → PRESERVE
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "FRESH_UPDATE" } };
+    const result = executeUpdatePlan(current, prevSnap, prevDecisionObject);
+    // current_bias should be prevSnap.current_bias
+    expect(result.snapshot.current_bias).toBe(prevSnap.current_bias);
+    // key_arguments should be current (FRESH_UPDATE)
+    expect(result.decision_object.key_arguments[0].argument).toBe("new arg");
+  });
+
+  it("PRESERVE key_arguments: key_arguments replaced with prev array", () => {
+    const current = makeAdapterResult("BEARISH", "new arg");
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "FRESH_UPDATE", key_arguments: "REUSE" } };
+    const result = executeUpdatePlan(current, prevSnap, prevDecisionObject);
+    // current_bias should be current (FRESH_UPDATE)
+    expect(result.snapshot.current_bias.direction).toBe("BEARISH");
+    // key_arguments should be prev
+    expect(result.decision_object.key_arguments[0].argument).toBe("prev arg 1");
+  });
+
+  it("PRESERVE key_arguments with empty prev → falls through to current (no null-out)", () => {
+    const current = makeAdapterResult("BEARISH", "new arg");
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "FRESH_UPDATE", key_arguments: "REUSE" } };
+    // prevDecisionObject has empty key_arguments
+    const emptyPrevDO = { ...prevDecisionObject, key_arguments: [] };
+    const result = executeUpdatePlan(current, prevSnap, emptyPrevDO);
+    // Should fall through to current value, not null out
+    expect(result.decision_object.key_arguments[0].argument).toBe("new arg");
+  });
+
+  it("does NOT modify _tier, stability, is_stale, w1Health", () => {
+    const current = makeAdapterResult("BULLISH", "arg");
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE" } };
+    const result = executeUpdatePlan(current, prevSnap, prevDecisionObject);
+    // _tier unchanged
+    expect(result.decision_object._tier).toBe("FULL_SUCCESS");
+    // stability unchanged (from current snapshot._meta)
+    expect(result.snapshot._meta.stability).toBe(current.snapshot._meta.stability);
+    // is_stale unchanged
+    expect(result.snapshot._meta.is_stale).toBe(current.snapshot._meta.is_stale);
+    // health unchanged
+    expect(result.health).toBe(current.health);
+  });
+
+  it("no prevSnapshot → both OVERWRITE (no prev to preserve)", () => {
+    const current = makeAdapterResult("BEARISH", "new arg");
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE" } };
+    const result = executeUpdatePlan(current, null, null);
+    // No prev → OVERWRITE → current values pass through
+    expect(result.snapshot.current_bias.direction).toBe("BEARISH");
+    expect(result.decision_object.key_arguments[0].argument).toBe("new arg");
   });
 });

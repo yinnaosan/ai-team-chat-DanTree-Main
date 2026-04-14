@@ -438,15 +438,12 @@ function readPrevKeyArguments(prevDecisionObject: unknown): KeyArgument[] {
 /**
  * applyFreshnessGate
  *
- * Compares the two target fields (stance summary / key_arguments) against the
- * previous turn's values and decides FRESH_UPDATE vs REUSE for each.
+ * Phase 1B — Signal layer only.
+ * Computes FRESH_UPDATE / REUSE for stance_summary and key_arguments,
+ * writes the result into snapshot._meta.field_freshness.
  *
- * Rules:
- *   stance      — compare current_bias.direction; REUSE → keep entire prevSnapshot.current_bias
- *   key_arguments — compare first argument text (trimmed); REUSE → keep entire prev array
- *
- * Writes field_freshness into snapshot._meta.
- * Does NOT touch: is_stale, stability, w1Health, or any other field.
+ * Does NOT perform any value overwrite (that is now the executor's job).
+ * Does NOT touch: is_stale, stability, w1Health, current_bias values, key_arguments values.
  * Called ONLY on FULL_SUCCESS / PARTIAL_SUCCESS paths; never on FALLBACK.
  */
 export function applyFreshnessGate(
@@ -454,7 +451,7 @@ export function applyFreshnessGate(
   prevSnapshot: DecisionSnapshot | null,
   prevDecisionObject: unknown
 ): AdapterResult {
-  // ── 1. Determine freshness for each field ─────────────────────────────────
+  // ── 1. Determine freshness signals ───────────────────────────────────────
   let stanceFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
   let keyArgsFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
 
@@ -473,24 +470,9 @@ export function applyFreshnessGate(
     }
   }
 
-  // ── 2. Build gated decision_object ───────────────────────────────────────
-  const gatedDecisionObject: DecisionObject = {
-    ...adapterResult.decision_object,
-    key_arguments:
-      keyArgsFreshness === "REUSE"
-        ? readPrevKeyArguments(prevDecisionObject)
-        : adapterResult.decision_object.key_arguments,
-  };
-
-  // ── 3. Build gated snapshot ───────────────────────────────────────────────
-  const gatedCurrentBias =
-    stanceFreshness === "REUSE" && prevSnapshot !== null
-      ? prevSnapshot.current_bias
-      : adapterResult.snapshot.current_bias;
-
-  const gatedSnapshot: DecisionSnapshot = {
+  // ── 2. Write field_freshness into _meta (signal only, no value overwrite) ─
+  const updatedSnapshot: DecisionSnapshot = {
     ...adapterResult.snapshot,
-    current_bias: gatedCurrentBias,
     _meta: {
       ...adapterResult.snapshot._meta,
       field_freshness: {
@@ -500,7 +482,7 @@ export function applyFreshnessGate(
     },
   };
 
-  // ── 4. Emit diagnostic log ────────────────────────────────────────────────
+  // ── 3. Emit diagnostic log ────────────────────────────────────────────────
   console.log("[Phase1B_GATE]", JSON.stringify({
     stance: stanceFreshness,
     key_arguments: keyArgsFreshness,
@@ -508,8 +490,8 @@ export function applyFreshnessGate(
   }));
 
   return {
-    decision_object: gatedDecisionObject,
-    snapshot: gatedSnapshot,
+    decision_object: adapterResult.decision_object,
+    snapshot: updatedSnapshot,
     health: adapterResult.health,
   };
 }
@@ -532,4 +514,130 @@ function _updateHealthOnFallback() {
     partial_success_streak: health.partial_success_streak,
     tier: "FALLBACK",
   }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 1B — Minimal UpdatePlanExecutor
+// Scope: stance_summary + key_arguments only.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Action for a single structured module. SKIP reserved for future use. */
+export type UpdateAction = "OVERWRITE" | "PRESERVE" | "SKIP";
+
+/** Minimal update plan — two modules only. */
+export interface UpdatePlan {
+  stance_summary: UpdateAction;
+  key_arguments: UpdateAction;
+}
+
+/**
+ * buildUpdatePlan
+ *
+ * Reads existing signals (_tier, field_freshness, prevSnapshot) and
+ * produces an UpdatePlan for the two in-scope modules.
+ *
+ * Decision rules (Phase 1B):
+ *   stance_summary:
+ *     FALLBACK            → PRESERVE
+ *     FRESH_UPDATE        → OVERWRITE
+ *     REUSE               → PRESERVE
+ *     else (no metadata)  → OVERWRITE (safe default)
+ *
+ *   key_arguments:
+ *     FALLBACK            → PRESERVE
+ *     FRESH_UPDATE        → OVERWRITE
+ *     REUSE               → PRESERVE
+ *     else                → OVERWRITE
+ */
+export function buildUpdatePlan(
+  tier: string,
+  fieldFreshness: { stance: "FRESH_UPDATE" | "REUSE"; key_arguments: "FRESH_UPDATE" | "REUSE" } | undefined,
+  prevSnapshot: DecisionSnapshot | null
+): UpdatePlan {
+  const hasPrev = prevSnapshot !== null;
+
+  function resolveAction(freshness: "FRESH_UPDATE" | "REUSE" | undefined): UpdateAction {
+    if (!hasPrev) return "OVERWRITE"; // no previous state → always overwrite
+    if (freshness === "FRESH_UPDATE") return "OVERWRITE";
+    if (freshness === "REUSE") return "PRESERVE";
+    return "OVERWRITE"; // safe default when metadata missing
+  }
+
+  if (tier === "FALLBACK") {
+    // FALLBACK: always preserve (mirrors Option C)
+    return { stance_summary: "PRESERVE", key_arguments: "PRESERVE" };
+  }
+
+  return {
+    stance_summary: resolveAction(fieldFreshness?.stance),
+    key_arguments: resolveAction(fieldFreshness?.key_arguments),
+  };
+}
+
+/**
+ * executeUpdatePlan
+ *
+ * Applies the UpdatePlan to adapterResult.
+ * Only touches:
+ *   - adapterResult.snapshot.current_bias   (stance_summary)
+ *   - adapterResult.decision_object.key_arguments
+ *
+ * Does NOT modify: _tier, w1Health, stability, is_stale, confidence_reason,
+ * top_bear_argument, action_readiness, or any other field.
+ *
+ * Called ONLY on non-FALLBACK paths (after applyFreshnessGate).
+ */
+export function executeUpdatePlan(
+  adapterResult: AdapterResult,
+  prevSnapshot: DecisionSnapshot | null,
+  prevDecisionObject: unknown
+): AdapterResult {
+  const tier = adapterResult.health._tier;
+  const fieldFreshness = adapterResult.snapshot._meta?.field_freshness;
+
+  // Build the plan
+  const plan = buildUpdatePlan(tier, fieldFreshness, prevSnapshot);
+
+  // ── Apply stance_summary ──────────────────────────────────────────────────
+  let finalCurrentBias = adapterResult.snapshot.current_bias;
+  if (plan.stance_summary === "PRESERVE" && prevSnapshot !== null) {
+    finalCurrentBias = prevSnapshot.current_bias;
+  }
+  // OVERWRITE: keep adapterResult.snapshot.current_bias as-is
+  // SKIP: keep as-is (no-op)
+
+  // ── Apply key_arguments ───────────────────────────────────────────────────
+  let finalKeyArguments = adapterResult.decision_object.key_arguments;
+  if (plan.key_arguments === "PRESERVE") {
+    const prevKeyArgs = readPrevKeyArguments(prevDecisionObject);
+    if (prevKeyArgs.length > 0) {
+      finalKeyArguments = prevKeyArgs;
+    }
+    // If prevKeyArgs is empty, fall through to current value (do not null out)
+  }
+  // OVERWRITE: keep adapterResult.decision_object.key_arguments as-is
+  // SKIP: keep as-is (no-op)
+
+  // ── Emit executor log ─────────────────────────────────────────────────────
+  console.log("[Phase1B_EXECUTOR]", JSON.stringify({
+    tier,
+    has_prev: prevSnapshot !== null,
+    freshness_input: fieldFreshness ?? null,
+    plan,
+    stance_action: plan.stance_summary,
+    key_args_action: plan.key_arguments,
+  }));
+
+  // ── Return updated adapterResult ──────────────────────────────────────────
+  return {
+    decision_object: {
+      ...adapterResult.decision_object,
+      key_arguments: finalKeyArguments,
+    },
+    snapshot: {
+      ...adapterResult.snapshot,
+      current_bias: finalCurrentBias,
+    },
+    health: adapterResult.health,
+  };
 }

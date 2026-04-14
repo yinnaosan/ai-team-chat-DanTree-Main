@@ -145,7 +145,7 @@ import {
   type FinalOutputSchema,
 } from "./outputSchemaValidator";
 // ── Phase 1A: Output Adapter (parallel structured backbone) ──────────────────
-import { extractDecisionObject, applyFreshnessGate, type DecisionSnapshot } from "./outputAdapter";
+import { extractDecisionObject, applyFreshnessGate, executeUpdatePlan, type DecisionSnapshot } from "./outputAdapter";
 
 // ── Phase 1B: castToDecisionSnapshot ─────────────────────────────────────────
 // Validates that a raw DB JSON value has the minimal DecisionSnapshot shape.
@@ -2917,8 +2917,9 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               if (effectiveTier !== 'FALLBACK') {
                 // FULL_SUCCESS / PARTIAL_SUCCESS: apply freshness gate first, then write
                 const gatedResult = applyFreshnessGate(adapterResult, prevSnapshot, prevDecisionObject);
-                metadataToSave.decisionObject = gatedResult.decision_object;
-                metadataToSave.decisionSnapshot = gatedResult.snapshot;
+                const executedResult = executeUpdatePlan(gatedResult, prevSnapshot, prevDecisionObject);
+                metadataToSave.decisionObject = executedResult.decision_object;
+                metadataToSave.decisionSnapshot = executedResult.snapshot;
               } else {
                 // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
                 if (prevSnapshot) {
@@ -3010,8 +3011,9 @@ Output format MUST be:
                   if (repairAdapterResult.decision_object._tier !== 'FALLBACK') {
                     // FULL_SUCCESS / PARTIAL_SUCCESS: apply freshness gate first, then write
                     const repairGatedResult = applyFreshnessGate(repairAdapterResult, prevSnapshot, prevDecisionObject);
-                    metadataToSave.decisionObject = repairGatedResult.decision_object;
-                    metadataToSave.decisionSnapshot = repairGatedResult.snapshot;
+                    const repairExecutedResult = executeUpdatePlan(repairGatedResult, prevSnapshot, prevDecisionObject);
+                    metadataToSave.decisionObject = repairExecutedResult.decision_object;
+                    metadataToSave.decisionSnapshot = repairExecutedResult.snapshot;
                   } else {
                     // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
                     if (prevSnapshot) {

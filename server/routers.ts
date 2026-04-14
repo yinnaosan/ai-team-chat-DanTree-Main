@@ -143,6 +143,8 @@ import {
   formatNormalizedTaxonomyForPrompt,
   type FinalOutputSchema,
 } from "./outputSchemaValidator";
+// ── Phase 1A: Output Adapter (parallel structured backbone) ──────────────────
+import { extractDecisionObject } from "./outputAdapter";
 
 // ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
 import { evaluateTrigger, initLoopState, advanceLoopState, attachStep0ToLoopState, bindStep0ResultToLoopState, applyDispatchToLoopState, recordExecutedStep, type LoopState } from "./loopStateTriggerEngine";
@@ -2874,6 +2876,19 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
               console.warn("[TVM-WRITEBACK] failed (non-fatal):", tvmErr instanceof Error ? tvmErr.message : String(tvmErr));
             }
           }
+          // ── Phase 1A: OutputAdapter 并联调用 (non-fatal) ──────────────────────────
+          try {
+            const adapterResult = extractDecisionObject(parsed as FinalOutputSchema, null, taskId);
+            if (adapterResult) {
+              metadataToSave.decisionObject = adapterResult.decision_object;
+              metadataToSave.decisionSnapshot = adapterResult.snapshot;
+              metadataToSave.w1Health = adapterResult.health;
+              console.log("[Phase1A] OutputAdapter success: tier=", adapterResult.decision_object._tier, "stance=", adapterResult.decision_object.stance);
+            }
+          } catch (adapterErr) {
+            console.warn("[Phase1A] OutputAdapter failed (non-fatal):", adapterErr instanceof Error ? adapterErr.message : String(adapterErr));
+          }
+          // ── Phase 1A END ─────────────────────────────────────────────────────────────────────────
         } else {
           const missing = requiredKeys.filter(k => !(k in parsed));
           // [DT-DEBUG][ANSWER_OBJECT]
@@ -2941,6 +2956,18 @@ Output format MUST be:
             if (hasAllKeys) {
               metadataToSave.answerObject = repairParsed;
               console.log("[V2.1] repair_pass_success: DELIVERABLE generated via repair pass");
+              // ── Phase 1A: OutputAdapter 并联调用 (repair_pass path, non-fatal) ──────────────────────────
+              try {
+                const repairAdapterResult = extractDecisionObject(repairParsed as FinalOutputSchema, null, taskId);
+                if (repairAdapterResult) {
+                  metadataToSave.decisionObject = repairAdapterResult.decision_object;
+                  metadataToSave.decisionSnapshot = repairAdapterResult.snapshot;
+                  metadataToSave.w1Health = repairAdapterResult.health;
+                  console.log("[Phase1A] OutputAdapter success (repair_pass): tier=", repairAdapterResult.decision_object._tier);
+                }
+              } catch (repairAdapterErr) {
+                console.warn("[Phase1A] OutputAdapter failed (repair_pass, non-fatal):", repairAdapterErr instanceof Error ? repairAdapterErr.message : String(repairAdapterErr));
+              }
             } else {
               metadataToSave.answerObject = null;
               console.warn("[V2.1] repair_pass_incomplete: missing keys", requiredKeys.filter(k => !(k in repairParsed)));

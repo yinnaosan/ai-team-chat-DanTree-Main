@@ -55,6 +55,23 @@ export interface DiscussionMessage {
       fileType: string;
       summary?: string;
     };
+    // Phase 1A: structured backbone fields
+    decisionObject?: {
+      stance: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN";
+      confidence: "HIGH" | "MEDIUM" | "LOW";
+      confidence_reason: string;
+      action_readiness: "EXECUTE" | "CONSIDER" | "MONITOR" | "BLOCKED";
+      key_arguments: Array<{ argument: string; direction: "BULL" | "BEAR"; strength: "STRONG" | "MEDIUM" | "WEAK" }>;
+      top_bear_argument: string | null;
+      _tier: "FULL_SUCCESS" | "PARTIAL_SUCCESS" | "FALLBACK";
+    };
+    decisionSnapshot?: {
+      current_bias: { direction: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN"; summary: string; confidence: "HIGH" | "MEDIUM" | "LOW" };
+      why: { argument: string; direction: "BULL" };
+      key_risk: { risk: string; source: string };
+      next_step: { action: string; type: "RESEARCH" | "WAIT" | "CONFIRM" | "ACT" };
+      _meta: { generated_at: number; stability: "STABLE" | "CHANGED" | "REVERSED"; is_stale: boolean; horizon: string };
+    };
   } | null;
   isOptimistic?: boolean;
   isStreaming?: boolean;

@@ -55,6 +55,23 @@ interface Msg {
       suggested_next?: string;
     };
     evidenceScore?: number;
+    // Phase 1A: structured backbone fields
+    decisionObject?: {
+      stance: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN";
+      confidence: "HIGH" | "MEDIUM" | "LOW";
+      confidence_reason: string;
+      action_readiness: "EXECUTE" | "CONSIDER" | "MONITOR" | "BLOCKED";
+      key_arguments: Array<{ argument: string; direction: "BULL" | "BEAR"; strength: "STRONG" | "MEDIUM" | "WEAK" }>;
+      top_bear_argument: string | null;
+      _tier: "FULL_SUCCESS" | "PARTIAL_SUCCESS" | "FALLBACK";
+    };
+    decisionSnapshot?: {
+      current_bias: { direction: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN"; summary: string; confidence: "HIGH" | "MEDIUM" | "LOW" };
+      why: { argument: string; direction: "BULL" };
+      key_risk: { risk: string; source: string };
+      next_step: { action: string; type: "RESEARCH" | "WAIT" | "CONFIRM" | "ACT" };
+      _meta: { generated_at: number; stability: "STABLE" | "CHANGED" | "REVERSED"; is_stale: boolean; horizon: string };
+    };
   } | null;
 }
 
@@ -488,6 +505,9 @@ export default function ResearchWorkspacePage() {
 
   const lastAssistant = lastAssistantMessage;
   const answerObject = lastAssistant?.metadata?.answerObject;
+  // Phase 1A: structured backbone
+  const decisionObject = lastAssistant?.metadata?.decisionObject ?? null;
+  const decisionSnapshot = lastAssistant?.metadata?.decisionSnapshot ?? null;
 
   // ── WorkspaceOutput Refactor v1 — Layer 1 hook ────────────────────────────
   const workspaceOutput = useWorkspaceOutput({
@@ -965,6 +985,75 @@ export default function ResearchWorkspacePage() {
               </span>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 24px" }}>
+              {/* Phase 1A: Stance Summary — 仅在 decisionSnapshot 存在时显示 */}
+              {decisionSnapshot && (
+                <div style={{
+                  marginBottom: 12,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                      color: decisionSnapshot.current_bias.direction === "BULLISH" ? "#10b981"
+                           : decisionSnapshot.current_bias.direction === "BEARISH" ? "#ef4444"
+                           : "rgba(255,255,255,0.45)",
+                      padding: "2px 6px", borderRadius: 3,
+                      background: decisionSnapshot.current_bias.direction === "BULLISH" ? "rgba(16,185,129,0.12)"
+                                : decisionSnapshot.current_bias.direction === "BEARISH" ? "rgba(239,68,68,0.12)"
+                                : "rgba(255,255,255,0.06)",
+                    }}>
+                      {decisionSnapshot.current_bias.direction}
+                    </span>
+                    <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      STANCE · {decisionSnapshot._meta.horizon}
+                    </span>
+                    {decisionObject?._tier === "FALLBACK" && (
+                      <span style={{ fontSize: 9, color: "rgba(255,180,0,0.6)", letterSpacing: "0.06em" }}>FALLBACK</span>
+                    )}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: "rgba(255,255,255,0.75)" }}>
+                    {decisionSnapshot.current_bias.summary}
+                  </p>
+                  {decisionSnapshot.next_step && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.38)" }}>
+                      <span style={{ color: "rgba(255,255,255,0.22)", marginRight: 4 }}>NEXT:</span>
+                      {decisionSnapshot.next_step.action}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Phase 1A: Key Arguments — 仅在 decisionObject 存在且有 key_arguments 时显示 */}
+              {decisionObject && decisionObject.key_arguments.length > 0 && (
+                <div style={{
+                  marginBottom: 14,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>
+                    KEY ARGUMENTS
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {decisionObject.key_arguments.slice(0, 4).map((arg: { argument: string; direction: "BULL" | "BEAR"; strength: "STRONG" | "MEDIUM" | "WEAK" }, i: number) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+                        <span style={{
+                          flexShrink: 0, marginTop: 2,
+                          width: 6, height: 6, borderRadius: "50%",
+                          background: arg.direction === "BULL" ? "#10b981" : "#ef4444",
+                          opacity: arg.strength === "STRONG" ? 1 : arg.strength === "MEDIUM" ? 0.65 : 0.35,
+                        }} />
+                        <span style={{ fontSize: 11, lineHeight: 1.5, color: "rgba(255,255,255,0.65)" }}>
+                          {arg.argument}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
                 thesis={(() => {

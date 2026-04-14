@@ -867,26 +867,27 @@ ${"```"}`;
       // [已移除]
       // [已移除]
     // 先单独执行 Step1，获取 period 参数后再调用 Yahoo Financece
-    const step1Result = await Promise.resolve(
-      userConfig?.openaiApiKey
-        ? callOpenAI({
-            apiKey: userConfig.openaiApiKey,
-            model: userConfig.openaiModel || DEFAULT_MODEL,
-            messages: [
-              { role: "system", content: gptSystemPrompt },
-              { role: "user", content: gptStep1UserMsg },
-            ],
-            maxTokens: modeConfig.step1MaxTokens,
-          })
-        : Promise.resolve(null)
-    ).then(v => ({ status: "fulfilled" as const, value: v })).catch(e => ({ status: "rejected" as const, reason: e }));
-
-    // 解析 Step1 结果，提取 period 参数
+    // BP-1: Phase 2 retirement — callOpenAI bypass removed, always use invokeLLMWithRetry
     const FALLBACK_STEP1 = `## 分析框架\n标准价値投资分析：估値→护城河→财务健康→安全边际\n## Manus 数据需求清单\n财务数据、估値指标、市场表现、行业对比`;
     let gptStep1Output: string;
-    if (step1Result.status === "fulfilled" && step1Result.value) {
-      gptStep1Output = step1Result.value as string;
-    } else {
+    try {
+      const step1LLMResult = await invokeLLMWithRetry({
+        messages: [
+          { role: "system", content: gptSystemPrompt },
+          { role: "user", content: gptStep1UserMsg },
+        ],
+        max_tokens: modeConfig.step1MaxTokens,
+        triggerContext: {
+          source: "step1_planning",
+          business_task_type: "stock_analysis",
+        },
+      });
+      const step1Content = step1LLMResult.choices?.[0]?.message?.content;
+      gptStep1Output = (typeof step1Content === "string" && step1Content.trim())
+        ? step1Content
+        : FALLBACK_STEP1;
+    } catch (step1Err) {
+      console.warn(`[Step1] invokeLLMWithRetry failed, using FALLBACK_STEP1: ${step1Err instanceof Error ? step1Err.message : String(step1Err)}`);
       gptStep1Output = FALLBACK_STEP1;
     }
 

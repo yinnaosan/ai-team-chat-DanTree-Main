@@ -1,4 +1,4 @@
-import { eq, desc, and, isNull, sql, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, ne, isNull, sql, inArray, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, messages, tasks, dbConnections, rpaConfigs,
@@ -255,6 +255,21 @@ export async function getMessagesByConversation(conversationId: number) {
   return db.select().from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(messages.createdAt);
+}
+
+/** Phase 1B: 获取指定会话最后一条 assistant 消息（含 metadata），用于 prev_state 读取 */
+export async function getLastAssistantMessage(conversationId: number, excludeId?: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(messages)
+    .where(and(
+      eq(messages.conversationId, conversationId),
+      eq(messages.role, "assistant"),
+      excludeId !== undefined ? ne(messages.id, excludeId) : undefined,
+    ))
+    .orderBy(desc(messages.id))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 // ─── Task helpers ─────────────────────────────────────────────────────────────

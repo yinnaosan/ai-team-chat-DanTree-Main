@@ -65,6 +65,7 @@ import {
   batchDeleteConversations,
   batchSetPinned,
   batchSetFavorited,
+  getLastAssistantMessage,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -144,7 +145,24 @@ import {
   type FinalOutputSchema,
 } from "./outputSchemaValidator";
 // ── Phase 1A: Output Adapter (parallel structured backbone) ──────────────────
-import { extractDecisionObject } from "./outputAdapter";
+import { extractDecisionObject, type DecisionSnapshot } from "./outputAdapter";
+
+// ── Phase 1B: castToDecisionSnapshot ─────────────────────────────────────────
+// Validates that a raw DB JSON value has the minimal DecisionSnapshot shape.
+// Returns DecisionSnapshot if all top-level keys are present, null otherwise.
+// Keeps blast radius minimal: no deep validation, graceful degradation on failure.
+function castToDecisionSnapshot(raw: unknown): DecisionSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (
+    !r.current_bias ||
+    !r.why ||
+    !r.key_risk ||
+    !r.next_step ||
+    !r._meta
+  ) return null;
+  return raw as DecisionSnapshot;
+}
 
 // ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
 import { evaluateTrigger, initLoopState, advanceLoopState, attachStep0ToLoopState, bindStep0ResultToLoopState, applyDispatchToLoopState, recordExecutedStep, type LoopState } from "./loopStateTriggerEngine";
@@ -2788,8 +2806,21 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         dataTimestamp: c.dataTimestamp,
         isWhitelisted: c.isWhitelisted,
       }));
+    }    // Phase 1B: 查询 prev_state（当前会话Id最后一条 assistant 消息的 decisionSnapshot）
+    // 仅查询一次，main + repair 共用
+    let prevSnapshot: DecisionSnapshot | null = null;
+    if (conversationId) {
+      try {
+        const prevMsg = await getLastAssistantMessage(conversationId, streamMsgId);
+        const prevMeta = prevMsg?.metadata as Record<string, unknown> | null | undefined;
+        prevSnapshot = castToDecisionSnapshot(prevMeta?.decisionSnapshot);
+      } catch (e) {
+        // graceful degradation: prev_state 读取失败不阻断主链
+        console.warn("[Phase1B] getLastAssistantMessage failed:", e instanceof Error ? e.message : String(e));
+      }
     }
-    // [DT-DEBUG][FINAL_REPLY]
+    // Phase 1B debug: log prevSnapshot read result
+    console.log("[Phase1B]", JSON.stringify({ tag: "prevSnapshot_read", conversationId, has_prevSnapshot: prevSnapshot !== null, prevSnapshot_direction: prevSnapshot?.current_bias?.direction ?? null, prevSnapshot_stability: prevSnapshot?._meta?.stability ?? null }));    // [DT-DEBUG][FINAL_REPLY]
     console.log(JSON.stringify({ tag: "[DT-DEBUG][FINAL_REPLY]", ts: Date.now(), taskId, conversationId, primaryTicker, finalReply_length: finalReply.length, has_DELIVERABLE: finalReply.includes("%%DELIVERABLE%%"), has_END_DELIVERABLE: finalReply.includes("%%END_DELIVERABLE%%"), has_DISCUSSION: finalReply.includes("%%DISCUSSION%%"), finalReply_first_200: finalReply.slice(0, 200), finalReply_last_200: finalReply.slice(-200) }));
     // ── V2.1 OPTION_B: 解析 DELIVERABLE + DISCUSSION 结构化标记块 ──────────────────────
     // 在 finalReply 中提取 %%DELIVERABLE%% 和 %%DISCUSSION%% 块，写入 metadata
@@ -2878,7 +2909,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           }
           // ── Phase 1A: OutputAdapter 并联调用 (non-fatal) ──────────────────────────
           try {
-            const adapterResult = extractDecisionObject(parsed as FinalOutputSchema, null, taskId);
+            const adapterResult = extractDecisionObject(parsed as FinalOutputSchema, prevSnapshot, taskId);
             if (adapterResult) {
               metadataToSave.decisionObject = adapterResult.decision_object;
               metadataToSave.decisionSnapshot = adapterResult.snapshot;
@@ -2958,7 +2989,7 @@ Output format MUST be:
               console.log("[V2.1] repair_pass_success: DELIVERABLE generated via repair pass");
               // ── Phase 1A: OutputAdapter 并联调用 (repair_pass path, non-fatal) ──────────────────────────
               try {
-                const repairAdapterResult = extractDecisionObject(repairParsed as FinalOutputSchema, null, taskId);
+                const repairAdapterResult = extractDecisionObject(repairParsed as FinalOutputSchema, prevSnapshot, taskId);
                 if (repairAdapterResult) {
                   metadataToSave.decisionObject = repairAdapterResult.decision_object;
                   metadataToSave.decisionSnapshot = repairAdapterResult.snapshot;

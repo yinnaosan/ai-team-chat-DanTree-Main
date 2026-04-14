@@ -5,8 +5,9 @@
  * Scope: pure function tests only (no DB, no network)
  */
 import { describe, it, expect } from "vitest";
-import { applyFreshnessGate } from "./outputAdapter";
+import { applyFreshnessGate, extractDecisionObject } from "./outputAdapter";
 import type { AdapterResult, DecisionSnapshot } from "./outputAdapter";
+import type { FinalOutputSchema } from "./outputSchemaValidator";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -245,5 +246,107 @@ describe("applyFreshnessGate — edge cases", () => {
     const prevDO = makePrevDecisionObject("same arg");
     const result = applyFreshnessGate(curr, prev, prevDO);
     expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
+  });
+});
+
+// ── Phase 1B Stance Freshness Upgrade — deriveSnapshot() stability tests ──────
+// Tests via extractDecisionObject() since deriveSnapshot() is not exported.
+// Note: inferStance() always returns source="INFERRED", so confidence HIGH is
+// capped to MEDIUM by applyInferenceCap(). Use medium/low to test confidence change.
+
+function makeDeliverable(
+  confidence: "high" | "medium" | "low",
+  verdict: string,
+  bullCase: string[],
+  bearCase: string[] = [],
+  reasoningFirst?: string
+): FinalOutputSchema {
+  return {
+    verdict,
+    confidence,
+    bull_case: bullCase,
+    bear_case: bearCase,
+    risks: [],
+    next_steps: [],
+    reasoning: reasoningFirst ? [reasoningFirst] : [],
+    horizon: "mid-term",
+    degraded: false,
+  } as unknown as FinalOutputSchema;
+}
+
+function makePrevSnapshotForStability(
+  direction: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN",
+  confidence: "HIGH" | "MEDIUM" | "LOW",
+  summary: string,
+  whyArgument: string
+): DecisionSnapshot {
+  return {
+    current_bias: { direction, summary, confidence },
+    why: { argument: whyArgument, direction: "BULL" },
+    key_risk: { risk: "prev risk", source: "BEAR_ARGUMENT" },
+    next_step: { action: "prev action", type: "WAIT" },
+    _meta: {
+      generated_at: Date.now() - 60000,
+      based_on_turn: 0,
+      stability: "STABLE",
+      is_stale: false,
+      horizon: "mid-term",
+    },
+  };
+}
+
+describe("deriveSnapshot() stability — Phase 1B Stance Freshness Upgrade", () => {
+  it("REVERSED: direction change (NEUTRAL → BULLISH)", () => {
+    // prev: NEUTRAL; curr deliverable: bullish verdict
+    const prevSnap = makePrevSnapshotForStability("NEUTRAL", "MEDIUM", "prev summary", "prev why");
+    const deliverable = makeDeliverable("medium", "看多，买入", ["strong bull arg"], [], "bull reason");
+    const result = extractDecisionObject(deliverable, prevSnap, 2);
+    expect(result).not.toBeNull();
+    expect(result!.snapshot._meta.stability).toBe("REVERSED");
+  });
+
+  it("CHANGED: same direction, confidence changed (MEDIUM → LOW)", () => {
+    // prev: NEUTRAL MEDIUM; curr: NEUTRAL LOW (verdict neutral, confidence low)
+    const prevSnap = makePrevSnapshotForStability("NEUTRAL", "MEDIUM", "prev summary", "prev why");
+    // neutral verdict, low confidence → same direction NEUTRAL, confidence LOW
+    const deliverable = makeDeliverable("low", "中性，观望", ["bull arg"], ["bear arg"], "low reason");
+    const result = extractDecisionObject(deliverable, prevSnap, 2);
+    expect(result).not.toBeNull();
+    // confidence: prev=MEDIUM, curr=LOW → CHANGED
+    expect(result!.snapshot._meta.stability).toBe("CHANGED");
+  });
+
+  it("CHANGED: same direction + same confidence, summary text changed", () => {
+    // prev: NEUTRAL MEDIUM, summary = first 30 chars of "prev reasoning text"
+    const prevReason = "prev reasoning text that is long";
+    const prevSummary = prevReason.slice(0, 30);
+    const prevSnap = makePrevSnapshotForStability("NEUTRAL", "MEDIUM", prevSummary, "prev why");
+    // curr: NEUTRAL MEDIUM, different reasoning → different summary
+    const deliverable = makeDeliverable("medium", "中性，观望", ["bull arg"], ["bear arg"], "completely different reasoning");
+    const result = extractDecisionObject(deliverable, prevSnap, 2);
+    expect(result).not.toBeNull();
+    expect(result!.snapshot._meta.stability).toBe("CHANGED");
+  });
+
+  it("STABLE: same direction + same confidence + same summary + same why", () => {
+    // Construct prev to exactly match what extractDecisionObject would produce
+    // verdict: "中性，观望" → NEUTRAL (INFERRED), confidence: "medium" → MEDIUM (no cap since stance INFERRED but confidence not HIGH)
+    // reasoning[0] → confidenceReason → summary = first 30 chars
+    // bull_case[0] → bestBull (why.argument)
+    const reason = "stable reasoning for test case";
+    const bullArg = "stable bull argument text";
+    const prevSummary = reason.slice(0, 30);
+    const prevSnap = makePrevSnapshotForStability("NEUTRAL", "MEDIUM", prevSummary, bullArg);
+    const deliverable = makeDeliverable("medium", "中性，观望", [bullArg], ["bear arg"], reason);
+    const result = extractDecisionObject(deliverable, prevSnap, 2);
+    expect(result).not.toBeNull();
+    expect(result!.snapshot._meta.stability).toBe("STABLE");
+  });
+
+  it("no previous snapshot → stability defaults to STABLE", () => {
+    const deliverable = makeDeliverable("medium", "看多，买入", ["bull arg"], [], "reason");
+    const result = extractDecisionObject(deliverable, null, 1);
+    expect(result).not.toBeNull();
+    expect(result!.snapshot._meta.stability).toBe("STABLE");
   });
 });

@@ -378,16 +378,22 @@ function deriveSnapshot(
   const nextStep = mapReadinessToNextStep(obj.action_readiness, deliverable.next_steps ?? []);
 
   // stability: compare with previous snapshot
+  // Priority: REVERSED > CHANGED (confidence) > CHANGED (text) > STABLE
   let stability: SnapshotStability = "STABLE";
   if (previous) {
     if (previous.current_bias.direction !== obj.stance) {
+      // 1. Direction change → REVERSED (highest priority)
       stability = "REVERSED";
     } else if (
+      previous.current_bias.confidence !== obj.confidence ||
       previous.current_bias.summary !== summary ||
       previous.why.argument !== bestBull
     ) {
+      // 2. Same direction but: confidence changed (semantic signal)
+      //    OR summary changed OR why.argument changed → CHANGED
       stability = "CHANGED";
     }
+    // 3. Otherwise → STABLE (no change detected)
   }
 
   return {

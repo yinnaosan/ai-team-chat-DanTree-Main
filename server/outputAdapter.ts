@@ -77,6 +77,11 @@ export interface DecisionSnapshot {
     stability: SnapshotStability;
     is_stale: boolean;
     horizon: string;
+    /** Phase 1B Freshness Gate — populated by applyFreshnessGate() */
+    field_freshness?: {
+      stance: "FRESH_UPDATE" | "REUSE";
+      key_arguments: "FRESH_UPDATE" | "REUSE";
+    };
   };
 }
 
@@ -404,6 +409,102 @@ function deriveSnapshot(
       is_stale: false,
       horizon: deliverable.horizon ?? "mid-term",
     },
+  };
+}
+
+// ── Phase 1B: Freshness Gate ─────────────────────────────────────────────────
+
+/**
+ * Safe reader: extract key_arguments array from an unknown prevDecisionObject.
+ * Returns empty array if the value is absent or not an array.
+ */
+function readPrevKeyArguments(prevDecisionObject: unknown): KeyArgument[] {
+  if (
+    prevDecisionObject !== null &&
+    typeof prevDecisionObject === "object" &&
+    Array.isArray((prevDecisionObject as Record<string, unknown>).key_arguments)
+  ) {
+    return (prevDecisionObject as Record<string, unknown>).key_arguments as KeyArgument[];
+  }
+  return [];
+}
+
+/**
+ * applyFreshnessGate
+ *
+ * Compares the two target fields (stance summary / key_arguments) against the
+ * previous turn's values and decides FRESH_UPDATE vs REUSE for each.
+ *
+ * Rules:
+ *   stance      — compare current_bias.direction; REUSE → keep entire prevSnapshot.current_bias
+ *   key_arguments — compare first argument text (trimmed); REUSE → keep entire prev array
+ *
+ * Writes field_freshness into snapshot._meta.
+ * Does NOT touch: is_stale, stability, w1Health, or any other field.
+ * Called ONLY on FULL_SUCCESS / PARTIAL_SUCCESS paths; never on FALLBACK.
+ */
+export function applyFreshnessGate(
+  adapterResult: AdapterResult,
+  prevSnapshot: DecisionSnapshot | null,
+  prevDecisionObject: unknown
+): AdapterResult {
+  // ── 1. Determine freshness for each field ─────────────────────────────────
+  let stanceFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
+  let keyArgsFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
+
+  if (prevSnapshot !== null) {
+    // stance: compare direction
+    if (adapterResult.snapshot.current_bias.direction === prevSnapshot.current_bias.direction) {
+      stanceFreshness = "REUSE";
+    }
+
+    // key_arguments: compare first argument text (trim + empty fallback)
+    const currFirst = (adapterResult.decision_object.key_arguments[0]?.argument ?? "").trim();
+    const prevKeyArgs = readPrevKeyArguments(prevDecisionObject);
+    const prevFirst = (prevKeyArgs[0]?.argument ?? "").trim();
+    if (currFirst !== "" && prevFirst !== "" && currFirst === prevFirst) {
+      keyArgsFreshness = "REUSE";
+    }
+  }
+
+  // ── 2. Build gated decision_object ───────────────────────────────────────
+  const gatedDecisionObject: DecisionObject = {
+    ...adapterResult.decision_object,
+    key_arguments:
+      keyArgsFreshness === "REUSE"
+        ? readPrevKeyArguments(prevDecisionObject)
+        : adapterResult.decision_object.key_arguments,
+  };
+
+  // ── 3. Build gated snapshot ───────────────────────────────────────────────
+  const gatedCurrentBias =
+    stanceFreshness === "REUSE" && prevSnapshot !== null
+      ? prevSnapshot.current_bias
+      : adapterResult.snapshot.current_bias;
+
+  const gatedSnapshot: DecisionSnapshot = {
+    ...adapterResult.snapshot,
+    current_bias: gatedCurrentBias,
+    _meta: {
+      ...adapterResult.snapshot._meta,
+      field_freshness: {
+        stance: stanceFreshness,
+        key_arguments: keyArgsFreshness,
+      },
+    },
+  };
+
+  // ── 4. Emit diagnostic log ────────────────────────────────────────────────
+  console.log("[Phase1B_GATE]", JSON.stringify({
+    stance: stanceFreshness,
+    key_arguments: keyArgsFreshness,
+    has_prev: prevSnapshot !== null,
+  }));
+
+  return {
+    decision_object: gatedDecisionObject,
+    snapshot: gatedSnapshot,
+    health: adapterResult.health,
   };
 }
 

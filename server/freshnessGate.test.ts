@@ -478,7 +478,7 @@ describe("executeUpdatePlan", () => {
 
   it("does NOT modify _tier, stability, is_stale, w1Health", () => {
     const current = makeAdapterResult("BULLISH", "arg");
-    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE" } };
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE", confidence_reason: "REUSE", top_bear_argument: "REUSE", invalidation_conditions: "REUSE" } };
     const result = executeUpdatePlan(current, prevSnap, prevDecisionObject);
     // _tier unchanged
     expect(result.decision_object._tier).toBe("FULL_SUCCESS");
@@ -492,10 +492,321 @@ describe("executeUpdatePlan", () => {
 
   it("no prevSnapshot → both OVERWRITE (no prev to preserve)", () => {
     const current = makeAdapterResult("BEARISH", "new arg");
-    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE" } };
+    current.snapshot._meta = { ...current.snapshot._meta, field_freshness: { stance: "REUSE", key_arguments: "REUSE", confidence_reason: "REUSE", top_bear_argument: "REUSE", invalidation_conditions: "REUSE" } };
     const result = executeUpdatePlan(current, null, null);
     // No prev → OVERWRITE → current values pass through
     expect(result.snapshot.current_bias.direction).toBe("BEARISH");
     expect(result.decision_object.key_arguments[0].argument).toBe("new arg");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 1B Extended — confidence_reason / top_bear_argument / invalidation_conditions
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+describe("applyFreshnessGate — 3 new fields signal computation", () => {
+  function makeAdapterWithFields(opts: {
+    confidence_reason?: string;
+    top_bear_argument?: string | null;
+    invalidation_conditions?: Array<{ condition: string; trigger_price?: number | null }>;
+  }): AdapterResult {
+    const base = makeAdapterResult("BULLISH", "bull arg");
+    return {
+      ...base,
+      decision_object: {
+        ...base.decision_object,
+        confidence_reason: opts.confidence_reason ?? "default reason",
+        top_bear_argument: opts.top_bear_argument !== undefined ? opts.top_bear_argument : "default bear",
+        invalidation_conditions: opts.invalidation_conditions ?? [{ condition: "default condition", trigger_price: null }],
+      },
+    };
+  }
+
+  function makePrevDO(opts: {
+    confidence_reason?: string;
+    top_bear_argument?: string | null;
+    invalidation_conditions?: Array<{ condition: string; trigger_price?: number | null }>;
+  }) {
+    return {
+      confidence_reason: opts.confidence_reason ?? "default reason",
+      top_bear_argument: opts.top_bear_argument !== undefined ? opts.top_bear_argument : "default bear",
+      invalidation_conditions: opts.invalidation_conditions ?? [{ condition: "default condition", trigger_price: null }],
+    };
+  }
+
+  it("confidence_reason unchanged → REUSE signal", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "same reason" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "same reason" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("REUSE");
+  });
+
+  it("confidence_reason changed → FRESH_UPDATE signal", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "new reason" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "old reason" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("FRESH_UPDATE");
+  });
+
+  it("confidence_reason trimmed match → REUSE signal", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "  same reason  " });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "same reason" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("REUSE");
+  });
+
+  it("top_bear_argument unchanged → REUSE signal", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "bear risk" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: "bear risk" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("REUSE");
+  });
+
+  it("top_bear_argument changed → FRESH_UPDATE signal", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "new bear risk" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: "old bear risk" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("FRESH_UPDATE");
+  });
+
+  it("top_bear_argument: prev null → FRESH_UPDATE (empty string fallback)", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "some bear" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: null });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("FRESH_UPDATE");
+  });
+
+  it("invalidation_conditions unchanged → REUSE signal", () => {
+    const conditions = [{ condition: "price drops below 100", trigger_price: 100 }];
+    const current = makeAdapterWithFields({ invalidation_conditions: conditions });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ invalidation_conditions: conditions });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.invalidation_conditions).toBe("REUSE");
+  });
+
+  it("invalidation_conditions changed → FRESH_UPDATE signal", () => {
+    const current = makeAdapterWithFields({ invalidation_conditions: [{ condition: "new condition", trigger_price: null }] });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ invalidation_conditions: [{ condition: "old condition", trigger_price: null }] });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.invalidation_conditions).toBe("FRESH_UPDATE");
+  });
+
+  it("no prevSnapshot → all 5 fields FRESH_UPDATE", () => {
+    const current = makeAdapterWithFields({});
+    const result = applyFreshnessGate(current, null, null);
+    const ff = result.snapshot._meta.field_freshness!;
+    expect(ff.stance).toBe("FRESH_UPDATE");
+    expect(ff.key_arguments).toBe("FRESH_UPDATE");
+    expect(ff.confidence_reason).toBe("FRESH_UPDATE");
+    expect(ff.top_bear_argument).toBe("FRESH_UPDATE");
+    expect(ff.invalidation_conditions).toBe("FRESH_UPDATE");
+  });
+
+  it("gate does NOT overwrite confidence_reason (signal only)", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "current reason" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "prev reason" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    // Gate only writes signal; value should remain current value
+    expect(result.decision_object.confidence_reason).toBe("current reason");
+  });
+});
+
+describe("buildUpdatePlan — 3 new fields", () => {
+  it("FRESH_UPDATE → OVERWRITE for all 3 new fields", () => {
+    const ff = {
+      stance: "FRESH_UPDATE" as const,
+      key_arguments: "FRESH_UPDATE" as const,
+      confidence_reason: "FRESH_UPDATE" as const,
+      top_bear_argument: "FRESH_UPDATE" as const,
+      invalidation_conditions: "FRESH_UPDATE" as const,
+    };
+    const plan = buildUpdatePlan("FULL_SUCCESS", ff, makePrevSnapshot("BULLISH", "s"));
+    expect(plan.confidence_reason).toBe("OVERWRITE");
+    expect(plan.top_bear_argument).toBe("OVERWRITE");
+    expect(plan.invalidation_conditions).toBe("OVERWRITE");
+  });
+
+  it("REUSE → PRESERVE for all 3 new fields", () => {
+    const ff = {
+      stance: "REUSE" as const,
+      key_arguments: "REUSE" as const,
+      confidence_reason: "REUSE" as const,
+      top_bear_argument: "REUSE" as const,
+      invalidation_conditions: "REUSE" as const,
+    };
+    const plan = buildUpdatePlan("FULL_SUCCESS", ff, makePrevSnapshot("BULLISH", "s"));
+    expect(plan.confidence_reason).toBe("PRESERVE");
+    expect(plan.top_bear_argument).toBe("PRESERVE");
+    expect(plan.invalidation_conditions).toBe("PRESERVE");
+  });
+
+  it("FALLBACK tier → all 5 fields PRESERVE", () => {
+    const ff = {
+      stance: "FRESH_UPDATE" as const,
+      key_arguments: "FRESH_UPDATE" as const,
+      confidence_reason: "FRESH_UPDATE" as const,
+      top_bear_argument: "FRESH_UPDATE" as const,
+      invalidation_conditions: "FRESH_UPDATE" as const,
+    };
+    const plan = buildUpdatePlan("FALLBACK", ff, makePrevSnapshot("BULLISH", "s"));
+    expect(plan.confidence_reason).toBe("PRESERVE");
+    expect(plan.top_bear_argument).toBe("PRESERVE");
+    expect(plan.invalidation_conditions).toBe("PRESERVE");
+  });
+});
+
+describe("executeUpdatePlan — 3 new fields PRESERVE/OVERWRITE", () => {
+  function makeAdapterWithExtended(opts: {
+    confidence_reason?: string;
+    top_bear_argument?: string | null;
+    invalidation_conditions?: Array<{ condition: string; trigger_price?: number | null }>;
+    field_freshness?: {
+      stance: "FRESH_UPDATE" | "REUSE";
+      key_arguments: "FRESH_UPDATE" | "REUSE";
+      confidence_reason: "FRESH_UPDATE" | "REUSE";
+      top_bear_argument: "FRESH_UPDATE" | "REUSE";
+      invalidation_conditions: "FRESH_UPDATE" | "REUSE";
+    };
+  }): AdapterResult {
+    const base = makeAdapterResult("BULLISH", "bull arg");
+    const result: AdapterResult = {
+      ...base,
+      decision_object: {
+        ...base.decision_object,
+        confidence_reason: opts.confidence_reason ?? "current reason",
+        top_bear_argument: opts.top_bear_argument !== undefined ? opts.top_bear_argument : "current bear",
+        invalidation_conditions: opts.invalidation_conditions ?? [{ condition: "current condition", trigger_price: null }],
+      },
+    };
+    if (opts.field_freshness) {
+      result.snapshot = {
+        ...result.snapshot,
+        _meta: { ...result.snapshot._meta, field_freshness: opts.field_freshness },
+      };
+    }
+    return result;
+  }
+
+  function makePrevDOExtended(opts: {
+    confidence_reason?: string;
+    top_bear_argument?: string | null;
+    invalidation_conditions?: Array<{ condition: string; trigger_price?: number | null }>;
+  }) {
+    return {
+      key_arguments: [{ argument: "prev arg", weight: 1 }],
+      confidence_reason: opts.confidence_reason ?? "prev reason",
+      top_bear_argument: opts.top_bear_argument !== undefined ? opts.top_bear_argument : "prev bear",
+      invalidation_conditions: opts.invalidation_conditions ?? [{ condition: "prev condition", trigger_price: null }],
+    };
+  }
+
+  it("confidence_reason REUSE → PRESERVE: uses prev value", () => {
+    const current = makeAdapterWithExtended({
+      confidence_reason: "current reason",
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "REUSE", top_bear_argument: "FRESH_UPDATE", invalidation_conditions: "FRESH_UPDATE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ confidence_reason: "prev reason" });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.confidence_reason).toBe("prev reason");
+  });
+
+  it("confidence_reason FRESH_UPDATE → OVERWRITE: uses current value", () => {
+    const current = makeAdapterWithExtended({
+      confidence_reason: "new reason",
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "FRESH_UPDATE", top_bear_argument: "FRESH_UPDATE", invalidation_conditions: "FRESH_UPDATE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ confidence_reason: "old reason" });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.confidence_reason).toBe("new reason");
+  });
+
+  it("top_bear_argument REUSE → PRESERVE: uses prev value", () => {
+    const current = makeAdapterWithExtended({
+      top_bear_argument: "current bear",
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "FRESH_UPDATE", top_bear_argument: "REUSE", invalidation_conditions: "FRESH_UPDATE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ top_bear_argument: "prev bear" });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.top_bear_argument).toBe("prev bear");
+  });
+
+  it("top_bear_argument PRESERVE but prev is null → fall through to current", () => {
+    const current = makeAdapterWithExtended({
+      top_bear_argument: "current bear",
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "FRESH_UPDATE", top_bear_argument: "REUSE", invalidation_conditions: "FRESH_UPDATE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ top_bear_argument: null });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.top_bear_argument).toBe("current bear");
+  });
+
+  it("invalidation_conditions REUSE → PRESERVE: uses prev array", () => {
+    const prevConditions = [{ condition: "prev condition", trigger_price: 50 }];
+    const current = makeAdapterWithExtended({
+      invalidation_conditions: [{ condition: "current condition", trigger_price: null }],
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "FRESH_UPDATE", top_bear_argument: "FRESH_UPDATE", invalidation_conditions: "REUSE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ invalidation_conditions: prevConditions });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.invalidation_conditions[0].condition).toBe("prev condition");
+  });
+
+  it("invalidation_conditions PRESERVE but prev empty → fall through to current", () => {
+    const current = makeAdapterWithExtended({
+      invalidation_conditions: [{ condition: "current condition", trigger_price: null }],
+      field_freshness: {
+        stance: "FRESH_UPDATE", key_arguments: "FRESH_UPDATE",
+        confidence_reason: "FRESH_UPDATE", top_bear_argument: "FRESH_UPDATE", invalidation_conditions: "REUSE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({ invalidation_conditions: [] });
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.decision_object.invalidation_conditions[0].condition).toBe("current condition");
+  });
+
+  it("executor does NOT modify _tier, stability, is_stale", () => {
+    const current = makeAdapterWithExtended({
+      field_freshness: {
+        stance: "REUSE", key_arguments: "REUSE",
+        confidence_reason: "REUSE", top_bear_argument: "REUSE", invalidation_conditions: "REUSE",
+      },
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "prev summary");
+    const prevDO = makePrevDOExtended({});
+    const result = executeUpdatePlan(current, prevSnap, prevDO);
+    expect(result.health._tier).toBe(current.health._tier);
+    expect(result.snapshot._meta.stability).toBe(current.snapshot._meta.stability);
+    expect(result.snapshot._meta.is_stale).toBe(current.snapshot._meta.is_stale);
   });
 });

@@ -81,6 +81,9 @@ export interface DecisionSnapshot {
     field_freshness?: {
       stance: "FRESH_UPDATE" | "REUSE";
       key_arguments: "FRESH_UPDATE" | "REUSE";
+      confidence_reason: "FRESH_UPDATE" | "REUSE";
+      top_bear_argument: "FRESH_UPDATE" | "REUSE";
+      invalidation_conditions: "FRESH_UPDATE" | "REUSE";
     };
   };
 }
@@ -436,6 +439,42 @@ function readPrevKeyArguments(prevDecisionObject: unknown): KeyArgument[] {
 }
 
 /**
+ * Safe reader: extract confidence_reason string from unknown prevDecisionObject.
+ * Returns empty string if absent.
+ */
+function readPrevConfidenceReason(prevDecisionObject: unknown): string {
+  if (prevDecisionObject !== null && typeof prevDecisionObject === "object") {
+    const v = (prevDecisionObject as Record<string, unknown>).confidence_reason;
+    if (typeof v === "string") return v;
+  }
+  return "";
+}
+
+/**
+ * Safe reader: extract top_bear_argument from unknown prevDecisionObject.
+ * Returns null if absent.
+ */
+function readPrevTopBearArgument(prevDecisionObject: unknown): string | null {
+  if (prevDecisionObject !== null && typeof prevDecisionObject === "object") {
+    const v = (prevDecisionObject as Record<string, unknown>).top_bear_argument;
+    if (typeof v === "string") return v;
+  }
+  return null;
+}
+
+/**
+ * Safe reader: extract invalidation_conditions array from unknown prevDecisionObject.
+ * Returns empty array if absent or not an array.
+ */
+function readPrevInvalidationConditions(prevDecisionObject: unknown): InvalidationCondition[] {
+  if (prevDecisionObject !== null && typeof prevDecisionObject === "object") {
+    const v = (prevDecisionObject as Record<string, unknown>).invalidation_conditions;
+    if (Array.isArray(v)) return v as InvalidationCondition[];
+  }
+  return [];
+}
+
+/**
  * applyFreshnessGate
  *
  * Phase 1B — Signal layer only.
@@ -454,6 +493,9 @@ export function applyFreshnessGate(
   // ── 1. Determine freshness signals ───────────────────────────────────────
   let stanceFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
   let keyArgsFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
+  let confidenceReasonFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
+  let topBearFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
+  let invalidationFreshness: "FRESH_UPDATE" | "REUSE" = "FRESH_UPDATE";
 
   if (prevSnapshot !== null) {
     // stance: compare direction
@@ -468,6 +510,29 @@ export function applyFreshnessGate(
     if (currFirst !== "" && prevFirst !== "" && currFirst === prevFirst) {
       keyArgsFreshness = "REUSE";
     }
+
+    // confidence_reason: trimmed string compare
+    const currCR = adapterResult.decision_object.confidence_reason.trim();
+    const prevCR = readPrevConfidenceReason(prevDecisionObject).trim();
+    if (currCR !== "" && prevCR !== "" && currCR === prevCR) {
+      confidenceReasonFreshness = "REUSE";
+    }
+
+    // top_bear_argument: trimmed string compare (null treated as empty string)
+    const currTBA = (adapterResult.decision_object.top_bear_argument ?? "").trim();
+    const prevTBA = (readPrevTopBearArgument(prevDecisionObject) ?? "").trim();
+    if (currTBA !== "" && prevTBA !== "" && currTBA === prevTBA) {
+      topBearFreshness = "REUSE";
+    }
+
+    // invalidation_conditions: compare normalized joined string of condition texts
+    const normIC = (conditions: InvalidationCondition[]) =>
+      conditions.map(c => c.condition.trim()).filter(Boolean).join("|");
+    const currIC = normIC(adapterResult.decision_object.invalidation_conditions);
+    const prevIC = normIC(readPrevInvalidationConditions(prevDecisionObject));
+    if (currIC !== "" && prevIC !== "" && currIC === prevIC) {
+      invalidationFreshness = "REUSE";
+    }
   }
 
   // ── 2. Write field_freshness into _meta (signal only, no value overwrite) ─
@@ -478,14 +543,20 @@ export function applyFreshnessGate(
       field_freshness: {
         stance: stanceFreshness,
         key_arguments: keyArgsFreshness,
+        confidence_reason: confidenceReasonFreshness,
+        top_bear_argument: topBearFreshness,
+        invalidation_conditions: invalidationFreshness,
       },
     },
   };
 
-  // ── 3. Emit diagnostic log ────────────────────────────────────────────────
+  // ── 3. Emit diagnostic log ────────────────────────────────────────────
   console.log("[Phase1B_GATE]", JSON.stringify({
     stance: stanceFreshness,
     key_arguments: keyArgsFreshness,
+    confidence_reason: confidenceReasonFreshness,
+    top_bear_argument: topBearFreshness,
+    invalidation_conditions: invalidationFreshness,
     has_prev: prevSnapshot !== null,
   }));
 
@@ -518,16 +589,19 @@ function _updateHealthOnFallback() {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Phase 1B — Minimal UpdatePlanExecutor
-// Scope: stance_summary + key_arguments only.
+// Scope: stance_summary + key_arguments + confidence_reason + top_bear_argument + invalidation_conditions
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** Action for a single structured module. SKIP reserved for future use. */
 export type UpdateAction = "OVERWRITE" | "PRESERVE" | "SKIP";
 
-/** Minimal update plan — two modules only. */
+/** Update plan — five controlled modules. */
 export interface UpdatePlan {
   stance_summary: UpdateAction;
   key_arguments: UpdateAction;
+  confidence_reason: UpdateAction;
+  top_bear_argument: UpdateAction;
+  invalidation_conditions: UpdateAction;
 }
 
 /**
@@ -551,7 +625,7 @@ export interface UpdatePlan {
  */
 export function buildUpdatePlan(
   tier: string,
-  fieldFreshness: { stance: "FRESH_UPDATE" | "REUSE"; key_arguments: "FRESH_UPDATE" | "REUSE" } | undefined,
+  fieldFreshness: DecisionSnapshot["_meta"]["field_freshness"],
   prevSnapshot: DecisionSnapshot | null
 ): UpdatePlan {
   const hasPrev = prevSnapshot !== null;
@@ -564,13 +638,22 @@ export function buildUpdatePlan(
   }
 
   if (tier === "FALLBACK") {
-    // FALLBACK: always preserve (mirrors Option C)
-    return { stance_summary: "PRESERVE", key_arguments: "PRESERVE" };
+    // FALLBACK: always preserve (mirrors Option C) — executor not responsible for FALLBACK
+    return {
+      stance_summary: "PRESERVE",
+      key_arguments: "PRESERVE",
+      confidence_reason: "PRESERVE",
+      top_bear_argument: "PRESERVE",
+      invalidation_conditions: "PRESERVE",
+    };
   }
 
   return {
     stance_summary: resolveAction(fieldFreshness?.stance),
     key_arguments: resolveAction(fieldFreshness?.key_arguments),
+    confidence_reason: resolveAction(fieldFreshness?.confidence_reason),
+    top_bear_argument: resolveAction(fieldFreshness?.top_bear_argument),
+    invalidation_conditions: resolveAction(fieldFreshness?.invalidation_conditions),
   };
 }
 
@@ -579,11 +662,13 @@ export function buildUpdatePlan(
  *
  * Applies the UpdatePlan to adapterResult.
  * Only touches:
- *   - adapterResult.snapshot.current_bias   (stance_summary)
+ *   - adapterResult.snapshot.current_bias           (stance_summary)
  *   - adapterResult.decision_object.key_arguments
+ *   - adapterResult.decision_object.confidence_reason
+ *   - adapterResult.decision_object.top_bear_argument
+ *   - adapterResult.decision_object.invalidation_conditions
  *
- * Does NOT modify: _tier, w1Health, stability, is_stale, confidence_reason,
- * top_bear_argument, action_readiness, or any other field.
+ * Does NOT modify: _tier, w1Health, stability, is_stale, action_readiness, or any other field.
  *
  * Called ONLY on non-FALLBACK paths (after applyFreshnessGate).
  */
@@ -598,7 +683,7 @@ export function executeUpdatePlan(
   // Build the plan
   const plan = buildUpdatePlan(tier, fieldFreshness, prevSnapshot);
 
-  // ── Apply stance_summary ──────────────────────────────────────────────────
+  // ── Apply stance_summary ─────────────────────────────────────────────────────────────
   let finalCurrentBias = adapterResult.snapshot.current_bias;
   if (plan.stance_summary === "PRESERVE" && prevSnapshot !== null) {
     finalCurrentBias = prevSnapshot.current_bias;
@@ -606,7 +691,7 @@ export function executeUpdatePlan(
   // OVERWRITE: keep adapterResult.snapshot.current_bias as-is
   // SKIP: keep as-is (no-op)
 
-  // ── Apply key_arguments ───────────────────────────────────────────────────
+  // ── Apply key_arguments ─────────────────────────────────────────────────────────────
   let finalKeyArguments = adapterResult.decision_object.key_arguments;
   if (plan.key_arguments === "PRESERVE") {
     const prevKeyArgs = readPrevKeyArguments(prevDecisionObject);
@@ -615,24 +700,61 @@ export function executeUpdatePlan(
     }
     // If prevKeyArgs is empty, fall through to current value (do not null out)
   }
-  // OVERWRITE: keep adapterResult.decision_object.key_arguments as-is
-  // SKIP: keep as-is (no-op)
+  // OVERWRITE: keep as-is | SKIP: keep as-is (no-op)
 
-  // ── Emit executor log ─────────────────────────────────────────────────────
+  // ── Apply confidence_reason ──────────────────────────────────────────────────────────
+  let finalConfidenceReason = adapterResult.decision_object.confidence_reason;
+  if (plan.confidence_reason === "PRESERVE") {
+    const prevCR = readPrevConfidenceReason(prevDecisionObject);
+    if (prevCR !== "") {
+      finalConfidenceReason = prevCR;
+    }
+    // If prev is empty, fall through to current value (do not null out)
+  }
+  // OVERWRITE: keep as-is | SKIP: keep as-is (no-op)
+
+  // ── Apply top_bear_argument ──────────────────────────────────────────────────────────
+  let finalTopBearArgument = adapterResult.decision_object.top_bear_argument;
+  if (plan.top_bear_argument === "PRESERVE") {
+    const prevTBA = readPrevTopBearArgument(prevDecisionObject);
+    if (prevTBA !== null) {
+      // prev is a non-null string: use it
+      finalTopBearArgument = prevTBA;
+    }
+    // If prev is null, fall through to current value (do not force null)
+  }
+  // OVERWRITE: keep as-is | SKIP: keep as-is (no-op)
+
+  // ── Apply invalidation_conditions ────────────────────────────────────────────────────
+  let finalInvalidationConditions = adapterResult.decision_object.invalidation_conditions;
+  if (plan.invalidation_conditions === "PRESERVE") {
+    const prevIC = readPrevInvalidationConditions(prevDecisionObject);
+    if (prevIC.length > 0) {
+      finalInvalidationConditions = prevIC;
+    }
+    // If prev is empty array, fall through to current value (do not null out)
+  }
+  // OVERWRITE: keep as-is | SKIP: keep as-is (no-op)
+
+  // ── Emit executor log ─────────────────────────────────────────────────────────────
   console.log("[Phase1B_EXECUTOR]", JSON.stringify({
     tier,
     has_prev: prevSnapshot !== null,
     freshness_input: fieldFreshness ?? null,
     plan,
-    stance_action: plan.stance_summary,
-    key_args_action: plan.key_arguments,
+    prev_confidence_reason_present: readPrevConfidenceReason(prevDecisionObject) !== "",
+    prev_top_bear_present: readPrevTopBearArgument(prevDecisionObject) !== null,
+    prev_invalidation_count: readPrevInvalidationConditions(prevDecisionObject).length,
   }));
 
-  // ── Return updated adapterResult ──────────────────────────────────────────
+  // ── Return updated adapterResult ────────────────────────────────────────────────────────────
   return {
     decision_object: {
       ...adapterResult.decision_object,
       key_arguments: finalKeyArguments,
+      confidence_reason: finalConfidenceReason,
+      top_bear_argument: finalTopBearArgument,
+      invalidation_conditions: finalInvalidationConditions,
     },
     snapshot: {
       ...adapterResult.snapshot,

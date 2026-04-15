@@ -26,6 +26,10 @@ export interface DecisionSpineProps {
   alerts?: AlertBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
   history?: HistoryBlockProps & { vm?: unknown; blockRef?: unknown; sessionId?: unknown };
   isLoading?: boolean;
+  attentionState?: {
+    stability: 'STABLE' | 'CHANGED' | 'REVERSED';
+    is_stale: boolean;
+  };
 }
 
 function SkeletonBlock({ height = 80 }: { height?: number }) {
@@ -36,7 +40,7 @@ function SkeletonBlock({ height = 80 }: { height?: number }) {
   );
 }
 
-export function DecisionSpine({ thesis, timing, alerts, history, isLoading = false }: DecisionSpineProps) {
+export function DecisionSpine({ thesis, timing, alerts, history, isLoading = false, attentionState }: DecisionSpineProps) {
   if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -50,7 +54,7 @@ export function DecisionSpine({ thesis, timing, alerts, history, isLoading = fal
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <ThesisBlock {...(thesis ?? {})} />
+      <ThesisBlock {...(thesis ?? {})} attentionState={attentionState} />
       <TimingBlock {...(timing ?? {})} />
       <AlertBlock {...(alerts ?? {})} />
       <HistoryBlock {...(history ?? {})} />

@@ -21,6 +21,10 @@ export interface ThesisBlockProps {
   evidenceDetail?: string;
   sourceCount?: number;
   fragilityLevel?: "low" | "medium" | "high";
+  attentionState?: {
+    stability: string;
+    is_stale: boolean;
+  };
 }
 
 const EV_CFG = {
@@ -58,6 +62,7 @@ export function ThesisBlock({
   evidenceDetail,
   sourceCount,
   fragilityLevel,
+  attentionState,
 }: ThesisBlockProps) {
   const [open, setOpen] = useState(true);
   const ev = EV_CFG[evidenceState] ?? EV_CFG.insufficient;
@@ -242,6 +247,33 @@ export function ThesisBlock({
               </div>
             </div>
           )}
+          {/* Phase 2D: attentionState indicator row */}
+          {attentionState &&
+            (attentionState.stability !== "STABLE" || attentionState.is_stale) && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 10,
+                paddingTop: 8,
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+              }}>
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: attentionState.stability === "REVERSED" ? "#ef4444" : "#f59e0b",
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", letterSpacing: "0.04em" }}>
+                  {attentionState.is_stale
+                    ? "Preserved state"
+                    : attentionState.stability === "REVERSED"
+                    ? "Stance reversed"
+                    : "Thesis updated"}
+                </span>
+              </div>
+            )}
         </div>
       )}
     </section>

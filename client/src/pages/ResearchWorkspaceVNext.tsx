@@ -1392,6 +1392,14 @@ export default function ResearchWorkspacePage() {
                     : undefined;
                 })()}
                 isLoading={vmLoading || sending || isTyping}
+                attentionState={
+                  decisionSnapshot
+                    ? {
+                        stability: decisionSnapshot._meta.stability,
+                        is_stale: decisionSnapshot._meta.is_stale,
+                      }
+                    : undefined
+                }
               />
             </div>
           </main>

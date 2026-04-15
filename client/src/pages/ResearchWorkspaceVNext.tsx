@@ -992,7 +992,9 @@ export default function ResearchWorkspacePage() {
                   padding: "10px 14px",
                   borderRadius: 8,
                   background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: decisionSnapshot._meta.is_stale
+                    ? "1px solid rgba(245,158,11,0.5)"
+                    : "1px solid rgba(255,255,255,0.08)",
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <span style={{
@@ -1012,6 +1014,16 @@ export default function ResearchWorkspacePage() {
                     </span>
                     {decisionObject?._tier === "FALLBACK" && (
                       <span style={{ fontSize: 9, color: "rgba(255,180,0,0.6)", letterSpacing: "0.06em" }}>FALLBACK</span>
+                    )}
+                    {decisionSnapshot._meta.stability !== "STABLE" && (
+                      <span style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: decisionSnapshot._meta.stability === "REVERSED" ? "#ef4444" : "#f59e0b",
+                        letterSpacing: "0.08em",
+                      }}>
+                        {decisionSnapshot._meta.stability}
+                      </span>
                     )}
                   </div>
                   <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: "rgba(255,255,255,0.75)" }}>

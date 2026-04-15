@@ -7,6 +7,7 @@
  */
 
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useEffect, useRef, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 
@@ -85,9 +86,10 @@ function IndexSnapshotPopup({
   onClose: () => void;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
   const { data, isLoading } = trpc.market.getMarketIndexSnapshot.useQuery(
     { market },
-    { staleTime: 30_000, refetchOnWindowFocus: false }
+    { enabled: isAuthenticated, staleTime: 30_000, refetchOnWindowFocus: false }
   );
 
   // 点击外部关闭
@@ -258,13 +260,15 @@ export function GlobalMarketBar() {
     return () => clearInterval(timer);
   }, []);
 
+  const { isAuthenticated } = useAuth();
   const { data, isLoading, isError } = trpc.market.getAllMarketStatuses.useQuery(undefined, {
+    enabled: isAuthenticated,
     staleTime: 55_000,
     refetchOnWindowFocus: false,
   });
 
   const { data: data2, isLoading: isLoading2 } = trpc.market.getAllMarketStatuses.useQuery(undefined, {
-    enabled: refetchTick > 0,
+    enabled: isAuthenticated && refetchTick > 0,
     staleTime: 0,
     refetchOnWindowFocus: false,
   });

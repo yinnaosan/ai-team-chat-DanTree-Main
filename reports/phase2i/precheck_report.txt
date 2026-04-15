@@ -1,0 +1,209 @@
+[DATA] Total qualifying records (pre-Phase-3A): 15
+
+================================================================================================================================================================
+  ⚠️  PHASE 2I — PRE-PHASE-3A PRECHECK REPORT
+  ⚠️  PRECHECK ONLY — NOT VALID FOR FINAL GATE
+  ⚠️  Data source: all messages written BEFORE Phase 3A deployment (2026-04-15 12:33 UTC)
+================================================================================================================================================================
+
+━━━ TABLE A: criticalDriver Comparison (legacy_bull vs struct_bull) ━━━
+
+        id |       date |         tier |       stance | L_len | S_len | category                  | legacy_bull[:70]
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+   1350002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    93 |    80 | TRUNCATION-ONLY           | '盈利能力居全球顶尖：ROE 159.94%、毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，软硬件生态护城河深'
+   1350004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    84 |    80 | TRUNCATION-ONLY           | '卓越盈利能力构成估值支撑：毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，服务业务高毛利率持续提升利润结构，生'
+   1350006 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |   101 |    80 | TRUNCATION-ONLY           | '卓越盈利能力提供估值支撑：ROE 159.94%远超行业均值，净利率27.04%、毛利率47.33%、EBIT Margin 32.40%，'
+   1350008 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |   104 |    80 | TRUNCATION-ONLY           | '顶级盈利质量提供估值支撑：ROE 159.94%、净利率27.04%、毛利率47.33%、EBIT Margin 32.40%，软硬件生态强'
+   1350010 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    90 |    80 | TRUNCATION-ONLY           | '顶级盈利能力提供估值支撑：毛利率47.33%、净利率27.04%、EBIT Margin 32.40%、ROE 159.94%，护城河极深，'
+   1350020 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    82 |    80 | TRUNCATION-ONLY           | '股价已跌至52周低点（30.26港元）附近，技术上处于极端超卖区域，下行空间有限，超跌反弹机会显现，若EV业务（SU7系列）销量数据超预期将'
+   1350022 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    92 |    80 | MATERIALLY DIFFERENT      | '股价较52周高点61.45港元跌幅约49.7%，当前30.88港元仅高于52周低位30.26约2%，技术面处于极端超卖区域，若EV交付量及毛'
+   1380002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    21 |    21 | EXACT                     | '数据收集完成，请重新分析以获取完整看多论点'
+   1380004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    75 |    75 | EXACT                     | '股价较52周高点61.45港元已腰斩至30.88港元，估值大幅压缩后若2026年净利润增速维持30%+，当前PE具备一定吸引力，超跌反弹风险'
+   1410002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    21 |    21 | EXACT                     | '数据收集完成，请重新分析以获取完整看多论点'
+   1410004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    21 |    21 | EXACT                     | '数据收集完成，请重新分析以获取完整看多论点'
+   1410006 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    21 |    21 | EXACT                     | '数据收集完成，请重新分析以获取完整看多论点'
+   1440002 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    96 |    80 | TRUNCATION-ONLY           | '股价较52周高点61.45港元已腰斩至30.90港元，跌幅约49.7%，估值大幅压缩后若Q4 2025盈利增长维持，当前价格具备一定安全边际'
+   1440004 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    69 |    69 | EXACT                     | '股价较52周高点61.45港元已回撤约49.7%，仅高于52周低点30.26约2%，悲观预期已大幅定价，下行空间极为有限，具备中期安全边际'
+   1440006 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    75 |    75 | EXACT                     | '股价较52周高点61.45港元已回撤约49.7%，仅高于52周低点30.26约2%，市场情绪极度悲观已大幅定价，潜在安全边际显著提升，下行空'
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+━━━ TABLE B: failureCondition Comparison (legacy_bear vs struct_bear) ━━━
+
+        id |       date |         tier |       stance | L_len | S_len | category                  | legacy_bear[:70]
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+   1350002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    93 |    80 | TRUNCATION-ONLY           | '高利率环境持续压制高估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险利率处于相对高位，对PE 32.46x、PB 43.3'
+   1350004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    85 |    80 | TRUNCATION-ONLY           | '高利率环境持续压制估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险收益率维持高位，对PE 32.46x的高估值股票形成持续'
+   1350006 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    87 |    80 | TRUNCATION-ONLY           | '中国市场风险尚未完全定价：中国收入占比约20%，Q1 2026中国智能手机出货量同比下滑1%叠加成本压力上升，实际冲击尚未在财报中完全体现，'
+   1350008 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |   116 |    80 | TRUNCATION-ONLY           | '高利率环境压制高估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险收益率维持高位，对PE 32.46倍、PB 43.35倍的'
+   1350010 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    97 |    80 | TRUNCATION-ONLY           | '估值偏贵且安全边际有限：PE 32.46倍、PB 43.35倍、EV/EBITDA 25.20倍对消费电子龙头而言均高于历史均值，10年期美'
+   1350020 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    83 |    80 | TRUNCATION-ONLY           | '全球高利率环境持续压制科技/成长股估值：美联储基准利率3.64%、10年期美债收益率4.31%，港股流动性承压，小米作为高贝塔成长股首当其冲'
+   1350022 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |   108 |    80 | MATERIALLY DIFFERENT      | '中美科技脱钩风险持续升温：小米曾被列入美国国防部CMIC名单（虽已撤销），2026年地缘政治博弈加剧，潜在出口管制、芯片禁令及供应链限制仍构'
+   1380002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    18 |    18 | EXACT                     | '结构化输出失败，无法提供完整看空论点'
+   1380004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    81 |    80 | TRUNCATION-ONLY           | '宏观流动性持续收缩：美联储高利率环境与美元强势叠加中美贸易摩擦，外资持续减持港股科技资产，股价若跌破52周低点30.26港元将触发技术性加速'
+   1410002 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    18 |    18 | EXACT                     | '结构化输出失败，无法提供完整看空论点'
+   1410004 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    18 |    18 | EXACT                     | '结构化输出失败，无法提供完整看空论点'
+   1410006 | 2026-04-14 | FULL_SUCCESS |      NEUTRAL |    18 |    18 | EXACT                     | '结构化输出失败，无法提供完整看空论点'
+   1440002 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    64 |    64 | EXACT                     | '美联储维持高利率环境导致港元联系汇率体系下港股估值持续承压，外资持续撤离新兴市场科技股，1810.HK宏观流动性逆风短期难以逆转'
+   1440004 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    81 |    80 | TRUNCATION-ONLY           | '美联储基准利率3.64%、10年期美债收益率4.30%，全球资金成本持续高企，压制高成长中国科技股估值倍数，港股中资科技股面临系统性折价压力'
+   1440006 | 2026-04-15 | FULL_SUCCESS |      NEUTRAL |    71 |    71 | EXACT                     | '美联储高利率环境持续压制新兴市场及港股估值，人民币/港币汇率在强美元背景下承压，外资持续流出港股市场，加剧小米股价调整压力，当前技术面极度弱'
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+━━━ STEP 6: COUNTS ━━━
+
+  [criticalDriver (bull)]
+  Category                  | Count |      %
+  ---------------------------------------------
+  EXACT                     |     7 |  46.7%
+  WHITESPACE                |     0 |   0.0%
+  TRUNCATION-ONLY           |     7 |  46.7%
+  PHRASE-ORDER              |     0 |   0.0%
+  PARTIAL CONTENT           |     0 |   0.0%
+  MATERIALLY DIFFERENT      |     1 |   6.7% ← ⚠️
+  NULL-SKIP                 |     0 |   0.0%
+  ---------------------------------------------
+  TOTAL                     |    15 |
+  Safe (4 cats)             |    14 |  93.3%
+  MATERIALLY DIFFERENT      |     1 |   6.7%
+  NULL-SKIP                 |     0 |
+
+  [failureCondition (bear)]
+  Category                  | Count |      %
+  ---------------------------------------------
+  EXACT                     |     6 |  40.0%
+  WHITESPACE                |     0 |   0.0%
+  TRUNCATION-ONLY           |     8 |  53.3%
+  PHRASE-ORDER              |     0 |   0.0%
+  PARTIAL CONTENT           |     0 |   0.0%
+  MATERIALLY DIFFERENT      |     1 |   6.7% ← ⚠️
+  NULL-SKIP                 |     0 |   0.0%
+  ---------------------------------------------
+  TOTAL                     |    15 |
+  Safe (4 cats)             |    14 |  93.3%
+  MATERIALLY DIFFERENT      |     1 |   6.7%
+  NULL-SKIP                 |     0 |
+
+━━━ DETAIL: MATERIALLY DIFFERENT — criticalDriver (bull) [1 rows] ━━━
+
+  id=1350022 | createdAt=2026-04-14 10:28:33 | tier=FULL_SUCCESS | stance=NEUTRAL
+  LEGACY_BULL (92 chars):
+    股价较52周高点61.45港元跌幅约49.7%，当前30.88港元仅高于52周低位30.26约2%，技术面处于极端超卖区域，若EV交付量及毛利率数据超预期，超跌反弹的风险收益比显著改善
+  STRUCT_BULL (80 chars):
+    股价已跌至52周低点（30.26港元）附近，技术上处于极端超卖区域，下行空间有限，超跌反弹机会显现，若EV业务（SU7系列）销量数据超预期将成为估值修复的核心催
+
+━━━ DETAIL: MATERIALLY DIFFERENT — failureCondition (bear) [1 rows] ━━━
+
+  id=1350022 | createdAt=2026-04-14 10:28:33 | tier=FULL_SUCCESS | stance=NEUTRAL
+  LEGACY_BEAR (108 chars):
+    中美科技脱钩风险持续升温：小米曾被列入美国国防部CMIC名单（虽已撤销），2026年地缘政治博弈加剧，潜在出口管制、芯片禁令及供应链限制仍构成系统性风险，压制国际资本配置意愿，EV与AIoT业务对先进半导体依赖度较高
+  STRUCT_BEAR (80 chars):
+    全球高利率环境持续压制科技/成长股估值：美联储基准利率3.64%、10年期美债收益率4.31%，港股流动性承压，小米作为高贝塔成长股首当其冲，估值修复进程可能持
+
+━━━ DETAIL: TRUNCATION-ONLY — criticalDriver (bull) [7 rows, first 3] ━━━
+
+  id=1350002 | L=93 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 盈利能力居全球顶尖：ROE 159.94%、毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，软硬件生态护城河深厚，服务业务持续拉升利润率结构，现金流质量极强
+  STRUCT: 盈利能力居全球顶尖：ROE 159.94%、毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，软硬件生态护城河深厚，服务业务持续拉升
+
+  id=1350004 | L=84 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 卓越盈利能力构成估值支撑：毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，服务业务高毛利率持续提升利润结构，生态系统护城河使定价权长期稳固
+  STRUCT: 卓越盈利能力构成估值支撑：毛利率47.33%、EBIT Margin 32.40%、净利率27.04%，服务业务高毛利率持续提升利润结构，生态系统护城河使定价权
+
+  id=1350006 | L=101 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 卓越盈利能力提供估值支撑：ROE 159.94%远超行业均值，净利率27.04%、毛利率47.33%、EBIT Margin 32.40%，服务业务高毛利持续推升整体盈利质量，品牌溢价和定价权构筑护城河
+  STRUCT: 卓越盈利能力提供估值支撑：ROE 159.94%远超行业均值，净利率27.04%、毛利率47.33%、EBIT Margin 32.40%，服务业务高毛利持续推
+
+━━━ DETAIL: TRUNCATION-ONLY — failureCondition (bear) [8 rows, first 3] ━━━
+
+  id=1350002 | L=93 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 高利率环境持续压制高估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险利率处于相对高位，对PE 32.46x、PB 43.35x的苹果构成持续折现压力，估值性价比显著下降
+  STRUCT: 高利率环境持续压制高估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险利率处于相对高位，对PE 32.46x、PB 43.35x的苹果构成持续折
+
+  id=1350004 | L=85 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 高利率环境持续压制估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险收益率维持高位，对PE 32.46x的高估值股票形成持续折现压力，估值溢价面临收缩风险
+  STRUCT: 高利率环境持续压制估值：联邦基金利率3.64%、10年期美债收益率4.31%，无风险收益率维持高位，对PE 32.46x的高估值股票形成持续折现压力，估值溢价面
+
+  id=1350006 | L=87 chars → S=80 chars | tier=FULL_SUCCESS
+  LEGACY: 中国市场风险尚未完全定价：中国收入占比约20%，Q1 2026中国智能手机出货量同比下滑1%叠加成本压力上升，实际冲击尚未在财报中完全体现，未来季度中国营收走势是最大未知变量
+  STRUCT: 中国市场风险尚未完全定价：中国收入占比约20%，Q1 2026中国智能手机出货量同比下滑1%叠加成本压力上升，实际冲击尚未在财报中完全体现，未来季度中国营收走势
+
+━━━ LONG LEGACY CHECK (>200 chars) ━━━
+  legacy_bull > 200: 0 / 15  (0.0%)
+  legacy_bear > 200: 0 / 15  (0.0%)
+
+================================================================================================================================================================
+  SECTION: Why pre-Phase-3A data is NOT valid for final gate
+================================================================================================================================================================
+
+  1. CAUSAL CONTAMINATION
+     Phase 3A expanded truncation limits (confidence_reason 80→300, key_arguments 80→200, etc.).
+     Pre-Phase-3A records were generated under the OLD truncation regime.
+     Any TRUNCATION-ONLY classification in pre-Phase-3A data may reflect the old limits,
+     not the post-3A behavior. The gate is specifically designed to validate post-3A output quality.
+
+  2. SAMPLE SELECTION BIAS
+     The 15 pre-Phase-3A records were generated during development/testing sessions.
+     They may not represent the full distribution of production inputs (ticker variety,
+     market conditions, LLM prompt variations) that will appear in post-Phase-3A usage.
+
+  3. GATE DESIGN INTENT
+     G1/G2/G3 are designed to validate that the NEW truncation limits (Phase 3A) produce
+     struct fields that faithfully represent legacy content at the expanded length.
+     Pre-Phase-3A records cannot test this because they were written before the limits changed.
+
+  4. TEMPORAL ORDERING
+     The formal gate requires post-Phase-3A samples to confirm that the system, as deployed,
+     produces consistent struct↔legacy alignment. Pre-Phase-3A data cannot confirm deployment
+     behavior.
+
+================================================================================================================================================================
+  SECTION: What pre-Phase-3A data CAN still tell us
+================================================================================================================================================================
+
+  1. STRUCTURAL ALIGNMENT BASELINE
+     If MATERIALLY DIFFERENT = 0 in pre-Phase-3A data, it confirms that the extraction
+     pipeline was already producing semantically consistent struct fields before Phase 3A.
+     This is a positive signal that the architecture is sound.
+
+  2. FIELD COVERAGE
+     We can confirm whether key_arguments[0].argument and top_bear_argument are being
+     populated at all, and whether they map to the correct semantic role.
+
+  3. TRUNCATION PATTERN
+     TRUNCATION-ONLY rows reveal whether the old 80-char limit was actively cutting content.
+     A high TRUNCATION-ONLY rate pre-Phase-3A would confirm that Phase 3A's expansion
+     was necessary and that post-Phase-3A data should show fewer truncations.
+
+  4. EARLY WARNING
+     If MATERIALLY DIFFERENT > 0 even in pre-Phase-3A data, it would be a strong warning
+     that the extraction pipeline has fundamental alignment issues that Phase 3A alone
+     cannot fix.
+
+================================================================================================================================================================
+  SECTION: Early signal assessment — does criticalDriver remain promising?
+================================================================================================================================================================
+
+  criticalDriver (bull) MATERIALLY DIFFERENT: 1  → ⚠️  CONCERN
+  failureCondition (bear) MATERIALLY DIFFERENT: 1  → ⚠️  CONCERN
+  criticalDriver safe rate (pre-Phase-3A): 93.3%
+  failureCondition safe rate (pre-Phase-3A): 93.3%
+
+  Early signal: Material divergence DETECTED in pre-Phase-3A sample.
+  This suggests extraction pipeline alignment issues that need investigation
+  before formal gate can be expected to PASS.
+  Recommendation: investigate MATERIALLY DIFFERENT rows before formal gate.
+
+================================================================================================================================================================
+  PRECHECK CONCLUSION
+================================================================================================================================================================
+
+  ⚠️  PRECHECK ONLY — NOT VALID FOR FINAL GATE
+  ⚠️  Formal READY / NOT READY requires post-Phase-3A samples
+
+  PRECHECK DOES NOT SUPPORT further validation priority without investigation
+  → Material divergence detected: bull=1, bear=1
+  → Must resolve divergence before formal gate
+
+  FORMAL GATE STATUS: PENDING — awaiting post-Phase-3A samples
+  Trigger: first assistant message with id > 1440006 AND decisionObject present
+================================================================================================================================================================
+[DONE]

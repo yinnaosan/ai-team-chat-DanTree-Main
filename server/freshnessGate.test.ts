@@ -163,22 +163,36 @@ describe("applyFreshnessGate — key_arguments freshness", () => {
   });
 
   it("key_arguments is REUSE when first arg text is same", () => {
+    // A2 update: prevDO must contain full matching set (same 2 args as curr)
     const sameArg = "same bull argument text";
     const curr = makeAdapterResult("BULLISH", sameArg);
     const prev = makePrevSnapshot("BULLISH");
-    const prevDO = makePrevDecisionObject(sameArg);
+    const prevDO = {
+      stance: "BULLISH",
+      key_arguments: [
+        { argument: sameArg, direction: "BULL", strength: "STRONG", source: "LLM" },
+        { argument: "second arg", direction: "BEAR", strength: "MEDIUM", source: "LLM" },
+      ],
+    };
     const result = applyFreshnessGate(curr, prev, prevDO);
     expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
     expect(result.decision_object.key_arguments[0].argument).toBe(sameArg);
   });
 
   it("REUSE: gate writes signal only — key_arguments NOT overwritten by gate (executor's job)", () => {
-    // Updated for Phase 1B executor split:
+    // Updated for Phase 1B executor split + A2 full-set compare:
     // gate = signal layer only, does NOT overwrite key_arguments
     const sameArg = "same arg";
     const curr = makeAdapterResult("BULLISH", sameArg);
     const prev = makePrevSnapshot("BULLISH");
-    const prevDO = makePrevDecisionObject(sameArg);
+    // A2 update: prevDO must contain full matching set (same 2 args as curr)
+    const prevDO = {
+      stance: "BULLISH",
+      key_arguments: [
+        { argument: sameArg, direction: "BULL", strength: "STRONG", source: "LLM" },
+        { argument: "second arg", direction: "BEAR", strength: "MEDIUM", source: "LLM" },
+      ],
+    };
     const result = applyFreshnessGate(curr, prev, prevDO);
     // Gate must write REUSE signal
     expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
@@ -249,11 +263,52 @@ describe("applyFreshnessGate — edge cases", () => {
   });
 
   it("whitespace-only args are trimmed before comparison", () => {
+    // A2 update: prevDO must contain full matching set (same 2 args as curr, trimmed)
     const curr = makeAdapterResult("BULLISH", "  same arg  ");
     const prev = makePrevSnapshot("BULLISH");
-    const prevDO = makePrevDecisionObject("same arg");
+    const prevDO = {
+      stance: "BULLISH",
+      key_arguments: [
+        { argument: "same arg", direction: "BULL", strength: "STRONG", source: "LLM" },
+        { argument: "second arg", direction: "BEAR", strength: "MEDIUM", source: "LLM" },
+      ],
+    };
     const result = applyFreshnessGate(curr, prev, prevDO);
     expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
+  });
+
+  // A2: full-set order-insensitive tests
+  it("A2: key_arguments same set different order → REUSE signal", () => {
+    const argX = { argument: "x argument", direction: "BULL" as const, strength: "STRONG" as const, source: "LLM" as const };
+    const argY = { argument: "y argument", direction: "BEAR" as const, strength: "MEDIUM" as const, source: "LLM" as const };
+    const curr = makeAdapterResult("BULLISH", "x argument");
+    // Override key_arguments to [argX, argY]
+    curr.decision_object.key_arguments = [argX, argY];
+    const prev = makePrevSnapshot("BULLISH");
+    const prevDO = {
+      stance: "BULLISH",
+      key_arguments: [argY, argX], // reversed order
+    };
+    const result = applyFreshnessGate(curr, prev, prevDO);
+    expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("REUSE");
+  });
+
+  it("A2: key_arguments different set → still FRESH_UPDATE signal", () => {
+    const curr = makeAdapterResult("BULLISH", "x argument");
+    curr.decision_object.key_arguments = [
+      { argument: "x argument", direction: "BULL", strength: "STRONG", source: "LLM" },
+      { argument: "z argument", direction: "BEAR", strength: "MEDIUM", source: "LLM" },
+    ];
+    const prev = makePrevSnapshot("BULLISH");
+    const prevDO = {
+      stance: "BULLISH",
+      key_arguments: [
+        { argument: "x argument", direction: "BULL", strength: "STRONG", source: "LLM" },
+        { argument: "y argument", direction: "BEAR", strength: "MEDIUM", source: "LLM" }, // y ≠ z
+      ],
+    };
+    const result = applyFreshnessGate(curr, prev, prevDO);
+    expect(result.snapshot._meta.field_freshness?.key_arguments).toBe("FRESH_UPDATE");
   });
 });
 

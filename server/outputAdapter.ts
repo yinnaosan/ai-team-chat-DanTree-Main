@@ -503,11 +503,14 @@ export function applyFreshnessGate(
       stanceFreshness = "REUSE";
     }
 
-    // key_arguments: compare first argument text (trim + empty fallback)
-    const currFirst = (adapterResult.decision_object.key_arguments[0]?.argument ?? "").trim();
+    // key_arguments: compare normalized full-set of argument texts
+    // A2: map+filter+sort+join makes comparison order-insensitive and full-set aware
+    const normKA = (args: KeyArgument[]) =>
+      args.map(a => a.argument.trim()).filter(Boolean).sort().join("|");
+    const currKA = normKA(adapterResult.decision_object.key_arguments);
     const prevKeyArgs = readPrevKeyArguments(prevDecisionObject);
-    const prevFirst = (prevKeyArgs[0]?.argument ?? "").trim();
-    if (currFirst !== "" && prevFirst !== "" && currFirst === prevFirst) {
+    const prevKA = normKA(prevKeyArgs);
+    if (currKA !== "" && prevKA !== "" && currKA === prevKA) {
       keyArgsFreshness = "REUSE";
     }
 

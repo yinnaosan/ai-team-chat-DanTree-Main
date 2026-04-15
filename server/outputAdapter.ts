@@ -248,20 +248,23 @@ export function extractDecisionObject(
   extractionLog.push({ field: "confidence", source: "LLM" });
 
   // ── 3. confidence_reason (LLM — from reasoning[0] or verdict) ─────────────
-  const confidenceReason = (deliverable.reasoning?.[0] ?? deliverable.verdict ?? "").slice(0, 80);
+  // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+  const confidenceReason = (deliverable.reasoning?.[0] ?? deliverable.verdict ?? "").slice(0, 300);
   extractionLog.push({ field: "confidence_reason", source: deliverable.reasoning?.length ? "LLM" : "INFERRED" });
   if (!deliverable.reasoning?.length) inferredFields.push("confidence_reason");
 
   // ── 4. key_arguments (LLM — from bull_case + bear_case) ───────────────────
   const keyArguments: KeyArgument[] = [
     ...(deliverable.bull_case ?? []).map((arg, i): KeyArgument => ({
-      argument: arg.slice(0, 80),
+      // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+      argument: arg.slice(0, 200),
       direction: "BULL",
       strength: inferStrength(i),
       source: "LLM",
     })),
     ...(deliverable.bear_case ?? []).map((arg, i): KeyArgument => ({
-      argument: arg.slice(0, 80),
+      // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+      argument: arg.slice(0, 200),
       direction: "BEAR",
       strength: inferStrength(i),
       source: "LLM",
@@ -270,12 +273,14 @@ export function extractDecisionObject(
   extractionLog.push({ field: "key_arguments", source: "LLM" });
 
   // ── 5. top_bear_argument (LLM — first bear_case item) ─────────────────────
-  const topBearArgument = deliverable.bear_case?.[0]?.slice(0, 80) ?? null;
+  // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+  const topBearArgument = deliverable.bear_case?.[0]?.slice(0, 200) ?? null;
   extractionLog.push({ field: "top_bear_argument", source: topBearArgument ? "LLM" : "MISSING" });
 
   // ── 6. invalidation_conditions (LLM — from risks) ─────────────────────────
   const invalidationConditions: InvalidationCondition[] = (deliverable.risks ?? []).map(r => ({
-    condition: r.description.slice(0, 80),
+    // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+    condition: r.description.slice(0, 200),
     probability: r.magnitude === "high" ? "HIGH" : r.magnitude === "medium" ? "MEDIUM" : "LOW",
     source: "LLM" as FieldSource,
   }));
@@ -361,7 +366,8 @@ function deriveSnapshot(
   turnIndex: number
 ): DecisionSnapshot {
   // current_bias.summary: confidence_reason truncated to 30 chars
-  const summary = obj.confidence_reason.slice(0, 30);
+  // TODO Phase 3B: replace with direct LLM structured field from structured_analysis
+  const summary = obj.confidence_reason.slice(0, 100);
 
   // why: strongest BULL argument
   const bullArgs = obj.key_arguments.filter(a => a.direction === "BULL");

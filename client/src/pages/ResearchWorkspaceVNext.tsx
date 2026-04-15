@@ -1089,6 +1089,29 @@ export default function ResearchWorkspacePage() {
                   </div>
                 </div>
               )}
+              {/* Phase 2C: Attention-State Strip — between Key Arguments and DecisionSpine */}
+              {(decisionSnapshot?._meta.stability !== "STABLE" ||
+                decisionSnapshot?._meta.is_stale) && (
+                <div style={{
+                  margin: "0 0 10px 0",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  background: decisionSnapshot?._meta.stability === "REVERSED"
+                    ? "rgba(239,68,68,0.08)"
+                    : "rgba(245,158,11,0.07)",
+                  borderLeft: decisionSnapshot?._meta.stability === "REVERSED"
+                    ? "2px solid #ef4444"
+                    : "2px solid rgba(245,158,11,0.5)",
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.5)",
+                }}>
+                  {decisionSnapshot?._meta.is_stale
+                    ? "Showing preserved analysis \u2014 awaiting fresh data"
+                    : decisionSnapshot?._meta.stability === "REVERSED"
+                    ? "Stance reversed this turn \u2014 review thesis below"
+                    : "Thesis updated this turn"}
+                </div>
+              )}
               {/* DecisionSpine: 接入 useWorkspaceViewModel 真实数据 */}
               <DecisionSpine
                 thesis={(() => {

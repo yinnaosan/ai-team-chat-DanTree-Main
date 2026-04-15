@@ -600,6 +600,29 @@ describe("applyFreshnessGate — 3 new fields signal computation", () => {
     expect(result.snapshot._meta.field_freshness?.invalidation_conditions).toBe("FRESH_UPDATE");
   });
 
+  // A1: order-insensitive tests
+  it("A1: invalidation_conditions same set different order → REUSE signal", () => {
+    const condA = { condition: "alpha condition", trigger_price: null };
+    const condB = { condition: "beta condition", trigger_price: null };
+    const current = makeAdapterWithFields({ invalidation_conditions: [condA, condB] });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ invalidation_conditions: [condB, condA] }); // reversed order
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.invalidation_conditions).toBe("REUSE");
+  });
+
+  it("A1: invalidation_conditions different set → still FRESH_UPDATE signal", () => {
+    const current = makeAdapterWithFields({
+      invalidation_conditions: [{ condition: "alpha condition", trigger_price: null }, { condition: "gamma condition", trigger_price: null }],
+    });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({
+      invalidation_conditions: [{ condition: "alpha condition", trigger_price: null }, { condition: "beta condition", trigger_price: null }],
+    });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.invalidation_conditions).toBe("FRESH_UPDATE");
+  });
+
   it("no prevSnapshot → all 5 fields FRESH_UPDATE", () => {
     const current = makeAdapterWithFields({});
     const result = applyFreshnessGate(current, null, null);

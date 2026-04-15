@@ -525,9 +525,10 @@ export function applyFreshnessGate(
       topBearFreshness = "REUSE";
     }
 
-    // invalidation_conditions: compare normalized joined string of condition texts
+    // invalidation_conditions: compare normalized sorted joined string of condition texts
+    // A1: sort() makes comparison order-insensitive — same set in different LLM order → REUSE
     const normIC = (conditions: InvalidationCondition[]) =>
-      conditions.map(c => c.condition.trim()).filter(Boolean).join("|");
+      conditions.map(c => c.condition.trim()).filter(Boolean).sort().join("|");
     const currIC = normIC(adapterResult.decision_object.invalidation_conditions);
     const prevIC = normIC(readPrevInvalidationConditions(prevDecisionObject));
     if (currIC !== "" && prevIC !== "" && currIC === prevIC) {

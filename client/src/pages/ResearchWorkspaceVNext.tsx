@@ -509,6 +509,29 @@ export default function ResearchWorkspacePage() {
   const decisionObject = lastAssistant?.metadata?.decisionObject ?? null;
   const decisionSnapshot = lastAssistant?.metadata?.decisionSnapshot ?? null;
 
+  // Phase 2B: stability + is_stale transition toasts
+  const prevStabilityRef = useRef<string | null>(null);
+  const prevIsStaleRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!decisionSnapshot) return;
+    const s = decisionSnapshot._meta.stability;
+    const stale = decisionSnapshot._meta.is_stale;
+    // stability transitions — only fire after first render (prevStabilityRef.current !== null)
+    if (prevStabilityRef.current !== null) {
+      if (s === "REVERSED") {
+        toast.error("Stance reversed — thesis direction has flipped");
+      } else if (s === "CHANGED" && prevStabilityRef.current === "STABLE") {
+        toast.warning("Analysis updated — key signals changed this turn");
+      }
+    }
+    // is_stale transition — only fire when crossing false → true
+    if (stale && !prevIsStaleRef.current) {
+      toast.warning("Analysis stale — preserved from previous turn");
+    }
+    prevStabilityRef.current = s;
+    prevIsStaleRef.current = stale;
+  }, [decisionSnapshot]);
+
   // ── WorkspaceOutput Refactor v1 — Layer 1 hook ────────────────────────────
   const workspaceOutput = useWorkspaceOutput({
     latestAssistantContent: lastAssistant?.content ?? null,

@@ -1163,9 +1163,23 @@ export default function ResearchWorkspacePage() {
                     ? (answerObject!.confidence === "high" ? "strong" : answerObject!.confidence === "medium" ? "moderate" : "weak") as "strong" | "moderate" | "weak" | "insufficient"
                     : ((tvm.evidenceState as "strong" | "moderate" | "weak" | "insufficient" | null) ?? "insufficient");
 
-                  const fragilityLevel = tvm.fragilityScore != null
-                    ? (tvm.fragilityScore >= 0.7 ? "high" as const : tvm.fragilityScore >= 0.4 ? "medium" as const : "low" as const)
-                    : (answerObject?.confidence === "low" ? "high" as const : answerObject?.confidence === "medium" ? "medium" as const : "low" as const);
+                  // Phase 2G: Tier 1.5 — fragilityFromStability as middle fallback
+                  const fragilityFromStability: 'high' | 'medium' | null =
+                    decisionSnapshot?._meta.stability === 'REVERSED'
+                      ? 'high'
+                      : decisionSnapshot?._meta.stability === 'CHANGED'
+                      ? 'medium'
+                      : null;
+
+                  const fragilityLevel =
+                    tvm.fragilityScore != null
+                      ? (tvm.fragilityScore >= 0.7 ? 'high' as const : tvm.fragilityScore >= 0.4 ? 'medium' as const : 'low' as const)
+                      : fragilityFromStability
+                      ?? (answerObject?.confidence === 'low'
+                        ? 'high' as const
+                        : answerObject?.confidence === 'medium'
+                        ? 'medium' as const
+                        : 'low' as const);
 
                   // Phase 2E: keyVariables from structured key_arguments
                   const keyVariables = decisionObject?.key_arguments

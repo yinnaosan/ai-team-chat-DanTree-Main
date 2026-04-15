@@ -419,9 +419,15 @@ All reasoning must be derived from SYNTHESIS_TRUTH_SOURCE and AGENT_TAXONOMY. Do
   "verdict": "one-sentence core judgment with direction and magnitude",
   "confidence": "high|medium|low",
   "horizon": "short-term|mid-term|long-term",
-  "bull_case": ["bull reason 1 (must be bullish)", "bull reason 2 (must be bullish)"],
+  "bull_case": [
+    "primary bull thesis — MUST be the most important bullish driver and MUST be placed at index 0",
+    "additional bullish reason"
+  ],
   "reasoning": ["reasoning chain 1", "reasoning chain 2", "reasoning chain 3"],
-  "bear_case": ["bear reason 1 (must be bearish)", "bear reason 2 (must be bearish)", "bear reason 3 (strongest bear case)"],
+  "bear_case": [
+    "primary bear risk — MUST be the most important concern and MUST be placed at index 0",
+    "secondary bear risk"
+  ],
   "risks": [
     {"description": "risk title ≤15 chars", "reason": "detailed: trigger conditions + quantified impact + probability + monitoring indicator, 100-200 chars", "magnitude": "high"},
     {"description": "risk 2 title", "reason": "detailed reason...", "magnitude": "medium"},

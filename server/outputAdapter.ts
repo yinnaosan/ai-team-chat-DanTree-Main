@@ -514,16 +514,21 @@ export function applyFreshnessGate(
       keyArgsFreshness = "REUSE";
     }
 
-    // confidence_reason: trimmed string compare
-    const currCR = adapterResult.decision_object.confidence_reason.trim();
-    const prevCR = readPrevConfidenceReason(prevDecisionObject).trim();
+    // A3: normalizeText — trim + collapse consecutive whitespace to single space
+    // Reduces false FRESH_UPDATE from superficial formatting differences (line breaks, extra spaces)
+    const normalizeText = (s: string) => s.trim().replace(/\s+/g, " ");
+
+    // confidence_reason: normalized string compare (A3)
+    const currCR = normalizeText(adapterResult.decision_object.confidence_reason);
+    const prevCR = normalizeText(readPrevConfidenceReason(prevDecisionObject));
     if (currCR !== "" && prevCR !== "" && currCR === prevCR) {
       confidenceReasonFreshness = "REUSE";
     }
 
-    // top_bear_argument: trimmed string compare (null treated as empty string)
-    const currTBA = (adapterResult.decision_object.top_bear_argument ?? "").trim();
-    const prevTBA = (readPrevTopBearArgument(prevDecisionObject) ?? "").trim();
+    // top_bear_argument: normalized string compare (A3), null treated as empty string
+    // null safety preserved: if prev is null, prevTBA = "", condition currTBA !== "" && prevTBA !== "" fails → FRESH_UPDATE (not force-preserved)
+    const currTBA = normalizeText(adapterResult.decision_object.top_bear_argument ?? "");
+    const prevTBA = normalizeText(readPrevTopBearArgument(prevDecisionObject) ?? "");
     if (currTBA !== "" && prevTBA !== "" && currTBA === prevTBA) {
       topBearFreshness = "REUSE";
     }

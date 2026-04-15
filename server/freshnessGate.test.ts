@@ -697,6 +697,63 @@ describe("applyFreshnessGate — 3 new fields signal computation", () => {
     // Gate only writes signal; value should remain current value
     expect(result.decision_object.confidence_reason).toBe("current reason");
   });
+
+  // A3: normalizeText (trim + collapse whitespace) tests
+  it("A3: confidence_reason same wording different whitespace → REUSE signal", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "strong  revenue  growth" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "strong revenue growth" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("REUSE");
+  });
+
+  it("A3: confidence_reason same wording with line breaks → REUSE signal", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "strong\nrevenue\ngrowth" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "strong revenue growth" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("REUSE");
+  });
+
+  it("A3: confidence_reason genuinely different wording → still FRESH_UPDATE", () => {
+    const current = makeAdapterWithFields({ confidence_reason: "strong revenue growth" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ confidence_reason: "margin expansion" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.confidence_reason).toBe("FRESH_UPDATE");
+  });
+
+  it("A3: top_bear_argument same wording different whitespace → REUSE signal", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "valuation  risk  elevated" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: "valuation risk elevated" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("REUSE");
+  });
+
+  it("A3: top_bear_argument same wording with line breaks → REUSE signal", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "valuation\nrisk\nelevated" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: "valuation risk elevated" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("REUSE");
+  });
+
+  it("A3: top_bear_argument genuinely different wording → still FRESH_UPDATE", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "valuation risk elevated" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: "regulatory risk" });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("FRESH_UPDATE");
+  });
+
+  it("A3: top_bear_argument prev null → still FRESH_UPDATE (null safety preserved)", () => {
+    const current = makeAdapterWithFields({ top_bear_argument: "valuation risk" });
+    const prevSnap = makePrevSnapshot("BULLISH", "bull summary");
+    const prevDO = makePrevDO({ top_bear_argument: null });
+    const result = applyFreshnessGate(current, prevSnap, prevDO);
+    expect(result.snapshot._meta.field_freshness?.top_bear_argument).toBe("FRESH_UPDATE");
+  });
 });
 
 describe("buildUpdatePlan — 3 new fields", () => {

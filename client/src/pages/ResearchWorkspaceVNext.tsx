@@ -1177,8 +1177,11 @@ export default function ResearchWorkspacePage() {
                     }))
                     ?? undefined;
 
+                  // Phase 2F: evidenceDetail from structured confidence_reason
+                  const evidenceDetail = decisionObject?.confidence_reason ?? undefined;
+
                   if (!coreThesis && !criticalDriver && !failureCondition) return undefined;
-                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables };
+                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables, evidenceDetail };
                 })()}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",

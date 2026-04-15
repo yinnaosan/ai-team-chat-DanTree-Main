@@ -1167,8 +1167,18 @@ export default function ResearchWorkspacePage() {
                     ? (tvm.fragilityScore >= 0.7 ? "high" as const : tvm.fragilityScore >= 0.4 ? "medium" as const : "low" as const)
                     : (answerObject?.confidence === "low" ? "high" as const : answerObject?.confidence === "medium" ? "medium" as const : "low" as const);
 
+                  // Phase 2E: keyVariables from structured key_arguments
+                  const keyVariables = decisionObject?.key_arguments
+                    ?.slice(0, 4)
+                    .map((a: { argument: string; direction: 'BULL' | 'BEAR' }) => ({
+                      name: a.argument.slice(0, 30),
+                      signal: a.direction === 'BULL' ? '看多' : '看空',
+                      status: (a.direction === 'BULL' ? 'active' : 'fail') as 'active' | 'warning' | 'fail',
+                    }))
+                    ?? undefined;
+
                   if (!coreThesis && !criticalDriver && !failureCondition) return undefined;
-                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel };
+                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables };
                 })()}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",

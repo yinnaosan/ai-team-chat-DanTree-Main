@@ -36,6 +36,7 @@ import {
   type HistogramData,
 } from "lightweight-charts";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import {
   BarChart2,
   TrendingUp,
@@ -331,6 +332,7 @@ interface PriceChartProps {
 // 主组件
 // ─────────────────────────────────────────────────────────────────────────────
 export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData, onLivePrice }: PriceChartProps) {
+  const { isAuthenticated } = useAuth();
   const containerRef    = useRef<HTMLDivElement>(null);
   const subContainerRef = useRef<HTMLDivElement>(null);
   const chartRef        = useRef<IChartApi | null>(null);
@@ -550,7 +552,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
    // ── 对比标的数据获取 ───────────────────────────────────────────────────────
   const { data: compareData } = trpc.market.getPriceHistory.useQuery(
     { symbol: compareSymbol ?? "", interval, outputsize },
-    { enabled: !!compareSymbol, staleTime: 60_000, retry: 1 }
+    { enabled: isAuthenticated && !!compareSymbol, staleTime: 60_000, retry: 1 }
   );
 
   const compareCandles = useMemo(() => {
@@ -563,7 +565,7 @@ export function PriceChart({ symbol, colorScheme = "cn", height = 300, quoteData
   const { data, isLoading, refetch } = trpc.market.getPriceHistory.useQuery(
     { symbol, interval, outputsize },
     {
-      enabled: !!symbol,
+      enabled: isAuthenticated && !!symbol,
       staleTime: interval === "1day" ? 5 * 60_000 : 60_000,
       retry: 1,
       refetchInterval: interval === "1day" ? false : 60_000, // 日内每分钟刷新

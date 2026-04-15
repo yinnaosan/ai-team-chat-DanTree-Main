@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { BarChart2, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Action config ──────────────────────────────────────────────────────────
@@ -25,12 +26,13 @@ const PERIOD_OPTIONS = [
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function DecisionAnalyticsPanel() {
+  const { isAuthenticated } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [days, setDays] = useState(30);
 
   const { data, isLoading } = trpc.decisionHistory.analytics.useQuery(
     { days },
-    { enabled: expanded, refetchOnWindowFocus: false, staleTime: 60_000 }
+    { enabled: isAuthenticated && expanded, refetchOnWindowFocus: false, staleTime: 60_000 }
   );
 
   const T = {

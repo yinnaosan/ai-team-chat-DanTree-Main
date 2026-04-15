@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -135,9 +136,10 @@ interface SparklineProps {
 }
 
 function AlphaSparkline({ ticker, currentScore, currentSignal }: SparklineProps) {
+  const { isAuthenticated } = useAuth();
   const { data: history, isLoading } = trpc.chat.getAlphaFactorHistory.useQuery(
     { ticker, limit: 5 },
-    { staleTime: 60_000 }
+    { enabled: isAuthenticated, staleTime: 60_000 }
   );
 
   const config = SIGNAL_CONFIG[currentSignal as keyof typeof SIGNAL_CONFIG] ?? SIGNAL_CONFIG.neutral;
@@ -246,9 +248,10 @@ function AlphaSparkline({ ticker, currentScore, currentSignal }: SparklineProps)
 
 // ── 单个因子行 ───────// ── IC 分析面板（alphalens）─────────────────────────────────────────────────
 function ICAnalysisPanel({ payload }: { payload: AlphaFactorsPayload }) {
+  const { isAuthenticated } = useAuth();
   const history = trpc.chat.getAlphaFactorHistory.useQuery(
     { ticker: payload.ticker, limit: 8 },
-    { staleTime: 60_000 }
+    { enabled: isAuthenticated, staleTime: 60_000 }
   );
   const computeIC = trpc.chat.computeAlphaIC.useMutation();
 

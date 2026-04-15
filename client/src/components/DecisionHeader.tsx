@@ -10,6 +10,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import {
   Leaf, TrendingUp, TrendingDown, Minus, Zap, AlertTriangle,
   Activity, Clock, Search, ChevronDown, Settings, LogOut, Monitor,
@@ -140,10 +141,11 @@ function EntityCombobox({ entity, cnName, market, candidates, onSelect, onNew }:
     debounceTimer.current = setTimeout(() => setDebouncedQuery(val.trim()), 300);
   }, []);
 
+  const { isAuthenticated } = useAuth();
   // 外部搜索（debounced）
   const { data: searchData, isFetching: isSearching } = trpc.market.searchTicker.useQuery(
     { query: debouncedQuery },
-    { enabled: debouncedQuery.length >= 1, staleTime: 30000 }
+    { enabled: isAuthenticated && debouncedQuery.length >= 1, staleTime: 30000 }
   );
 
   // 打开时聚焦输入框

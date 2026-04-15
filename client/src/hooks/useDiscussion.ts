@@ -11,6 +11,7 @@
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,13 +119,14 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
   // ── tRPC ──────────────────────────────────────────────────────────────────
   const uploadMutation = trpc.file.upload.useMutation();
 
+  const { isAuthenticated } = useAuth();
   const { data: rawMessages, refetch: refetchMessages } =
     trpc.chat.getConversationMessages.useQuery(
       // 使用安全的默认局部变量而非非空断言！，避免 tRPC 在 enabled=false 时仍验证 input schema
       { conversationId: conversationId ?? -1 },
       {
         // 双重保护：!!conversationId 确保非 null/undefined/0，> 0 确保是有效正整数
-        enabled: !!conversationId && conversationId > 0,
+        enabled: isAuthenticated && !!conversationId && conversationId > 0,
         refetchInterval: (sending || isTyping) ? 3000 : false,
       }
     );
@@ -235,7 +237,7 @@ export function useDiscussion(conversationId: number | null, sessionId?: string 
   const { data: runningTasks } = trpc.chat.getRunningTasksBySession.useQuery(
     { sessionId: sessionId! },
     {
-      enabled: !!sessionId && !sending,
+      enabled: isAuthenticated && !!sessionId && !sending,
       refetchInterval: false,
       staleTime: 10_000,
     }

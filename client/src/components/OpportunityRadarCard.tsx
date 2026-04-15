@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { ChevronDown, ChevronRight, RefreshCw, Radar, Eye, Trash2, ListChecks, Zap } from "lucide-react";
 
 // ─── Types (mirrors server/opportunityRadar.ts + schema) ─────────────────────
@@ -483,7 +484,9 @@ export function CandidatePoolCard({
 }: {
   onSelectCandidate?: (payload: CandidateSelectPayload) => void;
 }) {
+  const { isAuthenticated } = useAuth();
   const { data: candidates, isLoading, refetch } = trpc.candidates.list.useQuery(undefined, {
+    enabled: isAuthenticated,
     refetchOnWindowFocus: false,
   });
   const utils = trpc.useUtils();
@@ -510,7 +513,7 @@ export function CandidatePoolCard({
   const { data: analyzedMap } = trpc.decisionHistory.checkTickers.useQuery(
     { tickers: allTickers },
     {
-      enabled: allTickers.length > 0,
+      enabled: isAuthenticated && allTickers.length > 0,
       staleTime: 30_000,
       refetchOnWindowFocus: false,
     }

@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -502,13 +503,14 @@ function SensitivityChart({ payload }: SensitivityChartProps) {
 
 // ── IV Smile 曲线 ─────────────────────────────────────────────────────────────
 function IVSmileChart({ payload }: { payload: OptionPricingPayload }) {
+  const { isAuthenticated } = useAuth();
   const [showType, setShowType] = useState<"all" | "call" | "put">("all");
   const [showHistory, setShowHistory] = useState(true);
 
   // 查询历史 IV 趋势（从 agentSignals 历史记录中提取 sigma）
   const { data: alphaHistory } = trpc.chat.getAlphaFactorHistory.useQuery(
     { ticker: payload.ticker, limit: 10 },
-    { enabled: !!payload.ticker, staleTime: 5 * 60 * 1000 }
+    { enabled: isAuthenticated && !!payload.ticker, staleTime: 5 * 60 * 1000 }
   );
 
   // 构建历史 IV 趋势数据

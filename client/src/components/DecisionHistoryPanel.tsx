@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { History, ChevronDown, ChevronUp, Clock } from "lucide-react";
 
 // ── Action badge config ────────────────────────────────────────────────────
@@ -37,12 +38,13 @@ function formatRelativeTime(ts: number): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function DecisionHistoryPanel() {
+  const { isAuthenticated } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   const { data: rows, isLoading } = trpc.decisionHistory.list.useQuery(
     { limit: 20 },
-    { refetchOnWindowFocus: false, staleTime: 30_000 }
+    { enabled: isAuthenticated, refetchOnWindowFocus: false, staleTime: 30_000 }
   );
 
   const T = {

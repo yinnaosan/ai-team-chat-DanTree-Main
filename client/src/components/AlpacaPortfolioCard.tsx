@@ -8,6 +8,7 @@
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ interface PlaceOrderForm {
 }
 
 export function AlpacaPortfolioCard() {
+  const { isAuthenticated } = useAuth();
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [orderForm, setOrderForm] = useState<PlaceOrderForm>({
     symbol: "",
@@ -41,20 +43,23 @@ export function AlpacaPortfolioCard() {
 
   // 数据查询
   const accountQuery = trpc.alpaca.getAccount.useQuery(undefined, {
+    enabled: isAuthenticated,
     refetchInterval: 30000, // 30 秒自动刷新
     retry: false,
   });
   const positionsQuery = trpc.alpaca.getPositions.useQuery(undefined, {
+    enabled: isAuthenticated,
     refetchInterval: 30000,
     retry: false,
   });
   const clockQuery = trpc.alpaca.getClock.useQuery(undefined, {
+    enabled: isAuthenticated,
     refetchInterval: 60000,
     retry: false,
   });
   const ordersQuery = trpc.alpaca.getOrders.useQuery(
     { status: "all", limit: 20 },
-    { refetchInterval: 30000, retry: false }
+    { enabled: isAuthenticated, refetchInterval: 30000, retry: false }
   );
 
   // 下单 mutation

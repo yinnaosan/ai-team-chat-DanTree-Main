@@ -1153,10 +1153,9 @@ export default function ResearchWorkspacePage() {
                         ?? undefined)
                     : (tvm?.evidenceState ?? undefined);
 
-                  // Phase 2K: failureCondition — structured primary (top_bear_argument), legacy fallback
+                  // Phase 2K reverted: failureCondition restored to legacy source
                   const failureCondition =
-                    decisionObject?.top_bear_argument
-                    ?? answerObject?.risks?.[0]?.description
+                    answerObject?.risks?.[0]?.description
                     ?? tvm?.fragility
                     ?? undefined;
 

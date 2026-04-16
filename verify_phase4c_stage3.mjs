@@ -1,15 +1,12 @@
 /**
- * Phase 4C Stage 3 — Verification Script
- * Purpose: Prove structured_analysis flows end-to-end into DB metadata
+ * Phase 4C Stage 3 — DB Verification Script (v2 — fixed procedure name)
  * Usage: JWT_SECRET=xxx VITE_APP_ID=yyy node verify_phase4c_stage3.mjs
  *
- * What this checks:
- *   1. Submit a new analysis on AAPL (convId 990007, existing conv)
- *   2. Wait for assistant response with decisionObject
- *   3. Check metadata for:
- *      - structured_analysis present in answerObject (Fix B path)
- *      - structured_analysis present as top-level metadata key (Fix C path)
- *      - All 5 subfields non-empty
+ * Verifies structured_analysis flows LLM → validateFinalOutput → DELIVERABLE → DB
+ * Gates:
+ *   G1: structured_analysis present in metadata top-level field
+ *   G2: structured_analysis present inside metadata.answerObject
+ *   G3: all 5 subfields non-empty
  */
 import { SignJWT } from "jose";
 
@@ -53,40 +50,47 @@ async function trpcMutation(procedure, input) {
   return (await res.json())[0];
 }
 
-// ─── Step 1: Get current message count ───────────────────────────────────────
-console.log("\n[Phase 4C Stage 3 Verification]");
-console.log("SHA under test: 2be1a7d\n");
+// ─── Step 1: Get baseline message count ──────────────────────────────────────
+console.log("\n[Phase 4C Stage 3 — DB Verification v2]");
+console.log("SHA under test: 2be1a7d (Fix A+B+C)\n");
 
-const CONV_ID = 990007;  // AAPL — existing conv
-console.log(`Step 1: Getting baseline message count for convId=${CONV_ID}...`);
+const CONV_ID = 990007;  // AAPL existing conv
+console.log(`Step 1: Baseline message count for convId=${CONV_ID}...`);
 
-const convData = await trpcQuery("chat.getConversationMessages", { conversationId: CONV_ID });
-const messages = convData?.result?.data?.json ?? [];
-const assistantMsgsBefore = messages.filter(m => m.role === "assistant").length;
-console.log(`  Baseline: ${assistantMsgsBefore} existing assistant messages`);
+const convData0 = await trpcQuery("chat.getConversationMessages", { conversationId: CONV_ID });
+const msgsBefore = convData0?.result?.data?.json ?? [];
+const assistantCountBefore = msgsBefore.filter(m => m.role === "assistant").length;
+console.log(`  Baseline: ${assistantCountBefore} assistant messages`);
 
-// ─── Step 2: Submit one analysis task ────────────────────────────────────────
-console.log("\nStep 2: Submitting AAPL analysis task...");
-const submitResult = await trpcMutation("chat.submitMessage", {
+// ─── Step 2: Submit via chat.submitTask (correct procedure) ───────────────────
+console.log("\nStep 2: Submitting AAPL analysis via chat.submitTask...");
+const submitResult = await trpcMutation("chat.submitTask", {
+  title: "分析AAPL近期基本面，给出投资建议",
+  analysisMode: "standard",
   conversationId: CONV_ID,
-  content: "分析AAPL当前基本面和技术面，给出投资建议",
-  role: "user",
 });
-const taskId = submitResult?.result?.data?.json?.taskId;
-console.log(`  taskId=${taskId}  OK`);
 
-// ─── Step 3: Poll for new assistant message ───────────────────────────────────
-console.log("\nStep 3: Polling for new assistant message (max 7 min)...");
+const taskId = submitResult?.result?.data?.json?.taskId;
+const convId = submitResult?.result?.data?.json?.conversationId ?? CONV_ID;
+console.log(`  taskId=${taskId}  conversationId=${convId}`);
+
+if (!taskId) {
+  console.error("  WARN: taskId undefined — checking submit response:");
+  console.error("  ", JSON.stringify(submitResult).slice(0, 300));
+}
+
+// ─── Step 3: Poll for new qualifying assistant message ────────────────────────
+console.log("\nStep 3: Polling for new assistant message with decisionObject (max 7 min)...");
 const maxWait = 420_000;
 const start = Date.now();
 let resultMsg = null;
 
 while (Date.now() - start < maxWait) {
   await sleep(12_000);
-  const d = await trpcQuery("chat.getConversationMessages", { conversationId: CONV_ID });
+  const d = await trpcQuery("chat.getConversationMessages", { conversationId: convId });
   const msgs = d?.result?.data?.json ?? [];
-  const newAssistant = msgs.filter(m => m.role === "assistant").slice(assistantMsgsBefore);
-  for (const msg of newAssistant) {
+  const newMsgs = msgs.filter(m => m.role === "assistant").slice(assistantCountBefore);
+  for (const msg of newMsgs) {
     const meta = msg.metadata;
     if (meta?.decisionObject && meta?.answerObject?.bull_case?.[0]) {
       resultMsg = msg;
@@ -95,66 +99,53 @@ while (Date.now() - start < maxWait) {
   }
   if (resultMsg) break;
   const elapsed = Math.round((Date.now() - start) / 1000);
-  if (elapsed % 30 === 0) console.log(`  [${elapsed}s] waiting...`);
+  if (elapsed % 30 < 13) console.log(`  [${elapsed}s] waiting for decisionObject...`);
 }
 
 if (!resultMsg) {
-  console.error("\nFAIL: Timed out waiting for qualifying assistant message");
+  console.error("\nFAIL: Timed out — no qualifying assistant message within 7 min");
   process.exit(1);
 }
-
 const elapsed = Math.round((Date.now() - start) / 1000);
-console.log(`  Got result message (msgId=${resultMsg.id}) in ${elapsed}s`);
+console.log(`  Got qualifying message (msgId=${resultMsg.id}) in ${elapsed}s`);
 
 // ─── Step 4: Verify structured_analysis in DB metadata ───────────────────────
 console.log("\nStep 4: Checking structured_analysis in metadata...");
-
 const meta = resultMsg.metadata;
-const sa_in_answerObject = meta?.answerObject?.structured_analysis;
-const sa_toplevel = meta?.structured_analysis;
+const sa_top   = meta?.structured_analysis;
+const sa_inner = meta?.answerObject?.structured_analysis;
 
-const G1 = !!sa_toplevel;
-const G2 = !!sa_in_answerObject;
+const G1 = !!sa_top;
+const G2 = !!sa_inner;
+const SUBFIELDS = ["primary_bull","primary_bear","primary_risk_condition","confidence_summary","stance_rationale"];
+const G3 = G1 && SUBFIELDS.every(f => typeof sa_top[f] === "string" && sa_top[f].trim().length > 0);
 
-const REQUIRED_SUBFIELDS = [
-  "primary_bull",
-  "primary_bear",
-  "primary_risk_condition",
-  "confidence_summary",
-  "stance_rationale",
-];
-const G3 = G1 && REQUIRED_SUBFIELDS.every(f => {
-  const v = sa_toplevel[f];
-  return typeof v === "string" && v.trim().length > 0;
-});
-const G3_detail = G1 ? REQUIRED_SUBFIELDS.map(f => ({
-  field: f,
-  present: !!(sa_toplevel[f]?.trim()),
-  preview: (sa_toplevel[f] ?? "").slice(0, 60),
-})) : [];
-
-console.log("\n═══════════════════════════════════════════════════════");
+console.log("\n═══════════════════════════════════════════════════════════════");
 console.log("  Phase 4C Stage 3 — DB Verification Result");
-console.log("═══════════════════════════════════════════════════════");
-console.log(`  convId:    ${CONV_ID}`);
-console.log(`  taskId:    ${taskId}`);
-console.log(`  msgId:     ${resultMsg.id}`);
-console.log(`  elapsed:   ${elapsed}s`);
-console.log("───────────────────────────────────────────────────────");
-console.log(`  G1  structured_analysis in top-level metadata:  ${G1 ? "PASS ✓" : "FAIL ✗"}`);
-console.log(`  G2  structured_analysis in answerObject:        ${G2 ? "PASS ✓" : "FAIL ✗"}`);
-console.log(`  G3  all 5 subfields present & non-empty:        ${G3 ? "PASS ✓" : "FAIL ✗"}`);
-console.log("───────────────────────────────────────────────────────");
-
-if (G3_detail.length > 0) {
-  for (const d of G3_detail) {
-    console.log(`    ${d.present ? "✓" : "✗"}  ${d.field}: "${d.preview}"`);
+console.log("  SHA 2be1a7d | Fix A (validator) + Fix B (DELIVERABLE) + Fix C (metadata)");
+console.log("═══════════════════════════════════════════════════════════════");
+console.log(`  convId=${convId}  taskId=${taskId}  msgId=${resultMsg.id}  elapsed=${elapsed}s`);
+console.log("───────────────────────────────────────────────────────────────");
+console.log(`  G1  structured_analysis in metadata top-level:  ${G1 ? "PASS ✓" : "FAIL ✗"}`);
+console.log(`  G2  structured_analysis in answerObject:         ${G2 ? "PASS ✓" : "FAIL ✗"}`);
+console.log(`  G3  all 5 subfields present & non-empty:         ${G3 ? "PASS ✓" : "FAIL ✗"}`);
+console.log("───────────────────────────────────────────────────────────────");
+if (G1) {
+  for (const f of SUBFIELDS) {
+    const v = sa_top[f] ?? "";
+    const ok = typeof v === "string" && v.trim().length > 0;
+    console.log(`    ${ok ? "✓" : "✗"}  ${f}:`);
+    console.log(`       "${v.slice(0, 80)}"`);
+  }
+} else {
+  console.log("  meta.structured_analysis: null/undefined");
+  console.log("  meta keys:", Object.keys(meta ?? {}).join(", "));
+  if (meta?.answerObject) {
+    console.log("  answerObject keys:", Object.keys(meta.answerObject).join(", "));
   }
 }
-
-console.log("───────────────────────────────────────────────────────");
+console.log("───────────────────────────────────────────────────────────────");
 const PASS = G1 && G2 && G3;
-console.log(`  FINAL: ${PASS ? "PASS — structured_analysis flows end-to-end into DB" : "FAIL"}`);
-console.log("═══════════════════════════════════════════════════════\n");
-
+console.log(`\n  FINAL: ${PASS ? "PASS ✓ — structured_analysis confirmed in DB" : "FAIL ✗"}`);
+console.log("═══════════════════════════════════════════════════════════════\n");
 process.exit(PASS ? 0 : 1);

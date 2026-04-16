@@ -66,6 +66,8 @@ import {
   batchSetPinned,
   batchSetFavorited,
   getLastAssistantMessage,
+  getEntitySnapshotForP1A,
+  upsertEntitySnapshotForP1A,
 } from "./db";
 import { storagePut } from "./storage";
 import { callOpenAI, callOpenAIStream, testOpenAIConnection, DEFAULT_MODEL } from "./rpa";
@@ -2821,6 +2823,19 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         console.warn("[Phase1B] getLastAssistantMessage failed:", e instanceof Error ? e.message : String(e));
       }
     }
+    // Phase 4A: Entity Snapshot Persistence — cross-session prevSnapshot fallback
+    // If no prevSnapshot from this conversation AND primaryTicker exists, load from entity snapshot
+    if (!prevSnapshot && primaryTicker && userId) {
+      try {
+        const entitySnap = await getEntitySnapshotForP1A(primaryTicker, userId);
+        if (entitySnap) {
+          prevSnapshot = entitySnap;
+          console.log("[Phase4A] entity snapshot loaded:", primaryTicker, "stability:", entitySnap._meta?.stability);
+        }
+      } catch (e4a) {
+        console.warn("[Phase4A] getEntitySnapshotForP1A failed (non-fatal):", e4a instanceof Error ? e4a.message : String(e4a));
+      }
+    }
     // Phase 1B debug: log prevSnapshot read result
     console.log("[Phase1B]", JSON.stringify({ tag: "prevSnapshot_read", conversationId, has_prevSnapshot: prevSnapshot !== null, prevSnapshot_direction: prevSnapshot?.current_bias?.direction ?? null, prevSnapshot_stability: prevSnapshot?._meta?.stability ?? null }));    // [DT-DEBUG][FINAL_REPLY]
     console.log(JSON.stringify({ tag: "[DT-DEBUG][FINAL_REPLY]", ts: Date.now(), taskId, conversationId, primaryTicker, finalReply_length: finalReply.length, has_DELIVERABLE: finalReply.includes("%%DELIVERABLE%%"), has_END_DELIVERABLE: finalReply.includes("%%END_DELIVERABLE%%"), has_DISCUSSION: finalReply.includes("%%DISCUSSION%%"), finalReply_first_200: finalReply.slice(0, 200), finalReply_last_200: finalReply.slice(-200) }));
@@ -2920,6 +2935,11 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 const executedResult = executeUpdatePlan(gatedResult, prevSnapshot, prevDecisionObject);
                 metadataToSave.decisionObject = executedResult.decision_object;
                 metadataToSave.decisionSnapshot = executedResult.snapshot;
+                // Phase 4A: persist entity snapshot for cross-session memory
+                if (primaryTicker && userId) {
+                  upsertEntitySnapshotForP1A(primaryTicker, userId, executedResult.snapshot)
+                    .catch(e => console.warn("[Phase4A] persist failed (non-fatal):", e instanceof Error ? e.message : String(e)));
+                }
               } else {
                 // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
                 if (prevSnapshot) {

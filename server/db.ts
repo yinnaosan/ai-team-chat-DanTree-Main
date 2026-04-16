@@ -1132,6 +1132,59 @@ export async function getLatestEntitySnapshot(entityKey: string) {
   return rows[0] ?? undefined;
 }
 
+// ─── Phase 4A: Entity Snapshot Persistence for DecisionSnapshot ────────────────
+/**
+ * Retrieve the persisted DecisionSnapshot for a given ticker + user combination.
+ * Returns null if not found or if the stored JSON is invalid.
+ * entityKey format: "p1a:{userId}:{ticker}"
+ */
+export async function getEntitySnapshotForP1A(
+  ticker: string,
+  userId: number
+): Promise<import("./outputAdapter").DecisionSnapshot | null> {
+  try {
+    const entityKey = `p1a:${userId}:${ticker}`;
+    const row = await getLatestEntitySnapshot(entityKey);
+    if (!row?.stateSummaryText) return null;
+    return JSON.parse(row.stateSummaryText) as import("./outputAdapter").DecisionSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist a DecisionSnapshot for a given ticker + user combination.
+ * Stores as a new row (getLatestEntitySnapshot always reads the most recent).
+ * Non-fatal: errors are swallowed and logged.
+ */
+export async function upsertEntitySnapshotForP1A(
+  ticker: string,
+  userId: number,
+  snapshot: import("./outputAdapter").DecisionSnapshot
+): Promise<void> {
+  try {
+    const { randomUUID } = await import("crypto");
+    const entityKey = `p1a:${userId}:${ticker}`;
+    await insertEntitySnapshot({
+      snapshotId:       randomUUID(),
+      entityKey,
+      snapshotTime:     Date.now(),
+      thesisStance:     snapshot.current_bias.direction,
+      thesisChangeMarker: snapshot._meta.stability,
+      alertSeverity:    null,
+      timingBias:       null,
+      sourceHealth:     "p1a_structured",
+      changeMarker:     snapshot._meta.stability,
+      stateSummaryText: JSON.stringify(snapshot),
+      advisoryOnly:     true,
+      createdAt:        Date.now(),
+    });
+  } catch (err) {
+    console.warn("[Phase4A] upsertEntitySnapshotForP1A failed (non-fatal):",
+      err instanceof Error ? err.message : String(err));
+  }
+}
+
 // ─── Workspace Session Helpers (WORKSPACE_V2.1_A1) ───────────────────────────
 
 export type { WorkspaceSession };

@@ -29,6 +29,14 @@ export interface FinalOutputSchema {
     exploration_paths: string[];
     open_hypotheses: string[];
   };
+  // Phase 4C Stage 1: Native LLM structured reasoning (optional, no existing logic affected)
+  structured_analysis?: {
+    primary_bull: string;            // Most important bullish argument (LLM-native, not derived from array)
+    primary_bear: string;            // Most important bearish concern (LLM-native)
+    primary_risk_condition: string;  // Full condition sentence (not the ≤15-char risks.description title)
+    confidence_summary: string;      // One sentence explaining this confidence level
+    stance_rationale?: string;       // Optional: explicit reasoning behind BULLISH/BEARISH/NEUTRAL
+  };
   // Degraded fallback marker — present only when output is a safe fallback, not real analysis
   degraded?: boolean;
   degraded_reason?: string;
@@ -441,6 +449,13 @@ All reasoning must be derived from SYNTHESIS_TRUTH_SOURCE and AGENT_TAXONOMY. Do
     "follow_up_questions": ["question 1 based on core thesis", "question 2 targeting strongest counterargument", "question 3 for verifying key_uncertainty"],
     "exploration_paths": ["research direction 1 with data source", "research direction 2 with time window"],
     "open_hypotheses": ["H1: testable hypothesis 1", "H2: testable hypothesis 2", "H3: testable hypothesis 3"]
+  },
+  "structured_analysis": {
+    "primary_bull": "Single most important bullish argument, 1-2 sentences, explicit reasoning with specific evidence",
+    "primary_bear": "Single most important bearish concern, 1-2 sentences, with specific trigger condition",
+    "primary_risk_condition": "Full condition: if X happens then Y outcome, magnitude: HIGH/MEDIUM/LOW",
+    "confidence_summary": "One sentence explaining why confidence is HIGH/MEDIUM/LOW for this specific analysis",
+    "stance_rationale": "One sentence: why BULLISH/BEARISH/NEUTRAL given this specific evidence"
   }
 }`;
 }

@@ -1153,7 +1153,12 @@ export default function ResearchWorkspacePage() {
                         ?? undefined)
                     : (tvm?.evidenceState ?? undefined);
 
-                  const failureCondition = answerObject?.risks?.[0]?.description ?? tvm?.fragility ?? undefined;
+                  // Phase 2K: failureCondition — structured primary (top_bear_argument), legacy fallback
+                  const failureCondition =
+                    decisionObject?.top_bear_argument
+                    ?? answerObject?.risks?.[0]?.description
+                    ?? tvm?.fragility
+                    ?? undefined;
 
                   // 置信度：优先 answerObject.confidence，其次 TVM fragilityScore
                   const confidenceScore = hasRealAO

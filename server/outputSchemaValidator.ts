@@ -4,7 +4,9 @@
  * RULE: STRUCTURE FIRST → GPT FILLS → SYSTEM VALIDATES → THEN RENDER
  */
 
-// ── FINAL_OUTPUT_SCHEMA ───────────────────────────────────────────────────────
+import { evaluateStructuredAnalysisSemantics, SemanticGateResult } from "./structuredAnalysisGate";
+
+// ── FINAL_OUTPUT_SCHEMA ────────────────────────────────────────────────────────
 
 export interface RiskItem {
   description: string;
@@ -99,6 +101,7 @@ export interface ValidationResult {
   valid: boolean;
   errors: string[];
   output: FinalOutputSchema | null;
+  structured_analysis_gate?: SemanticGateResult;
 }
 
 /**
@@ -238,7 +241,20 @@ export function validateFinalOutput(raw: string): ValidationResult {
     structured_analysis: parsed.structured_analysis ?? undefined,
   };
 
-  return { valid: true, errors: [], output };
+  // ── Phase 4C Stage 5: Semantic Gate (observational only — never blocks) ──────
+  let structured_analysis_gate: SemanticGateResult | undefined;
+  try {
+    if (output.structured_analysis) {
+      structured_analysis_gate = evaluateStructuredAnalysisSemantics(
+        output.structured_analysis,
+        { verdict: output.verdict }
+      );
+    }
+  } catch (_gateErr) {
+    // Gate errors must never surface to callers
+  }
+
+  return { valid: true, errors: [], output, structured_analysis_gate };
 }
 
 // ── SCHEMA RENDERER ───────────────────────────────────────────────────────────

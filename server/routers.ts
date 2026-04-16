@@ -146,6 +146,7 @@ import {
   formatNormalizedTaxonomyForPrompt,
   type FinalOutputSchema,
 } from "./outputSchemaValidator";
+import { evaluateStructuredAnalysisSemantics } from "./structuredAnalysisGate";
 // ── Phase 1A: Output Adapter (parallel structured backbone) ──────────────────
 import { extractDecisionObject, applyFreshnessGate, executeUpdatePlan, type DecisionSnapshot } from "./outputAdapter";
 
@@ -2862,6 +2863,18 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           // Phase 4C Stage 3: Persist structured_analysis to top-level metadata
           if (parsed.structured_analysis) {
             metadataToSave.structured_analysis = parsed.structured_analysis;
+          }
+          // Phase 4C Stage 5: Persist semantic gate result (observational only — never blocks)
+          if (parsed.structured_analysis) {
+            try {
+              const _saGate = evaluateStructuredAnalysisSemantics(
+                parsed.structured_analysis,
+                { verdict: typeof parsed.verdict === "string" ? parsed.verdict : undefined }
+              );
+              metadataToSave.structured_analysis_gate = _saGate;
+            } catch (_gateErr) {
+              // Gate errors must never surface
+            }
           }
           // [DT-DEBUG][ANSWER_OBJECT]
           console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "parse_success", verdict: parsed.verdict, confidence: parsed.confidence, degraded: parsed.degraded ?? false, bull_case_0: Array.isArray(parsed.bull_case) ? String(parsed.bull_case[0]).slice(0, 80) : String(parsed.bull_case ?? "").slice(0, 80), risks_count: Array.isArray(parsed.risks) ? parsed.risks.length : 0 }));

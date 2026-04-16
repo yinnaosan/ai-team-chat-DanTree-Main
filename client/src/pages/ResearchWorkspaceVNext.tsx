@@ -63,6 +63,7 @@ interface Msg {
       action_readiness: "EXECUTE" | "CONSIDER" | "MONITOR" | "BLOCKED";
       key_arguments: Array<{ argument: string; direction: "BULL" | "BEAR"; strength: "STRONG" | "MEDIUM" | "WEAK" }>;
       top_bear_argument: string | null;
+      invalidation_conditions: Array<{ condition: string; probability: "HIGH" | "MEDIUM" | "LOW" }>;
       _tier: "FULL_SUCCESS" | "PARTIAL_SUCCESS" | "FALLBACK";
     };
     decisionSnapshot?: {
@@ -1153,9 +1154,10 @@ export default function ResearchWorkspacePage() {
                         ?? undefined)
                     : (tvm?.evidenceState ?? undefined);
 
-                  // Phase 2K reverted: failureCondition restored to legacy source
+                  // Phase 3C: failureCondition — structured primary (invalidation_conditions[0]), legacy fallback
                   const failureCondition =
-                    answerObject?.risks?.[0]?.description
+                    decisionObject?.invalidation_conditions?.[0]?.condition
+                    ?? answerObject?.risks?.[0]?.description
                     ?? tvm?.fragility
                     ?? undefined;
 

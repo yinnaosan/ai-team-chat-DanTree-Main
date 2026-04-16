@@ -64,6 +64,7 @@ export interface DiscussionMessage {
       action_readiness: "EXECUTE" | "CONSIDER" | "MONITOR" | "BLOCKED";
       key_arguments: Array<{ argument: string; direction: "BULL" | "BEAR"; strength: "STRONG" | "MEDIUM" | "WEAK" }>;
       top_bear_argument: string | null;
+      invalidation_conditions: Array<{ condition: string; probability: "HIGH" | "MEDIUM" | "LOW" }>;
       _tier: "FULL_SUCCESS" | "PARTIAL_SUCCESS" | "FALLBACK";
     };
     decisionSnapshot?: {

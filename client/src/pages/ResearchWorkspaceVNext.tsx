@@ -1145,9 +1145,12 @@ export default function ResearchWorkspacePage() {
                         ? snapshotVerdict
                         : (tvm?.changeMarker ?? undefined);
 
-                  // 核心驱动：优先 answerObject.bull_case[0]，其次 TVM evidenceState
+                  // Phase 2J: criticalDriver — structured primary (key_arguments[0] BULL), legacy fallback
                   const criticalDriver = hasRealAO
-                    ? (answerObject!.bull_case?.[0] ?? answerObject!.reasoning?.[0] ?? undefined)
+                    ? (decisionObject?.key_arguments?.[0]?.argument
+                        ?? answerObject!.bull_case?.[0]
+                        ?? answerObject!.reasoning?.[0]
+                        ?? undefined)
                     : (tvm?.evidenceState ?? undefined);
 
                   const failureCondition = answerObject?.risks?.[0]?.description ?? tvm?.fragility ?? undefined;

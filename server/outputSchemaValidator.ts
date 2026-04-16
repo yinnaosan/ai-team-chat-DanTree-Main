@@ -420,7 +420,7 @@ ${dataPacketSummary.slice(0, 2000)}
 [/DATA_SUMMARY]
 
 Fill the following JSON schema EXACTLY. Output ONLY the JSON object. No other text.
-CRITICAL: "discussion" must be fully populated. "bear_case" must have ≥2 items. "risks" must have ≥1 item with magnitude field.
+CRITICAL: "discussion" must be fully populated. "bear_case" must have ≥2 items. "risks" must have ≥1 item with magnitude field. "structured_analysis" must be fully populated with all 5 subfields present and non-empty: "primary_bull" (most important bullish argument), "primary_bear" (most important bearish concern), "primary_risk_condition" (full condition sentence), "confidence_summary" (one sentence explaining confidence level), "stance_rationale" (why BULLISH/BEARISH/NEUTRAL).
 All reasoning must be derived from SYNTHESIS_TRUTH_SOURCE and AGENT_TAXONOMY. Do NOT invent new conclusions.
 
 {

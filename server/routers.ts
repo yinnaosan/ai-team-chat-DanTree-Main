@@ -2704,6 +2704,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           bear_case: level1a3Output.bear_case,
           risks: level1a3Output.risks,
           next_steps: level1a3Output.next_steps,
+          structured_analysis: level1a3Output.structured_analysis ?? undefined,
         };
         finalReply += `\n\n%%DELIVERABLE%%\n${JSON.stringify(deliverablePayload, null, 2)}\n%%END_DELIVERABLE%%`;
         console.log("[V2.1] deliverable_injected: level1a3Output serialized into finalReply");
@@ -2858,6 +2859,10 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         const hasAllKeys = requiredKeys.every(k => k in parsed);
         if (hasAllKeys) {
           metadataToSave.answerObject = parsed;
+          // Phase 4C Stage 3: Persist structured_analysis to top-level metadata
+          if (parsed.structured_analysis) {
+            metadataToSave.structured_analysis = parsed.structured_analysis;
+          }
           // [DT-DEBUG][ANSWER_OBJECT]
           console.log(JSON.stringify({ tag: "[DT-DEBUG][ANSWER_OBJECT]", ts: Date.now(), taskId, conversationId, primaryTicker, event: "parse_success", verdict: parsed.verdict, confidence: parsed.confidence, degraded: parsed.degraded ?? false, bull_case_0: Array.isArray(parsed.bull_case) ? String(parsed.bull_case[0]).slice(0, 80) : String(parsed.bull_case ?? "").slice(0, 80), risks_count: Array.isArray(parsed.risks) ? parsed.risks.length : 0 }));
           console.log("[V2.1] structured_parse_success: DELIVERABLE");

@@ -235,6 +235,7 @@ export function validateFinalOutput(raw: string): ValidationResult {
       exploration_paths: parsed.discussion.exploration_paths,
       open_hypotheses: parsed.discussion.open_hypotheses ?? [],
     },
+    structured_analysis: parsed.structured_analysis ?? undefined,
   };
 
   return { valid: true, errors: [], output };

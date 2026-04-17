@@ -51,8 +51,11 @@ export interface DecisionObject {
   _tier: ExtractionTier;
   _inferred_fields: string[];
   _extraction_log: Array<{ field: string; source: FieldSource }>;
-  /** QVL Move 1: lightweight deterministic position sizing (advisory_only, additive) */
-  qvl?: import('./qvlBridge').LightweightQvlOutput;
+  /** QVL Move 1+2: lightweight deterministic position sizing + FMP valuation (advisory_only, additive) */
+  qvl?: import('./qvlBridge').LightweightQvlOutput & {
+    /** QVL Move 2: FMP-based deterministic valuation context (advisory_only, additive) */
+    valuation?: import('./reverseDcfEngine').QvlValuationOutput;
+  };
 }
 
 export interface DecisionSnapshot {

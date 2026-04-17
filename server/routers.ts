@@ -2992,6 +2992,15 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                 const executedResult = executeUpdatePlan(gatedResult, prevSnapshot, prevDecisionObject);
                 metadataToSave.decisionObject = executedResult.decision_object;
                 metadataToSave.decisionSnapshot = executedResult.snapshot;
+                // QVL Move 2: attach FMP-based valuation context (non-blocking, advisory_only)
+                try {
+                  const { computeValuationContext } = require('./reverseDcfEngine');
+                  const valuation = computeValuationContext(_fmpRawCache);
+                  if (valuation && executedResult.decision_object.qvl) {
+                    executedResult.decision_object.qvl.valuation = valuation;
+                    metadataToSave.decisionObject = executedResult.decision_object;
+                  }
+                } catch { /* non-blocking — QVL valuation failure must not break main pipeline */ }
                 // Phase 4A: persist entity snapshot for cross-session memory
                 if (primaryTicker && userId) {
                   upsertEntitySnapshotForP1A(primaryTicker, userId, executedResult.snapshot)
@@ -3091,6 +3100,15 @@ Output format MUST be:
                     const repairExecutedResult = executeUpdatePlan(repairGatedResult, prevSnapshot, prevDecisionObject);
                     metadataToSave.decisionObject = repairExecutedResult.decision_object;
                     metadataToSave.decisionSnapshot = repairExecutedResult.snapshot;
+                    // QVL Move 2: attach FMP-based valuation context (non-blocking, advisory_only)
+                    try {
+                      const { computeValuationContext } = require('./reverseDcfEngine');
+                      const valuation = computeValuationContext(_fmpRawCache);
+                      if (valuation && repairExecutedResult.decision_object.qvl) {
+                        repairExecutedResult.decision_object.qvl.valuation = valuation;
+                        metadataToSave.decisionObject = repairExecutedResult.decision_object;
+                      }
+                    } catch { /* non-blocking — QVL valuation failure must not break repair pipeline */ }
                   } else {
                     // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
                     if (prevSnapshot) {

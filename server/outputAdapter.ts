@@ -51,6 +51,8 @@ export interface DecisionObject {
   _tier: ExtractionTier;
   _inferred_fields: string[];
   _extraction_log: Array<{ field: string; source: FieldSource }>;
+  /** QVL Move 1: lightweight deterministic position sizing (advisory_only, additive) */
+  qvl?: import('./qvlBridge').LightweightQvlOutput;
 }
 
 export interface DecisionSnapshot {
@@ -347,6 +349,21 @@ export function extractDecisionObject(
     _inferred_fields: inferredFields,
     _extraction_log: extractionLog,
   };
+
+  // ── QVL Bridge: lightweight deterministic position sizing ──────────────────
+  try {
+    const { computeLightweightPositionSizing } = require('./qvlBridge');
+    const qvlResult = computeLightweightPositionSizing({
+      stance,
+      confidence: cappedConfidence,
+      invalidation_conditions: invalidationConditions,
+      stability: previousSnapshot?._meta?.stability,
+      confidence_summary: deliverable.structured_analysis?.confidence_summary,
+    });
+    decisionObject.qvl = qvlResult;
+  } catch {
+    // Non-blocking — QVL failure must not break main pipeline
+  }
 
   // ── 11. Derive snapshot (SnapshotDeriver — W1.6 §3) ───────────────────────
   const snapshot = deriveSnapshot(decisionObject, deliverable, previousSnapshot, turnIndex);

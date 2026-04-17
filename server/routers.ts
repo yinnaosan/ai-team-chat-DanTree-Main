@@ -2361,8 +2361,6 @@ ${multiAgentBlock}`
     // Step3 GPT prompt（Phase B：基于 Phase A 结果，渲染自然语言）
     const gptUserMessage = `[GPT←MANUS|STEP3|FINALIZE]${trendRadarFramework}${actionEngineBlock}}
 Q:${taskDescription.slice(0, 300)}${historyBlock ? '\nHIST_CTX:' + historyBlock.slice(0, 600) : ''}
-[GPT_RETRIEVAL_PLAN_S1]
-${gptStep1Output.slice(0, 800)}
 ${(orchMarket === "CN" || (primaryTicker && (primaryTicker.endsWith(".SS") || primaryTicker.endsWith(".SZ") || primaryTicker.endsWith(".SH") || primaryTicker.endsWith(".BJ")))) ? `[CN_FIELD_MAPPING — A股字段对照表]
 以下中文字段名在 MANUS_DATA_REPORT 中对应如下系统内部字段，禁止以“字段缺失”为由忽视已存在的中文数据：
 - 营业收入 = financials.income.revenue ✓
@@ -2380,7 +2378,6 @@ ${(orchMarket === "CN" || (primaryTicker && (primaryTicker.endsWith(".SS") || pr
 [MANUS_DATA_REPORT]
 ${_promptManusReport}
 ${evidencePacket.step3Instruction}
-${level1cGatingInstruction}
 ${citationSummary.sourcingBlock}
 ${phaseABlock}
 [DATA_PACKET_V1_5]

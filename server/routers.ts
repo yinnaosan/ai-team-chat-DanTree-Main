@@ -1283,11 +1283,14 @@ ${"```"}`;
     } catch (orchErr) {
       console.error("[DT-ORCH] routeDataRequest failed:", orchErr);
     }
-    // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────────────────
+    // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────────────────────────────
+    // Speed Wave 1 Move 2: cache for raw FMP data — populated by Phase 2A, reused by 财务健康 deep task
+    let _fmpRawCache: Awaited<ReturnType<typeof getFmpData>> | null = null;
     const coreTasks: Array<() => Promise<string>> = [
       // FMP：财务报表/DCF估值/分析师目标价（必要源）
+      // Speed Wave 1 Move 2: capture raw FMP object before formatting to avoid duplicate API call
       () => resourcePlan.dataSources.deepFinancials && primaryTicker && ENV.FMP_API_KEY
-        ? timed("FMP", getFmpData(primaryTicker).then(d => formatFmpData(d)))
+        ? timed("FMP", getFmpData(primaryTicker).then(d => { _fmpRawCache = d; return formatFmpData(d); }))
         : Promise.resolve(""),
       // SEC EDGAR：XBRL 财务数据/年报/季报（必要源）
       () => resourcePlan.dataSources.secFilings && primaryTicker && !primaryTicker.includes(".")
@@ -1598,7 +1601,9 @@ ${"```"}`;
       () => primaryTicker && ENV.FMP_API_KEY && resourcePlan.dataSources.deepFinancials
         ? timed("财务健康", (async () => {
             try {
-              const fmpRaw = await getFmpData(primaryTicker!);
+              // Speed Wave 1 Move 2: reuse Phase 2A cached raw FMP data — no second API call
+              const fmpRaw = _fmpRawCache;
+              if (!fmpRaw) return "";
               const health = calculateHealthScore(
                 fmpRaw.incomeStatements,
                 fmpRaw.balanceSheets,
@@ -1695,7 +1700,7 @@ ${"```"}`;
           }).catch(() => "")
         : Promise.resolve(""),
     ];
-    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, xueqiuResult, cnFinanceNewsResult] = await runBatch(deepTasks, 2);
+    const [_simfinResult, _tiingoResult, techIndicatorsResult, optionsChainResult, etfResult, autoChartResult, alphaResult, defiResult, financeDbResult, twelveDataResult, forexResult, healthScoreResult, xueqiuResult, cnFinanceNewsResult] = await runBatch(deepTasks, 4); // Speed Wave 1 Move 3: raised from 2→4
 
         // ── 合并所有数据源结果 ──────────────────────────────────────────
     const stockData = stockDataResult;
@@ -1864,6 +1869,11 @@ ${"```"}`;
     const manusReport = realTimeDataBlock
       ? `## 实时数据汇总（直接 API 数据，无 LLM 处理）${chartBlock}\n\n${realTimeDataBlock}`
       : `## 数据收集（基于已有分析框架）${chartBlock}\n\n${gptStep1Output}`;
+    // Speed Wave 1 Move 1: strip non-LLM-useful payload from LLM-bound prompt path
+    // manusReport remains intact for DB persistence, evidence scoring, and frontend parsing
+    const _promptManusReport = manusReport
+      .replace(/%%PYIMAGE%%[\s\S]*?%%END_PYIMAGE%%/g, "[chart: see attached image]")
+      .replace(/%%ALPHA_FACTORS%%[\s\S]*?%%END_ALPHA_FACTORS%%/g, "");
 
     // ── V2.1 DATA_PACKET freshness 标签计算 ──────────────────────────────────
     const hasLiveApiData = (polygonMarkdown ?? "").length > 100;
@@ -2061,7 +2071,7 @@ ${"```"}`;
       try {
         multiAgentResult = await runMultiAgentAnalysis(
           taskDescription,
-          manusReport.slice(0, 6000),
+          _promptManusReport.slice(0, 6000),
           multiAgentTaskType,
           modeConfig.label === "deep" ? 400 : 300,
         );
@@ -2361,7 +2371,7 @@ ${(orchMarket === "CN" || (primaryTicker && (primaryTicker.endsWith(".SS") || pr
 [/CN_FIELD_MAPPING]
 ` : ""}
 [MANUS_DATA_REPORT]
-${manusReport}
+${_promptManusReport}
 ${evidencePacket.step3Instruction}
 ${level1cGatingInstruction}
 ${citationSummary.sourcingBlock}

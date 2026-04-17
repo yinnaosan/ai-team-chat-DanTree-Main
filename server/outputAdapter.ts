@@ -214,6 +214,12 @@ function applyInferenceCap(rawConfidence: ConfidenceLevel, inferredCount: number
 
 // ── Main extraction function ──────────────────────────────────────────────────
 
+/** saField: trim + treat empty-as-absent. Returns undefined when absent. */
+function saField(x: string | undefined | null): string | undefined {
+  const t = x?.trim();
+  return t && t.length > 0 ? t : undefined;
+}
+
 /**
  * Extract decision_object from a parsed FinalOutputSchema (DELIVERABLE).
  * Returns null if input is null/degraded (caller should handle gracefully).
@@ -248,11 +254,10 @@ export function extractDecisionObject(
   extractionLog.push({ field: "confidence", source: "LLM" });
 
   // ── 3. confidence_reason (LLM — prefer structured_analysis.confidence_summary, fallback reasoning[0]) ──
-  const _saConfidenceSummary = deliverable.structured_analysis?.confidence_summary?.trim();
-  const confidenceReason = _saConfidenceSummary
-    ? _saConfidenceSummary.slice(0, 300)
-    : (deliverable.reasoning?.[0] ?? deliverable.verdict ?? "").slice(0, 300);
-  const _confidenceReasonSource: "LLM" | "INFERRED" = _saConfidenceSummary
+  // _resolvedConfidence is the ONE ownership point for this semantic.
+  const _resolvedConfidence = saField(deliverable.structured_analysis?.confidence_summary);
+  const confidenceReason = (_resolvedConfidence ?? (deliverable.reasoning?.[0] ?? deliverable.verdict ?? "")).slice(0, 300);
+  const _confidenceReasonSource: "LLM" | "INFERRED" = _resolvedConfidence
     ? "LLM"
     : deliverable.reasoning?.length ? "LLM" : "INFERRED";
   extractionLog.push({ field: "confidence_reason", source: _confidenceReasonSource });
@@ -262,26 +267,33 @@ export function extractDecisionObject(
   const _saPrimaryBull = deliverable.structured_analysis?.primary_bull?.trim();
   const _saPrimaryBear = deliverable.structured_analysis?.primary_bear?.trim();
 
-  const keyArguments: KeyArgument[] = [
-    // BULL: structured_analysis.primary_bull as first entry (if present), then remaining bull_case
-    ...(_saPrimaryBull
-      ? [{ argument: _saPrimaryBull.slice(0, 200), direction: "BULL" as const, strength: "STRONG" as const, source: "LLM" as const },
-         ...(deliverable.bull_case ?? []).slice(1).map((arg, i): KeyArgument => ({
-           argument: arg.slice(0, 200), direction: "BULL", strength: inferStrength(i + 1), source: "LLM",
-         }))]
-      : (deliverable.bull_case ?? []).map((arg, i): KeyArgument => ({
-          argument: arg.slice(0, 200), direction: "BULL", strength: inferStrength(i), source: "LLM",
-        }))),
-    // BEAR: structured_analysis.primary_bear as first entry (if present), then remaining bear_case
-    ...(_saPrimaryBear
-      ? [{ argument: _saPrimaryBear.slice(0, 200), direction: "BEAR" as const, strength: "STRONG" as const, source: "LLM" as const },
-         ...(deliverable.bear_case ?? []).slice(1).map((arg, i): KeyArgument => ({
-           argument: arg.slice(0, 200), direction: "BEAR", strength: inferStrength(i + 1), source: "LLM",
-         }))]
-      : (deliverable.bear_case ?? []).map((arg, i): KeyArgument => ({
-          argument: arg.slice(0, 200), direction: "BEAR", strength: inferStrength(i), source: "LLM",
-        }))),
-  ];
+  // Bull side — SA-primary branch: SA owns STRONG[0], legacy fills remaining slots.
+  // Legacy-fallback branch: full bull_case[] used only when SA absent.
+  const _bullArgs: KeyArgument[] = _saPrimaryBull
+    ? [
+        { argument: _saPrimaryBull.slice(0, 200), direction: "BULL" as const, strength: "STRONG" as const, source: "LLM" as const },
+        ...(deliverable.bull_case ?? []).slice(1).map((arg, i): KeyArgument => ({
+          argument: arg.slice(0, 200), direction: "BULL", strength: inferStrength(i + 1), source: "LLM",
+        })),
+      ]
+    : (deliverable.bull_case ?? []).map((arg, i): KeyArgument => ({
+        argument: arg.slice(0, 200), direction: "BULL", strength: inferStrength(i), source: "LLM",
+      }));
+
+  // Bear side — SA-primary branch: SA owns STRONG[0], legacy fills remaining slots.
+  // Legacy-fallback branch: full bear_case[] used only when SA absent.
+  const _bearArgs: KeyArgument[] = _saPrimaryBear
+    ? [
+        { argument: _saPrimaryBear.slice(0, 200), direction: "BEAR" as const, strength: "STRONG" as const, source: "LLM" as const },
+        ...(deliverable.bear_case ?? []).slice(1).map((arg, i): KeyArgument => ({
+          argument: arg.slice(0, 200), direction: "BEAR", strength: inferStrength(i + 1), source: "LLM",
+        })),
+      ]
+    : (deliverable.bear_case ?? []).map((arg, i): KeyArgument => ({
+        argument: arg.slice(0, 200), direction: "BEAR", strength: inferStrength(i), source: "LLM",
+      }));
+
+  const keyArguments: KeyArgument[] = [..._bullArgs, ..._bearArgs];
   extractionLog.push({ field: "key_arguments", source: "LLM" });
 
   // ── 5. top_bear_argument (LLM — prefer structured_analysis.primary_bear, fallback bear_case[0]) ──────
@@ -383,9 +395,9 @@ function deriveSnapshot(
   previous: DecisionSnapshot | null,
   turnIndex: number
 ): DecisionSnapshot {
-  // current_bias.summary: prefer structured_analysis.confidence_summary, fallback confidence_reason
-  const _saCS = deliverable.structured_analysis?.confidence_summary?.trim();
-  const summary = (_saCS ?? obj.confidence_reason).slice(0, 100);
+  // Single ownership point: _resolvedConfidence → confidence_reason → here.
+  // No independent re-read of SA confidence_summary.
+  const summary = obj.confidence_reason.slice(0, 100);
 
   // why: strongest BULL argument
   const bullArgs = obj.key_arguments.filter(a => a.direction === "BULL");

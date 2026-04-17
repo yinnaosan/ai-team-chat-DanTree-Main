@@ -57,8 +57,16 @@ const CONDITIONAL_TRIGGER =
 const CONSEQUENCE_WORD =
   /则|导致|意味着|将会|将使|将导|would|implies|result in|trigger/i;
 
-const CONFIDENCE_LEVEL =
-  /高置信度|中置信度|低置信度|置信度.{0,4}[高中低]|[高中低].{0,4}置信|\bHIGH\b|\bMEDIUM\b|\bLOW\b|置信度为[高中低]/i;
+const CONFIDENCE_LEVEL = new RegExp(
+  '高置信度|中置信度|低置信度' +
+  '|置信度.{0,5}[高中低]|置信度.{0,5}(?:medium|high|low)' +
+  '|[高中低].{0,4}置信' +
+  '|信心为[高中低]|信心为(?:medium|high|low)' +
+  '|信心.{0,4}[高中低]' +
+  '|信心评级为[高中低]|信心评级为(?:medium|high|low)' +
+  '|\\bmedium\\b|\\bhigh\\b|\\blow\\b',
+  'i'
+);
 
 const REASON_WORD =
   /因为|由于|鉴于|因此|基于|because|since|given|数据不足|无法量化/i;

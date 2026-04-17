@@ -1268,21 +1268,25 @@ ${"```"}`;
       }
       return results;
     };    // ── Data Routing Orchestrator：统一路由层（Price/Fundamentals/NewsGlobal/NewsChina/Macro/Indicators）
-    let orchResult: RoutingResult | null = null;
-    try {
-      orchResult = await routeDataRequest({
-        ticker: primaryTicker ?? "",
-        market: orchMarket,
-        newsQuery: primaryTicker ?? taskDescription.slice(0, 50),
-        needFundamentals: !!(resourcePlan.dataSources.deepFinancials),
-        needMacro: !!(resourcePlan.dataSources.macroData),
-        needAlternative: true,
-        needIndicators: !!(resourcePlan.dataSources.technicalIndicators),
+    // Speed Wave 2 Move 1: fire routeDataRequest as unresolved Promise — Phase 2A/2B/2C run in parallel
+    // orchPromise resolves to RoutingResult | null so TypeScript can correctly narrow orchResult below
+    const orchPromise: Promise<RoutingResult | null> = routeDataRequest({
+      ticker: primaryTicker ?? "",
+      market: orchMarket,
+      newsQuery: primaryTicker ?? taskDescription.slice(0, 50),
+      needFundamentals: !!(resourcePlan.dataSources.deepFinancials),
+      needMacro: !!(resourcePlan.dataSources.macroData),
+      needAlternative: true,
+      needIndicators: !!(resourcePlan.dataSources.technicalIndicators),
+    })
+      .then((result) => {
+        console.log(`[DT-ORCH] market=${orchMarket} ticker=${primaryTicker ?? "none"} layers=${Object.keys(result?.layerResults ?? {}).join(",")} evidenceScore=${result?.evidenceScore}`);
+        return result;
+      })
+      .catch((orchErr) => {
+        console.error("[DT-ORCH] routeDataRequest failed:", orchErr);
+        return null;
       });
-      console.log(`[DT-ORCH] market=${orchMarket} ticker=${primaryTicker ?? "none"} layers=${Object.keys(orchResult?.layerResults ?? {}).join(",")} evidenceScore=${orchResult?.evidenceScore}`);
-    } catch (orchErr) {
-      console.error("[DT-ORCH] routeDataRequest failed:", orchErr);
-    }
     // ── Phase 2A: core 阶段（并发上限 3，必要数据源）─────────────────────────────────────────────────
     // Speed Wave 1 Move 2: cache for raw FMP data — populated by Phase 2A, reused by 财务健康 deep task
     let _fmpRawCache: Awaited<ReturnType<typeof getFmpData>> | null = null;
@@ -1730,6 +1734,9 @@ ${"```"}`;
 
     // 将结构化数据与网页内容分开，让 Manus 分别处理
     // 结构化数据来源：Yahoo Finance / FRED / World Bank / IMF / Finnhub / FMP / Polygon / SEC EDGAR / Alpha Vantage
+    // Speed Wave 2 Move 1: await orchPromise here — first real consumer of orchResult
+    // All Phase 2A/2B/2C batches have already finished above; routeDataRequest ran in parallel.
+    const orchResult: RoutingResult | null = await orchPromise;
     // ── 数据路由层提取函数：从 orchResult.layerResults 按 layer 名称提取数据
     const getOrchLayer = (layerName: string): string => {
       if (!orchResult) return "";
@@ -2377,7 +2384,7 @@ ${level1cGatingInstruction}
 ${citationSummary.sourcingBlock}
 ${phaseABlock}
 [DATA_PACKET_V1_5]
-${dataPacketSummary}
+${dataPacketSummary.slice(0, 2000)}
 [/DATA_PACKET_V1_5]
 ${intentContextBlock}
 ${researchPlanBlock}

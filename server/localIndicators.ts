@@ -77,11 +77,26 @@ function normalizeTicker(input: string): string {
   return ticker;
 }
 
-export async function fetchOHLCV(ticker: string): Promise<OHLCVData | null> {
+// Speed Wave 2 Move 2: per-request fetchOHLCV cache — collapses duplicate Yahoo Finance calls
+// from 3 independent deep tasks (localIndicators, autoChart x2) into 1 network call per ticker
+const OHLCV_CACHE_TTL_MS = 60_000; // 60 seconds — safe for same-request reuse
+const _ohlcvCache = new Map<string, { promise: Promise<OHLCVData | null>; expiresAt: number }>();
+
+function getCachedOHLCV(
+  key: string,
+  factory: () => Promise<OHLCVData | null>
+): Promise<OHLCVData | null> {
+  const cached = _ohlcvCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.promise;
+  const promise = factory();
+  _ohlcvCache.set(key, { promise, expiresAt: Date.now() + OHLCV_CACHE_TTL_MS });
+  return promise;
+}
+
+async function _fetchOHLCVRaw(normalizedTicker: string): Promise<OHLCVData | null> {
   try {
-    const normalized = normalizeTicker(ticker);
     const chartData = await callDataApi("YahooFinance/get_stock_chart", {
-      query: { symbol: normalized, interval: "1d", range: "1y" },
+      query: { symbol: normalizedTicker, interval: "1d", range: "1y" },
     }) as any;
 
     const result = chartData?.chart?.result?.[0];
@@ -109,6 +124,12 @@ export async function fetchOHLCV(ticker: string): Promise<OHLCVData | null> {
   } catch {
     return null;
   }
+}
+
+export function fetchOHLCV(ticker: string): Promise<OHLCVData | null> {
+  const normalized = normalizeTicker(ticker);
+  const cacheKey = `${normalized}:1d:1y`;
+  return getCachedOHLCV(cacheKey, () => _fetchOHLCVRaw(normalized));
 }
 
 // ── 指标计算 ──────────────────────────────────────────────────────────────────

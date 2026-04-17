@@ -723,13 +723,64 @@ export default function ResearchWorkspacePage() {
     title: item.trigger,
     detail: item.context ?? "",
   }));
-  const woQuickFacts = workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }));
+  // ── QVL Panel Integration Move 1: read qvl from existing decisionObject ──────
+  // Narrow type assertion — only the fields we display. No new fetch. No backend change.
+  const qvl = (decisionObject as { qvl?: {
+    size_bucket?: string;
+    valuation?: {
+      valuation_label?: string;
+      implied_upside_pct?: number | null;
+      fmp_dcf_fair_value?: number | null;
+    };
+  } } | null)?.qvl ?? null;
+
+  const VALUATION_LABEL_MAP: Record<string, string> = {
+    cheap: '低估',
+    fair: '合理',
+    expensive: '高估',
+  };
+  const BUCKET_LABEL_MAP: Record<string, string> = {
+    starter: '观察仓 (1–2%)',
+    small: '小仓 (3–5%)',
+    medium: '适中仓 (6–8%)',
+    large: '重仓 (9–12%)',
+  };
+
+  const qvlValuationFact = (() => {
+    const v = qvl?.valuation;
+    if (!v || !v.valuation_label || v.valuation_label === 'insufficient_data') return null;
+    const labelText = VALUATION_LABEL_MAP[v.valuation_label] ?? v.valuation_label;
+    const upside = v.implied_upside_pct;
+    const sub = upside != null
+      ? `${upside >= 0 ? '+' : ''}${upside.toFixed(1)}% vs DCF · 仅供参考`
+      : 'FMP模型 · 仅供参考';
+    return { label: '估值参考 (FMP DCF)', value: labelText, sub };
+  })();
+
+  const qvlSizingFact = (() => {
+    const bucket = qvl?.size_bucket;
+    if (!bucket || bucket === 'none') return null;
+    const labelText = BUCKET_LABEL_MAP[bucket];
+    if (!labelText) return null;
+    return { label: '仓位建议参考 ⓘ', value: labelText, sub: '简化估算 · 仅供参考' };
+  })();
+
+  const qvlFacts = [qvlValuationFact, qvlSizingFact].filter(Boolean) as { label: string; value: string; sub?: string }[];
+  const woQuickFacts = [...qvlFacts, ...workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }))];
+
   const woNews = workspaceOutput.insights.news.map(n => ({ headline: n.headline, source: n.source, sentiment: n.sentiment }));
-  const woKeyLevels = workspaceOutput.insights.keyLevels.map(l => ({
+
+  const qvlDcfLevel = (() => {
+    const dcf = qvl?.valuation?.fmp_dcf_fair_value;
+    if (dcf == null) return null;
+    return { label: 'FMP DCF 估值', value: `$${dcf.toFixed(2)}`, type: 'target' as const };
+  })();
+  const qvlLevels = qvlDcfLevel ? [qvlDcfLevel] : [];
+  const woKeyLevels = [...qvlLevels, ...workspaceOutput.insights.keyLevels.map(l => ({
     label: l.label,
     value: l.value,
     type: (l.color === "green" ? "target" : l.color === "red" ? "stop" : "support") as "entry" | "support" | "resistance" | "stop" | "target" | "current",
-  }));
+  }))];
 
   // S3-B: Insights 真实数据接入
   // ── AnalystData: 优先真实 Finnhub 数据，fallback undefined 静默降级 ──

@@ -167,6 +167,29 @@ function castToDecisionSnapshot(raw: unknown): DecisionSnapshot | null {
   return raw as DecisionSnapshot;
 }
 
+// ── Phase 1B: buildPrevSnapshotContext ───────────────────────────────────────
+// Builds an isolated historical background block from prevSnapshot for LLM prompt injection.
+// Returns empty string when snap is null — no change to existing prompt behavior.
+function buildPrevSnapshotContext(snap: DecisionSnapshot | null): string {
+  if (!snap) return "";
+  const direction = snap.current_bias?.direction ?? "UNKNOWN";
+  const summary = (snap.current_bias?.summary ?? "").slice(0, 120);
+  const stability = snap._meta?.stability ?? "unknown";
+  const why = (snap.why?.argument ?? "").slice(0, 160);
+  const keyRiskSliced = (snap.key_risk?.risk ?? "").slice(0, 160);
+  const analyzedAt = new Date(snap._meta.generated_at).toISOString();
+  return [
+    "[System note: Prior analysis state for this entity. NOT new user input. Treat as historical background only.]",
+    `Prior stance: ${direction}${summary ? " — " + summary : ""}`,
+    `Prior stability: ${stability}`,
+    `Prior driver: ${why}`,
+    `Prior key risk: ${keyRiskSliced}`,
+    `Prior analyzed: ${analyzedAt}`,
+    "[End of historical background]",
+    "",
+  ].join("\n");
+}
+
 // ── LEVEL2 Reasoning Loop Imports ────────────────────────────────────────────
 import { evaluateTrigger, initLoopState, advanceLoopState, attachStep0ToLoopState, bindStep0ResultToLoopState, applyDispatchToLoopState, recordExecutedStep, type LoopState } from "./loopStateTriggerEngine";
 import { generateFollowUpTask } from "./followUpTaskGenerator";
@@ -2613,8 +2636,39 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
     });
     await updateTaskStatus(taskId, "streaming", { streamMsgId });
     emitTaskStatus(taskId, "streaming", { streamMsgId }); // SSE 推送
-
-    let finalReply: string;
+    // Phase 1B: 查询 prev_state（当前会话Id最后一条 assistant 消息的 decisionSnapshot）
+    // 仅查询一次，main + repair 共用
+    let prevSnapshot: DecisionSnapshot | null = null;
+    let prevDecisionObject: unknown = null; // Phase 1B B-1: 上一轮有效 decisionObject，FALLBACK 时回填用
+    if (conversationId) {
+      try {
+        const prevMsg = await getLastAssistantMessage(conversationId, streamMsgId);
+        const prevMeta = prevMsg?.metadata as Record<string, unknown> | null | undefined;
+        prevSnapshot = castToDecisionSnapshot(prevMeta?.decisionSnapshot);
+        prevDecisionObject = prevMeta?.decisionObject ?? null; // 同步提取，不扩大 prevMeta 作用域
+      } catch (e) {
+        // graceful degradation: prev_state 读取失败不阻断主链
+        console.warn("[Phase1B] getLastAssistantMessage failed:", e instanceof Error ? e.message : String(e));
+      }
+    }
+    // Phase 4A: Entity Snapshot Persistence — cross-session prevSnapshot fallback
+    // If no prevSnapshot from this conversation AND primaryTicker exists, load from entity snapshot
+    if (!prevSnapshot && primaryTicker && userId) {
+      try {
+        const entitySnap = await getEntitySnapshotForP1A(primaryTicker, userId);
+        if (entitySnap) {
+          prevSnapshot = entitySnap;
+          console.log("[Phase4A] entity snapshot loaded:", primaryTicker, "stability:", entitySnap._meta?.stability);
+        }
+      } catch (e4a) {
+        console.warn("[Phase4A] getEntitySnapshotForP1A failed (non-fatal):", e4a instanceof Error ? e4a.message : String(e4a));
+      }
+    }
+    // Phase 1B debug: log prevSnapshot read result
+    console.log("[Phase1B]", JSON.stringify({ tag: "prevSnapshot_read", conversationId, has_prevSnapshot: prevSnapshot !== null, prevSnapshot_direction: prevSnapshot?.current_bias?.direction ?? null, prevSnapshot_stability: prevSnapshot?._meta?.stability ?? null }));
+    // Dead Zone Fix: build isolated historical background block for LLM prompt injection
+    const _prevMemCtx = buildPrevSnapshotContext(prevSnapshot);
+    let finalReply: string;;
     let level1a3Output: FinalOutputSchema | null = null; // LEVEL1A3 structured output
     if (useJsonOnlyMode) {
       // ── LEVEL1A3: JSON-only Render Path (standard/deep + structured task types) ──
@@ -2626,7 +2680,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           const fb = await invokeLLMWithRetry({
             messages: [
               { role: "system", content: jsonOnlySystemMsg },
-              { role: "user", content: jsonOnlyUserMsg },
+              { role: "user", content: _prevMemCtx + jsonOnlyUserMsg },
             ],
             triggerContext: {
               business_task_type: resolvedTaskType,
@@ -2649,7 +2703,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
             const retryFb = await invokeLLMWithRetry({
               messages: [
                 { role: "system", content: jsonOnlySystemMsg },
-                { role: "user", content: retryMsg },
+                { role: "user", content: _prevMemCtx + retryMsg },
               ],
               triggerContext: {
                 business_task_type: resolvedTaskType,
@@ -2738,7 +2792,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
           model: userConfig.openaiModel || DEFAULT_MODEL,
           messages: [
             { role: "system", content: gptSystemPrompt },
-            { role: "user", content: gptUserMessage },
+            { role: "user", content: _prevMemCtx + gptUserMessage },
           ],
         });
         for await (const chunk of stream) {
@@ -2756,7 +2810,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         const fb = await invokeLLMWithRetry({
           messages: [
             { role: "system", content: gptSystemPrompt },
-            { role: "user", content: gptUserMessage },
+            { role: "user", content: _prevMemCtx + gptUserMessage },
           ],
           triggerContext: { source: "legacy_stream_fallback" },
         });
@@ -2768,7 +2822,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
       const fb = await invokeLLM({
         messages: [
           { role: "system", content: gptSystemPrompt },
-          { role: "user", content: gptUserMessage },
+          { role: "user", content: _prevMemCtx + gptUserMessage },
         ],
         triggerContext: { source: "legacy_no_key" },
       });
@@ -2810,36 +2864,7 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
         dataTimestamp: c.dataTimestamp,
         isWhitelisted: c.isWhitelisted,
       }));
-    }    // Phase 1B: 查询 prev_state（当前会话Id最后一条 assistant 消息的 decisionSnapshot）
-    // 仅查询一次，main + repair 共用
-    let prevSnapshot: DecisionSnapshot | null = null;
-    let prevDecisionObject: unknown = null; // Phase 1B B-1: 上一轮有效 decisionObject，FALLBACK 时回填用
-    if (conversationId) {
-      try {
-        const prevMsg = await getLastAssistantMessage(conversationId, streamMsgId);
-        const prevMeta = prevMsg?.metadata as Record<string, unknown> | null | undefined;
-        prevSnapshot = castToDecisionSnapshot(prevMeta?.decisionSnapshot);
-        prevDecisionObject = prevMeta?.decisionObject ?? null; // 同步提取，不扩大 prevMeta 作用域
-      } catch (e) {
-        // graceful degradation: prev_state 读取失败不阻断主链
-        console.warn("[Phase1B] getLastAssistantMessage failed:", e instanceof Error ? e.message : String(e));
-      }
-    }
-    // Phase 4A: Entity Snapshot Persistence — cross-session prevSnapshot fallback
-    // If no prevSnapshot from this conversation AND primaryTicker exists, load from entity snapshot
-    if (!prevSnapshot && primaryTicker && userId) {
-      try {
-        const entitySnap = await getEntitySnapshotForP1A(primaryTicker, userId);
-        if (entitySnap) {
-          prevSnapshot = entitySnap;
-          console.log("[Phase4A] entity snapshot loaded:", primaryTicker, "stability:", entitySnap._meta?.stability);
-        }
-      } catch (e4a) {
-        console.warn("[Phase4A] getEntitySnapshotForP1A failed (non-fatal):", e4a instanceof Error ? e4a.message : String(e4a));
-      }
-    }
-    // Phase 1B debug: log prevSnapshot read result
-    console.log("[Phase1B]", JSON.stringify({ tag: "prevSnapshot_read", conversationId, has_prevSnapshot: prevSnapshot !== null, prevSnapshot_direction: prevSnapshot?.current_bias?.direction ?? null, prevSnapshot_stability: prevSnapshot?._meta?.stability ?? null }));    // [DT-DEBUG][FINAL_REPLY]
+    }    // [DT-DEBUG][FINAL_REPLY]
     console.log(JSON.stringify({ tag: "[DT-DEBUG][FINAL_REPLY]", ts: Date.now(), taskId, conversationId, primaryTicker, finalReply_length: finalReply.length, has_DELIVERABLE: finalReply.includes("%%DELIVERABLE%%"), has_END_DELIVERABLE: finalReply.includes("%%END_DELIVERABLE%%"), has_DISCUSSION: finalReply.includes("%%DISCUSSION%%"), finalReply_first_200: finalReply.slice(0, 200), finalReply_last_200: finalReply.slice(-200) }));
     // ── V2.1 OPTION_B: 解析 DELIVERABLE + DISCUSSION 结构化标记块 ──────────────────────
     // 在 finalReply 中提取 %%DELIVERABLE%% 和 %%DISCUSSION%% 块，写入 metadata

@@ -1,10 +1,14 @@
 /**
  * cnHkValuationEngine.ts
  * DANTREE_CNHK_QVL_VALUATION_EXTENSION
+ * DANTREE_HKCN_DATA_MOVE1_QUALITY_ADJUSTED_VALUATION
  *
  * Lightweight PE/PB relative-value proxy for CN (A股) and HK (港股) markets.
  * NOT a DCF model — labels are derived from threshold comparisons calibrated
  * to historical A-share / HK market multiples.
+ *
+ * Move 1A: Added ROE / netMargin / debtToEquity parsing from markdown.
+ * Move 1B: Quality-adjusted label logic (downward-only, conservative).
  *
  * Input:  orchFundamentalsData (markdown from baostock / hk_akshare)
  * Output: QvlValuationOutput | null (same shape as reverseDcfEngine output)
@@ -47,6 +51,12 @@ function parseNumericFromMarkdown(text: string, labelPattern: RegExp): number | 
   return null;
 }
 
+// ── Quality adjustment constants (Move 1B) ────────────────────────────────────
+// Conservative thresholds — downward-only adjustments only.
+const ROE_QUALITY_FLOOR = 8;      // ROE < 8% = low capital efficiency signal
+const NET_MARGIN_FLOOR = 4;       // netMargin < 4% = weak profitability signal
+const DEBT_EQUITY_DANGER = 2.5;   // D/E > 2.5 = high leverage risk floor
+
 // ── Valuation label logic ──────────────────────────────────────────────────────
 // Conservative thresholds to minimize false precision.
 // CN (A股): PE < 12 → cheap; PE > 30 → expensive; PB ≤ 1.0 → cheap signal
@@ -82,6 +92,39 @@ function deriveLabelFromMultiples(
   return "fair";
 }
 
+// ── Quality adjustment (Move 1B) ───────────────────────────────────────────────
+// Applies downward-only conservative adjustments to the base PE/PB label.
+// Rules:
+//   1. D/E > DEBT_EQUITY_DANGER → cheap → fair (leverage floor)
+//   2. ROE < ROE_QUALITY_FLOOR AND netMargin < NET_MARGIN_FLOOR → cheap → fair (dual-signal quality downgrade)
+//   3. Single weak signal (ROE only OR margin only) → cheap preserved
+//   4. fair / expensive / insufficient_data → never adjusted upward or downward
+
+function applyQualityAdjustment(
+  baseLabel: "cheap" | "fair" | "expensive" | "insufficient_data",
+  roe: number | null,
+  netMargin: number | null,
+  debtToEquity: number | null
+): "cheap" | "fair" | "expensive" | "insufficient_data" {
+  // Only cheap labels can be downgraded
+  if (baseLabel !== "cheap") return baseLabel;
+
+  // Rule 1: Leverage floor — D/E > 2.5 blocks cheap
+  if (debtToEquity !== null && debtToEquity > DEBT_EQUITY_DANGER) {
+    return "fair";
+  }
+
+  // Rule 2: Dual-signal quality downgrade — BOTH ROE weak AND netMargin weak
+  const roeWeak = roe !== null && roe < ROE_QUALITY_FLOOR;
+  const marginWeak = netMargin !== null && netMargin < NET_MARGIN_FLOOR;
+  if (roeWeak && marginWeak) {
+    return "fair";
+  }
+
+  // Single signal insufficient — cheap preserved
+  return "cheap";
+}
+
 // ── Main export ────────────────────────────────────────────────────────────────
 
 export function computeCnHkValuationContext(
@@ -91,12 +134,21 @@ export function computeCnHkValuationContext(
   // Guard: empty/absent fundamentals → no attachment
   if (!fundamentalsText || fundamentalsText.trim().length === 0) return null;
 
-  // Parse PE, PB, revenue growth from markdown
+  // Primary valuation fields (unchanged)
   const pe = parseNumericFromMarkdown(fundamentalsText, /市盈率/);
   const pb = parseNumericFromMarkdown(fundamentalsText, /市净率/);
   const revenueGrowthYoy = parseNumericFromMarkdown(fundamentalsText, /营收同比增长/);
 
-  const valuation_label = deriveLabelFromMultiples(pe, pb, market);
+  // Quality fields (Move 1A — NEW)
+  const roe = parseNumericFromMarkdown(fundamentalsText, /净资产收益率/);         // ROE
+  const netMargin = parseNumericFromMarkdown(fundamentalsText, /净利率/);          // Net margin %
+  const debtToEquity = parseNumericFromMarkdown(fundamentalsText, /负债权益比/);   // D/E ratio
+
+  // Base label from PE/PB multiples
+  const baseLabel = deriveLabelFromMultiples(pe, pb, market);
+
+  // Quality-adjusted label (Move 1B — downward-only)
+  const valuation_label = applyQualityAdjustment(baseLabel, roe, netMargin, debtToEquity);
 
   const dataSource = market === "CN" ? "baostock_proxy" : "hk_akshare_proxy";
   const disclaimer =

@@ -61,7 +61,12 @@ function makeFmp(
   } as unknown as FmpStockData;
 }
 
-function makeCnText(pe: number | string, pb: number | string, revenueGrowth?: number | string): string {
+function makeCnText(
+  pe: number | string,
+  pb: number | string,
+  revenueGrowth?: number | string,
+  opts?: { roe?: number | string; netMargin?: number | string; debtToEquity?: number | string }
+): string {
   const lines = [
     "| 指标 | 数值 |",
     "|------|------|",
@@ -70,6 +75,15 @@ function makeCnText(pe: number | string, pb: number | string, revenueGrowth?: nu
   ];
   if (revenueGrowth !== undefined) {
     lines.push(`| 营收同比增长 | ${revenueGrowth} |`);
+  }
+  if (opts?.roe !== undefined) {
+    lines.push(`| 净资产收益率 | ${opts.roe} |`);
+  }
+  if (opts?.netMargin !== undefined) {
+    lines.push(`| 净利率 | ${opts.netMargin} |`);
+  }
+  if (opts?.debtToEquity !== undefined) {
+    lines.push(`| 负债权益比 | ${opts.debtToEquity} |`);
   }
   return lines.join("\n");
 }
@@ -349,6 +363,69 @@ describe("Group C — cnHkValuationEngine: computeCnHkValuationContext", () => {
   it("C11b: revenue growth N/A → revenue_growth_3yr = null", () => {
     const r = computeCnHkValuationContext(makeCnText(10, 0.8, "N/A"), "CN");
     expect(r?.revenue_growth_3yr).toBeNull();
+  });
+
+  // ── C12: Leverage floor (D/E > 2.5 → cheap → fair) ─────────────────────────
+  it("C12a: cheap base + D/E 3.0 → fair (leverage floor)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { debtToEquity: 3.0 }), "CN");
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  it("C12b: cheap base + D/E 2.5 → cheap (boundary: not > 2.5)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { debtToEquity: 2.5 }), "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  it("C12c: expensive base + D/E 4.0 → expensive (downward-only, no change)", () => {
+    const r = computeCnHkValuationContext(makeCnText(40, 2.0, undefined, { debtToEquity: 4.0 }), "CN");
+    expect(r?.valuation_label).toBe("expensive");
+  });
+
+  it("C12d: cheap base + D/E absent → cheap (no leverage data, no adjustment)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8), "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // ── C13: Dual-signal quality downgrade (ROE < 8 AND netMargin < 4 → cheap → fair) ─
+  it("C13a: cheap base + ROE 5% + netMargin 2% → fair (dual-signal downgrade)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { roe: 5, netMargin: 2 }), "CN");
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  it("C13b: cheap base + ROE 5% only (no netMargin) → cheap (single signal preserved)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { roe: 5 }), "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  it("C13c: cheap base + netMargin 2% only (no ROE) → cheap (single signal preserved)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { netMargin: 2 }), "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  it("C13d: cheap base + ROE 12% + netMargin 6% → cheap (both above floor, no downgrade)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { roe: 12, netMargin: 6 }), "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // ── C14: Priority — leverage floor takes precedence over quality downgrade ──
+  it("C14a: D/E 3.5 + ROE 5% + netMargin 2% → fair (leverage floor fires first)", () => {
+    const r = computeCnHkValuationContext(makeCnText(10, 0.8, undefined, { debtToEquity: 3.5, roe: 5, netMargin: 2 }), "CN");
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  it("C14b: HK cheap base + D/E 3.0 → fair (leverage floor applies to HK too)", () => {
+    const r = computeCnHkValuationContext(makeCnText(6, 0.7, undefined, { debtToEquity: 3.0 }), "HK");
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  it("C14c: insufficient_data base + D/E 3.0 → insufficient_data (downward-only, no change)", () => {
+    const r = computeCnHkValuationContext(makeCnText("N/A", "N/A", undefined, { debtToEquity: 3.0 }), "CN");
+    expect(r?.valuation_label).toBe("insufficient_data");
+  });
+
+  it("C14d: fair base + ROE 5% + netMargin 2% → fair (downward-only: fair not upgraded/changed)", () => {
+    const r = computeCnHkValuationContext(makeCnText(20, 1.5, undefined, { roe: 5, netMargin: 2 }), "CN");
+    expect(r?.valuation_label).toBe("fair");
   });
 });
 

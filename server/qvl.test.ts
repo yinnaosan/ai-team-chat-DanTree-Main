@@ -559,3 +559,187 @@ describe("Group D — Shape Contract", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROUP C15 — Structured-first path (9 cases)
+// DANTREE_HKCN_DATA_MOVE2_STRUCTURED_PASS_THROUGH
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Helper: build a minimal ChinaFundamentalsResponse stub (synthetic — no network)
+function makeStructured(
+  raw: Partial<{
+    pe: number | null;
+    pb: number | null;
+    roe: number | null;
+    netMargin: number | null;
+    debtToEquity: number | null;
+    revenueGrowthYoy: number | null;
+  }>,
+  opts?: { periodEndDate?: string | null; confidence?: string | null }
+): import("./fetchChinaFundamentals").ChinaFundamentalsResponse {
+  const fullRaw = {
+    pe: raw.pe ?? null,
+    pb: raw.pb ?? null,
+    ps: null,
+    roe: raw.roe ?? null,
+    grossMargin: null,
+    netMargin: raw.netMargin ?? null,
+    revenue: null,
+    netIncome: null,
+    eps: null,
+    operatingMargin: null,
+    roa: null,
+    debtToEquity: raw.debtToEquity ?? null,
+    currentRatio: null,
+    cashFromOperations: null,
+    freeCashFlow: null,
+    revenueGrowthYoy: raw.revenueGrowthYoy ?? null,
+    netIncomeGrowthYoy: null,
+    bookValuePerShare: null,
+    dividendYield: null,
+    sharesOutstanding: null,
+    fiscalYear: null,
+    periodType: null,
+    periodEndDate: opts?.periodEndDate ?? null,
+    sourceType: null,
+    confidence: opts?.confidence ?? null,
+  };
+  return {
+    raw: fullRaw,
+    fmt: {} as import("./fetchChinaFundamentals").ChinaFundamentalsFmt,
+    source: "baostock",
+    sourceType: "official_free",
+    confidence: opts?.confidence ?? "high",
+    status: "active",
+    coverageScore: 1,
+    missingFields: [],
+    permanentlyUnavailable: [],
+    periodType: null,
+    periodEndDate: opts?.periodEndDate ?? null,
+    symbol: "TEST",
+    fetched_at: Date.now(),
+  };
+}
+
+describe("Group C15 — cnHkValuationEngine: structured-first path", () => {
+  // C15a: Structured PE=8 overrides markdown PE=40 → cheap (structured wins)
+  it("C15a: structured PE=8 overrides markdown PE=40 → cheap", () => {
+    const text = makeCnText(40, 2.0);  // markdown says expensive
+    const structured = makeStructured({ pe: 8, pb: 0.9 });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C15b: Structured PE=35 overrides markdown PE=8 → expensive (structured wins)
+  it("C15b: structured PE=35 overrides markdown PE=8 → expensive", () => {
+    const text = makeCnText(8, 0.8);   // markdown says cheap
+    const structured = makeStructured({ pe: 35, pb: 2.0 });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.valuation_label).toBe("expensive");
+  });
+
+  // C15c: Structured ROE=2% + netMargin=1% + PE=8 → fair (quality downgrade)
+  it("C15c: structured ROE=2% + netMargin=1% + PE=8 → fair (quality downgrade)", () => {
+    const text = makeCnText(8, 0.8);
+    const structured = makeStructured({ pe: 8, pb: 0.8, roe: 2, netMargin: 1 });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  // C15d: Structured D/E=3.5 + PE=8 → fair (leverage floor)
+  it("C15d: structured D/E=3.5 + PE=8 → fair (leverage floor)", () => {
+    const text = makeCnText(8, 0.8);
+    const structured = makeStructured({ pe: 8, pb: 0.8, debtToEquity: 3.5 });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.valuation_label).toBe("fair");
+  });
+
+  // C15e: periodEndDate='2024-06-30' in structured → dcf_model_date='2024-06-30'
+  it("C15e: periodEndDate from structured carries to dcf_model_date", () => {
+    const text = makeCnText(10, 0.9);
+    const structured = makeStructured({ pe: 10 }, { periodEndDate: "2024-06-30" });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.dcf_model_date).toBe("2024-06-30");
+  });
+
+  // C15f: confidence='medium' — interface still intact, advisory_only=true
+  it("C15f: confidence='medium' — advisory_only=true, label correct", () => {
+    const text = makeCnText(10, 0.9);
+    const structured = makeStructured({ pe: 10, pb: 0.9 }, { confidence: "medium" });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.advisory_only).toStrictEqual(true);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C15g: Structured pe=null/pb=null → falls back to markdown PE=8 → cheap
+  it("C15g: structured pe=null/pb=null → markdown fallback PE=8 → cheap", () => {
+    const text = makeCnText(8, 0.8);
+    const structured = makeStructured({ pe: null, pb: null });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C15h: HK market, structured PE=6 (< 8 threshold) → cheap
+  it("C15h: HK market, structured PE=6 → cheap", () => {
+    const text = makeCnText(6, 0.7);
+    const structured = makeStructured({ pe: 6, pb: 0.7 });
+    const r = computeCnHkValuationContext(text, "HK", structured);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C15i: advisory_only with structured path → toStrictEqual(true)
+  it("C15i: advisory_only with structured path → true", () => {
+    const text = makeCnText(10, 0.9);
+    const structured = makeStructured({ pe: 10, pb: 0.9 });
+    const r = computeCnHkValuationContext(text, "CN", structured);
+    expect(r?.advisory_only).toStrictEqual(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROUP C16 — Fallback path and null guards (6 cases)
+// DANTREE_HKCN_DATA_MOVE2_STRUCTURED_PASS_THROUGH
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Group C16 — cnHkValuationEngine: fallback path and null guards", () => {
+  // C16a: No third arg → markdown fallback (existing behavior — cheap from PE=8)
+  it("C16a: no third arg → markdown fallback → cheap", () => {
+    const text = makeCnText(8, 0.8);
+    const r = computeCnHkValuationContext(text, "CN");
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C16b: structured=null → markdown fallback → cheap
+  it("C16b: structured=null → markdown fallback → cheap", () => {
+    const text = makeCnText(8, 0.8);
+    const r = computeCnHkValuationContext(text, "CN", null);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C16c: structured=undefined → markdown fallback → cheap
+  it("C16c: structured=undefined → markdown fallback → cheap", () => {
+    const text = makeCnText(8, 0.8);
+    const r = computeCnHkValuationContext(text, "CN", undefined);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C16d: null text AND null structured → returns null
+  it("C16d: null text AND null structured → returns null", () => {
+    const r = computeCnHkValuationContext(null, "CN", null);
+    expect(r).toBeNull();
+  });
+
+  // C16e: null text but structured.raw.pe=10 present → cheap (structured fills gap)
+  it("C16e: null text but structured.raw.pe=10 → cheap (structured fills gap)", () => {
+    const structured = makeStructured({ pe: 10, pb: 0.9 });
+    const r = computeCnHkValuationContext(null, "CN", structured);
+    expect(r?.valuation_label).toBe("cheap");
+  });
+
+  // C16f: no structured → dcf_model_date = null
+  it("C16f: no structured → dcf_model_date = null", () => {
+    const text = makeCnText(10, 0.9);
+    const r = computeCnHkValuationContext(text, "CN");
+    expect(r?.dcf_model_date).toBeNull();
+  });
+});

@@ -2,6 +2,7 @@
  * cnHkValuationEngine.ts
  * DANTREE_CNHK_QVL_VALUATION_EXTENSION
  * DANTREE_HKCN_DATA_MOVE1_QUALITY_ADJUSTED_VALUATION
+ * DANTREE_HKCN_DATA_MOVE2_STRUCTURED_PASS_THROUGH
  *
  * Lightweight PE/PB relative-value proxy for CN (A股) and HK (港股) markets.
  * NOT a DCF model — labels are derived from threshold comparisons calibrated
@@ -9,13 +10,19 @@
  *
  * Move 1A: Added ROE / netMargin / debtToEquity parsing from markdown.
  * Move 1B: Quality-adjusted label logic (downward-only, conservative).
+ * Move 2D: resolveFields() — structured-first with markdown fallback.
+ *          computeCnHkValuationContext now accepts optional 3rd arg:
+ *          structuredCnHkFundamentals?: ChinaFundamentalsResponse | null
  *
  * Input:  orchFundamentalsData (markdown from baostock / hk_akshare)
+ *         structuredCnHkFundamentals (optional — from RoutingResult)
  * Output: QvlValuationOutput | null (same shape as reverseDcfEngine output)
  *
  * Priority: US FMP path has priority. This engine is a fallback only.
  * advisory_only: true — hard-coded, non-overridable.
  */
+
+import type { ChinaFundamentalsResponse } from "./fetchChinaFundamentals";
 
 export interface QvlValuationOutput {
   fmp_dcf_fair_value: number | null;
@@ -56,6 +63,48 @@ function parseNumericFromMarkdown(text: string, labelPattern: RegExp): number | 
 const ROE_QUALITY_FLOOR = 8;      // ROE < 8% = low capital efficiency signal
 const NET_MARGIN_FLOOR = 4;       // netMargin < 4% = weak profitability signal
 const DEBT_EQUITY_DANGER = 2.5;   // D/E > 2.5 = high leverage risk floor
+
+// ── Resolved fields type (Move 2D) ────────────────────────────────────────────
+interface ResolvedFields {
+  pe: number | null;
+  pb: number | null;
+  roe: number | null;
+  netMargin: number | null;
+  debtToEquity: number | null;
+  revenueGrowthYoy: number | null;
+  periodEndDate: string | null;
+  confidence: string | null;
+}
+
+// ── resolveFields() — structured-first with markdown fallback (Move 2D) ───────
+// Prefers structured numeric values when available; falls back to markdown parse.
+// Metadata fields (periodEndDate, confidence) are structured-only — not parseable
+// from markdown text.
+
+function resolveFields(
+  text: string | null | undefined,
+  structured: ChinaFundamentalsResponse | null | undefined
+): ResolvedFields {
+  const s = structured?.raw;
+
+  // Helper: use structured numeric if not null; else parse from markdown
+  const fromMarkdown = (pattern: RegExp): number | null =>
+    text ? parseNumericFromMarkdown(text, pattern) : null;
+
+  // Structured-first: use numeric value if available; fall back to markdown parse
+  const pe = (s?.pe != null) ? s.pe : fromMarkdown(/市盈率/);
+  const pb = (s?.pb != null) ? s.pb : fromMarkdown(/市净率/);
+  const roe = (s?.roe != null) ? s.roe : fromMarkdown(/净资产收益率/);
+  const netMargin = (s?.netMargin != null) ? s.netMargin : fromMarkdown(/净利率/);
+  const debtToEquity = (s?.debtToEquity != null) ? s.debtToEquity : fromMarkdown(/负债权益比/);
+  const revenueGrowthYoy = (s?.revenueGrowthYoy != null) ? s.revenueGrowthYoy : fromMarkdown(/营收同比增长/);
+
+  // Metadata — structured only (not parseable from markdown)
+  const periodEndDate = structured?.periodEndDate ?? null;
+  const confidence = structured?.confidence ?? null;
+
+  return { pe, pb, roe, netMargin, debtToEquity, revenueGrowthYoy, periodEndDate, confidence };
+}
 
 // ── Valuation label logic ──────────────────────────────────────────────────────
 // Conservative thresholds to minimize false precision.
@@ -129,26 +178,22 @@ function applyQualityAdjustment(
 
 export function computeCnHkValuationContext(
   fundamentalsText: string | null | undefined,
-  market: "CN" | "HK"
+  market: "CN" | "HK",
+  structuredCnHkFundamentals?: ChinaFundamentalsResponse | null
 ): QvlValuationOutput | null {
-  // Guard: empty/absent fundamentals → no attachment
-  if (!fundamentalsText || fundamentalsText.trim().length === 0) return null;
+  // Move 2D: null guard — both text and structured absent → no attachment
+  const hasText = fundamentalsText && fundamentalsText.trim().length > 0;
+  const hasStructured = structuredCnHkFundamentals?.raw != null;
+  if (!hasText && !hasStructured) return null;
 
-  // Primary valuation fields (unchanged)
-  const pe = parseNumericFromMarkdown(fundamentalsText, /市盈率/);
-  const pb = parseNumericFromMarkdown(fundamentalsText, /市净率/);
-  const revenueGrowthYoy = parseNumericFromMarkdown(fundamentalsText, /营收同比增长/);
-
-  // Quality fields (Move 1A — NEW)
-  const roe = parseNumericFromMarkdown(fundamentalsText, /净资产收益率/);         // ROE
-  const netMargin = parseNumericFromMarkdown(fundamentalsText, /净利率/);          // Net margin %
-  const debtToEquity = parseNumericFromMarkdown(fundamentalsText, /负债权益比/);   // D/E ratio
+  // Move 2D: resolve fields — structured-first with markdown fallback
+  const fields = resolveFields(fundamentalsText, structuredCnHkFundamentals);
 
   // Base label from PE/PB multiples
-  const baseLabel = deriveLabelFromMultiples(pe, pb, market);
+  const baseLabel = deriveLabelFromMultiples(fields.pe, fields.pb, market);
 
   // Quality-adjusted label (Move 1B — downward-only)
-  const valuation_label = applyQualityAdjustment(baseLabel, roe, netMargin, debtToEquity);
+  const valuation_label = applyQualityAdjustment(baseLabel, fields.roe, fields.netMargin, fields.debtToEquity);
 
   const dataSource = market === "CN" ? "baostock_proxy" : "hk_akshare_proxy";
   const disclaimer =
@@ -158,13 +203,13 @@ export function computeCnHkValuationContext(
 
   return {
     fmp_dcf_fair_value: null,       // N/A — no DCF model for CN/HK
-    dcf_model_date: null,           // N/A
+    dcf_model_date: fields.periodEndDate,  // Move 2D: carry periodEndDate from structured metadata
     current_price: null,            // Not parsed from markdown
     implied_upside_pct: null,       // Cannot derive without fair value anchor
     valuation_label,
     ev_to_ebitda: null,             // Not in baostock/hk_akshare current fields
     pfcf_ratio: null,               // Not directly available
-    revenue_growth_3yr: revenueGrowthYoy ?? null, // Single-year YoY proxy
+    revenue_growth_3yr: fields.revenueGrowthYoy ?? null, // Single-year YoY proxy
     data_source: dataSource,
     advisory_only: true,            // Hard-coded literal type — non-overridable
     simplified_note: disclaimer,

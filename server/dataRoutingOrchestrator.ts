@@ -13,6 +13,7 @@
  */
 
 import { executeLayerRouting, computeEvidenceScore, buildKeyStatusReport, LayerResult, isFailedData } from "./dataRoutingEngine";
+import type { ChinaFundamentalsResponse } from "./fetchChinaFundamentals";
 import { fetchChinaFundamentals, fetchHKFundamentals } from "./fetchChinaFundamentals";
 import {
   fetchFMPFundamentals, fetchSimFinFundamentals,
@@ -63,6 +64,12 @@ export interface RoutingResult {
   providerStatusSummary: Record<string, string>;
   /** key 状态报告 */
   keyStatusReport: ReturnType<typeof buildKeyStatusReport>;
+  /**
+   * CN/HK 结构化基本面数据（含 raw 数值 + metadata）。
+   * 仅在 orchMarket = CN/HK 且基本面请求成功时填充。
+   * 供 cnHkValuationEngine 优先使用，避免 markdown 文本解析损耗。
+   */
+  structuredCnHkFundamentals?: ChinaFundamentalsResponse | null;
 }
 
 // ── 主路由函数 ─────────────────────────────────────────────────────────────────
@@ -79,6 +86,8 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
 
   const layerResults: LayerResult[] = [];
   const fallbackLog: Array<{ layer: string; usedProvider: string; reason: string }> = [];
+  // Move 2B: structured CN/HK fundamentals capture (pre-fetch pattern — single call, no double-fetch)
+  let _structuredCnHkFundamentals: ChinaFundamentalsResponse | null = null;
 
   // ── [Price] ─────────────────────────────────────────────────────────────────
   const priceFetchers = new Map([
@@ -116,17 +125,15 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
     layerResults.push(newsChinaResult);
   }
 
-  // ── [Fundamentals - CN]（仅 A股 + 需要基本面）────────────────────────────
+  // ── [Fundamentals - CN]（仅 A股 + 需要基本面）────────────────────────
   if (needFundamentals && market === "CN") {
-    // fetchChinaFundamentals returns { structured, text } | null
-    // routing engine expects string | null — extract .text for the engine
+    // Move 2B: pre-fetch once — reuse result for both structured capture and text pass-through
+    const _preFetchedCn = await fetchChinaFundamentals(ticker);
+    if (_preFetchedCn?.structured) _structuredCnHkFundamentals = _preFetchedCn.structured;
     const cnFundamentalsFetchers = new Map<string, () => Promise<string | null>>([
       // Key must match the registered data source ID in dataSourceRegistry.ts
       // so that citation system can resolve it and include in evidenceScore
-      ["baostock", async () => {
-        const result = await fetchChinaFundamentals(ticker);
-        return result ? result.text : null;
-      }],
+      ["baostock", async () => _preFetchedCn ? _preFetchedCn.text : null],
     ]);
     const cnFundamentalsResult = await executeLayerRouting("fundamentals_cn", cnFundamentalsFetchers);
     layerResults.push(cnFundamentalsResult);
@@ -134,14 +141,14 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
       fallbackLog.push({ layer: "fundamentals_cn", usedProvider: "none", reason: "CN fundamentals service unavailable or returned no data" });
     }
   }
-  // ── [Fundamentals - HK]（仅港股 + 需要基本面）─────────────────────────────
+    // ── [Fundamentals - HK]（仅港股 + 需要基本面）─────────────────────────
   if (needFundamentals && market === "HK") {
+    // Move 2B: pre-fetch once — reuse result for both structured capture and text pass-through
+    const _preFetchedHk = await fetchHKFundamentals(ticker);
+    if (_preFetchedHk?.structured) _structuredCnHkFundamentals = _preFetchedHk.structured;
     const hkFundamentalsFetchers = new Map<string, () => Promise<string | null>>([
       // Key must match registered data source ID in dataSourceRegistry.ts
-      ["hk_akshare", async () => {
-        const result = await fetchHKFundamentals(ticker);
-        return result ? result.text : null;
-      }],
+      ["hk_akshare", async () => _preFetchedHk ? _preFetchedHk.text : null],
     ]);
     const hkFundamentalsResult = await executeLayerRouting("fundamentals", hkFundamentalsFetchers);
     layerResults.push(hkFundamentalsResult);
@@ -240,6 +247,7 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
     fallbackLog,
     providerStatusSummary,
     keyStatusReport: buildKeyStatusReport(),
+    structuredCnHkFundamentals: _structuredCnHkFundamentals,
   };
 }
 

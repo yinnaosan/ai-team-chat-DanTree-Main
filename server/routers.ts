@@ -3002,7 +3002,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                   } else if ((orchMarket === 'CN' || orchMarket === 'HK') && executedResult.decision_object.qvl) {
                     // CN/HK fallback: PE/PB proxy valuation (only fires when FMP returns null)
                     const { computeCnHkValuationContext } = require('./cnHkValuationEngine');
-                    const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK');
+                    const cnhkStructured = orchResult?.structuredCnHkFundamentals ?? null;
+                    const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK', cnhkStructured);
                     if (cnhkValuation) {
                       executedResult.decision_object.qvl.valuation = cnhkValuation;
                       metadataToSave.decisionObject = executedResult.decision_object;
@@ -3118,7 +3119,8 @@ Output format MUST be:
                       } else if ((orchMarket === 'CN' || orchMarket === 'HK') && repairExecutedResult.decision_object.qvl) {
                         // CN/HK fallback: PE/PB proxy valuation (only fires when FMP returns null)
                         const { computeCnHkValuationContext } = require('./cnHkValuationEngine');
-                        const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK');
+                        const repairCnhkStructured = orchResult?.structuredCnHkFundamentals ?? null;
+                        const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK', repairCnhkStructured);
                         if (cnhkValuation) {
                           repairExecutedResult.decision_object.qvl.valuation = cnhkValuation;
                           metadataToSave.decisionObject = repairExecutedResult.decision_object;

@@ -727,12 +727,29 @@ export default function ResearchWorkspacePage() {
   // Narrow type assertion — only the fields we display. No new fetch. No backend change.
   const qvl = (decisionObject as { qvl?: {
     size_bucket?: string;
+    rationale?: string; // QVL Panel Move 2: used for sizing tooltip only
     valuation?: {
       valuation_label?: string;
       implied_upside_pct?: number | null;
       fmp_dcf_fair_value?: number | null;
     };
   } } | null)?.qvl ?? null;
+
+  // QVL Panel Move 2: sanitized tooltip builder for sizing fact
+  const buildQvlSizingTooltip = (rationale: string | undefined): string | undefined => {
+    if (!rationale) return undefined;
+    let t = '\u7b80\u5316\u4f30\u7b97\u4f9d\u636e\uff1a' + rationale
+      .replace(/NOTE:.*$/i, '')
+      .replace(/Confidence context:[^|]*/i, '')
+      .replace(/\s*\|\s*$/g, '')
+      .replace(/HIGH-probability/gi, '\u9ad8\u98ce\u9669')
+      .replace(/stepped down/gi, '\u5df2\u89e6\u53d1\u964d\u6863')
+      .replace(/stance/gi, '\u65b9\u5411')
+      .replace(/confidence/gi, '\u7f6e\u4fe1\u5ea6')
+      .trim();
+    if (t.length > 200) t = t.slice(0, 197) + '...';
+    return t + '\uff08\u5b8c\u6574\u5206\u6790\u8be6\u89c1\u7814\u7a76\u5185\u5bb9\uff09';
+  };
 
   const VALUATION_LABEL_MAP: Record<string, string> = {
     cheap: '低估',
@@ -754,7 +771,11 @@ export default function ResearchWorkspacePage() {
     const sub = upside != null
       ? `${upside >= 0 ? '+' : ''}${upside.toFixed(1)}% vs DCF · 仅供参考`
       : 'FMP模型 · 仅供参考';
-    return { label: '估值参考 (FMP DCF)', value: labelText, sub };
+    const tooltip = '基于 FMP 的 DCF 模型估值（非系统自建模型），仅作参考。'
+      + 'FMP 内部假设（WACC、终值增速）未公开。'
+      + '此标签与 AI 分析结论相互独立，不构成买卖建议。'
+      + '（完整分析详见研究内容）';
+    return { label: '估值参考 (FMP DCF)', value: labelText, sub, tooltip };
   })();
 
   const qvlSizingFact = (() => {
@@ -762,10 +783,11 @@ export default function ResearchWorkspacePage() {
     if (!bucket || bucket === 'none') return null;
     const labelText = BUCKET_LABEL_MAP[bucket];
     if (!labelText) return null;
-    return { label: '仓位建议参考 ⓘ', value: labelText, sub: '简化估算 · 仅供参考' };
+    const tooltip = buildQvlSizingTooltip(qvl?.rationale);
+    return { label: '仓位建议参考 ⓘ', value: labelText, sub: '简化估算 · 仅供参考', tooltip };
   })();
 
-  const qvlFacts = [qvlValuationFact, qvlSizingFact].filter(Boolean) as { label: string; value: string; sub?: string }[];
+  const qvlFacts = [qvlValuationFact, qvlSizingFact].filter(Boolean) as { label: string; value: string; sub?: string; tooltip?: string }[];
   const woQuickFacts = [...qvlFacts, ...workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }))];
 
   const woNews = workspaceOutput.insights.news.map(n => ({ headline: n.headline, source: n.source, sentiment: n.sentiment }));

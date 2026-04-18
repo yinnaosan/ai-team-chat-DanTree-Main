@@ -40,6 +40,7 @@ export interface QuickFact {
   label: string;
   value: string;
   sub?: string;
+  tooltip?: string; // QVL Panel Move 2: native HTML title= attribute — undefined → no tooltip
 }
 
 export interface NewsItem {
@@ -258,7 +259,7 @@ export function InsightsRailVNext({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {quickFacts.map((fact, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 5 }}>
+              <div key={i} title={fact.tooltip} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 5, cursor: fact.tooltip ? 'help' : 'default' }}>
                 <div>
                   <div style={{ fontSize: 9, color: "rgba(255,255,255,0.30)", marginBottom: 1 }}>{fact.label}</div>
                   {fact.sub && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.20)" }}>{fact.sub}</div>}

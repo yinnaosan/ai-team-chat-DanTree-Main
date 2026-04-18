@@ -2997,8 +2997,16 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                   const { computeValuationContext } = require('./reverseDcfEngine');
                   const valuation = computeValuationContext(_fmpRawCache);
                   if (valuation && executedResult.decision_object.qvl) {
-                    executedResult.decision_object.qvl.valuation = valuation;
+                    executedResult.decision_object.qvl.valuation = valuation; // US FMP path — takes priority
                     metadataToSave.decisionObject = executedResult.decision_object;
+                  } else if ((orchMarket === 'CN' || orchMarket === 'HK') && executedResult.decision_object.qvl) {
+                    // CN/HK fallback: PE/PB proxy valuation (only fires when FMP returns null)
+                    const { computeCnHkValuationContext } = require('./cnHkValuationEngine');
+                    const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK');
+                    if (cnhkValuation) {
+                      executedResult.decision_object.qvl.valuation = cnhkValuation;
+                      metadataToSave.decisionObject = executedResult.decision_object;
+                    }
                   }
                 } catch { /* non-blocking — QVL valuation failure must not break main pipeline */ }
                 // Phase 4A: persist entity snapshot for cross-session memory
@@ -3105,8 +3113,16 @@ Output format MUST be:
                       const { computeValuationContext } = require('./reverseDcfEngine');
                       const valuation = computeValuationContext(_fmpRawCache);
                       if (valuation && repairExecutedResult.decision_object.qvl) {
-                        repairExecutedResult.decision_object.qvl.valuation = valuation;
+                        repairExecutedResult.decision_object.qvl.valuation = valuation; // US FMP path — takes priority
                         metadataToSave.decisionObject = repairExecutedResult.decision_object;
+                      } else if ((orchMarket === 'CN' || orchMarket === 'HK') && repairExecutedResult.decision_object.qvl) {
+                        // CN/HK fallback: PE/PB proxy valuation (only fires when FMP returns null)
+                        const { computeCnHkValuationContext } = require('./cnHkValuationEngine');
+                        const cnhkValuation = computeCnHkValuationContext(orchFundamentalsData, orchMarket as 'CN' | 'HK');
+                        if (cnhkValuation) {
+                          repairExecutedResult.decision_object.qvl.valuation = cnhkValuation;
+                          metadataToSave.decisionObject = repairExecutedResult.decision_object;
+                        }
                       }
                     } catch { /* non-blocking — QVL valuation failure must not break repair pipeline */ }
                   } else {

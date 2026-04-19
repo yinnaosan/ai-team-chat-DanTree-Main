@@ -3010,6 +3010,18 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                     }
                   }
                 } catch { /* non-blocking — QVL valuation failure must not break main pipeline */ }
+                // C1: thesis evolution signal (non-blocking, advisory_only)
+                try {
+                  const { computeThesisEvolution } = require('./thesisEvolutionEngine');
+                  const _teQvlBucket = executedResult.decision_object?.qvl?.size_bucket ?? null;
+                  const _teEvolution = computeThesisEvolution(
+                    prevDecisionObject,
+                    executedResult.decision_object,
+                    metadataToSave.structured_analysis_gate,
+                    _teQvlBucket
+                  );
+                  metadataToSave.thesisEvolution = _teEvolution;
+                } catch { /* non-blocking — thesis evolution failure must not break main pipeline */ }
                 // Phase 4A: persist entity snapshot for cross-session memory
                 if (primaryTicker && userId) {
                   upsertEntitySnapshotForP1A(primaryTicker, userId, executedResult.snapshot)
@@ -3127,6 +3139,18 @@ Output format MUST be:
                         }
                       }
                     } catch { /* non-blocking — QVL valuation failure must not break repair pipeline */ }
+                    // C1: thesis evolution signal (non-blocking, advisory_only)
+                    try {
+                      const { computeThesisEvolution } = require('./thesisEvolutionEngine');
+                      const _teQvlBucketRepair = repairExecutedResult.decision_object?.qvl?.size_bucket ?? null;
+                      const _teEvolutionRepair = computeThesisEvolution(
+                        prevDecisionObject,
+                        repairExecutedResult.decision_object,
+                        metadataToSave.structured_analysis_gate,
+                        _teQvlBucketRepair
+                      );
+                      metadataToSave.thesisEvolution = _teEvolutionRepair;
+                    } catch { /* non-blocking — thesis evolution failure must not break repair pipeline */ }
                   } else {
                     // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject
                     if (prevSnapshot) {

@@ -74,6 +74,14 @@ export interface DiscussionMessage {
       next_step: { action: string; type: "RESEARCH" | "WAIT" | "CONFIRM" | "ACT" };
       _meta: { generated_at: number; stability: "STABLE" | "CHANGED" | "REVERSED"; is_stale: boolean; horizon: string };
     };
+    // C1: thesis evolution signal (advisory_only, optional)
+    thesisEvolution?: {
+      signal_strength: "WEAK" | "MODERATE" | "STRONG" | "INSUFFICIENT_DATA";
+      noise_indicator: boolean;
+      confidence_delta: -2 | -1 | 0 | 1 | 2;
+      inflection_evidence: string[];
+      advisory_only: true;
+    } | null;
   } | null;
   isOptimistic?: boolean;
   isStreaming?: boolean;

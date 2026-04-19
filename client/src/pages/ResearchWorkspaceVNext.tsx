@@ -73,6 +73,14 @@ interface Msg {
       next_step: { action: string; type: "RESEARCH" | "WAIT" | "CONFIRM" | "ACT" };
       _meta: { generated_at: number; stability: "STABLE" | "CHANGED" | "REVERSED"; is_stale: boolean; horizon: string };
     };
+    // C1: thesis evolution signal (advisory_only, optional)
+    thesisEvolution?: {
+      signal_strength: "WEAK" | "MODERATE" | "STRONG" | "INSUFFICIENT_DATA";
+      noise_indicator: boolean;
+      confidence_delta: -2 | -1 | 0 | 1 | 2;
+      inflection_evidence: string[];
+      advisory_only: true;
+    } | null;
   } | null;
 }
 
@@ -1475,8 +1483,12 @@ export default function ResearchWorkspacePage() {
                 })()}
                 history={(() => {
                   // P1-2: 优先使用 entitySnapshots 最近 5 条（真实时间线）
+                  // C1: read thesisEvolution from latest assistant message metadata
+                  const _teEvolution = lastAssistant?.metadata?.thesisEvolution as
+                    | { signal_strength?: string; noise_indicator?: boolean } | null | undefined;
+
                   const snapshotEntries: HistoryEntry[] = hivm.snapshots.length > 0
-                    ? hivm.snapshots.map((s: SnapshotEntry) => ({
+                    ? hivm.snapshots.map((s: SnapshotEntry, idx: number) => ({
                         time: s.snapshotTime
                           ? new Date(s.snapshotTime).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
                           : "—",
@@ -1485,6 +1497,11 @@ export default function ResearchWorkspacePage() {
                         actionBias: s.timingBias ?? "—",
                         alertSeverity: s.alertSeverity ?? null,
                         deltaSummary: s.stateSummaryText ?? undefined,
+                        // C1: inject signal strength only for latest entry (idx===0)
+                        ...(idx === 0 && _teEvolution ? {
+                          signalStrength: _teEvolution.signal_strength as HistoryEntry["signalStrength"],
+                          noiseIndicator: _teEvolution.noise_indicator,
+                        } : {}),
                       }))
                     // fallback: 若 snapshots 为空但 hivm.available，使用单条 deltaSummary
                     : (hivm.available && hivm.deltaSummary ? [{

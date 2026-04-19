@@ -19,6 +19,9 @@ export interface HistoryEntry {
   actionBias: string;
   alertSeverity?: string | null;
   deltaSummary?: string;
+  // C1: thesis evolution signal — optional, only injected for latest entry (idx===0)
+  signalStrength?: "WEAK" | "MODERATE" | "STRONG" | "INSUFFICIENT_DATA";
+  noiseIndicator?: boolean;
 }
 
 export interface HistoryBlockProps {
@@ -170,6 +173,25 @@ export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
                         <span style={{ fontSize: 10, color: "rgba(255,255,255,0.20)", marginLeft: "auto" }}>
                           {e.time}
                         </span>
+                        {/* C1: signal strength dot — latest entry only, INSUFFICIENT_DATA hidden */}
+                        {isFirst && e.signalStrength && e.signalStrength !== "INSUFFICIENT_DATA" && (
+                          <span
+                            title={`信号强度: ${e.signalStrength}`}
+                            style={{
+                              fontSize: 11,
+                              color: e.signalStrength === "STRONG"
+                                ? "#10b981"
+                                : e.signalStrength === "MODERATE"
+                                  ? "#f59e0b"
+                                  : "rgba(255,255,255,0.25)",
+                              lineHeight: 1,
+                            }}
+                          >●</span>
+                        )}
+                        {/* C1: noise indicator — faint italic label when noise */}
+                        {isFirst && e.noiseIndicator === true && e.signalStrength !== "INSUFFICIENT_DATA" && (
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.30)", fontStyle: "italic" }}>noise?</span>
+                        )}
                       </div>
 
                       {/* Stance + action */}

@@ -85,6 +85,10 @@ console.log("=".repeat(60));
 const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 const cutoffStr = cutoff.toISOString().replace("T", " ").slice(0, 19);
 
+// mysql2 prepared statements reject LIMIT with bound integer parameters (ER_WRONG_ARGUMENTS).
+// Fix: inline LIMIT as a validated integer literal. cutoffStr remains a bound parameter.
+// Read-only semantics are fully preserved — no writes, no schema changes.
+const safeLimit = Math.max(1, Math.min(100000, parseInt(limit, 10)));
 const [rows] = await conn.execute(
   `SELECT id, createdAt,
      JSON_EXTRACT(metadata, '$.structured_analysis_gate') AS gate_json
@@ -93,8 +97,8 @@ const [rows] = await conn.execute(
      AND JSON_EXTRACT(metadata, '$.structured_analysis_gate') IS NOT NULL
      AND (createdAt IS NULL OR createdAt >= ?)
    ORDER BY id DESC
-   LIMIT ?`,
-  [cutoffStr, limit]
+   LIMIT ${safeLimit}`,
+  [cutoffStr]
 );
 
 await conn.end();

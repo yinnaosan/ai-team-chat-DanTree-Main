@@ -1498,11 +1498,19 @@ export default function ResearchWorkspacePage() {
                         actionBias: s.timingBias ?? "—",
                         alertSeverity: s.alertSeverity ?? null,
                         deltaSummary: s.stateSummaryText ?? undefined,
-                        // C1: inject signal strength only for latest entry (idx===0)
-                        // C2: build inflectionTooltip for latest entry only
-                        ...(idx === 0 && _teEvolution ? (() => {
-                          const teSignal = _teEvolution;
-                          const inflectionTooltip = (teSignal.signal_strength &&
+                        // C1+C2+C3: signal resolution — metadata first (idx=0), persisted te: second (all idx)
+                        ...(() => {
+                          const teSignal = idx === 0 ? _teEvolution : null;
+                          // C3: resolvedSignalStrength fallback chain
+                          const resolvedSignalStrength =
+                            (teSignal?.signal_strength as HistoryEntry["signalStrength"])
+                            ?? (s.signalStrength as HistoryEntry["signalStrength"] | undefined)
+                            ?? null;
+                          const resolvedNoiseIndicator =
+                            teSignal?.noise_indicator
+                            ?? (s.noiseIndicator ?? undefined);
+                          if (!resolvedSignalStrength) return {};
+                          const inflectionTooltip = (idx === 0 && teSignal?.signal_strength &&
                             teSignal.signal_strength !== "INSUFFICIENT_DATA")
                             ? [
                                 `信号强度: ${teSignal.signal_strength}`,
@@ -1510,11 +1518,11 @@ export default function ResearchWorkspacePage() {
                               ].join("\n")
                             : undefined;
                           return {
-                            signalStrength: teSignal.signal_strength as HistoryEntry["signalStrength"],
-                            noiseIndicator: teSignal.noise_indicator,
+                            signalStrength: resolvedSignalStrength,
+                            noiseIndicator: resolvedNoiseIndicator,
                             inflectionTooltip,
                           };
-                        })() : {}),
+                        })(),
                       }))
                     // fallback: 若 snapshots 为空但 hivm.available，使用单条 deltaSummary
                     : (hivm.available && hivm.deltaSummary ? [{

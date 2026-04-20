@@ -3021,6 +3021,28 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                     _teQvlBucket
                   );
                   metadataToSave.thesisEvolution = _teEvolution;
+                  // C3: persist te:{ticker} stream (separate from TVM writeback, non-blocking)
+                  if (primaryTicker && _teEvolution.signal_strength !== "INSUFFICIENT_DATA") {
+                    (async () => {
+                      try {
+                        const { insertEntitySnapshot: _insertTe } = await import("./db");
+                        const { randomUUID: _ruuidTe } = await import("crypto");
+                        await _insertTe({
+                          snapshotId: _ruuidTe(),
+                          entityKey: `te:${primaryTicker}`,
+                          changeMarker: _teEvolution.signal_strength ?? null,
+                          thesisChangeMarker: _teEvolution.signal_strength ?? null,
+                          sourceHealth: "te_stream",
+                          stateSummaryText: `signal_strength=${_teEvolution.signal_strength} | noise_indicator=${_teEvolution.noise_indicator} | confidence_delta=${_teEvolution.confidence_delta}`,
+                          advisoryOnly: true,
+                          snapshotTime: Date.now(),
+                          createdAt: Date.now(),
+                        });
+                      } catch (teWriteErr) {
+                        console.warn("[C3] te: stream write failed (non-fatal):", teWriteErr instanceof Error ? teWriteErr.message : String(teWriteErr));
+                      }
+                    })();
+                  }
                 } catch { /* non-blocking — thesis evolution failure must not break main pipeline */ }
                 // Phase 4A: persist entity snapshot for cross-session memory
                 if (primaryTicker && userId) {
@@ -3150,6 +3172,28 @@ Output format MUST be:
                         _teQvlBucketRepair
                       );
                       metadataToSave.thesisEvolution = _teEvolutionRepair;
+                      // C3: persist te:{ticker} stream for repair_pass (non-blocking)
+                      if (primaryTicker && _teEvolutionRepair.signal_strength !== "INSUFFICIENT_DATA") {
+                        (async () => {
+                          try {
+                            const { insertEntitySnapshot: _insertTeRepair } = await import("./db");
+                            const { randomUUID: _ruuidTeR } = await import("crypto");
+                            await _insertTeRepair({
+                              snapshotId: _ruuidTeR(),
+                              entityKey: `te:${primaryTicker}`,
+                              changeMarker: _teEvolutionRepair.signal_strength ?? null,
+                              thesisChangeMarker: _teEvolutionRepair.signal_strength ?? null,
+                              sourceHealth: "te_stream",
+                              stateSummaryText: `signal_strength=${_teEvolutionRepair.signal_strength} | noise_indicator=${_teEvolutionRepair.noise_indicator} | confidence_delta=${_teEvolutionRepair.confidence_delta}`,
+                              advisoryOnly: true,
+                              snapshotTime: Date.now(),
+                              createdAt: Date.now(),
+                            });
+                          } catch (teWriteErrR) {
+                            console.warn("[C3] te: stream write failed (repair, non-fatal):", teWriteErrR instanceof Error ? teWriteErrR.message : String(teWriteErrR));
+                          }
+                        })();
+                      }
                     } catch { /* non-blocking — thesis evolution failure must not break repair pipeline */ }
                   } else {
                     // FALLBACK: preserve previous valid state — backfill from prevSnapshot + prevDecisionObject

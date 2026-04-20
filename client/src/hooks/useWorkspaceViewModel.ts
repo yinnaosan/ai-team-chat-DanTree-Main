@@ -95,6 +95,9 @@ export interface SnapshotEntry {
   timingBias: string | null;
   alertSeverity: string | null;
   stateSummaryText: string | null;
+  // C3: persisted te: stream signal (null if no match found)
+  signalStrength?: string | null;
+  noiseIndicator?: boolean | null;
 }
 
 export interface HistoryViewModel {
@@ -196,6 +199,12 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   // ── Layer 1b: Entity snapshots (for lastSnapshotAt + P1-2 multi-snapshot) ──
   const { data: entitySnapshots } = trpc.market.getEntitySnapshots.useQuery(
     { entityKey: entity, limit: 5 },
+    { staleTime: 60_000, enabled: !!entity }
+  );
+
+  // ── Layer 1c: te: stream (C3 — persisted thesis evolution signal, separate stream) ──
+  const { data: teSnapshots } = trpc.market.getEntitySnapshots.useQuery(
+    { entityKey: entity ? `te:${entity}` : "", limit: 5 },
     { staleTime: 60_000, enabled: !!entity }
   );
 
@@ -384,17 +393,44 @@ export function useWorkspaceViewModel(): WorkspaceViewModel {
   const snapshotEntries = useMemo<SnapshotEntry[]>(() => {
     const raw = (entitySnapshots as any)?.snapshots;
     if (!Array.isArray(raw) || raw.length === 0) return [];
+
+    // C3: proximity merge — find nearest te: row within 5-minute threshold
+    const TE_PROXIMITY_MS = 300_000; // 5 minutes
+    const teRaw: any[] = (teSnapshots as any)?.snapshots ?? [];
+    const findTeMatch = (tickerTime: number): { signalStrength: string | null; noiseIndicator: boolean | null } => {
+      if (teRaw.length === 0) return { signalStrength: null, noiseIndicator: null };
+      let best: any = null;
+      let bestDist = Infinity;
+      for (const te of teRaw) {
+        const teTime = te.snapshotTime ?? te.snapshot_time ?? 0;
+        const dist = Math.abs(teTime - tickerTime);
+        if (dist < bestDist) { bestDist = dist; best = te; }
+      }
+      if (!best || bestDist > TE_PROXIMITY_MS) return { signalStrength: null, noiseIndicator: null };
+      const summary: string = best.stateSummaryText ?? best.state_summary_text ?? "";
+      const noiseMatch = summary.match(/noise_indicator=(true|false)/);
+      const noiseIndicator = noiseMatch ? noiseMatch[1] === "true" : null;
+      return { signalStrength: best.changeMarker ?? best.change_marker ?? null, noiseIndicator };
+    };
+
     return raw
       .slice(0, 5)
-      .map((s: any) => ({
-        snapshotTime: s.snapshotTime ?? s.snapshot_time ?? 0,
-        changeMarker: s.changeMarker ?? s.change_marker ?? null,
-        thesisStance: s.thesisStance ?? s.thesis_stance ?? null,
-        timingBias: s.timingBias ?? s.timing_bias ?? null,
-        alertSeverity: s.alertSeverity ?? s.alert_severity ?? null,
-        stateSummaryText: s.stateSummaryText ?? s.state_summary_text ?? null,
-      }));
-  }, [entitySnapshots]);
+      .map((s: any) => {
+        const snapshotTime = s.snapshotTime ?? s.snapshot_time ?? 0;
+        const teMatch = findTeMatch(snapshotTime);
+        return {
+          snapshotTime,
+          changeMarker: s.changeMarker ?? s.change_marker ?? null,
+          thesisStance: s.thesisStance ?? s.thesis_stance ?? null,
+          timingBias: s.timingBias ?? s.timing_bias ?? null,
+          alertSeverity: s.alertSeverity ?? s.alert_severity ?? null,
+          stateSummaryText: s.stateSummaryText ?? s.state_summary_text ?? null,
+          // C3: persisted te: signal (null if no match within threshold)
+          signalStrength: teMatch.signalStrength,
+          noiseIndicator: teMatch.noiseIndicator,
+        };
+      });
+  }, [entitySnapshots, teSnapshots]);
 
   const historyViewModel = useMemo<HistoryViewModel>(() => ({
     available: !!(sessionData as any)?.available,

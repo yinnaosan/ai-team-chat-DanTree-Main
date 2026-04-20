@@ -3041,6 +3041,28 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                       } catch (teWriteErr) {
                         console.warn("[C3] te: stream write failed (non-fatal):", teWriteErr instanceof Error ? teWriteErr.message : String(teWriteErr));
                       }
+                      // Briefing B1: STRONG signal trigger (after _insertTe, non-blocking)
+                      if (_teEvolution.signal_strength === "STRONG") {
+                        try {
+                          const { shouldTriggerBriefing, buildBriefingPayload } = await import("./thesisBriefingTrigger");
+                          const { notifyOwner } = await import("./_core/notification");
+                          const { getEntitySnapshotsByKey: _getTeHistory } = await import("./db");
+                          const _teHistory = await _getTeHistory(`te:${primaryTicker}`, 10);
+                          const _prevStrong = _teHistory.find((r: any) =>
+                            r.changeMarker === "STRONG" && r.snapshotTime < Date.now() - 1000
+                          );
+                          const _lastStrongAt = _prevStrong?.snapshotTime ?? null;
+                          if (shouldTriggerBriefing({ signalStrength: "STRONG", lastStrongAt: _lastStrongAt })) {
+                            await notifyOwner(buildBriefingPayload({
+                              ticker: primaryTicker,
+                              signalStrength: "STRONG",
+                              inflectionEvidence: (_teEvolution.inflection_evidence ?? []).slice(0, 3),
+                            }));
+                          }
+                        } catch (briefingErr) {
+                          console.warn("[Briefing B1] briefing trigger failed (non-fatal):", briefingErr instanceof Error ? briefingErr.message : String(briefingErr));
+                        }
+                      }
                     })();
                   }
                 } catch { /* non-blocking — thesis evolution failure must not break main pipeline */ }
@@ -3191,6 +3213,28 @@ Output format MUST be:
                             });
                           } catch (teWriteErrR) {
                             console.warn("[C3] te: stream write failed (repair, non-fatal):", teWriteErrR instanceof Error ? teWriteErrR.message : String(teWriteErrR));
+                          }
+                          // Briefing B1: STRONG signal trigger for repair_pass (after _insertTeRepair, non-blocking)
+                          if (_teEvolutionRepair.signal_strength === "STRONG") {
+                            try {
+                              const { shouldTriggerBriefing: _stbR, buildBriefingPayload: _bbpR } = await import("./thesisBriefingTrigger");
+                              const { notifyOwner: _notifyR } = await import("./_core/notification");
+                              const { getEntitySnapshotsByKey: _getTeHistoryR } = await import("./db");
+                              const _teHistoryR = await _getTeHistoryR(`te:${primaryTicker}`, 10);
+                              const _prevStrongR = _teHistoryR.find((r: any) =>
+                                r.changeMarker === "STRONG" && r.snapshotTime < Date.now() - 1000
+                              );
+                              const _lastStrongAtR = _prevStrongR?.snapshotTime ?? null;
+                              if (_stbR({ signalStrength: "STRONG", lastStrongAt: _lastStrongAtR })) {
+                                await _notifyR(_bbpR({
+                                  ticker: primaryTicker,
+                                  signalStrength: "STRONG",
+                                  inflectionEvidence: (_teEvolutionRepair.inflection_evidence ?? []).slice(0, 3),
+                                }));
+                              }
+                            } catch (briefingErrR) {
+                              console.warn("[Briefing B1] repair briefing trigger failed (non-fatal):", briefingErrR instanceof Error ? briefingErrR.message : String(briefingErrR));
+                            }
                           }
                         })();
                       }

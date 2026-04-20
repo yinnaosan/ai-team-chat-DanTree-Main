@@ -22,6 +22,8 @@ export interface HistoryEntry {
   // C1: thesis evolution signal — optional, only injected for latest entry (idx===0)
   signalStrength?: "WEAK" | "MODERATE" | "STRONG" | "INSUFFICIENT_DATA";
   noiseIndicator?: boolean;
+  /** C2: pre-built tooltip string for signal dot (max 3 evidence items) */
+  inflectionTooltip?: string;
 }
 
 export interface HistoryBlockProps {
@@ -176,7 +178,7 @@ export function HistoryBlock({ entity, entries = [] }: HistoryBlockProps) {
                         {/* C1: signal strength dot — latest entry only, INSUFFICIENT_DATA hidden */}
                         {isFirst && e.signalStrength && e.signalStrength !== "INSUFFICIENT_DATA" && (
                           <span
-                            title={`信号强度: ${e.signalStrength}`}
+                            title={e.inflectionTooltip ?? `信号强度: ${e.signalStrength}`}
                             style={{
                               fontSize: 11,
                               color: e.signalStrength === "STRONG"

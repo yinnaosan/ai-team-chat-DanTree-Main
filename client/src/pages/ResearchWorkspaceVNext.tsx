@@ -1484,8 +1484,9 @@ export default function ResearchWorkspacePage() {
                 history={(() => {
                   // P1-2: 优先使用 entitySnapshots 最近 5 条（真实时间线）
                   // C1: read thesisEvolution from latest assistant message metadata
+                  // C2: extend cast to include inflection_evidence for tooltip build
                   const _teEvolution = lastAssistant?.metadata?.thesisEvolution as
-                    | { signal_strength?: string; noise_indicator?: boolean } | null | undefined;
+                    | { signal_strength?: string; noise_indicator?: boolean; inflection_evidence?: string[] } | null | undefined;
 
                   const snapshotEntries: HistoryEntry[] = hivm.snapshots.length > 0
                     ? hivm.snapshots.map((s: SnapshotEntry, idx: number) => ({
@@ -1498,10 +1499,22 @@ export default function ResearchWorkspacePage() {
                         alertSeverity: s.alertSeverity ?? null,
                         deltaSummary: s.stateSummaryText ?? undefined,
                         // C1: inject signal strength only for latest entry (idx===0)
-                        ...(idx === 0 && _teEvolution ? {
-                          signalStrength: _teEvolution.signal_strength as HistoryEntry["signalStrength"],
-                          noiseIndicator: _teEvolution.noise_indicator,
-                        } : {}),
+                        // C2: build inflectionTooltip for latest entry only
+                        ...(idx === 0 && _teEvolution ? (() => {
+                          const teSignal = _teEvolution;
+                          const inflectionTooltip = (teSignal.signal_strength &&
+                            teSignal.signal_strength !== "INSUFFICIENT_DATA")
+                            ? [
+                                `信号强度: ${teSignal.signal_strength}`,
+                                ...(teSignal.inflection_evidence ?? []).slice(0, 3),
+                              ].join("\n")
+                            : undefined;
+                          return {
+                            signalStrength: teSignal.signal_strength as HistoryEntry["signalStrength"],
+                            noiseIndicator: teSignal.noise_indicator,
+                            inflectionTooltip,
+                          };
+                        })() : {}),
                       }))
                     // fallback: 若 snapshots 为空但 hivm.available，使用单条 deltaSummary
                     : (hivm.available && hivm.deltaSummary ? [{

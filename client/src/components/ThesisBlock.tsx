@@ -25,6 +25,8 @@ export interface ThesisBlockProps {
     stability: string;
     is_stale: boolean;
   };
+  // WA1: te: signal quality badge — STRONG/MODERATE/WEAK only; INSUFFICIENT_DATA excluded
+  signalStrength?: "STRONG" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA";
 }
 
 const EV_CFG = {
@@ -63,6 +65,7 @@ export function ThesisBlock({
   sourceCount,
   fragilityLevel,
   attentionState,
+  signalStrength,
 }: ThesisBlockProps) {
   const [open, setOpen] = useState(true);
   const ev = EV_CFG[evidenceState] ?? EV_CFG.insufficient;
@@ -274,6 +277,25 @@ export function ThesisBlock({
                 </span>
               </div>
             )}
+          {/* WA1B: te: signal quality badge — primary surface, INSUFFICIENT_DATA excluded */}
+          {signalStrength && signalStrength !== "INSUFFICIENT_DATA" && (
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "5px 12px 7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: signalStrength === "STRONG" ? "#10b981" : signalStrength === "MODERATE" ? "#f59e0b" : "rgba(255,255,255,0.28)",
+              }} />
+              <span style={{
+                fontSize: 10,
+                letterSpacing: "0.04em",
+                color: signalStrength === "STRONG" ? "rgba(16,185,129,0.75)" : signalStrength === "MODERATE" ? "rgba(245,158,11,0.72)" : "rgba(255,255,255,0.32)",
+              }}>
+                信号质量: {signalStrength}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </section>

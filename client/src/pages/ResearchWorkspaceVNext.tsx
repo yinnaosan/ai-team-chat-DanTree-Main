@@ -1306,8 +1306,14 @@ export default function ResearchWorkspacePage() {
                   // Phase 2F: evidenceDetail from structured confidence_reason
                   const evidenceDetail = decisionObject?.confidence_reason ?? undefined;
 
+                  // WA1C: thread te: signal_strength to ThesisBlock primary surface
+                  const _teForThesis = lastAssistant?.metadata?.thesisEvolution as
+                    | { signal_strength?: string } | null | undefined;
+                  const signalStrength = (_teForThesis?.signal_strength as
+                    "STRONG" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA" | undefined) ?? undefined;
+
                   if (!coreThesis && !criticalDriver && !failureCondition) return undefined;
-                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables, evidenceDetail };
+                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables, evidenceDetail, signalStrength };
                 })()}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",

@@ -260,6 +260,28 @@ export default function ResearchWorkspacePage() {
     { enabled: peerSymbolsInput.length > 0, refetchInterval: 60000 }
   );
 
+  // ── B3A: Watch status query ──────────────────────────────────────────────────
+  const { data: watchlistData, refetch: refetchWatchlist } = trpc.watchlist.list.useQuery(
+    undefined,
+    { enabled: isAuthenticated, staleTime: 30_000 }
+  );
+  const isWatching = !!(currentTicker && watchlistData?.some(
+    (w) => w.primaryTicker === currentTicker && w.watchStatus === 'active'
+  ));
+
+  // ── B3B: Watch create mutation + handler ─────────────────────────────────────
+  const createWatchMutation = trpc.watchlist.create.useMutation({
+    onSuccess: () => { refetchWatchlist(); },
+  });
+  const handleWatchTicker = () => {
+    if (!currentTicker || isWatching || createWatchMutation.isPending) return;
+    createWatchMutation.mutate({
+      primaryTicker: currentTicker,
+      watchType: 'thesis_signal',
+      thesisSummary: (answerObject as any)?.verdict?.slice(0, 200) ?? currentTicker,
+    });
+  };
+
   const utils = trpc.useUtils();
 
   // Session 操作 mutations
@@ -1562,6 +1584,33 @@ export default function ResearchWorkspacePage() {
             latestAssistantViewModel={workspaceOutput.discussion}
             onFollowup={(text) => handleSubmit(text)}
           />
+
+          {/* B3C: Minimal Watch Button — Col 4, above InsightsRailVNext */}
+          {currentTicker && (
+            <div style={{ padding: '0 12px 10px 12px' }}>
+              <button
+                onClick={handleWatchTicker}
+                disabled={isWatching || createWatchMutation.isPending}
+                style={{
+                  width: '100%',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: isWatching ? '1px solid #10b981' : '1px solid #374151',
+                  background: isWatching ? 'rgba(16,185,129,0.08)' : 'transparent',
+                  color: isWatching ? '#10b981' : '#9ca3af',
+                  cursor: isWatching ? 'default' : 'pointer',
+                  fontSize: '13px',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {createWatchMutation.isPending
+                  ? '关注中…'
+                  : isWatching
+                  ? `✓ 已关注 ${currentTicker}`
+                  : `关注 ${currentTicker}`}
+              </button>
+            </div>
+          )}
 
           {/* Col 4: Insights Rail — WorkspaceOutputRefactor v1 接入 InsightsRailVNext */}
           {/* Col 4: Insights Rail — STRICT: all data from workspaceOutput, no legacy fallback */}

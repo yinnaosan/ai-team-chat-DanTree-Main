@@ -1858,6 +1858,41 @@ ${"```"}`;
           return `## 历史 Agent 信号记忆（${primaryTicker}，最近 ${history.length} 次分析）\n${lines}`;
         } catch { return ""; }
       })(),
+      // A1: 深度研究辅助层 — regime + liveSignal enrichment（advisory, non-blocking）
+      await (async () => {
+        if (!primaryTicker) return "";
+        try {
+          const { getCachedSignal } = await import("./liveSignalEngine");
+          const { computeRegimeTag, buildRegimeInputFromSignals } = await import("./regimeEngine");
+          const _liveSignal = getCachedSignal(primaryTicker); // null if not cached
+          const _regimeInput = buildRegimeInputFromSignals({
+            avgVolatility: _liveSignal?.signals?.volatility != null ? _liveSignal.signals.volatility * 50 : undefined,
+            maxEventSeverity: _liveSignal?.event_signal?.severity ?? undefined,
+            avgMomentum: _liveSignal?.signals?.price_momentum ?? undefined,
+          });
+          const _regime = computeRegimeTag(_regimeInput);
+          const _regimeReasons = (_regime.regime_reasons ?? []).slice(0, 2).join(", ") || "无";
+          const _a1Fields = 5; // price_momentum, volatility, valuation_proxy, news_sentiment, macro_exposure
+          const _coverage = _liveSignal
+            ? `${Math.round(((_a1Fields - (_liveSignal.metadata?.missing_fields?.length ?? 0)) / _a1Fields) * 100)}%`
+            : "N/A";
+          const _signalLine = _liveSignal
+            ? `实时信号汇总: 势头=${_liveSignal.signals?.price_momentum?.toFixed(2) ?? "N/A"}, 波动=${_liveSignal.signals?.volatility?.toFixed(2) ?? "N/A"}, 情绪=${_liveSignal.signals?.news_sentiment?.toFixed(2) ?? "N/A"}`
+            : "实时信号: 暂无缓存数据";
+          const _eventLine = _liveSignal?.event_signal
+            ? `事件信号: ${_liveSignal.event_signal.type ?? "unknown"} (严重度: ${_liveSignal.event_signal.severity ?? "N/A"})`
+            : "";
+          return [
+            `## 深度研究辅助层（A1: 市场框架 + 实时信号）`,
+            `市场框架识别: ${_regime.regime_tag} (置信度: ${Math.round((_regime.regime_confidence ?? 0) * 100)}%)`,
+            `框架依据: ${_regimeReasons}`,
+            _signalLine,
+            _eventLine,
+            `数据覆盖率: ${_coverage} (仅供参考)`,
+            `[advisory_only: 以上为辅助参考，不构成投资建议]`,
+          ].filter(Boolean).join("\n");
+        } catch { return ""; } // Non-blocking — enrichment failure must never surface
+      })(),
     ].filter(Boolean).join("\n\n---\n\n");
     const webContentBlock = webSearchData.value || "";
     // 合并用于 GPT Step3 的完整数据块（保持向后兼容）

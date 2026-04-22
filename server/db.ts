@@ -7,6 +7,7 @@ import {
   InsertConversationGroup, entitySnapshots, InsertEntitySnapshot,
   workspaceSessions, InsertWorkspaceSession, WorkspaceSession,
   accessKeys, AccessKey,
+  watchItems, WatchItemRow,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1391,4 +1392,33 @@ export async function getUserBoundKeyExpiry(userId: number): Promise<{ expiresAt
   const expiresAt = result[0].expiresAt;
   const expired = expiresAt ? expiresAt < new Date() : false;
   return { expiresAt: expiresAt ?? null, expired };
+}
+
+// ─── Briefing C2: Watch Items Gate ──────────────────────────────────────────
+/**
+ * Return the active watch_items row for (userId, ticker), or undefined.
+ * Read-only SELECT — no INSERT/UPDATE/DELETE.
+ *
+ * userId type note: watch_items.userId is varchar(64); routers userId is number.
+ * String(userId) handles the mismatch safely.
+ */
+export async function getActiveWatchItem(
+  userId: number,
+  ticker: string
+): Promise<WatchItemRow | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (
+    await db
+      .select()
+      .from(watchItems)
+      .where(
+        and(
+          eq(watchItems.userId, String(userId)),
+          eq(watchItems.primaryTicker, ticker),
+          eq(watchItems.watchStatus, "active")
+        )
+      )
+      .limit(1)
+  )[0];
 }

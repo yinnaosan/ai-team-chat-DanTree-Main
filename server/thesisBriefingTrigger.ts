@@ -23,6 +23,8 @@ export interface BriefingTriggerInput {
   lastStrongAt: number | null;
   /** Override for current time (used in tests) */
   nowMs?: number;
+  /** C2: whether an active watch_items row exists for this ticker+user */
+  watchItemActive?: boolean;
 }
 
 export interface BriefingPayloadInput {
@@ -50,6 +52,8 @@ export interface BriefingPayload {
  * Returns true only when both gates pass.
  */
 export function shouldTriggerBriefing(input: BriefingTriggerInput): boolean {
+  // Gate 0 (C2): active watch item required — undefined treated as false (conservative default)
+  if (input.watchItemActive !== true) return false;
   // Gate 1: STRONG-only
   if (input.signalStrength !== "STRONG") return false;
 

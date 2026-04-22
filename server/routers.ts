@@ -3046,13 +3046,15 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                         try {
                           const { shouldTriggerBriefing, buildBriefingPayload } = await import("./thesisBriefingTrigger");
                           const { notifyOwner } = await import("./_core/notification");
-                          const { getEntitySnapshotsByKey: _getTeHistory } = await import("./db");
+                          const { getEntitySnapshotsByKey: _getTeHistory, getActiveWatchItem: _getWatch } = await import("./db");
                           const _teHistory = await _getTeHistory(`te:${primaryTicker}`, 10);
                           const _prevStrong = _teHistory.find((r: any) =>
                             r.changeMarker === "STRONG" && r.snapshotTime < Date.now() - 1000
                           );
                           const _lastStrongAt = _prevStrong?.snapshotTime ?? null;
-                          if (shouldTriggerBriefing({ signalStrength: "STRONG", lastStrongAt: _lastStrongAt })) {
+                          // C2: gate by active watch_items row
+                          const _watchItem = userId ? await _getWatch(userId, primaryTicker) : undefined;
+                          if (shouldTriggerBriefing({ signalStrength: "STRONG", lastStrongAt: _lastStrongAt, watchItemActive: !!_watchItem })) {
                             await notifyOwner(buildBriefingPayload({
                               ticker: primaryTicker,
                               signalStrength: "STRONG",
@@ -3219,13 +3221,15 @@ Output format MUST be:
                             try {
                               const { shouldTriggerBriefing: _stbR, buildBriefingPayload: _bbpR } = await import("./thesisBriefingTrigger");
                               const { notifyOwner: _notifyR } = await import("./_core/notification");
-                              const { getEntitySnapshotsByKey: _getTeHistoryR } = await import("./db");
+                              const { getEntitySnapshotsByKey: _getTeHistoryR, getActiveWatchItem: _getWatchR } = await import("./db");
                               const _teHistoryR = await _getTeHistoryR(`te:${primaryTicker}`, 10);
                               const _prevStrongR = _teHistoryR.find((r: any) =>
                                 r.changeMarker === "STRONG" && r.snapshotTime < Date.now() - 1000
                               );
                               const _lastStrongAtR = _prevStrongR?.snapshotTime ?? null;
-                              if (_stbR({ signalStrength: "STRONG", lastStrongAt: _lastStrongAtR })) {
+                              // C2: gate by active watch_items row
+                              const _watchItemR = userId ? await _getWatchR(userId, primaryTicker) : undefined;
+                              if (_stbR({ signalStrength: "STRONG", lastStrongAt: _lastStrongAtR, watchItemActive: !!_watchItemR })) {
                                 await _notifyR(_bbpR({
                                   ticker: primaryTicker,
                                   signalStrength: "STRONG",

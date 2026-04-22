@@ -20,12 +20,13 @@ const NOW = 1_700_000_000_000; // fixed reference time
 // ─── shouldTriggerBriefing ────────────────────────────────────────────────────
 
 describe("shouldTriggerBriefing", () => {
-  // T1: STRONG, no prior → true
-  it("T1: STRONG with lastStrongAt=null → true", () => {
+  // T1: STRONG, no prior, watchItemActive=true → true
+  it("T1: STRONG with lastStrongAt=null, watchItemActive=true → true", () => {
     expect(shouldTriggerBriefing({
       signalStrength: "STRONG",
       lastStrongAt: null,
       nowMs: NOW,
+      watchItemActive: true,
     })).toBe(true);
   });
 
@@ -65,12 +66,13 @@ describe("shouldTriggerBriefing", () => {
     })).toBe(false);
   });
 
-  // T6: STRONG, lastStrongAt exactly at boundary (DEBOUNCE_MS ago) → true (boundary inclusive)
-  it("T6: STRONG, lastStrongAt exactly DEBOUNCE_MS ago → true", () => {
+  // T6: STRONG, lastStrongAt exactly at boundary (DEBOUNCE_MS ago), watchItemActive=true → true
+  it("T6: STRONG, lastStrongAt exactly DEBOUNCE_MS ago, watchItemActive=true → true", () => {
     expect(shouldTriggerBriefing({
       signalStrength: "STRONG",
       lastStrongAt: NOW - DEBOUNCE_MS,
       nowMs: NOW,
+      watchItemActive: true,
     })).toBe(true);
   });
 
@@ -83,12 +85,13 @@ describe("shouldTriggerBriefing", () => {
     })).toBe(false);
   });
 
-  // T8: STRONG, lastStrongAt 1ms outside debounce window → true
-  it("T8: STRONG, lastStrongAt 1ms outside debounce → true", () => {
+  // T8: STRONG, lastStrongAt 1ms outside debounce window, watchItemActive=true → true
+  it("T8: STRONG, lastStrongAt 1ms outside debounce, watchItemActive=true → true", () => {
     expect(shouldTriggerBriefing({
       signalStrength: "STRONG",
       lastStrongAt: NOW - DEBOUNCE_MS - 1,
       nowMs: NOW,
+      watchItemActive: true,
     })).toBe(true);
   });
 
@@ -223,5 +226,59 @@ describe("payload rules", () => {
   // T20: DEBOUNCE_MS constant equals 24 hours
   it("T20: DEBOUNCE_MS = 86_400_000 (24h)", () => {
     expect(DEBOUNCE_MS).toBe(86_400_000);
+  });
+});
+
+// ─── C2: watchItemActive gate ─────────────────────────────────────────────────
+
+describe("C2: watchItemActive gate", () => {
+  // TC1: STRONG, watchItemActive=false → false (Gate 0 blocks)
+  it("TC1: STRONG, watchItemActive=false → false", () => {
+    expect(shouldTriggerBriefing({
+      signalStrength: "STRONG",
+      lastStrongAt: null,
+      nowMs: NOW,
+      watchItemActive: false,
+    })).toBe(false);
+  });
+
+  // TC2: STRONG, watchItemActive=undefined → false (conservative default)
+  it("TC2: STRONG, watchItemActive=undefined → false", () => {
+    expect(shouldTriggerBriefing({
+      signalStrength: "STRONG",
+      lastStrongAt: null,
+      nowMs: NOW,
+      watchItemActive: undefined,
+    })).toBe(false);
+  });
+
+  // TC3: STRONG, watchItemActive omitted → false (conservative default)
+  it("TC3: STRONG, watchItemActive omitted → false", () => {
+    expect(shouldTriggerBriefing({
+      signalStrength: "STRONG",
+      lastStrongAt: null,
+      nowMs: NOW,
+      // watchItemActive not provided
+    })).toBe(false);
+  });
+
+  // TC4: MODERATE, watchItemActive=true → false (Gate 1 still blocks)
+  it("TC4: MODERATE, watchItemActive=true → false (STRONG gate preserved)", () => {
+    expect(shouldTriggerBriefing({
+      signalStrength: "MODERATE",
+      lastStrongAt: null,
+      nowMs: NOW,
+      watchItemActive: true,
+    })).toBe(false);
+  });
+
+  // TC5: STRONG, watchItemActive=true, within debounce → false (Gate 2 still blocks)
+  it("TC5: STRONG, watchItemActive=true, within 24h debounce → false (debounce preserved)", () => {
+    expect(shouldTriggerBriefing({
+      signalStrength: "STRONG",
+      lastStrongAt: NOW - 1_000, // 1 second ago
+      nowMs: NOW,
+      watchItemActive: true,
+    })).toBe(false);
   });
 });

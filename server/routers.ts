@@ -1903,13 +1903,31 @@ ${"```"}`;
             const _falsify = _thinking.falsification.why_might_be_wrong[0];
             if (_falsify) _thinkingLines.push(`证伪假设: ${_falsify}`);
           }
+          // A3: factorInteraction enrichment — inside existing A1+A2 try/catch, non-blocking
+          const _factorInput = (_thinking && _regime) ? {
+            businessQualityScore: _thinking.business_quality.business_quality_score,
+            eventType: _thinking.event_adjustment.event_bias ?? "none",
+            eventSeverity: _liveSignal?.event_signal?.severity ?? 0,
+            regimeTag: _regime.regime_tag,
+            alphaScore: _thinking.adjusted_alpha_score,
+            dangerScore: _thinking.adjusted_danger_score,
+            triggerScore: _thinking.adjusted_trigger_score,
+            valuationSensitivity: _liveSignal?.signals.valuation_proxy ?? undefined,
+            momentumStress: _liveSignal?.signals.price_momentum ?? undefined,
+          } : null;
+          const { applyFactorInteraction } = await import("./factorInteractionEngine");
+          const _factorOutput = _factorInput ? applyFactorInteraction(_factorInput) : null;
+          const _factorLine = _factorOutput
+            ? `因子交互: α_adj=${_factorOutput.adjusted_alpha_score.toFixed(2)}, 主效应=${_factorOutput.interaction_dominant_effect}`
+            : "";
           return [
-            `## 深度研究辅助层（A1+A2: 市场框架 + 实时信号 + 投资者思维）`,
+            `## 深度研究辅助层（A1+A2+A3: 市场框架 + 实时信号 + 投资者思维 + 因子交互）`,
             `市场框架识别: ${_regime.regime_tag} (置信度: ${Math.round((_regime.regime_confidence ?? 0) * 100)}%)`,
             `框架依据: ${_regimeReasons}`,
             _signalLine,
             _eventLine,
             ..._thinkingLines,
+            _factorLine,
             `数据覆盖率: ${_coverage} (仅供参考)`,
             `[advisory_only: 以上为辅助参考，不构成投资建议]`,
           ].filter(Boolean).join("\n");

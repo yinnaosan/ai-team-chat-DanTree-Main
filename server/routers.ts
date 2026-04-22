@@ -1882,12 +1882,34 @@ ${"```"}`;
           const _eventLine = _liveSignal?.event_signal
             ? `事件信号: ${_liveSignal.event_signal.type ?? "unknown"} (严重度: ${_liveSignal.event_signal.severity ?? "N/A"})`
             : "";
+          // A2: investorThinking enrichment — inside existing A1 try/catch, non-blocking
+          const _liveSignalData = _liveSignal ? {
+            ticker: primaryTicker,
+            price_momentum: _liveSignal.signals.price_momentum ?? 0,
+            volatility: _liveSignal.signals.volatility ?? 0,
+            valuation_proxy: _liveSignal.signals.valuation_proxy ?? 0,
+            news_sentiment: _liveSignal.signals.news_sentiment ?? 0,
+            macro_exposure: _liveSignal.signals.macro_exposure ?? 0,
+            event_signal: _liveSignal.event_signal?.type !== "none"
+              ? (_liveSignal.event_signal as { type: "policy" | "tech" | "earnings" | "geopolitics"; severity: number } | null | undefined)
+              : null,
+          } : null;
+          const { runInvestorThinking } = await import("./investorThinkingLayer");
+          const _thinking = _liveSignalData ? runInvestorThinking(_liveSignalData) : null;
+          const _thinkingLines: string[] = [];
+          if (_thinking) {
+            _thinkingLines.push(`思路质量评估: alpha=${_thinking.adjusted_alpha_score.toFixed(2)}, 危险=${_thinking.adjusted_danger_score.toFixed(2)}`);
+            _thinkingLines.push(`护城河强度: ${_thinking.business_quality.moat_strength.toFixed(2)} 主导因子: ${_thinking.dominant_factor}`);
+            const _falsify = _thinking.falsification.why_might_be_wrong[0];
+            if (_falsify) _thinkingLines.push(`证伪假设: ${_falsify}`);
+          }
           return [
-            `## 深度研究辅助层（A1: 市场框架 + 实时信号）`,
+            `## 深度研究辅助层（A1+A2: 市场框架 + 实时信号 + 投资者思维）`,
             `市场框架识别: ${_regime.regime_tag} (置信度: ${Math.round((_regime.regime_confidence ?? 0) * 100)}%)`,
             `框架依据: ${_regimeReasons}`,
             _signalLine,
             _eventLine,
+            ..._thinkingLines,
             `数据覆盖率: ${_coverage} (仅供参考)`,
             `[advisory_only: 以上为辅助参考，不构成投资建议]`,
           ].filter(Boolean).join("\n");

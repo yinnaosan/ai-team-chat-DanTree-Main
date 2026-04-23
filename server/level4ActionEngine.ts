@@ -254,7 +254,13 @@ VOLUME CONFIRMATION RULES:
 PRIORITY ORDER when signals conflict: WHY (fundamental) > CYCLE > TIMING > ACTION
 If timing data is incomplete, use best-effort classification and note uncertainty in interpretation fields.
 
-Output ONLY valid JSON matching the provided schema. No markdown, no explanation outside JSON.`;
+Output ONLY valid JSON matching the provided schema. No markdown, no explanation outside JSON.
+CRITICAL OUTPUT FORMAT RULES:
+- ALL JSON keys MUST use camelCase (e.g., timingSignal, timingIndicators, movingAverage)
+- NEVER use snake_case keys (e.g., timing_signal, timing_indicators are WRONG)
+- The "why" object is REQUIRED and MUST contain exactly: surface, trend, hidden (all non-empty strings)
+- Do NOT omit "why". Do NOT rename it to reason, rationale, analysis, or explanation.
+- The action state field MUST be named "state", NOT "verdict", "decision", "action_state", or any other name.`;
 }
 
 // ── Build user prompt from input ──────────────────────────────────────────────
@@ -403,18 +409,93 @@ export async function runLevel4ActionEngine(input: Level4Input): Promise<Level4A
     const raw = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
     // Strip markdown code fences if present (Claude may wrap JSON in ```json...``` despite instructions)
     const stripped = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
-    const parsed = JSON.parse(stripped) as Omit<Level4ActionResult, "ticker" | "generatedAt" | "sourceMetadata">;
-
-    // Validate required fields
-    if (!parsed.state || !parsed.why || !parsed.cycle || !parsed.timingSignal || !parsed.action) {
-      throw new Error("Missing required fields in LLM response");
+    console.log(`[LEVEL4-DEBUG] ${input.ticker} raw(first200): ${stripped.slice(0, 200)}`);
+    const rawParsed = JSON.parse(stripped) as Record<string, unknown>;
+    // ── MOVE_L4N1: Narrow alias normalization (snake_case → camelCase, explicit safe set only) ──
+    // Only normalize exact known field aliases. Never do broad recursive remapping.
+    // Never convert a plain string into a structured why object.
+    const aliasLog: string[] = [];
+    // timing_signal → timingSignal (exact alias, unambiguous equivalence)
+    if (rawParsed.timing_signal !== undefined && rawParsed.timingSignal === undefined) {
+      rawParsed.timingSignal = rawParsed.timing_signal;
+      aliasLog.push("timing_signal→timingSignal");
     }
+    // timing_indicators → timingIndicators (exact alias)
+    if (rawParsed.timing_indicators !== undefined && rawParsed.timingIndicators === undefined) {
+      rawParsed.timingIndicators = rawParsed.timing_indicators;
+      aliasLog.push("timing_indicators→timingIndicators");
+    }
+    // why alias: only accept if the alias value is a STRUCTURAL object with surface/trend/hidden
+    // NEVER accept a plain string as why — hard gate must remain
+    const WHY_ALIASES = ["rationale", "reason", "analysis", "explanation"] as const;
+    if (rawParsed.why === undefined) {
+      for (const alias of WHY_ALIASES) {
+        const candidate = rawParsed[alias];
+        if (
+          candidate !== null &&
+          typeof candidate === "object" &&
+          !Array.isArray(candidate) &&
+          typeof (candidate as Record<string, unknown>).surface === "string" &&
+          typeof (candidate as Record<string, unknown>).trend === "string" &&
+          typeof (candidate as Record<string, unknown>).hidden === "string"
+        ) {
+          rawParsed.why = candidate;
+          aliasLog.push(`${alias}→why (structural object)`);
+          break;
+        }
+        // Plain string: do NOT convert — hard gate will catch this
+      }
+    }
+    if (aliasLog.length > 0) {
+      console.log(`[LEVEL4] ${input.ticker} alias-normalized: ${aliasLog.join(", ")}`);
+    }
+    const parsed = rawParsed as Omit<Level4ActionResult, "ticker" | "generatedAt" | "sourceMetadata">;
 
-    console.log(`[LEVEL4] ${input.ticker} → STATE:${parsed.state} TIMING:${parsed.timingSignal} (${Date.now() - startMs}ms)`);
-
+      // ── Hard-required fields (throw → fallback if missing/invalid) ────────────
+    const VALID_STATES: ActionState[] = ["SELECT", "WAIT", "BUY", "HOLD", "SELL"];
+    // ── MOVE_L4N1b: verdict → state alias (narrow, enum-only) ──
+    // Only map if: (1) state is missing, (2) verdict exists, (3) verdict is a valid VALID_STATES member
+    // NEVER override an already-present state. NEVER map non-enum natural-language values.
+    // Use rawParsed (Record<string, unknown>) to access non-schema fields safely.
+    const parsedRec = parsed as Record<string, unknown>;
+    if (!parsed.state && parsedRec.verdict !== undefined) {
+      const v = String(parsedRec.verdict).trim().toUpperCase();
+      if (VALID_STATES.includes(v as ActionState)) {
+        parsedRec.state = v;
+        console.log(`[LEVEL4] ${input.ticker} alias-normalized: verdict→state ('${v}')`);
+      }
+      // Non-enum value (e.g. "Bearish", "减持") → do NOT map → hard gate will catch
+    }
+    if (!parsed.state || !VALID_STATES.includes(parsed.state as ActionState)) {
+      throw new Error(`Missing or invalid: state='${parsed.state}'`);
+    }
+    const why = parsed.why as Level4WhyLayer | undefined;
+    if (!why?.surface || !why?.trend || !why?.hidden) {
+      throw new Error(`Missing or incomplete: why (needs surface/trend/hidden)`);
+    }
+    // ── Soft-required fields (normalize with conservative defaults, log if changed) ─
+    const VALID_CYCLES: CyclePhase[] = ["Early", "Mid", "Late", "Decline"];
+    const VALID_TIMING_SIGNALS: TimingSignal[] = ["STRONG ENTRY", "BUILD ENTRY", "WAIT", "EXTENDED", "EXIT RISK"];
+    const safeCycle: CyclePhase = VALID_CYCLES.includes(parsed.cycle as CyclePhase) ? (parsed.cycle as CyclePhase) : "Mid";
+    const safeTimingSignal: TimingSignal = VALID_TIMING_SIGNALS.includes(parsed.timingSignal as TimingSignal) ? (parsed.timingSignal as TimingSignal) : "WAIT";
+    const safeAction: Level4ActionBlock = (parsed.action as Level4ActionBlock)?.entry ? (parsed.action as Level4ActionBlock) : { entry: "Pullback", sizing: "Small", execution: "Wait" };
+    const safeRisks: string[] = (Array.isArray(parsed.risks) && parsed.risks.length > 0) ? (parsed.risks as string[]) : [];
+    // Log normalized soft fields only when normalization actually fired
+    const normalizedFields: string[] = [];
+    if (safeCycle !== parsed.cycle) normalizedFields.push(`cycle→"${safeCycle}"`);
+    if (safeTimingSignal !== parsed.timingSignal) normalizedFields.push(`timingSignal→"${safeTimingSignal}"`);
+    if (safeAction !== parsed.action) normalizedFields.push(`action→{Pullback,Small,Wait}`);
+    if (normalizedFields.length > 0) {
+      console.log(`[LEVEL4] ${input.ticker} soft-defaulted: ${normalizedFields.join(", ")}`);
+    }
+    console.log(`[LEVEL4] ${input.ticker} → STATE:${parsed.state} TIMING:${safeTimingSignal} (${Date.now() - startMs}ms)`);
     return {
       ticker: input.ticker,
       ...parsed,
+      cycle: safeCycle,
+      timingSignal: safeTimingSignal,
+      action: safeAction,
+      risks: safeRisks,
       generatedAt: Date.now(),
       sourceMetadata: {
         evidenceScore: input.evidenceScore ?? null,

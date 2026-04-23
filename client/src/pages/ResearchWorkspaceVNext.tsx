@@ -780,6 +780,23 @@ export default function ResearchWorkspacePage() {
     title: item.trigger,
     detail: item.context ?? "",
   }));
+  // ── WA3A: deepResearch → drNowItems + drMonitorItems (3 fields only) ────────
+  const drNowItems: Array<{ type: "positive" | "warning" | "neutral" | "calendar"; title: string; detail: string }> = [];
+  const drMonitorItems: Array<{ type: "positive" | "warning" | "neutral" | "calendar"; title: string; detail: string }> = [];
+  // 1. regime_tag + regime_confidence → nowItem
+  if (deepResearch?.regime_tag) {
+    const regimeConf = deepResearch.regime_confidence != null
+      ? ` (${Math.round((deepResearch.regime_confidence as number) * 100)}%)` : '';
+    drNowItems.push({ type: 'neutral', title: '市场框架', detail: `${deepResearch.regime_tag}${regimeConf}` });
+  }
+  // 2. dominant_factor → nowItem
+  if (deepResearch?.dominant_factor) {
+    drNowItems.push({ type: 'neutral', title: '主导因子', detail: String(deepResearch.dominant_factor) });
+  }
+  // 3. falsification → monitorItem (warning)
+  if (deepResearch?.falsification) {
+    drMonitorItems.push({ type: 'warning', title: '证伪假设', detail: String(deepResearch.falsification) });
+  }
   // ── QVL Panel Integration Move 1: read qvl from existing decisionObject ──────
   // Narrow type assertion — only the fields we display. No new fetch. No backend change.
   const qvl = (decisionObject as { qvl?: {
@@ -1649,8 +1666,8 @@ export default function ResearchWorkspacePage() {
             {/* Col 4: Insights Rail — STRICT: all data from workspaceOutput, no legacy fallback */}
             <InsightsRailVNext
               entity={currentTicker || undefined}
-              nowItems={woNowItems}
-              monitorItems={woMonitorItems}
+              nowItems={[...woNowItems, ...drNowItems]}
+              monitorItems={[...woMonitorItems, ...drMonitorItems]}
               relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
               keyLevels={woKeyLevels}
               liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}

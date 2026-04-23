@@ -1620,7 +1620,7 @@ export default function ResearchWorkspacePage() {
 
           {/* Col 4: Watch Button + Insights Rail — single fixed-width flex column */}
           {/* FIX: previously Watch Button was a standalone flex item, crushing Col 3 (Discussion) */}
-          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0, alignSelf: "stretch" }}>
             {currentTicker && (
               <div style={{ padding: '10px 12px 0 12px', flexShrink: 0 }}>
                 <button

@@ -26,6 +26,45 @@ const dataMatrix = [
   { ticker: "GOOGL", signal: "Positive",     confidence: "85.7%", risk: "Medium", momentum: "+4.5%",  status: "bullish" },
 ]
 
+// Per-tab preview content for the hero section
+const tabPreviews = [
+  // Thesis tab (index 0) — shown via dataMatrix above
+  null,
+  // Risk tab (index 1)
+  {
+    header: ["Ticker", "Risk Level", "Key Factor", "Alert"],
+    rows: [
+      { ticker: "TSLA",  col2: "High",   col3: "Valuation",   col4: "⚠ Watch",  s2: "bearish", s4: "warn" },
+      { ticker: "NVDA",  col2: "Medium", col3: "Concentration",col4: "Monitor", s2: "neutral", s4: "ok" },
+      { ticker: "AAPL",  col2: "Low",    col3: "Macro",       col4: "Stable",  s2: "bullish", s4: "ok" },
+      { ticker: "GOOGL", col2: "Medium", col3: "Regulation",  col4: "Monitor", s2: "neutral", s4: "ok" },
+    ],
+    insight: { label: "Risk Radar", text: "TSLA valuation risk elevated — thesis fragility score above threshold. NVDA concentration risk flagged." },
+  },
+  // Tracking tab (index 2)
+  {
+    header: ["Ticker", "Last Change", "Signal", "Delta"],
+    rows: [
+      { ticker: "NVDA",  col2: "2d ago",  col3: "Strengthening", col4: "+0.08", s2: "dim", s4: "bullish" },
+      { ticker: "MSFT",  col2: "5d ago",  col3: "Stable",        col4: "0.00",  s2: "dim", s4: "neutral" },
+      { ticker: "TSLA",  col2: "1d ago",  col3: "Weakening",     col4: "-0.12", s2: "dim", s4: "bearish" },
+      { ticker: "AAPL",  col2: "7d ago",  col3: "Stable",        col4: "0.00",  s2: "dim", s4: "neutral" },
+    ],
+    insight: { label: "Change Log", text: "TSLA thesis weakening — confidence delta -0.12 over 24h. NVDA signal strengthening on earnings beat." },
+  },
+  // Discussion tab (index 3)
+  {
+    header: ["Ticker", "Topic", "Turns", "Last"],
+    rows: [
+      { ticker: "NVDA",  col2: "Moat depth",     col3: "12", col4: "1h ago",  s2: "dim", s4: "dim" },
+      { ticker: "TSLA",  col2: "Thesis review",  col3: "8",  col4: "3h ago",  s2: "dim", s4: "dim" },
+      { ticker: "AAPL",  col2: "Risk factors",   col3: "5",  col4: "1d ago",  s2: "dim", s4: "dim" },
+      { ticker: "MSFT",  col2: "Valuation",      col3: "9",  col4: "2d ago",  s2: "dim", s4: "dim" },
+    ],
+    insight: { label: "AI Discussion", text: "Ongoing thesis dialogue across 4 positions. NVDA moat depth thread most active — 12 turns with new evidence added." },
+  },
+]
+
 export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [activeTab, setActiveTab] = useState(0)
@@ -313,45 +352,59 @@ export function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
                   ))}
                 </div>
 
-                {/* Data Matrix */}
+                {/* Tab Content — each tab renders its own data */}
                 <div className="p-4">
-                  <div className="mb-2 grid grid-cols-5 gap-3 text-[10px] font-medium uppercase tracking-wider text-[#52525b]">
-                    <div>Ticker</div><div>Stance</div><div>Confidence</div><div>Risk</div><div>Change</div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {dataMatrix.map((row, i) => (
-                      <div key={i} className="grid grid-cols-5 gap-3 rounded-lg bg-[#18181b]/50 px-3 py-2.5 text-[13px] transition-colors hover:bg-[#1c1c21]">
-                        <div className="font-mono font-medium text-white">{row.ticker}</div>
-                        <div className={row.status === "bullish" ? "text-[#22c55e]" : row.status === "bearish" ? "text-[#ef4444]" : "text-[#f59e0b]"}>
-                          {row.signal}
-                        </div>
-                        <div className="text-white/70">{row.confidence}</div>
-                        <div className={row.risk === "Low" ? "text-[#22c55e]" : row.risk === "High" ? "text-[#ef4444]" : "text-[#f59e0b]"}>
-                          {row.risk}
-                        </div>
-                        <div className={row.momentum.startsWith("+") ? "text-[#22c55e]" : "text-[#ef4444]"}>
-                          {row.momentum}
-                        </div>
+                  {activeTab === 0 ? (
+                    /* Thesis tab */
+                    <>
+                      <div className="mb-2 grid grid-cols-5 gap-3 text-[10px] font-medium uppercase tracking-wider text-[#52525b]">
+                        <div>Ticker</div><div>Stance</div><div>Confidence</div><div>Risk</div><div>Change</div>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Insight Card */}
-                  <div className="mt-4 rounded-lg border border-[#22c55e]/20 bg-[#22c55e]/5 p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5 h-4 w-4 rounded bg-[#22c55e]/20 flex items-center justify-center">
-                        <svg className="h-2.5 w-2.5 text-[#22c55e]" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
-                        </svg>
+                      <div className="space-y-1.5">
+                        {dataMatrix.map((row, i) => (
+                          <div key={i} className="grid grid-cols-5 gap-3 rounded-lg bg-[#18181b]/50 px-3 py-2.5 text-[13px] transition-colors hover:bg-[#1c1c21]">
+                            <div className="font-mono font-medium text-white">{row.ticker}</div>
+                            <div className={row.status === "bullish" ? "text-[#22c55e]" : row.status === "bearish" ? "text-[#ef4444]" : "text-[#f59e0b]"}>{row.signal}</div>
+                            <div className="text-white/70">{row.confidence}</div>
+                            <div className={row.risk === "Low" ? "text-[#22c55e]" : row.risk === "High" ? "text-[#ef4444]" : "text-[#f59e0b]"}>{row.risk}</div>
+                            <div className={row.momentum.startsWith("+") ? "text-[#22c55e]" : "text-[#ef4444]"}>{row.momentum}</div>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <div className="text-[12px] font-medium text-[#22c55e]">Research Insight</div>
-                        <div className="text-[12px] text-[#a1a1aa]">
-                          DanTree keeps the research live: what changed, why it matters, and whether the thesis is strengthening, weakening, or still intact.
-                        </div>
+                      <div className="mt-4 rounded-lg border border-[#22c55e]/20 bg-[#22c55e]/5 p-3">
+                        <div className="text-[12px] font-medium text-[#22c55e] mb-1">Research Insight</div>
+                        <div className="text-[12px] text-[#a1a1aa]">DanTree keeps the research live: what changed, why it matters, and whether the thesis is strengthening, weakening, or still intact.</div>
                       </div>
-                    </div>
-                  </div>
+                    </>
+                  ) : (
+                    /* Risk / Tracking / Discussion tabs */
+                    (() => {
+                      const preview = tabPreviews[activeTab]!
+                      const colCount = preview.header.length
+                      const gridCols = colCount === 4 ? "grid-cols-4" : "grid-cols-5"
+                      return (
+                        <>
+                          <div className={`mb-2 grid ${gridCols} gap-3 text-[10px] font-medium uppercase tracking-wider text-[#52525b]`}>
+                            {preview.header.map((h, i) => <div key={i}>{h}</div>)}
+                          </div>
+                          <div className="space-y-1.5">
+                            {preview.rows.map((row, i) => (
+                              <div key={i} className={`grid ${gridCols} gap-3 rounded-lg bg-[#18181b]/50 px-3 py-2.5 text-[13px] transition-colors hover:bg-[#1c1c21]`}>
+                                <div className="font-mono font-medium text-white">{row.ticker}</div>
+                                <div className={row.s2 === "bullish" ? "text-[#22c55e]" : row.s2 === "bearish" ? "text-[#ef4444]" : row.s2 === "neutral" ? "text-[#f59e0b]" : "text-white/60"}>{row.col2}</div>
+                                <div className="text-white/70">{row.col3}</div>
+                                <div className={row.s4 === "bullish" ? "text-[#22c55e]" : row.s4 === "bearish" ? "text-[#ef4444]" : row.s4 === "warn" ? "text-[#f59e0b]" : "text-white/60"}>{row.col4}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 rounded-lg border border-[#22c55e]/20 bg-[#22c55e]/5 p-3">
+                            <div className="text-[12px] font-medium text-[#22c55e] mb-1">{preview.insight.label}</div>
+                            <div className="text-[12px] text-[#a1a1aa]">{preview.insight.text}</div>
+                          </div>
+                        </>
+                      )
+                    })()
+                  )}
                 </div>
               </div>
             </div>

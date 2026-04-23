@@ -1618,45 +1618,46 @@ export default function ResearchWorkspacePage() {
             onFollowup={(text) => handleSubmit(text)}
           />
 
-          {/* B3C: Minimal Watch Button — Col 4, above InsightsRailVNext */}
-          {currentTicker && (
-            <div style={{ padding: '0 12px 10px 12px' }}>
-              <button
-                onClick={handleWatchTicker}
-                disabled={isWatching || createWatchMutation.isPending}
-                style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: isWatching ? '1px solid #10b981' : '1px solid #374151',
-                  background: isWatching ? 'rgba(16,185,129,0.08)' : 'transparent',
-                  color: isWatching ? '#10b981' : '#9ca3af',
-                  cursor: isWatching ? 'default' : 'pointer',
-                  fontSize: '13px',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {createWatchMutation.isPending
-                  ? '关注中…'
-                  : isWatching
-                  ? `✓ 已关注 ${currentTicker}`
-                  : `关注 ${currentTicker}`}
-              </button>
-            </div>
-          )}
-
-          {/* Col 4: Insights Rail — WorkspaceOutputRefactor v1 接入 InsightsRailVNext */}
-          {/* Col 4: Insights Rail — STRICT: all data from workspaceOutput, no legacy fallback */}
-          <InsightsRailVNext
-            entity={currentTicker || undefined}
-            nowItems={woNowItems}
-            monitorItems={woMonitorItems}
-            relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
-            keyLevels={woKeyLevels}
-            liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}
-            quickFacts={woQuickFacts}
-            news={woNews}
-          />
+          {/* Col 4: Watch Button + Insights Rail — single fixed-width flex column */}
+          {/* FIX: previously Watch Button was a standalone flex item, crushing Col 3 (Discussion) */}
+          <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {currentTicker && (
+              <div style={{ padding: '10px 12px 0 12px', flexShrink: 0 }}>
+                <button
+                  onClick={handleWatchTicker}
+                  disabled={isWatching || createWatchMutation.isPending}
+                  style={{
+                    width: '100%',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: isWatching ? '1px solid #10b981' : '1px solid #374151',
+                    background: isWatching ? 'rgba(16,185,129,0.08)' : 'transparent',
+                    color: isWatching ? '#10b981' : '#9ca3af',
+                    cursor: isWatching ? 'default' : 'pointer',
+                    fontSize: '13px',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {createWatchMutation.isPending
+                    ? '关注中…'
+                    : isWatching
+                    ? `✓ 已关注 ${currentTicker}`
+                    : `关注 ${currentTicker}`}
+                </button>
+              </div>
+            )}
+            {/* Col 4: Insights Rail — STRICT: all data from workspaceOutput, no legacy fallback */}
+            <InsightsRailVNext
+              entity={currentTicker || undefined}
+              nowItems={woNowItems}
+              monitorItems={woMonitorItems}
+              relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
+              keyLevels={woKeyLevels}
+              liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}
+              quickFacts={woQuickFacts}
+              news={woNews}
+            />
+          </div>
 
         </div>
       </div>

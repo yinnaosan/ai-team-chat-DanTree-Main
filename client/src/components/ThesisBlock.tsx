@@ -27,6 +27,10 @@ export interface ThesisBlockProps {
   };
   // WA1: te: signal quality badge — STRONG/MODERATE/WEAK only; INSUFFICIENT_DATA excluded
   signalStrength?: "STRONG" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA";
+  // L4UI3: minimal LEVEL4 action surface — state + timingSignal + cycle only
+  level4State?: string | null;
+  level4Timing?: string | null;
+  level4Cycle?: string | null;
 }
 
 const EV_CFG = {
@@ -66,6 +70,9 @@ export function ThesisBlock({
   fragilityLevel,
   attentionState,
   signalStrength,
+  level4State,
+  level4Timing,
+  level4Cycle,
 }: ThesisBlockProps) {
   const [open, setOpen] = useState(true);
   const ev = EV_CFG[evidenceState] ?? EV_CFG.insufficient;
@@ -294,6 +301,37 @@ export function ThesisBlock({
               }}>
                 信号质量: {signalStrength}
               </span>
+            </div>
+          )}
+          {/* L4UI4: compact LEVEL4 action row — state + timingSignal + cycle, hidden when absent */}
+          {level4State && (
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "5px 12px 7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                color: level4State === "BUY" || level4State === "HOLD" ? "rgba(52,211,153,0.85)"
+                     : level4State === "SELL" ? "rgba(248,113,113,0.85)"
+                     : "rgba(255,255,255,0.68)",
+              }}>
+                {level4State}
+              </span>
+              {level4Timing && (
+                <span style={{
+                  fontSize: 10,
+                  letterSpacing: "0.03em",
+                  color: level4Timing === "EXIT RISK" || level4Timing === "EXTENDED" ? "rgba(248,113,113,0.75)"
+                       : level4Timing === "STRONG ENTRY" ? "rgba(52,211,153,0.75)"
+                       : "rgba(255,255,255,0.55)",
+                }}>
+                  · {level4Timing}
+                </span>
+              )}
+              {level4Cycle && (
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.42)", letterSpacing: "0.03em" }}>
+                  · {level4Cycle}
+                </span>
+              )}
             </div>
           )}
         </div>

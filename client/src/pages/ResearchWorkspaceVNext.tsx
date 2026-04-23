@@ -551,6 +551,10 @@ export default function ResearchWorkspacePage() {
       interaction_effect?: string | null;
     } | null | undefined;
 
+  // L4UI1: read level4Result from metadata (state + timingSignal + cycle only)
+  // L4UI type-closure: now uses typed path via DiscussionMessage.metadata.level4Result
+  const _l4Raw = lastAssistant?.metadata?.level4Result;
+
   // Phase 2B: stability + is_stale transition toasts
   const prevStabilityRef = useRef<string | null>(null);
   const prevIsStaleRef = useRef<boolean>(false);
@@ -1356,8 +1360,13 @@ export default function ResearchWorkspacePage() {
                   const signalStrength = (_teForThesis?.signal_strength as
                     "STRONG" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA" | undefined) ?? undefined;
 
+                  // L4UI2: thread minimal LEVEL4 fields into thesis prop
+                  const level4State = (_l4Raw?.state ?? null) as string | null;
+                  const level4Timing = (_l4Raw?.timingSignal ?? null) as string | null;
+                  const level4Cycle = (_l4Raw?.cycle ?? null) as string | null;
+
                   if (!coreThesis && !criticalDriver && !failureCondition) return undefined;
-                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables, evidenceDetail, signalStrength };
+                  return { coreThesis, criticalDriver, failureCondition, confidenceScore, evidenceState, fragilityLevel, keyVariables, evidenceDetail, signalStrength, level4State, level4Timing, level4Cycle };
                 })()}
                 timing={tivm.available ? {
                   actionBias: (tivm.actionBias as "BUY" | "HOLD" | "WAIT" | "AVOID" | "NONE" | null) ?? "NONE",

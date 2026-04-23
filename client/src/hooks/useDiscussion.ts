@@ -82,6 +82,12 @@ export interface DiscussionMessage {
       inflection_evidence: string[];
       advisory_only: true;
     } | null;
+    // L4UI type-closure: minimal LEVEL4 action result surface
+    level4Result?: {
+      state?: string | null;
+      timingSignal?: string | null;
+      cycle?: string | null;
+    } | null;
   } | null;
   isOptimistic?: boolean;
   isStreaming?: boolean;

@@ -539,6 +539,17 @@ export default function ResearchWorkspacePage() {
   // Phase 1A: structured backbone
   const decisionObject = lastAssistant?.metadata?.decisionObject ?? null;
   const decisionSnapshot = lastAssistant?.metadata?.decisionSnapshot ?? null;
+  // WA2: structured deep research context from metadata channel
+  const deepResearch = (lastAssistant?.metadata as Record<string, unknown> | null | undefined)
+    ?.deepResearch as {
+      regime_tag?: string | null;
+      regime_confidence?: number | null;
+      alpha_score?: number | null;
+      danger_score?: number | null;
+      dominant_factor?: string | null;
+      falsification?: string | null;
+      interaction_effect?: string | null;
+    } | null | undefined;
 
   // Phase 2B: stability + is_stale transition toasts
   const prevStabilityRef = useRef<string | null>(null);

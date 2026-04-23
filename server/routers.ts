@@ -1798,6 +1798,16 @@ ${"```"}`;
     const congressMarkdown = congressResult.status === "fulfilled" && congressResult.value ? congressResult.value : "";
     const eurLexMarkdown = "";  // [已移除 EUR-Lex]
     const gleifMarkdown = gleifResult.status === "fulfilled" && gleifResult.value ? gleifResult.value : "";
+    // WA2A: capture var for compact deepResearch metadata (7 scalar fields, assigned inside A3 IIFE)
+    let _deepResearchMeta: {
+      regime_tag: string | null;
+      regime_confidence: number | null;
+      alpha_score: number | null;
+      danger_score: number | null;
+      dominant_factor: string | null;
+      falsification: string | null;
+      interaction_effect: string | null;
+    } | null = null;
     const structuredDataBlock = [
       // ── 6 层主数据：统一来自 orchestrator（替换旧分散调用）
       orchPriceData,       // Price 层： orchestrator price（Finnhub→Tiingo→Yahoo）
@@ -1917,6 +1927,16 @@ ${"```"}`;
           } : null;
           const { applyFactorInteraction } = await import("./factorInteractionEngine");
           const _factorOutput = _factorInput ? applyFactorInteraction(_factorInput) : null;
+          // WA2A Step2: assign compact deepResearch metadata (7 scalar fields, no arrays, no long reasons)
+          _deepResearchMeta = {
+            regime_tag: _regime?.regime_tag ?? null,
+            regime_confidence: _regime?.regime_confidence ?? null,
+            alpha_score: _thinking?.adjusted_alpha_score ?? null,
+            danger_score: _thinking?.adjusted_danger_score ?? null,
+            dominant_factor: _thinking?.dominant_factor ?? null,
+            falsification: _thinking?.falsification?.why_might_be_wrong?.[0] ?? null,
+            interaction_effect: _factorOutput?.interaction_dominant_effect ?? null,
+          };
           const _factorLine = _factorOutput
             ? `因子交互: α_adj=${_factorOutput.adjusted_alpha_score.toFixed(2)}, 主效应=${_factorOutput.interaction_dominant_effect}`
             : "";
@@ -3096,6 +3116,8 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                     _teQvlBucket
                   );
                   metadataToSave.thesisEvolution = _teEvolution;
+                  // WA2A Step3: write compact deepResearch metadata additively (only when data exists)
+                  if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                   // C3: persist te:{ticker} stream (separate from TVM writeback, non-blocking)
                   if (primaryTicker && _teEvolution.signal_strength !== "INSUFFICIENT_DATA") {
                     (async () => {

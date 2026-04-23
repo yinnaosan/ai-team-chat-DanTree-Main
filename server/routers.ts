@@ -1798,6 +1798,17 @@ ${"```"}`;
     const congressMarkdown = congressResult.status === "fulfilled" && congressResult.value ? congressResult.value : "";
     const eurLexMarkdown = "";  // [已移除 EUR-Lex]
     const gleifMarkdown = gleifResult.status === "fulfilled" && gleifResult.value ? gleifResult.value : "";
+    // DRA1: Activate liveSignal cache before A1/A2/A3 IIFE — non-blocking
+    if (primaryTicker) {
+      try {
+        const { buildSignalsFromLiveData } = await import('./liveSignalEngine');
+        await buildSignalsFromLiveData([primaryTicker]);
+        // Cache now warm — getCachedSignal(primaryTicker) in A1/A2/A3 returns non-null
+      } catch (_liveSignalBuildErr) {
+        // Non-blocking: failure never affects main analysis pipeline
+        console.warn('[DRA1] liveSignal cache warm-up failed (non-fatal):', String(_liveSignalBuildErr).slice(0, 120));
+      }
+    }
     // WA2A: capture var for compact deepResearch metadata (7 scalar fields, assigned inside A3 IIFE)
     let _deepResearchMeta: {
       regime_tag: string | null;
@@ -3293,6 +3304,8 @@ Output format MUST be:
                         _teQvlBucketRepair
                       );
                       metadataToSave.thesisEvolution = _teEvolutionRepair;
+                      // DRA3: repair_pass deepResearch symmetry — mirror main path metadata
+                      if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                       // C3: persist te:{ticker} stream for repair_pass (non-blocking)
                       if (primaryTicker && _teEvolutionRepair.signal_strength !== "INSUFFICIENT_DATA") {
                         (async () => {

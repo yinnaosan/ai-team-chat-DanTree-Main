@@ -147,7 +147,7 @@ export function DiscussionPanelVNext({
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1, overflowY: "auto", background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)" }}>
         {messages.length === 0 ? (
           isInitializing ? (
             /* ── 初始化中骨架屏 ── */

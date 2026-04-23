@@ -217,7 +217,7 @@ export function WorkspaceDiscussionRender({ viewModel, onFollowup }: WorkspaceDi
   }
 
   return (
-    <div style={{ padding: "12px 18px 4px", maxHeight: 600, overflowY: "auto" }}>
+    <div style={{ padding: "12px 18px 4px" }}>
       {viewModel.blocks.map((block, i) => {
         switch (block.type) {
           case "thesis":    return <ThesisBlockRender    key={i} block={block} />;

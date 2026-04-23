@@ -726,6 +726,22 @@ export default function ResearchWorkspacePage() {
   // 30s 超时降级：骨架屏不应永久显示
   const [initTimedOut, setInitTimedOut] = useState(false);
   const initTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Workspace root ref for visibilitychange reflow ──────────────────────────
+  const workspaceRootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // When browser tab is restored after freeze, force a reflow on the workspace root.
+    // This permanently prevents flex/grid height collapse (black areas) across all columns.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && workspaceRootRef.current) {
+        const el = workspaceRootRef.current;
+        el.style.display = "none";
+        void el.offsetHeight; // trigger reflow
+        el.style.display = "";
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
   const rawIsInitializing = !!(currentTicker && discussionMsgs.length === 0 && (sending || isTyping));
   useEffect(() => {
     if (rawIsInitializing && !initTimedOut) {
@@ -918,7 +934,7 @@ export default function ResearchWorkspacePage() {
   return (
     <>
       <MarketAlertManager markets={["us", "cn", "hk"]} />
-      <div style={{
+      <div ref={workspaceRootRef} style={{
         height: "100vh", width: "100%",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
@@ -1060,7 +1076,7 @@ export default function ResearchWorkspacePage() {
         />
 
         {/* ── 4-column workspace ── */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 1200 }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 1200, minHeight: 0 }}>
 
           {/* Col 1: Session Rail — 接入 WorkspaceContext 真实会话 */}
           <SessionRail
@@ -1099,7 +1115,7 @@ export default function ResearchWorkspacePage() {
 
           {/* Col 2: Main Decision Canvas */}
           <main style={{
-            width: 560, flexShrink: 0, minWidth: 0, height: "100%",
+            width: 560, flexShrink: 0, minWidth: 0, minHeight: 0,
             overflowY: "auto",
             background: "rgba(7,9,15,0.98)",
             backdropFilter: "blur(24px)",

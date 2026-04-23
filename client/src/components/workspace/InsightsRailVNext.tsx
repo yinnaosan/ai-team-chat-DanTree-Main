@@ -112,7 +112,7 @@ export function InsightsRailVNext({
 
   return (
     <aside style={{
-      width: 300, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      width: 300, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0,
       background: "#0b0e13",
       borderLeft: "1px solid rgba(255,255,255,0.05)",
     }}>
@@ -131,7 +131,7 @@ export function InsightsRailVNext({
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto" }}>
 
         {/* Empty state */}
         {isEmpty && (

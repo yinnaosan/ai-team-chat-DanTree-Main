@@ -263,7 +263,7 @@ export function SessionRail({
 
   return (
     <aside style={{
-      width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%",
+      width: 240, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0,
       background: "rgba(3,4,8,1.00)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
       borderRight: "1px solid rgba(255,255,255,0.12)",
     }}>
@@ -370,7 +370,7 @@ export function SessionRail({
       )}
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px 8px" }}>
+      <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", padding: "2px 6px 8px" }}>
         {sessions.length === 0 && (
           <div style={{ padding: "28px 12px", textAlign: "center" }}>
             <Target size={18} color="rgba(255,255,255,0.10)" style={{ margin: "0 auto 8px", display: "block" }} />

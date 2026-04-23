@@ -77,10 +77,25 @@ export function DiscussionPanelVNext({
 }: DiscussionPanelVNextProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // Force reflow when tab becomes visible again — prevents height collapse after browser freeze
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && containerRef.current) {
+        const el = containerRef.current;
+        el.style.display = "none";
+        void el.offsetHeight;
+        el.style.display = "";
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const handleSend = () => {
     const text = input.trim();
@@ -119,7 +134,7 @@ export function DiscussionPanelVNext({
 
   return (
     <aside style={{
-      flex: 1, minWidth: 280, height: "100%",
+      flex: 1, minWidth: 280, minHeight: 0,
       display: "flex", flexDirection: "column",
       background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)",
       borderLeft: "1px solid rgba(255,255,255,0.04)",
@@ -147,7 +162,7 @@ export function DiscussionPanelVNext({
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)" }}>
+      <div ref={containerRef} style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", background: "linear-gradient(180deg, #11151b 0%, #0d1016 100%)" }}>
         {messages.length === 0 ? (
           isInitializing ? (
             /* ── 初始化中骨架屏 ── */

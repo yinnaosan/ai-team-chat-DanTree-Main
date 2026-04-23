@@ -150,10 +150,10 @@ export async function routeDataRequest(req: RoutingRequest): Promise<RoutingResu
       // Key must match registered data source ID in dataSourceRegistry.ts
       ["hk_akshare", async () => _preFetchedHk ? _preFetchedHk.text : null],
     ]);
-    const hkFundamentalsResult = await executeLayerRouting("fundamentals", hkFundamentalsFetchers);
+    const hkFundamentalsResult = await executeLayerRouting("fundamentals_hk", hkFundamentalsFetchers);
     layerResults.push(hkFundamentalsResult);
     if (hkFundamentalsResult.status === "unavailable" || !hkFundamentalsResult.data) {
-      fallbackLog.push({ layer: "fundamentals", usedProvider: "none", reason: "HK fundamentals service unavailable or returned no data" });
+      fallbackLog.push({ layer: "fundamentals_hk", usedProvider: "none", reason: "HK fundamentals service unavailable or returned no data" });
     }
   }
 

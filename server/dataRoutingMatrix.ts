@@ -30,6 +30,7 @@ export type ProviderStatus =
 export type RoutingLayer =
   | "fundamentals"
   | "fundamentals_cn"
+  | "fundamentals_hk"
   | "price"
   | "news_global"
   | "news_china"
@@ -108,6 +109,22 @@ export const DATA_ROUTING_MATRIX: RoutingLayerConfig[] = [
     },
     participatesInEvidence: true,
     notes: "通过 china-fundamentals-service（localhost:8002）提供，BaoStock 为主，AKShare 为 fallback",
+  },
+
+  // ── [Fundamentals - HK] ──────────────────────────────────────────────────
+  {
+    layer: "fundamentals_hk",
+    displayName: "港股基本面数据",
+    market: ["HK"],
+    purpose: "港股财务指标、估值倍数、盈利能力、营收（AKShare 港股 provider）",
+    primary: {
+      id: "hk_akshare",
+      displayName: "AKShare (HK)",
+      envKey: null,
+      participatesInEvidence: true,
+    },
+    participatesInEvidence: true,
+    notes: "通过 hk-fundamentals-service（localhost:8002/fundamentals/hk）提供，hk_akshare provider",
   },
 
   // ── [Price] ────────────────────────────────────────────────────────────────

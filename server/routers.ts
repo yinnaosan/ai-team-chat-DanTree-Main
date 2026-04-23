@@ -1747,7 +1747,7 @@ ${"```"}`;
     // Price 层：从 orchestrator price 层提取（替换旧 stockDataResult/Yahoo 独立拉取）
     const orchPriceData = getOrchLayer("price");
     // Fundamentals 层：从 orchestrator fundamentals 层提取（US only，A股/港股如实暴露缺口）
-    const orchFundamentalsData = getOrchLayer("fundamentals") || getOrchLayer("fundamentals_cn");
+    const orchFundamentalsData = getOrchLayer("fundamentals") || getOrchLayer("fundamentals_hk") || getOrchLayer("fundamentals_cn");
     const _cnLayer = orchResult?.layerResults?.find(r => r.layer === "fundamentals_cn"); console.log(`[DT-DEBUG-CN] fundamentalsData.len=${orchFundamentalsData?.length ?? 0} cnLayer.status=${_cnLayer?.status ?? "none"} cnLayer.data.len=${_cnLayer?.data?.length ?? 0}`);
     // News Global 层：从 orchestrator news_global 层提取（替换旧 Finnhub/NewsAPI/Marketaux 分散调用）
     const orchNewsGlobalData = getOrchLayer("news_global");

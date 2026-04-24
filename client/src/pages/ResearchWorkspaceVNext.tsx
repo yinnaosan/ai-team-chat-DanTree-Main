@@ -867,6 +867,26 @@ export default function ResearchWorkspacePage() {
 
   const qvlFacts = [qvlValuationFact, qvlSizingFact].filter(Boolean) as { label: string; value: string; sub?: string; tooltip?: string }[];
   const woQuickFacts = [...qvlFacts, ...workspaceOutput.insights.quickFacts.map(f => ({ label: f.label, value: f.value, sub: f.sub }))];
+  // WA4: Alpha + Danger score QuickFacts — uses existing deepResearch fields only
+  const drScoreFacts: { label: string; value: string; sub?: string }[] = [];
+  if (deepResearch?.alpha_score != null) {
+    const a = deepResearch.alpha_score as number;
+    drScoreFacts.push({
+      label: 'Alpha',
+      value: `${(a * 100).toFixed(0)}`,
+      sub: a >= 0.6 ? '↑ 偏强' : a <= 0.35 ? '↓ 偏弱' : '→ 中性',
+    });
+  }
+  if (deepResearch?.danger_score != null) {
+    const d = deepResearch.danger_score as number;
+    drScoreFacts.push({
+      label: 'Danger',
+      value: `${(d * 100).toFixed(0)}`,
+      sub: d >= 0.6 ? '⚠ 偏高' : d <= 0.35 ? '✓ 偏低' : '— 中性',
+    });
+  }
+  const woQuickFactsWithScores = drScoreFacts.length > 0
+    ? [...woQuickFacts, ...drScoreFacts] : woQuickFacts;
 
   const woNews = workspaceOutput.insights.news.map(n => ({ headline: n.headline, source: n.source, sentiment: n.sentiment }));
 
@@ -1680,7 +1700,7 @@ export default function ResearchWorkspacePage() {
               relatedTickers={relatedTickers.map(t => ({ symbol: t.symbol, changePercent: t.positive ? Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")) : -Math.abs(parseFloat(t.change?.replace(/[^\d.-]/g,"") ?? "0")), note: t.change }))}
               keyLevels={woKeyLevels}
               liveQuote={mappedQuote?.price != null ? { price: mappedQuote.price, changePercent: mappedQuote.changePercent ?? undefined } : null}
-              quickFacts={woQuickFacts}
+              quickFacts={woQuickFactsWithScores}
               news={woNews}
             />
           </div>

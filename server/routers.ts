@@ -3116,9 +3116,11 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                     }
                   }
                 } catch { /* non-blocking — QVL valuation failure must not break main pipeline */ }
+                // C1F2: deepResearch write decoupled — independent of thesisEvolution success
+                if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                 // C1: thesis evolution signal (non-blocking, advisory_only)
                 try {
-                  const { computeThesisEvolution } = require('./thesisEvolutionEngine');
+                  const { computeThesisEvolution } = await import('./thesisEvolutionEngine');
                   const _teQvlBucket = executedResult.decision_object?.qvl?.size_bucket ?? null;
                   const _teEvolution = computeThesisEvolution(
                     prevDecisionObject,
@@ -3127,8 +3129,6 @@ FORMAT: ##标题 | **加粗**关键数据 | >引用块用于判断 | 表格≥3�
                     _teQvlBucket
                   );
                   metadataToSave.thesisEvolution = _teEvolution;
-                  // WA2A Step3: write compact deepResearch metadata additively (only when data exists)
-                  if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                   // C3: persist te:{ticker} stream (separate from TVM writeback, non-blocking)
                   if (primaryTicker && _teEvolution.signal_strength !== "INSUFFICIENT_DATA") {
                     (async () => {
@@ -3293,9 +3293,11 @@ Output format MUST be:
                         }
                       }
                     } catch { /* non-blocking — QVL valuation failure must not break repair pipeline */ }
+                    // C1F3: repair_pass deepResearch write decoupled — independent of thesisEvolution success
+                    if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                     // C1: thesis evolution signal (non-blocking, advisory_only)
                     try {
-                      const { computeThesisEvolution } = require('./thesisEvolutionEngine');
+                      const { computeThesisEvolution } = await import('./thesisEvolutionEngine');
                       const _teQvlBucketRepair = repairExecutedResult.decision_object?.qvl?.size_bucket ?? null;
                       const _teEvolutionRepair = computeThesisEvolution(
                         prevDecisionObject,
@@ -3304,8 +3306,6 @@ Output format MUST be:
                         _teQvlBucketRepair
                       );
                       metadataToSave.thesisEvolution = _teEvolutionRepair;
-                      // DRA3: repair_pass deepResearch symmetry — mirror main path metadata
-                      if (_deepResearchMeta) metadataToSave.deepResearch = _deepResearchMeta;
                       // C3: persist te:{ticker} stream for repair_pass (non-blocking)
                       if (primaryTicker && _teEvolutionRepair.signal_strength !== "INSUFFICIENT_DATA") {
                         (async () => {

@@ -2060,7 +2060,7 @@ ${"```"}`;
       hitSourceIds
     );
     const { missingBlocking, missingImportant, missingOptional } = classifyMissingFields(fieldCoverage);
-    console.log(`[DT-DEBUG-FIELDS] hitSources=[${[...hitSourceIds].join(",")}] missingBlocking=[${missingBlocking.join(",")}] baostock_hit=${citationSummary.citations.find(c=>c.sourceId==="baostock")?.hit}`);
+    console.log(`[DT-DEBUG-FIELDS] hitSources=[${Array.from(hitSourceIds).join(",")}] missingBlocking=[${missingBlocking.join(",")}] baostock_hit=${citationSummary.citations.find(c=>c.sourceId==="baostock")?.hit}`);
 
     // 构建 API 命中统计（从 citationSummary 提取，不依赖 LLM 格式化输出）
     const hitSourceIdsList = citationSummary.citations.filter(c => c.hit).map(c => c.sourceId);

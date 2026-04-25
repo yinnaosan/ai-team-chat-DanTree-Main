@@ -412,6 +412,11 @@ export const AlertWorkflowService = {
 // Simple in-memory lock to prevent concurrent runs
 let _schedulerRunning = false;
 
+// B2: Per-watchId risk score cache — persists across batch runs within same server process.
+// Read before evaluation (previous_risk_score), written back after (for next run's comparison).
+// Reset on server restart — acceptable: first post-restart run starts delta-fresh, no false-fire risk.
+const _watchRiskScoreCache = new Map<string, number>();
+
 export const SchedulerService = {
   isRunning(): boolean {
     return _schedulerRunning;
@@ -464,10 +469,22 @@ export const SchedulerService = {
         watchesScanned++;
 
         try {
-          const snapshot: TriggerInput = snapshots[watch.primaryTicker] ?? _emptySnapshot(watch.primaryTicker);
+          // Step 1: get base snapshot (contains current risk_score from liveSignalEngine)
+          const _baseSnapshot: TriggerInput = snapshots[watch.primaryTicker] ?? _emptySnapshot(watch.primaryTicker);
+          // Step 2: READ old value from cache (before evaluation) — B2
+          const _prevRiskScore = _watchRiskScoreCache.get(watch.watchId);
+          // Step 3: enrich snapshot with previous_risk_score — B2
+          const snapshot: TriggerInput = _prevRiskScore !== undefined
+            ? { ..._baseSnapshot, previous_risk_score: _prevRiskScore }
+            : _baseSnapshot;
+          // Step 4: EVALUATE (risk_escalation now has both values to compare)
           const evalResult = await TriggerEvaluationService.evaluateSingleWatch(
             watch, snapshot, runRow.runId, cfg.dry_run
           );
+          // Step 5: WRITE BACK new value AFTER evaluation — B2
+          if (_baseSnapshot.risk_score !== undefined) {
+            _watchRiskScoreCache.set(watch.watchId, _baseSnapshot.risk_score);
+          }
 
           if (evalResult.triggered) {
             triggersFired++;

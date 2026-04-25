@@ -4124,6 +4124,38 @@ Output format MUST be:
   }
 }
 
+// _buildRealSnapshotProvider_impl: Track B move 1 — replaces stub with real buildSignalsFromLiveData feed
+// Module-level function (not inside router) for reuse by dryRunBatch and runBatch.
+async function _buildRealSnapshotProvider_impl(
+  tickers: string[]
+): Promise<Record<string, import('./watchlistEngine').TriggerInput>> {
+  try {
+    const { buildSignalsFromLiveData } = await import('./liveSignalEngine');
+    const signals = await buildSignalsFromLiveData(tickers);
+    const signalMap = new Map(signals.map(s => [s.ticker, s]));
+    return Object.fromEntries(tickers.map(ticker => {
+      const sig = signalMap.get(ticker);
+      if (!sig) return [ticker, { evaluated_at: Date.now() }];
+      // Minimal TriggerInput mapping from LiveSignal
+      // risk_score: blend of price_momentum magnitude + volatility (0-1 scale)
+      const riskScore = Math.max(0, Math.min(1,
+        0.5 * Math.abs(sig.signals.price_momentum) + 0.5 * sig.signals.volatility
+      ));
+      return [ticker, {
+        risk_score: riskScore,
+        earnings_event_detected: sig.event_signal.type === 'earnings',
+        macro_change_detected:
+          sig.event_signal.type === 'policy' ||
+          Math.abs(sig.signals.macro_exposure) >= 0.5,
+        macro_change_magnitude: Math.abs(sig.signals.macro_exposure),
+        evaluated_at: Date.now(),
+      }];
+    }));
+  } catch (err) {
+    console.warn('[B1] snapshotProvider signal build failed (non-fatal):', (err as Error).message);
+    return Object.fromEntries(tickers.map(t => [t, { evaluated_at: Date.now() }]));
+  }
+}
 // --- tRPC Routers -------------------------------------------------------------
 
 export const appRouter = router({
@@ -8195,8 +8227,17 @@ except Exception as e:
       .mutation(async ({ input }) => {
         const { SchedulerService } = await import("./watchService");
         return SchedulerService.batchEvaluateTriggers(
-          async (tickers) => Object.fromEntries(tickers.map(t => [t, { evaluated_at: Date.now() }])),
+          _buildRealSnapshotProvider_impl,
           { dry_run: true, batch_size: input.batchSize ?? 50 }
+        );
+      }),
+    runBatch: protectedProcedure
+      .input(z.object({ batchSize: z.number().min(1).max(20).optional() }))
+      .mutation(async ({ input }) => {
+        const { SchedulerService } = await import("./watchService");
+        return SchedulerService.batchEvaluateTriggers(
+          _buildRealSnapshotProvider_impl,
+          { dry_run: false, batch_size: input.batchSize ?? 10 }
         );
       }),
 

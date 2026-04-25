@@ -525,7 +525,7 @@ export const watchItems = mysqlTable("watch_items", {
   primaryTicker:     varchar("primary_ticker", { length: 20 }).notNull(),
   watchType:         varchar("watch_type", { length: 40 }).notNull(),
   watchStatus:       varchar("watch_status", { length: 20 }).notNull().default("active"),
-  currentActionBias: varchar("current_action_bias", { length: 10 }).notNull().default("NONE"),
+  currentActionBias: varchar("current_action_bias", { length: 30 }).notNull().default("NONE"),
   thesisSummary:     text("thesis_summary").notNull(),
   riskConditions:    json("risk_conditions").$type<string[]>().default([]),
   triggerConditions: json("trigger_conditions").$type<unknown[]>().default([]),

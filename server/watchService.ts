@@ -292,25 +292,29 @@ export const TriggerEvaluationService = {
       await WatchRepository.updateLastTriggered(watchRow.watchId);
       await WatchRepository.updateBias(watchRow.watchId, actionResult.action_type);
 
-      // Audit
-      await WatchAuditRepository.appendAuditEvent({
-        watchId: watchRow.watchId,
-        eventType: "trigger_fired",
-        fromStatus: watchRow.watchStatus,
-        toStatus: "triggered",
-        triggerId: triggerResult.trigger_type,
-        actionId: actionResult.action_id,
-        payloadJson: {
-          trigger_type: triggerResult.trigger_type,
-          trigger_reason: triggerResult.trigger_reason,
-          action_type: actionResult.action_type,
-          severity: actionResult.urgency,
-          scheduler_run_id: schedulerRunId,
-        },
-      });
+      // Audit — isolated: failure warns but does NOT kill dedup check + alert + workflow [B1R2]
+      try {
+        await WatchAuditRepository.appendAuditEvent({
+          watchId: watchRow.watchId,
+          eventType: "trigger_fired",
+          fromStatus: watchRow.watchStatus,
+          toStatus: "triggered",
+          triggerId: triggerResult.trigger_type,
+          actionId: actionResult.action_id,
+          payloadJson: {
+            trigger_type: triggerResult.trigger_type,
+            trigger_reason: triggerResult.trigger_reason,
+            action_type: actionResult.action_type,
+            severity: actionResult.urgency,
+            scheduler_run_id: schedulerRunId,
+          },
+        });
+      } catch (auditErr) {
+        console.warn(`[B1R2] trigger_fired audit write failed watchId=${watchRow.watchId} ticker=${watchRow.primaryTicker}`, (auditErr as Error).message);
+      }
     }
 
-    // Alert dedup check
+    // Alert dedup check — ALWAYS reached, regardless of audit outcome [B1R2]
     const cooldownKey = `${watchRow.watchId}:${triggerResult.trigger_type}`;
     const duplicate = await WatchAlertRepository.findRecentDuplicateAlert(cooldownKey, ALERT_COOLDOWN_MS);
     if (duplicate) {
@@ -320,28 +324,36 @@ export const TriggerEvaluationService = {
     }
 
     if (!dryRun) {
-      // Create alert
-      const alert = await AlertWorkflowService.createAlert({
-        watchId: watchRow.watchId,
-        triggerId: triggerResult.trigger_type,
-        actionId: actionResult.action_id,
-        severity: actionResult.urgency,
-        title: `[${actionResult.urgency.toUpperCase()}] ${watchRow.primaryTicker} — ${triggerResult.trigger_type}`,
-        message: actionResult.rationale,
-        cooldownKey,
-        schedulerRunId,
-      });
-      result.alert_created = true;
+      // Create alert — isolated [B1R2]
+      try {
+        await AlertWorkflowService.createAlert({
+          watchId: watchRow.watchId,
+          triggerId: triggerResult.trigger_type,
+          actionId: actionResult.action_id,
+          severity: actionResult.urgency,
+          title: `[${actionResult.urgency.toUpperCase()}] ${watchRow.primaryTicker} — ${triggerResult.trigger_type}`,
+          message: actionResult.rationale,
+          cooldownKey,
+          schedulerRunId,
+        });
+        result.alert_created = true;
+      } catch (alertErr) {
+        console.warn(`[B1R2] createAlert failed watchId=${watchRow.watchId} ticker=${watchRow.primaryTicker}`, (alertErr as Error).message);
+      }
 
-      // Create workflow
-      await AlertWorkflowService.createWorkflow({
-        watchId: watchRow.watchId,
-        triggerId: triggerResult.trigger_type,
-        actionId: actionResult.action_id,
-        summary: actionResult.rationale,
-        schedulerRunId,
-      });
-      result.workflow_created = true;
+      // Create workflow — isolated, independent of alert success [B1R2]
+      try {
+        await AlertWorkflowService.createWorkflow({
+          watchId: watchRow.watchId,
+          triggerId: triggerResult.trigger_type,
+          actionId: actionResult.action_id,
+          summary: actionResult.rationale,
+          schedulerRunId,
+        });
+        result.workflow_created = true;
+      } catch (workflowErr) {
+        console.warn(`[B1R2] createWorkflow failed watchId=${watchRow.watchId} ticker=${watchRow.primaryTicker}`, (workflowErr as Error).message);
+      }
     }
 
     result.evaluation_reason = "trigger_fired";

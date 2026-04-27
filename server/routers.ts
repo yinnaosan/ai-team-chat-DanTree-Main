@@ -4125,11 +4125,11 @@ Output format MUST be:
 }
 
 // _fetchYahooPrices: Track B move 3 — fetch current_price + previous_price from Yahoo Finance chart/v8
-// Track B move 4 — also extract trailingPE for valuation_shift.
-// Non-fatal: returns {} on any error so price_break/valuation_shift simply do not fire for that ticker.
+// B4 V2: price-only. PE valuation is handled separately by _fetchValuationPE (FMP source).
+// Non-fatal: returns {} on any error so price_break simply does not fire for that ticker.
 async function _fetchYahooPrices(
   ticker: string
-): Promise<{ current_price?: number; previous_price?: number; current_pe?: number }> {
+): Promise<{ current_price?: number; previous_price?: number }> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
     const res = await fetch(url, {
@@ -4140,23 +4140,39 @@ async function _fetchYahooPrices(
     const json = await res.json() as {
       chart?: { result?: Array<{
         indicators?: { quote?: Array<{ close?: (number | null)[] }> };
-        meta?: { trailingPE?: number };
       }> }
     };
     const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
     if (!Array.isArray(closes)) return {};
     const validCloses = closes.filter((v): v is number => typeof v === 'number' && !isNaN(v));
     if (validCloses.length < 2) return {};
-    // B4: extract trailingPE; filter invalid values (>2000 or <=0 indicates N/A or negative earnings)
-    const rawPE = json?.chart?.result?.[0]?.meta?.trailingPE;
-    const current_pe = (typeof rawPE === 'number' && rawPE > 0 && rawPE < 2000) ? rawPE : undefined;
     return {
       current_price:  validCloses[validCloses.length - 1],  // latest close
       previous_price: validCloses[validCloses.length - 2],  // day-before close
-      current_pe,                                            // B4: trailing PE ratio (undefined if N/A)
     };
   } catch {
-    return {};  // Non-fatal: price_break/valuation_shift will not fire for this ticker
+    return {};  // Non-fatal: price_break will not fire for this ticker
+  }
+}
+
+// _fetchValuationPE: Track B move 4 V2 — fetch trailing PE from FMP getQuote().pe
+// Uses existing fmpApi.ts integration (no new vendor). Non-fatal: returns {} on any error.
+// FMP supports US tickers reliably; HK/CN may return null → gracefully returns {}.
+async function _fetchValuationPE(
+  ticker: string
+): Promise<{ current_pe?: number }> {
+  try {
+    const { getQuote } = await import('./fmpApi');
+    const quote = await getQuote(ticker);
+    if (!quote) return {};
+    const pe = quote.pe;
+    // Validate PE: must be numeric, finite, positive, and below 2000 (filter N/A or negative earnings)
+    if (typeof pe === 'number' && isFinite(pe) && pe > 0 && pe < 2000) {
+      return { current_pe: pe };
+    }
+    return {};
+  } catch {
+    return {};  // Non-fatal: valuation_shift will not fire for this ticker
   }
 }
 
@@ -4168,16 +4184,21 @@ async function _buildRealSnapshotProvider_impl(
   try {
     const { buildSignalsFromLiveData } = await import('./liveSignalEngine');
     // B3: parallel fetch — price fetches run alongside signal build, zero added latency
+    // B4 V2: valuation PE fetched separately from FMP (clean separation of concerns)
     const [signals, ...pricePairs] = await Promise.all([
       buildSignalsFromLiveData(tickers),
       ...tickers.map(t => _fetchYahooPrices(t)),
     ]);
+    // B4 V2: fetch PE valuations in parallel after price/signal build
+    const valuationResults = await Promise.all(tickers.map(t => _fetchValuationPE(t)));
     const signalMap = new Map((signals as import('./liveSignalEngine').LiveSignal[]).map(s => [s.ticker, s]));
-    const priceMap = new Map(tickers.map((t, i) => [t, pricePairs[i] as { current_price?: number; previous_price?: number; current_pe?: number }]));
+    const priceMap = new Map(tickers.map((t, i) => [t, pricePairs[i] as { current_price?: number; previous_price?: number }]));
+    const valuationMap = new Map(tickers.map((t, i) => [t, valuationResults[i]]));
     return Object.fromEntries(tickers.map(ticker => {
       const sig = signalMap.get(ticker);
       const prices = priceMap.get(ticker) ?? {};
-      if (!sig) return [ticker, { ...prices, evaluated_at: Date.now() }];
+      const valuation = valuationMap.get(ticker) ?? {};
+      if (!sig) return [ticker, { ...prices, ...valuation, evaluated_at: Date.now() }];
       // Minimal TriggerInput mapping from LiveSignal
       // risk_score: blend of price_momentum magnitude + volatility (0-1 scale)
       const riskScore = Math.max(0, Math.min(1,
@@ -4190,9 +4211,9 @@ async function _buildRealSnapshotProvider_impl(
           sig.event_signal.type === 'policy' ||
           Math.abs(sig.signals.macro_exposure) >= 0.5,
         macro_change_magnitude: Math.abs(sig.signals.macro_exposure),
-        current_price:  prices.current_price,   // B3: undefined if Yahoo fetch failed
-        previous_price: prices.previous_price,  // B3: undefined if Yahoo fetch failed
-        current_valuation: prices.current_pe,   // B4: trailing PE ratio (undefined if N/A or HK/CN)
+        current_price:  prices.current_price,    // B3: undefined if Yahoo fetch failed
+        previous_price: prices.previous_price,   // B3: undefined if Yahoo fetch failed
+        current_valuation: valuation.current_pe, // B4 V2: trailing PE from FMP (undefined if N/A or HK/CN)
         evaluated_at: Date.now(),
       }];
     }));

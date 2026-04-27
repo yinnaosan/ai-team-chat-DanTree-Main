@@ -4124,6 +4124,34 @@ Output format MUST be:
   }
 }
 
+// _fetchYahooPrices: Track B move 3 — fetch current_price + previous_price from Yahoo Finance chart/v8
+// Non-fatal: returns {} on any error so price_break simply does not fire for that ticker.
+async function _fetchYahooPrices(
+  ticker: string
+): Promise<{ current_price?: number; previous_price?: number }> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DanTree/1.0)' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return {};
+    const json = await res.json() as {
+      chart?: { result?: Array<{ indicators?: { quote?: Array<{ close?: (number | null)[] }> } }> }
+    };
+    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    if (!Array.isArray(closes)) return {};
+    const validCloses = closes.filter((v): v is number => typeof v === 'number' && !isNaN(v));
+    if (validCloses.length < 2) return {};
+    return {
+      current_price:  validCloses[validCloses.length - 1],  // latest close
+      previous_price: validCloses[validCloses.length - 2],  // day-before close
+    };
+  } catch {
+    return {};  // Non-fatal: price_break will not fire for this ticker
+  }
+}
+
 // _buildRealSnapshotProvider_impl: Track B move 1 — replaces stub with real buildSignalsFromLiveData feed
 // Module-level function (not inside router) for reuse by dryRunBatch and runBatch.
 async function _buildRealSnapshotProvider_impl(
@@ -4131,11 +4159,17 @@ async function _buildRealSnapshotProvider_impl(
 ): Promise<Record<string, import('./watchlistEngine').TriggerInput>> {
   try {
     const { buildSignalsFromLiveData } = await import('./liveSignalEngine');
-    const signals = await buildSignalsFromLiveData(tickers);
-    const signalMap = new Map(signals.map(s => [s.ticker, s]));
+    // B3: parallel fetch — price fetches run alongside signal build, zero added latency
+    const [signals, ...pricePairs] = await Promise.all([
+      buildSignalsFromLiveData(tickers),
+      ...tickers.map(t => _fetchYahooPrices(t)),
+    ]);
+    const signalMap = new Map((signals as import('./liveSignalEngine').LiveSignal[]).map(s => [s.ticker, s]));
+    const priceMap = new Map(tickers.map((t, i) => [t, pricePairs[i] as { current_price?: number; previous_price?: number }]));
     return Object.fromEntries(tickers.map(ticker => {
       const sig = signalMap.get(ticker);
-      if (!sig) return [ticker, { evaluated_at: Date.now() }];
+      const prices = priceMap.get(ticker) ?? {};
+      if (!sig) return [ticker, { ...prices, evaluated_at: Date.now() }];
       // Minimal TriggerInput mapping from LiveSignal
       // risk_score: blend of price_momentum magnitude + volatility (0-1 scale)
       const riskScore = Math.max(0, Math.min(1,
@@ -4148,6 +4182,8 @@ async function _buildRealSnapshotProvider_impl(
           sig.event_signal.type === 'policy' ||
           Math.abs(sig.signals.macro_exposure) >= 0.5,
         macro_change_magnitude: Math.abs(sig.signals.macro_exposure),
+        current_price:  prices.current_price,   // B3: undefined if Yahoo fetch failed
+        previous_price: prices.previous_price,  // B3: undefined if Yahoo fetch failed
         evaluated_at: Date.now(),
       }];
     }));

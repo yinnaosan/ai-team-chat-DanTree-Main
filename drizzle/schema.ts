@@ -535,6 +535,8 @@ export const watchItems = mysqlTable("watch_items", {
   notes:             text("notes"),
   lastEvaluatedAt:   bigintCol("last_evaluated_at", { mode: "number" }),
   lastTriggeredAt:   bigintCol("last_triggered_at", { mode: "number" }),
+  /** B2.5: persisted previous risk score for risk_escalation delta comparison across restarts */
+  lastRiskScore:     decimal("last_risk_score", { precision: 5, scale: 4 }),  // nullable
   createdAt:         bigintCol("created_at", { mode: "number" }).notNull(),
   updatedAt:         bigintCol("updated_at", { mode: "number" }).notNull(),
 });

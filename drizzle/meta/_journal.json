@@ -302,6 +302,13 @@
       "when": 1775564346638,
       "tag": "0042_mysterious_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "5",
+      "when": 1777266404104,
+      "tag": "0043_high_blacklash",
+      "breakpoints": true
     }
   ]
 }

@@ -412,10 +412,8 @@ export const AlertWorkflowService = {
 // Simple in-memory lock to prevent concurrent runs
 let _schedulerRunning = false;
 
-// B2: Per-watchId risk score cache — persists across batch runs within same server process.
-// Read before evaluation (previous_risk_score), written back after (for next run's comparison).
-// Reset on server restart — acceptable: first post-restart run starts delta-fresh, no false-fire risk.
-const _watchRiskScoreCache = new Map<string, number>();
+// B2.5: previous_risk_score is now persisted in watch_items.last_risk_score (DB column).
+// Survives server restarts. Null on first run = no previous value = risk_escalation does not fire.
 
 export const SchedulerService = {
   isRunning(): boolean {
@@ -471,19 +469,24 @@ export const SchedulerService = {
         try {
           // Step 1: get base snapshot (contains current risk_score from liveSignalEngine)
           const _baseSnapshot: TriggerInput = snapshots[watch.primaryTicker] ?? _emptySnapshot(watch.primaryTicker);
-          // Step 2: READ old value from cache (before evaluation) — B2
-          const _prevRiskScore = _watchRiskScoreCache.get(watch.watchId);
-          // Step 3: enrich snapshot with previous_risk_score — B2
-          const snapshot: TriggerInput = _prevRiskScore !== undefined
+          // Step 2: READ old value from DB (B2.5 — persists across restarts)
+          const _prevRaw = (watch as typeof watch & { lastRiskScore?: string | null }).lastRiskScore;
+          const _prevRiskScore = _prevRaw != null ? parseFloat(_prevRaw) : undefined;
+          // Step 3: enrich snapshot with previous_risk_score — B2.5
+          const snapshot: TriggerInput = _prevRiskScore !== undefined && !isNaN(_prevRiskScore)
             ? { ..._baseSnapshot, previous_risk_score: _prevRiskScore }
             : _baseSnapshot;
           // Step 4: EVALUATE (risk_escalation now has both values to compare)
           const evalResult = await TriggerEvaluationService.evaluateSingleWatch(
             watch, snapshot, runRow.runId, cfg.dry_run
           );
-          // Step 5: WRITE BACK new value AFTER evaluation — B2
+          // Step 5: WRITE BACK new value to DB AFTER evaluation (non-fatal) — B2.5
           if (_baseSnapshot.risk_score !== undefined) {
-            _watchRiskScoreCache.set(watch.watchId, _baseSnapshot.risk_score);
+            try {
+              await WatchRepository.updateLastRiskScore(watch.watchId, _baseSnapshot.risk_score);
+            } catch (_rse) {
+              console.warn('[B2.5] updateLastRiskScore failed (non-fatal):', (watch as { watchId?: string }).watchId, (_rse as Error).message);
+            }
           }
 
           if (evalResult.triggered) {

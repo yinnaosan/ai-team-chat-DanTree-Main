@@ -86,6 +86,12 @@ export const WatchRepository = {
       .set({ currentActionBias: bias, updatedAt: Date.now() })
       .where(eq(watchItems.watchId, watchId));
   },
+  /** B2.5: persist current risk_score as last_risk_score for next run's delta comparison */
+  async updateLastRiskScore(watchId: string, score: number): Promise<void> {
+    await (await getDb())!.update(watchItems)
+      .set({ lastRiskScore: score.toFixed(4), updatedAt: Date.now() })
+      .where(eq(watchItems.watchId, watchId));
+  },
 };
 
 // ── WatchAuditRepository ──────────────────────────────────────────────────────

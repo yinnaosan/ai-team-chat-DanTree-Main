@@ -4125,10 +4125,11 @@ Output format MUST be:
 }
 
 // _fetchYahooPrices: Track B move 3 — fetch current_price + previous_price from Yahoo Finance chart/v8
-// Non-fatal: returns {} on any error so price_break simply does not fire for that ticker.
+// Track B move 4 — also extract trailingPE for valuation_shift.
+// Non-fatal: returns {} on any error so price_break/valuation_shift simply do not fire for that ticker.
 async function _fetchYahooPrices(
   ticker: string
-): Promise<{ current_price?: number; previous_price?: number }> {
+): Promise<{ current_price?: number; previous_price?: number; current_pe?: number }> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
     const res = await fetch(url, {
@@ -4137,18 +4138,25 @@ async function _fetchYahooPrices(
     });
     if (!res.ok) return {};
     const json = await res.json() as {
-      chart?: { result?: Array<{ indicators?: { quote?: Array<{ close?: (number | null)[] }> } }> }
+      chart?: { result?: Array<{
+        indicators?: { quote?: Array<{ close?: (number | null)[] }> };
+        meta?: { trailingPE?: number };
+      }> }
     };
     const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
     if (!Array.isArray(closes)) return {};
     const validCloses = closes.filter((v): v is number => typeof v === 'number' && !isNaN(v));
     if (validCloses.length < 2) return {};
+    // B4: extract trailingPE; filter invalid values (>2000 or <=0 indicates N/A or negative earnings)
+    const rawPE = json?.chart?.result?.[0]?.meta?.trailingPE;
+    const current_pe = (typeof rawPE === 'number' && rawPE > 0 && rawPE < 2000) ? rawPE : undefined;
     return {
       current_price:  validCloses[validCloses.length - 1],  // latest close
       previous_price: validCloses[validCloses.length - 2],  // day-before close
+      current_pe,                                            // B4: trailing PE ratio (undefined if N/A)
     };
   } catch {
-    return {};  // Non-fatal: price_break will not fire for this ticker
+    return {};  // Non-fatal: price_break/valuation_shift will not fire for this ticker
   }
 }
 
@@ -4165,7 +4173,7 @@ async function _buildRealSnapshotProvider_impl(
       ...tickers.map(t => _fetchYahooPrices(t)),
     ]);
     const signalMap = new Map((signals as import('./liveSignalEngine').LiveSignal[]).map(s => [s.ticker, s]));
-    const priceMap = new Map(tickers.map((t, i) => [t, pricePairs[i] as { current_price?: number; previous_price?: number }]));
+    const priceMap = new Map(tickers.map((t, i) => [t, pricePairs[i] as { current_price?: number; previous_price?: number; current_pe?: number }]));
     return Object.fromEntries(tickers.map(ticker => {
       const sig = signalMap.get(ticker);
       const prices = priceMap.get(ticker) ?? {};
@@ -4184,6 +4192,7 @@ async function _buildRealSnapshotProvider_impl(
         macro_change_magnitude: Math.abs(sig.signals.macro_exposure),
         current_price:  prices.current_price,   // B3: undefined if Yahoo fetch failed
         previous_price: prices.previous_price,  // B3: undefined if Yahoo fetch failed
+        current_valuation: prices.current_pe,   // B4: trailing PE ratio (undefined if N/A or HK/CN)
         evaluated_at: Date.now(),
       }];
     }));

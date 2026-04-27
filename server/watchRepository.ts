@@ -92,6 +92,12 @@ export const WatchRepository = {
       .set({ lastRiskScore: score.toFixed(4), updatedAt: Date.now() })
       .where(eq(watchItems.watchId, watchId));
   },
+  /** B4: persist current PE ratio for valuation_shift delta comparison across restarts */
+  async updateLastValuation(watchId: string, pe: number): Promise<void> {
+    await (await getDb())!.update(watchItems)
+      .set({ lastValuation: pe.toFixed(4), updatedAt: Date.now() })
+      .where(eq(watchItems.watchId, watchId));
+  },
 };
 
 // ── WatchAuditRepository ──────────────────────────────────────────────────────

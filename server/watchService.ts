@@ -472,11 +472,18 @@ export const SchedulerService = {
           // Step 2: READ old value from DB (B2.5 — persists across restarts)
           const _prevRaw = (watch as typeof watch & { lastRiskScore?: string | null }).lastRiskScore;
           const _prevRiskScore = _prevRaw != null ? parseFloat(_prevRaw) : undefined;
+          // Step 2b: READ old PE from DB (B4 — persists across restarts)
+          const _prevPERaw = (watch as typeof watch & { lastValuation?: string | null }).lastValuation;
+          const _prevPE = _prevPERaw != null ? parseFloat(_prevPERaw) : undefined;
           // Step 3: enrich snapshot with previous_risk_score — B2.5
-          const snapshot: TriggerInput = _prevRiskScore !== undefined && !isNaN(_prevRiskScore)
+          let snapshot: TriggerInput = _prevRiskScore !== undefined && !isNaN(_prevRiskScore)
             ? { ..._baseSnapshot, previous_risk_score: _prevRiskScore }
             : _baseSnapshot;
-          // Step 4: EVALUATE (risk_escalation now has both values to compare)
+          // Step 3b: enrich snapshot with previous_valuation — B4
+          if (_prevPE !== undefined && !isNaN(_prevPE)) {
+            snapshot = { ...snapshot, previous_valuation: _prevPE };
+          }
+          // Step 4: EVALUATE (risk_escalation + valuation_shift now have both values to compare)
           const evalResult = await TriggerEvaluationService.evaluateSingleWatch(
             watch, snapshot, runRow.runId, cfg.dry_run
           );
@@ -486,6 +493,14 @@ export const SchedulerService = {
               await WatchRepository.updateLastRiskScore(watch.watchId, _baseSnapshot.risk_score);
             } catch (_rse) {
               console.warn('[B2.5] updateLastRiskScore failed (non-fatal):', (watch as { watchId?: string }).watchId, (_rse as Error).message);
+            }
+          }
+          // Step 5b: WRITE BACK current PE to DB AFTER evaluation (non-fatal) — B4
+          if (_baseSnapshot.current_valuation !== undefined) {
+            try {
+              await WatchRepository.updateLastValuation(watch.watchId, _baseSnapshot.current_valuation);
+            } catch (_ve) {
+              console.warn('[B4] updateLastValuation failed (non-fatal):', (watch as { watchId?: string }).watchId, (_ve as Error).message);
             }
           }
 

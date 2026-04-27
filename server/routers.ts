@@ -4159,9 +4159,28 @@ async function _fetchYahooPrices(
 // V1 failed: Yahoo chart/v8 meta.trailingPE absent. V2 failed: FMP /stable/quote pe field absent.
 // V3 uses earningsYield (Manus-confirmed present at runtime). PE = 1 / earningsYield.
 // Non-fatal: returns {} on any error or missing field.
+const _HK_VALUATION_TIMEOUT_MS = 10_000;
+
 async function _fetchValuationPE(
   ticker: string
 ): Promise<{ current_pe?: number }> {
+  // B4.5: HK branch — uses fetchHKFundamentals().raw.pe (Manus-confirmed present at runtime)
+  // Must be BEFORE US branch. 10s timeout prevents blocking watch batch.
+  if (ticker.toUpperCase().endsWith(".HK")) {
+    try {
+      const { fetchHKFundamentals } = await import("./fetchChinaFundamentals");
+      const result = await Promise.race([
+        fetchHKFundamentals(ticker),
+        new Promise<null>(r => setTimeout(() => r(null), _HK_VALUATION_TIMEOUT_MS)),
+      ]);
+      if (!result) return {};
+      const pe = result.structured.raw.pe;
+      if (typeof pe !== "number" || !isFinite(pe) || pe <= 0 || pe >= 2000) return {};
+      return { current_pe: pe };
+    } catch {
+      return {};  // Non-fatal: valuation_shift will not fire for this HK ticker
+    }
+  }
   try {
     const { getKeyMetrics } = await import('./fmpApi');
     const metrics = await getKeyMetrics(ticker, 1, 'annual');

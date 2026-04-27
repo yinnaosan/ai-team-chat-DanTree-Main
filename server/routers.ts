@@ -4155,22 +4155,34 @@ async function _fetchYahooPrices(
   }
 }
 
-// _fetchValuationPE: Track B move 4 V2 — fetch trailing PE from FMP getQuote().pe
-// Uses existing fmpApi.ts integration (no new vendor). Non-fatal: returns {} on any error.
-// FMP supports US tickers reliably; HK/CN may return null → gracefully returns {}.
+// _fetchValuationPE: Track B move 4 V3 — derive trailing PE from FMP getKeyMetrics().earningsYield
+// V1 failed: Yahoo chart/v8 meta.trailingPE absent. V2 failed: FMP /stable/quote pe field absent.
+// V3 uses earningsYield (Manus-confirmed present at runtime). PE = 1 / earningsYield.
+// Non-fatal: returns {} on any error or missing field.
 async function _fetchValuationPE(
   ticker: string
 ): Promise<{ current_pe?: number }> {
   try {
-    const { getQuote } = await import('./fmpApi');
-    const quote = await getQuote(ticker);
-    if (!quote) return {};
-    const pe = quote.pe;
-    // Validate PE: must be numeric, finite, positive, and below 2000 (filter N/A or negative earnings)
-    if (typeof pe === 'number' && isFinite(pe) && pe > 0 && pe < 2000) {
-      return { current_pe: pe };
+    const { getKeyMetrics } = await import('./fmpApi');
+    const metrics = await getKeyMetrics(ticker, 1, 'annual');
+    if (!metrics || metrics.length === 0) return {};
+    const earningsYield = metrics[0].earningsYield;
+    // Validate earningsYield: must be numeric, finite, positive, and < 1
+    // (yield >= 1 implies PE <= 1 which is unrealistic; negative yield means negative earnings)
+    if (
+      typeof earningsYield !== 'number' ||
+      !isFinite(earningsYield) ||
+      earningsYield <= 0 ||
+      earningsYield >= 1
+    ) {
+      return {};
     }
-    return {};
+    const current_pe = 1 / earningsYield;
+    // Validate derived PE: must be finite, positive, and below 2000
+    if (!isFinite(current_pe) || current_pe <= 0 || current_pe >= 2000) {
+      return {};
+    }
+    return { current_pe };
   } catch {
     return {};  // Non-fatal: valuation_shift will not fire for this ticker
   }
